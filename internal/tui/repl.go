@@ -161,11 +161,22 @@ func printHealth(cfg *config.Config) {
 	}
 	fmt.Printf("• Sectors API Key: %s\n", secKeyStatus)
 
-	gemKeyStatus := "Terpasang"
-	if cfg.Auth.GeminiAPIKey == "" {
-		gemKeyStatus = "Belum Terpasang (Simulasi Cerdas Aktif)"
+	if cfg.Auth.AIProvider == "openai" || cfg.Auth.OpenAIAPIKey != "" {
+		providerName := "9router / OpenAI Compatible"
+		if cfg.Auth.OpenAIBaseURL != "" {
+			providerName = fmt.Sprintf("9router (%s)", cfg.Auth.OpenAIBaseURL)
+		}
+		fmt.Printf("• AI Provider    : %s\n", providerName)
+		fmt.Printf("• Active Model   : %s\n", cfg.Auth.OpenAIModel)
+		fmt.Printf("• Model API Key  : Terpasang (Live Ready)\n")
+	} else {
+		gemKeyStatus := "Terpasang"
+		if cfg.Auth.GeminiAPIKey == "" {
+			gemKeyStatus = "Belum Terpasang (Simulasi Cerdas Aktif)"
+		}
+		fmt.Printf("• AI Provider    : Google Gemini (%s)\n", cfg.Auth.GeminiModel)
+		fmt.Printf("• Gemini API Key : %s\n", gemKeyStatus)
 	}
-	fmt.Printf("• Gemini API Key : %s\n", gemKeyStatus)
 	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
 }
 

@@ -34,13 +34,26 @@ class NiskavaReActAgent:
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
         self.model = model or os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
         
+        self.ai_provider = os.environ.get("AI_PROVIDER", "").lower()
+        self.openai_base_url = os.environ.get("OPENAI_BASE_URL", "http://localhost:20128/v1")
+        self.openai_api_key = os.environ.get("OPENAI_API_KEY", "")
+        self.openai_model = os.environ.get("OPENAI_MODEL", "hermes")
+
+        # Auto-detect provider if not explicitly set
+        if not self.ai_provider:
+            if self.openai_api_key or os.environ.get("OPENAI_BASE_URL"):
+                self.ai_provider = "openai"
+            elif self.api_key:
+                self.ai_provider = "gemini"
+            else:
+                self.ai_provider = "mock"
+
         if mock_mode is not None:
             self.mock_mode = mock_mode
         else:
             self.mock_mode = (
                 os.environ.get("MOCK_SECTORS", "0") in ("1", "true", "True")
                 or os.environ.get("NISKAVA_OFFLINE", "0") in ("1", "true", "True")
-                or not self.api_key
             )
 
     def _emit(self, event_data: Dict[str, Any]) -> None:
@@ -65,22 +78,36 @@ class NiskavaReActAgent:
             "timestamp": datetime.now().isoformat() + "Z",
         })
 
-        if self.mock_mode or not self.api_key:
+        if self.mock_mode:
             return self._run_deterministic_react_cycle(session_id, ticker, days, start_time)
 
-        return self._run_gemini_react_cycle(session_id, ticker, days, start_time)
+        if self.ai_provider in ("openai", "9router"):
+            return self._run_openai_react_cycle(session_id, ticker, days, start_time)
+        elif self.ai_provider == "gemini" and self.api_key:
+            return self._run_gemini_react_cycle(session_id, ticker, days, start_time)
+
+        return self._run_deterministic_react_cycle(session_id, ticker, days, start_time)
 
     def _run_deterministic_react_cycle(
-        self, session_id: str, ticker: str, days: int, start_time: float
+        self,
+        session_id: str,
+        ticker: str,
+        days: int,
+        start_time: float,
+        initial_thought: Optional[str] = None,
     ) -> Dict[str, Any]:
         """High-precision deterministic ReAct simulation for offline and test runs."""
         # ---------------------------------------------------------------------
         # Step 1: Thought & Tool Call for Market Baseline
         # ---------------------------------------------------------------------
+        first_thought = initial_thought or (
+            f"Memulai investigasi terhadap emiten {ticker}. Langkah pertama adalah menarik deret "
+            f"waktu harga {days} hari untuk menganalisis basis pergerakan volume."
+        )
         self._emit({
             "event": "agent_thought",
             "session_id": session_id,
-            "thought": f"Memulai investigasi terhadap emiten {ticker}. Langkah pertama adalah menarik deret waktu harga 30 hari untuk menganalisis basis pergerakan volume.",
+            "thought": first_thought,
         })
         time.sleep(0.05)
 
@@ -272,14 +299,75 @@ class NiskavaReActAgent:
                         if parts and "text" in parts[0]:
                             thought_text = parts[0]["text"].strip()
 
-            self._emit({
-                "event": "agent_thought",
-                "session_id": session_id,
-                "thought": thought_text,
-            })
-
-            return self._run_deterministic_react_cycle(session_id, ticker, days, start_time)
+            return self._run_deterministic_react_cycle(session_id, ticker, days, start_time, initial_thought=thought_text)
 
         except Exception:
             # Fallback to deterministic cycle if network or API error occurs
+            return self._run_deterministic_react_cycle(session_id, ticker, days, start_time)
+
+    def _run_openai_react_cycle(
+        self, session_id: str, ticker: str, days: int, start_time: float
+    ) -> Dict[str, Any]:
+        """Live ReAct reasoning cycle powered by 9router / OpenAI-compatible endpoint."""
+        try:
+            import requests
+
+            prompt = (
+                f"Kamu adalah Niskava Agent. Berikan analisis singkat (1-2 kalimat) dalam bahasa Indonesia mengenai rencana "
+                f"investigasi kuantitatif dan OSINT untuk emiten {ticker} pada periode {days} hari terakhir."
+            )
+
+            thought_text = f"Menghubungkan ke 9router ({self.openai_model}). Memulai siklus ReAct investigasi emiten {ticker}."
+
+            base_url = (self.openai_base_url or "http://localhost:20128/v1").rstrip("/")
+            url = f"{base_url}/chat/completions"
+
+            headers = {
+                "Content-Type": "application/json",
+            }
+            if self.openai_api_key:
+                headers["Authorization"] = f"Bearer {self.openai_api_key}"
+
+            payload = {
+                "model": self.openai_model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are Niskava Agent, an elite financial intelligence and market anomaly investigator "
+                            "for the Indonesia Stock Exchange (IDX). Always respond in clear Indonesian."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.2,
+                "max_tokens": 150,
+            }
+
+            resp = requests.post(url, headers=headers, json=payload, timeout=12.0)
+            if resp.status_code == 200:
+                raw = resp.text.strip()
+                if "data: [DONE]" in raw:
+                    raw = raw.split("data: [DONE]")[0].strip()
+                first_brace = raw.find("{")
+                last_brace = raw.rfind("}")
+                if first_brace != -1 and last_brace != -1:
+                    raw = raw[first_brace:last_brace+1]
+                
+                data = json.loads(raw)
+                choices = data.get("choices", [])
+                if choices and "message" in choices[0]:
+                    msg = choices[0]["message"]
+                    content = msg.get("content") or msg.get("reasoning") or ""
+                    cleaned = content.strip()
+                    if cleaned:
+                        # Extract first meaningful thought line
+                        first_line = cleaned.split("\n")[0].strip()
+                        if first_line:
+                            thought_text = f"[{self.openai_model}] {first_line}"
+
+            return self._run_deterministic_react_cycle(session_id, ticker, days, start_time, initial_thought=thought_text)
+
+        except Exception:
+            # Fallback to deterministic cycle if network error occurs
             return self._run_deterministic_react_cycle(session_id, ticker, days, start_time)

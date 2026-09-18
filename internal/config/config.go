@@ -23,11 +23,13 @@ type Config struct {
 
 // AuthConfig stores API keys and model parameters for external services.
 type AuthConfig struct {
+	AIProvider      string `yaml:"ai_provider"`
 	SectorsAPIKey   string `yaml:"sectors_api_key"`
 	SectorsBaseURL  string `yaml:"sectors_base_url"`
 	GeminiAPIKey    string `yaml:"gemini_api_key"`
 	GeminiModel     string `yaml:"gemini_model"`
 	OpenAIAPIKey    string `yaml:"openai_api_key"`
+	OpenAIBaseURL   string `yaml:"openai_base_url"`
 	OpenAIModel     string `yaml:"openai_model"`
 	AnthropicAPIKey string `yaml:"anthropic_api_key"`
 	OllamaBaseURL   string `yaml:"ollama_base_url"`
@@ -63,12 +65,14 @@ func DefaultConfig() *Config {
 
 	return &Config{
 		Auth: AuthConfig{
+			AIProvider:      "gemini",
 			SectorsAPIKey:   "",
 			SectorsBaseURL:  "https://api.sectors.app/v2",
 			GeminiAPIKey:    "",
 			GeminiModel:     "gemini-2.0-flash",
 			OpenAIAPIKey:    "",
-			OpenAIModel:     "gpt-4o-mini",
+			OpenAIBaseURL:   "http://localhost:20128/v1",
+			OpenAIModel:     "hermes",
 			AnthropicAPIKey: "",
 			OllamaBaseURL:   "http://localhost:11434",
 			OllamaModel:     "deepseek-r1:8b",
@@ -161,6 +165,9 @@ func Load(customConfigPath string) (*Config, error) {
 	}
 
 	// 3. Override from Environment Variables (higher priority than file)
+	if val := os.Getenv("AI_PROVIDER"); val != "" {
+		cfg.Auth.AIProvider = val
+	}
 	if val := os.Getenv("SECTORS_API_KEY"); val != "" {
 		cfg.Auth.SectorsAPIKey = val
 	}
@@ -175,6 +182,9 @@ func Load(customConfigPath string) (*Config, error) {
 	}
 	if val := os.Getenv("OPENAI_API_KEY"); val != "" {
 		cfg.Auth.OpenAIAPIKey = val
+	}
+	if val := os.Getenv("OPENAI_BASE_URL"); val != "" {
+		cfg.Auth.OpenAIBaseURL = val
 	}
 	if val := os.Getenv("OPENAI_MODEL"); val != "" {
 		cfg.Auth.OpenAIModel = val
