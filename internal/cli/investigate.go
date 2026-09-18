@@ -16,10 +16,11 @@ import (
 )
 
 var (
-	daysFlag    int
-	offlineFlag bool
-	pyBinFlag   string
-	enginePath  string
+	daysFlag        int
+	offlineFlag     bool
+	interactiveFlag bool
+	pyBinFlag       string
+	enginePath      string
 )
 
 var investigateCmd = &cobra.Command{
@@ -93,6 +94,7 @@ var investigateCmd = &cobra.Command{
 func init() {
 	investigateCmd.Flags().IntVarP(&daysFlag, "days", "d", 30, "observation window in days (30, 60, or 90)")
 	investigateCmd.Flags().BoolVar(&offlineFlag, "offline", false, "run in offline mock mode without calling remote APIs")
+	investigateCmd.Flags().BoolVarP(&interactiveFlag, "interactive", "i", false, "run in interactive conversational investigation mode")
 	investigateCmd.Flags().StringVar(&pyBinFlag, "python-bin", "", "path to python binary")
 	investigateCmd.Flags().StringVar(&enginePath, "engine-path", "", "path to python engine directory")
 

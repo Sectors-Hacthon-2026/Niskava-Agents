@@ -9,7 +9,8 @@ import os
 import sys
 from typing import Any, Dict
 
-from engine.agent.pipeline import InvestigationPipeline
+from engine.agent.react_agent import NiskavaReActAgent
+from engine.agent.tools import NiskavaToolRegistry
 
 
 def emit_jsonl(event_dict: Dict[str, Any]) -> None:
@@ -36,14 +37,18 @@ def main() -> None:
     )
 
     try:
-        pipeline = InvestigationPipeline(
+        registry = NiskavaToolRegistry(
             db_path=args.db_path,
+            mock_mode=mock_mode,
+        )
+        agent = NiskavaReActAgent(
+            tool_registry=registry,
             emitter=emit_jsonl,
             mock_mode=mock_mode,
         )
-        pipeline.run(
+        agent.investigate(
             ticker=args.ticker,
-            timeframe_days=args.days,
+            days=args.days,
             session_id=args.session,
         )
     except Exception as exc:

@@ -16,45 +16,51 @@ import (
 type EventType string
 
 const (
-	EventSessionStart    EventType = "session_start"
-	EventProgressStep    EventType = "progress_step"
-	EventAnomalyDetected EventType = "anomaly_detected"
-	EventFindingEmitted  EventType = "finding_emitted"
-	EventSessionComplete EventType = "session_complete"
-	EventSessionError    EventType = "session_error"
+	EventSessionStart     EventType = "session_start"
+	EventProgressStep     EventType = "progress_step"
+	EventAnomalyDetected  EventType = "anomaly_detected"
+	EventFindingEmitted   EventType = "finding_emitted"
+	EventSessionComplete  EventType = "session_complete"
+	EventSessionError     EventType = "session_error"
+	EventAgentThought     EventType = "agent_thought"
+	EventAgentToolCall    EventType = "agent_tool_call"
+	EventAgentObservation EventType = "agent_observation"
 )
 
 // Event represents a generic JSON Lines IPC payload.
 type Event struct {
-	Event            EventType       `json:"event"`
-	SessionID        string          `json:"session_id"`
-	Ticker           string          `json:"ticker,omitempty"`
-	TimeframeDays    int             `json:"timeframe_days,omitempty"`
-	Timestamp        string          `json:"timestamp,omitempty"`
-	Stage            string          `json:"stage,omitempty"`
-	StepIndex        int             `json:"step_index,omitempty"`
-	TotalSteps       int             `json:"total_steps,omitempty"`
-	Message          string          `json:"message,omitempty"`
-	AnomalyDate      string          `json:"anomaly_date,omitempty"`
-	MetricType       string          `json:"metric_type,omitempty"`
-	ZScore           float64         `json:"z_score,omitempty"`
-	MetricValue      float64         `json:"metric_value,omitempty"`
-	BaselineValue    float64         `json:"baseline_value,omitempty"`
-	PriceChangePct   float64         `json:"price_change_pct,omitempty"`
-	SectorChangePct  float64         `json:"sector_change_pct,omitempty"`
-	Description      string          `json:"description,omitempty"`
-	ID               string          `json:"id,omitempty"`
-	Title            string          `json:"title,omitempty"`
-	ClaimText        string          `json:"claim_text,omitempty"`
-	VerificationStat string          `json:"verification_status,omitempty"`
-	ConfidenceScore  float64         `json:"confidence_score,omitempty"`
-	CausalityStatus  string          `json:"causality_status,omitempty"`
-	Evidence         json.RawMessage `json:"evidence,omitempty"`
-	TotalAnomalies   int             `json:"total_anomalies,omitempty"`
-	TotalFindings    int             `json:"total_findings,omitempty"`
-	DurationMs       int             `json:"duration_ms,omitempty"`
-	Summary          string          `json:"summary,omitempty"`
-	Error            string          `json:"error,omitempty"`
+	Event            EventType              `json:"event"`
+	SessionID        string                 `json:"session_id"`
+	Ticker           string                 `json:"ticker,omitempty"`
+	TimeframeDays    int                    `json:"timeframe_days,omitempty"`
+	Timestamp        string                 `json:"timestamp,omitempty"`
+	Thought          string                 `json:"thought,omitempty"`
+	Tool             string                 `json:"tool,omitempty"`
+	Args             map[string]interface{} `json:"args,omitempty"`
+	Stage            string                 `json:"stage,omitempty"`
+	StepIndex        int                    `json:"step_index,omitempty"`
+	TotalSteps       int                    `json:"total_steps,omitempty"`
+	Message          string                 `json:"message,omitempty"`
+	AnomalyDate      string                 `json:"anomaly_date,omitempty"`
+	MetricType       string                 `json:"metric_type,omitempty"`
+	ZScore           float64                `json:"z_score,omitempty"`
+	MetricValue      float64                `json:"metric_value,omitempty"`
+	BaselineValue    float64                `json:"baseline_value,omitempty"`
+	PriceChangePct   float64                `json:"price_change_pct,omitempty"`
+	SectorChangePct  float64                `json:"sector_change_pct,omitempty"`
+	Description      string                 `json:"description,omitempty"`
+	ID               string                 `json:"id,omitempty"`
+	Title            string                 `json:"title,omitempty"`
+	ClaimText        string                 `json:"claim_text,omitempty"`
+	VerificationStat string                 `json:"verification_status,omitempty"`
+	ConfidenceScore  float64                `json:"confidence_score,omitempty"`
+	CausalityStatus  string                 `json:"causality_status,omitempty"`
+	Evidence         json.RawMessage        `json:"evidence,omitempty"`
+	TotalAnomalies   int                    `json:"total_anomalies,omitempty"`
+	TotalFindings    int                    `json:"total_findings,omitempty"`
+	DurationMs       int                    `json:"duration_ms,omitempty"`
+	Summary          string                 `json:"summary,omitempty"`
+	Error            string                 `json:"error,omitempty"`
 }
 
 // RunnerParams defines parameters to invoke the Python engine.
