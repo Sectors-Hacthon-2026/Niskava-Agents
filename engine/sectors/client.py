@@ -25,8 +25,10 @@ class SectorsAPIClient:
         db_path: str,
         api_key: Optional[str] = None,
         mock_mode: Optional[bool] = None,
+        base_url: Optional[str] = None,
     ):
         self.api_key = api_key or os.environ.get("SECTORS_API_KEY", "")
+        self.base_url = base_url or os.environ.get("SECTORS_BASE_URL", self.BASE_URL)
         self.db_path = os.path.expanduser(db_path)
         
         if mock_mode is not None:
@@ -119,7 +121,7 @@ class SectorsAPIClient:
             self._set_cache(cache_key, endpoint, mock_data, ttl_seconds)
             return mock_data
 
-        url = f"{self.BASE_URL}{endpoint}"
+        url = f"{self.base_url}{endpoint}"
         resp = self.session.get(url, params=params, timeout=12.0)
         resp.raise_for_status()
         data = resp.json()

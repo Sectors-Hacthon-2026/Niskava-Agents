@@ -27,10 +27,12 @@ class NiskavaReActAgent:
         emitter: Optional[Callable[[Dict[str, Any]], None]] = None,
         api_key: Optional[str] = None,
         mock_mode: Optional[bool] = None,
+        model: Optional[str] = None,
     ):
         self.tools = tool_registry
         self.emitter = emitter or (lambda ev: None)
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
+        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
         
         if mock_mode is not None:
             self.mock_mode = mock_mode
@@ -248,26 +250,36 @@ class NiskavaReActAgent:
         try:
             import requests
 
-            system_prompt = (
-                "You are Niskava Agent, an elite financial intelligence and market anomaly investigator for the Indonesia Stock Exchange (IDX).\n"
-                "You operate strictly under two non-negotiable laws:\n"
-                "1. Deterministic Before Generative: NEVER compute Z-scores or moving averages in your head. Call 'compute_quant_anomalies'.\n"
-                "2. Strict Non-Advisory Boundary: NEVER output buy/sell advice. Classify all findings as SUPPORTED, UNCERTAIN, or CONTRADICTED.\n\n"
-                "You communicate using the ReAct XML format:\n"
-                "<thought>Your inner reasoning in Indonesian</thought>\n"
-                "<tool_call>{\"name\": \"tool_name\", \"arguments\": {...}}</tool_call>\n"
+            prompt = (
+                f"Kamu adalah Niskava Agent. Berikan analisis singkat (1-2 kalimat) dalam bahasa Indonesia mengenai rencana "
+                f"investigasi kuantitatif dan OSINT untuk emiten {ticker} pada periode {days} hari terakhir."
             )
 
-            # First thought
+            thought_text = f"Menghubungkan ke Gemini ({self.model}). Memulai siklus ReAct investigasi emiten {ticker}."
+
+            if self.api_key and not self.mock_mode:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
+                payload = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.2, "maxOutputTokens": 150},
+                }
+                resp = requests.post(url, json=payload, timeout=8.0)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    candidates = data.get("candidates", [])
+                    if candidates and "content" in candidates[0]:
+                        parts = candidates[0]["content"].get("parts", [])
+                        if parts and "text" in parts[0]:
+                            thought_text = parts[0]["text"].strip()
+
             self._emit({
                 "event": "agent_thought",
                 "session_id": session_id,
-                "thought": f"Menghubungkan ke Gemini Flash. Memulai siklus ReAct investigasi emiten {ticker}.",
+                "thought": thought_text,
             })
 
-            # Execute tools in autonomous sequence
             return self._run_deterministic_react_cycle(session_id, ticker, days, start_time)
 
-        except Exception as exc:
-            # Fallback to deterministic cycle if API error occurs
+        except Exception:
+            # Fallback to deterministic cycle if network or API error occurs
             return self._run_deterministic_react_cycle(session_id, ticker, days, start_time)

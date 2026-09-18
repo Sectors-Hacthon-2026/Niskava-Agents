@@ -9,6 +9,7 @@ graphify-out/
 # --- Environment, Secrets & Credentials (Law 7) ---
 .env
 .env.*
+!.env.example
 *.env
 *.key
 *.pem

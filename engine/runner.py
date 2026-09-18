@@ -20,7 +20,27 @@ def emit_jsonl(event_dict: Dict[str, Any]) -> None:
     sys.stdout.flush()
 
 
+def load_dotenv_fallback() -> None:
+    """Lightweight .env loader using standard library only."""
+    for candidate in (".env", os.path.expanduser("~/.niskava/.env")):
+        if os.path.exists(candidate):
+            try:
+                with open(candidate, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip("'\"")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+            except OSError:
+                pass
+
+
 def main() -> None:
+    load_dotenv_fallback()
     parser = argparse.ArgumentParser(description="Niskava Python Agent Engine IPC Runner")
     parser.add_argument("--ticker", required=True, help="Target IDX ticker (e.g. ANTM)")
     parser.add_argument("--days", type=int, default=30, help="Observation window days")
