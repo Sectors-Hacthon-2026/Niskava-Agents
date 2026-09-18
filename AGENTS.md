@@ -136,6 +136,7 @@ Never assign arbitrary continuous confidence floats (such as 0.50). Always use t
 ## 7. Secrets Custody & Pre-Submission Quality Gates
 
 * **Zero Hardcoded Secrets:** NEVER commit API keys (`SECTORS_API_KEY`, `GEMINI_API_KEY`) into git. Use environment variables or local `~/.niskava/config.yaml` (`0600` permissions).
+* **Git Branch Protection Invariant (dev -> main):** Direct push to `main` is strictly prohibited. All feature development (`feat/*`), bugfixes (`fix/*`), and documentation (`docs/*`) MUST branch from `dev` and merge into `dev` first. `main` only accepts stabilized, verified merges from `dev` after all automated tests, builds, and quality gates pass.
 * **Submission Freeze Rule:** The project freezes permanently upon submission or on **30 September 2026 at 23:59 WIB**. No commits or bug fixes are allowed after freeze under penalty of disqualification.
 * **Public Repository Retention:** The repository MUST remain public for at least 90 days after winners are announced (through January 2027).
 
@@ -157,5 +158,6 @@ When asked to work on specific aspects of the system, navigate directly to these
 | **Conversational Graph Memory** | `docs/30-agent/05-conversational-memory-engine.md` | `engine/memory/graph_memory.py` |
 | **Web Workspace & Visual UI** | `docs/10-product/03-product-scope-and-surfaces.md` | `web/src/` |
 | **Security & Regulatory Compliance** | `docs/20-architecture/08-security-and-compliance.md` | `internal/security/` |
+| **Git Workflow & Branch Protection** | `docs/20-architecture/09-git-workflow-and-branching-strategy.md` | Git topology (`dev` -> `main`) |
 | **Architecture Decisions** | `docs/90-decisions/*.md` | Root and sub-packages |
 
