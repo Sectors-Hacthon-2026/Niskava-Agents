@@ -155,6 +155,9 @@ class NiskavaToolRegistry:
             "get_company_fundamentals": lambda args: self.get_company_fundamentals(
                 ticker=args.get("ticker", ""),
             ),
+            "query_company_profile": lambda args: self.get_company_fundamentals(
+                ticker=args.get("ticker", ""),
+            ),
             "get_foreign_flow": lambda args: self.get_foreign_flow(
                 ticker=args.get("ticker", ""),
             ),

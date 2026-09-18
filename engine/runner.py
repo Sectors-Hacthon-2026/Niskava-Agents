@@ -42,7 +42,8 @@ def load_dotenv_fallback() -> None:
 def main() -> None:
     load_dotenv_fallback()
     parser = argparse.ArgumentParser(description="Niskava Python Agent Engine IPC Runner")
-    parser.add_argument("--ticker", required=True, help="Target IDX ticker (e.g. ANTM)")
+    parser.add_argument("--prompt", default=None, help="Free-form conversational user prompt")
+    parser.add_argument("--ticker", default=None, help="Target IDX ticker (e.g. ANTM)")
     parser.add_argument("--days", type=int, default=30, help="Observation window days")
     parser.add_argument("--session", default=None, help="Session ID (e.g. INV-2026-0042)")
     parser.add_argument("--db-path", default="~/.niskava/niskava.db", help="Path to local SQLite DB")
@@ -66,11 +67,22 @@ def main() -> None:
             emitter=emit_jsonl,
             mock_mode=mock_mode,
         )
-        agent.investigate(
-            ticker=args.ticker,
-            days=args.days,
-            session_id=args.session,
-        )
+        if args.prompt:
+            agent.chat(
+                user_prompt=args.prompt,
+                session_id=args.session,
+            )
+        elif args.ticker:
+            agent.investigate(
+                ticker=args.ticker,
+                days=args.days,
+                session_id=args.session,
+            )
+        else:
+            agent.chat(
+                user_prompt="Lakukan analisis menyeluruh terhadap pergerakan saham IDX hari ini.",
+                session_id=args.session,
+            )
     except Exception as exc:
         emit_jsonl({
             "event": "session_error",

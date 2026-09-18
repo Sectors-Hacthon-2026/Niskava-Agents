@@ -14,7 +14,7 @@ Niskava Agent dibangun di atas arsitektur tripartit hybrid yang memadukan keanda
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                             USER SURFACES                                   │
 │                                                                             │
-│     Terminal CLI ($ niskava)               Local Browser (localhost:8080)   │
+│     Terminal REPL / CLI ($ niskava)        Local Browser (localhost:8080)   │
 └───────────────────────┬─────────────────────────────────────┬───────────────┘
                         │                                     │
                         │                                     │ HTTP REST / SSE
@@ -24,15 +24,20 @@ Niskava Agent dibangun di atas arsitektur tripartit hybrid yang memadukan keanda
 │                     (Single Binary Distribution: niskava)                   │
 │                                                                             │
 │  ┌───────────────────────┐  ┌───────────────────────┐  ┌─────────────────┐  │
-│  │   Cobra CLI Router    │  │   Local HTTP Router   │  │ Embedded Assets │  │
-│  │ (investigate/sessions)│  │   (net/http / Chi)    │  │  (//go:embed)   │  │
+│  │ Cobra Router & Setup  │  │   Local HTTP Router   │  │ Embedded Assets │  │
+│  │ (niskava / setup)     │  │   (net/http / SSE)    │  │  (//go:embed)   │  │
 │  └───────────┬───────────┘  └───────────┬───────────┘  └─────────────────┘  │
 │              │                          │                                   │
+│  ┌───────────▼───────────┐              │                                   │
+│  │ Glamour / Bubbletea   │              │                                   │
+│  │ Conversational REPL   │              │                                   │
+│  └───────────┬───────────┘              │                                   │
 │              └────────────┬─────────────┘                                   │
 │                           │                                                 │
 │               ┌───────────▼────────────┐     ┌───────────────────────────┐  │
 │               │ Session & Store Engine │────▶│   SQLite Database File    │  │
 │               │   (modernc.org/sqlite) │     │   (~/.niskava/niskava.db) │  │
+│               │   (sessions & chats)   │     │   (WAL Mode)              │  │
 │               └───────────┬────────────┘     └───────────────────────────┘  │
 └───────────────────────────┼─────────────────────────────────────────────────┘
                             │ Subprocess IPC (JSON Lines via Stdin/Stdout)
@@ -41,8 +46,8 @@ Niskava Agent dibangun di atas arsitektur tripartit hybrid yang memadukan keanda
 │                            PYTHON AGENT ENGINE                              │
 │                                                                             │
 │  ┌───────────────────┐      ┌───────────────────┐     ┌──────────────────┐  │
-│  │   Quant Anomaly   │      │ Sectors v2 Client │     │  Targeted OSINT  │  │
-│  │   Math Engine     │      │ (Daily/News/Mine) │     │  & Gap Synthesis │  │
+│  │  ReAct Agent Loop │      │   Quant Anomaly   │     │ Sectors v2 Client│  │
+│  │  (Multi-Turn LLM) │◀────▶│   Math Engine     │     │ & OSINT Harvester│  │
 │  └───────────────────┘      └───────────────────┘     └──────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -53,16 +58,17 @@ Niskava Agent dibangun di atas arsitektur tripartit hybrid yang memadukan keanda
 
 ### A. Go Core Daemon (`/cmd/niskava` & `/internal/`)
 * **Single Executable Distributor**: Mengompilasi seluruh aplikasi menjadi 1 file biner mandiri. Seluruh file frontend statis di-embed langsung ke dalam biner menggunakan `//go:embed web/dist`.
-* **CLI Engine**: Menggunakan `spf13/cobra` dan `charmbracelet/bubbletea` untuk rendering tampilan progress bar, spinner, dan teks warna di terminal.
-* **Local Web Server**: Menyediakan REST API untuk manajemen sesi dan Server-Sent Events (SSE) untuk streaming log real-time ke web dashboard.
-* **Session Persistence Manager**: Berkomunikasi dengan database SQLite lokal menggunakan driver murni Go (`modernc.org/sqlite`) tanpa kebutuhan compiler CGO.
+* **Conversational REPL & CLI Engine**: Menggunakan `spf13/cobra`, `charmbracelet/bubbletea`, dan `charmbracelet/glamour` untuk menghadirkan terminal REPL percakapan interaktif (Hermes-style) dengan rendering Markdown ala Bloomberg Terminal.
+* **Interactive Setup Wizard (`niskava setup`)**: Menuntun pengguna dalam konfigurasi kredensial `.env` (9router local proxy `http://localhost:20128/v1`, Google Gemini, Sectors API) dengan validasi ping koneksi live.
+* **Local Web Server**: Menyediakan REST API untuk manajemen sesi dan percakapan (`/api/chat`), serta Server-Sent Events (SSE) untuk streaming log real-time ke web dashboard.
+* **Session Persistence Manager**: Berkomunikasi dengan database SQLite lokal (`sessions`, `anomalies`, `chat_messages`) menggunakan driver murni Go (`modernc.org/sqlite`) tanpa kebutuhan compiler CGO.
 
 ### B. Python Agent Engine (`/engine/`)
-* **Stateless Subprocess Runner**: Dijalankan oleh Go Core sebagai child process on-demand.
-* **Deterministic Quant Anomaly**: Menghitung $Z$-score volume, abnormal return, dan divergensi sektor menggunakan library matematika Python murni.
-* **Sectors v2 API Client**: Melakukan request terstruktur ke API Sectors untuk data candle, broker flow, dan mining extension.
-* **Targeted OSINT & LLM Reasoning**: Mengelola prompt engineering, ekstraksi entitas berita, deteksi kesenjangan bukti, dan penilaian kausalitas.
-* **Streaming JSONL Emitter**: Mengirimkan update berkala dalam format JSON Lines ke STDOUT untuk ditangkap secara streaming oleh Go daemon.
+* **Stateless Subprocess Runner**: Dijalankan oleh Go Core sebagai child process on-demand melalui `engine/runner.py`.
+* **Autonomous ReAct Agent Loop (`engine/agent/react_agent.py`)**: Mengelola dialog percakapan multi-turn, pemanggilan tool deterministik secara otonom, dan sintesis bukti.
+* **Deterministic Quant Anomaly (`engine/quant/`)**: Menghitung $Z$-score volume, abnormal return, dan divergensi sektor menggunakan library matematika Python murni (NumPy) sesuai Hukum 1. LLM dilarang berhitung secara mandiri.
+* **Sectors v2 API Client & Dual OSINT Engine**: Melakukan request terstruktur ke API Sectors untuk data candle, broker flow, mining extension, dan harvesting berita RSS BEI terkurasi.
+* **Streaming JSONL Emitter**: Mengirimkan update berkala (`agent_event`, `agent_message_chunk`, `agent_message_complete`) dalam format JSON Lines ke STDOUT untuk ditangkap secara streaming oleh Go daemon.
 
 ### C. Local Web Workspace (`/web/`)
 * **Framework**: React 18 + Vite + TypeScript + Tailwind CSS + shadcn/ui.

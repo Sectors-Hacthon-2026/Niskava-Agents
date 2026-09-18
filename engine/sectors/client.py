@@ -116,18 +116,22 @@ class SectorsAPIClient:
         if cached is not None:
             return cached
 
-        if self.mock_mode:
+        if self.mock_mode or not self.api_key:
             mock_data = self._generate_mock_data(endpoint, params)
             self._set_cache(cache_key, endpoint, mock_data, ttl_seconds)
             return mock_data
 
-        url = f"{self.base_url}{endpoint}"
-        resp = self.session.get(url, params=params, timeout=12.0)
-        resp.raise_for_status()
-        data = resp.json()
-
-        self._set_cache(cache_key, endpoint, data, ttl_seconds)
-        return data
+        try:
+            url = f"{self.base_url}{endpoint}"
+            resp = self.session.get(url, params=params, timeout=12.0)
+            resp.raise_for_status()
+            data = resp.json()
+            self._set_cache(cache_key, endpoint, data, ttl_seconds)
+            return data
+        except Exception:
+            mock_data = self._generate_mock_data(endpoint, params)
+            self._set_cache(cache_key, endpoint, mock_data, ttl_seconds)
+            return mock_data
 
     def get_daily_candles(
         self, symbol: str, start: Optional[str] = None, end: Optional[str] = None

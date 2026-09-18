@@ -97,6 +97,11 @@ and qualitative market disclosures/news.`,
 				fmt.Println("Tekan Enter untuk kembali ke Menu...")
 				_, _ = fmt.Scanln()
 
+			case "setup":
+				_ = RunInteractiveSetup()
+				fmt.Println("Tekan Enter untuk kembali ke Menu...")
+				_, _ = fmt.Scanln()
+
 			case "exit", "":
 				fmt.Println("Menghentikan server daemon dan keluar dari Niskava Agent.")
 				return nil

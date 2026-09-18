@@ -55,6 +55,7 @@ func NewLauncherModel(serverURL string, version string) LauncherModel {
 		{Title: "Terminal UI (Interactive Live CLI)", ActionID: "terminal"},
 		{Title: "Riwayat Sesi & Audit Trail (SQLite)", ActionID: "sessions"},
 		{Title: "System & API Key Health Check", ActionID: "health"},
+		{Title: "Quick Setup Wizard (.env)", ActionID: "setup"},
 		{Title: "Exit", ActionID: "exit"},
 	}
 
