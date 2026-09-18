@@ -1,8 +1,9 @@
-// Package tui provides an interactive Terminal User Interface built with
-// charmbracelet/bubbletea and lipgloss, adhering to the Cyber-OSINT / Bloomberg aesthetic.
+// Package tui provides an interactive Terminal User Interface for Niskava Agent,
+// featuring live thought streaming, dynamic tool execution badges, and Bloomberg/OSINT audit trail cards.
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -12,100 +13,100 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Styles definitions using lipgloss
+// Aesthetic styles using lipgloss
 var (
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("#00E5FF")).
-			Background(lipgloss.Color("#1A1A2E")).
+			Background(lipgloss.Color("#0F172A")).
 			Padding(0, 1)
 
 	tickerBadgeStyle = lipgloss.NewStyle().
 				Bold(true).
 				Foreground(lipgloss.Color("#FFFFFF")).
-				Background(lipgloss.Color("#0052CC")).
+				Background(lipgloss.Color("#0284C7")).
 				Padding(0, 1)
 
-	stagePendingStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#6C7293"))
+	thoughtBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#38BDF8")).
+			Padding(0, 1).
+			Foreground(lipgloss.Color("#E0F2FE")).
+			Italic(true)
 
-	stageRunningStyle = lipgloss.NewStyle().
+	toolCallingStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#00E5FF"))
+				Foreground(lipgloss.Color("#F59E0B"))
 
-	stageOkStyle = lipgloss.NewStyle().
+	toolDoneStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#00E676"))
+			Foreground(lipgloss.Color("#10B981"))
 
-	stageAlertStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#FFD600"))
+	anomalyBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("#EF4444")).
+			Padding(0, 1).
+			Foreground(lipgloss.Color("#FCA5A5"))
 
 	supportedStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#00E676")).
+			Foreground(lipgloss.Color("#10B981")).
 			SetString("[SUPPORTED]")
 
 	uncertainStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#FFD600")).
+			Foreground(lipgloss.Color("#F59E0B")).
 			SetString("[UNCERTAIN]")
 
 	contradictedStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#FF1744")).
+				Foreground(lipgloss.Color("#EF4444")).
 				SetString("[CONTRADICTED]")
 
 	disclaimerBoxStyle = lipgloss.NewStyle().
 				Border(lipgloss.NormalBorder()).
-				BorderForeground(lipgloss.Color("#44475A")).
+				BorderForeground(lipgloss.Color("#475569")).
 				Padding(0, 1).
-				Foreground(lipgloss.Color("#8BE9FD"))
+				Foreground(lipgloss.Color("#94A3B8"))
 )
 
-// StageState represents the progress status of each pipeline stage.
-type StageState struct {
-	Name    string
-	Status  string // "PENDING", "RUNNING", "OK", "ALERT"
-	Details string
+// ToolActivity tracks a single tool invocation step.
+type ToolActivity struct {
+	ToolName    string
+	Arguments   string
+	Observation string
+	Done        bool
 }
 
-// Model is the Bubbletea state container for investigation TUI.
+// Model is the Bubbletea state container for Niskava Agent.
 type Model struct {
-	Ticker     string
-	Days       int
-	SessionID  string
-	DBPath     string
-	Spinner    spinner.Model
-	Stages     []StageState
-	Anomalies  []ipc.Event
-	Findings   []ipc.Event
-	Summary    string
-	Completed  bool
-	Err        error
-	EventsChan <-chan ipc.Event
-	ErrChan    <-chan error
+	Ticker         string
+	Days           int
+	SessionID      string
+	DBPath         string
+	Spinner        spinner.Model
+	CurrentThought string
+	ToolActivities []ToolActivity
+	Anomalies      []ipc.Event
+	Findings       []ipc.Event
+	Summary        string
+	Completed      bool
+	Err            error
+	EventsChan     <-chan ipc.Event
+	ErrChan        <-chan error
 }
 
-// NewModel creates a configured TUI model.
+// NewModel creates an interactive TUI model.
 func NewModel(ticker string, days int, dbPath string, eventsChan <-chan ipc.Event, errChan <-chan error) Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF"))
-
-	stages := []StageState{
-		{Name: "Baseline Data Sectors v2", Status: "PENDING", Details: "Menyiapkan deret waktu candle & profil emiten"},
-		{Name: "Deteksi Anomali Kuantitatif", Status: "PENDING", Details: "Menghitung Z-Score volume (MA20) & abnormal return"},
-		{Name: "Penelusuran OSINT Bertarget", Status: "PENDING", Details: "Memanen keterbukaan informasi bursa & berita pasar"},
-		{Name: "Validasi Bukti & Kausalitas", Status: "PENDING", Details: "Menilai urutan temporal & klasifikasi 3-tier"},
-	}
 
 	return Model{
 		Ticker:     ticker,
 		Days:       days,
 		DBPath:     dbPath,
 		Spinner:    s,
-		Stages:     stages,
 		EventsChan: eventsChan,
 		ErrChan:    errChan,
 	}
@@ -116,7 +117,6 @@ type eventMsg ipc.Event
 type errMsg error
 type finishMsg struct{}
 
-// waitForEvent waits for the next incoming IPC event.
 func waitForEvent(eventsChan <-chan ipc.Event, errChan <-chan error) tea.Cmd {
 	return func() tea.Msg {
 		select {
@@ -134,7 +134,6 @@ func waitForEvent(eventsChan <-chan ipc.Event, errChan <-chan error) tea.Cmd {
 	}
 }
 
-// Init initializes the bubbletea loop.
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.Spinner.Tick,
@@ -142,7 +141,6 @@ func (m Model) Init() tea.Cmd {
 	)
 }
 
-// Update handles incoming messages and state transitions.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -169,40 +167,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch ev.Event {
 		case ipc.EventSessionStart:
 			m.SessionID = ev.SessionID
-			m.Stages[0].Status = "RUNNING"
 
-		case ipc.EventProgressStep:
-			switch ev.Stage {
-			case "SECTORS_BASELINE":
-				m.Stages[0].Status = "RUNNING"
-				m.Stages[0].Details = ev.Message
-			case "QUANT_ANOMALY":
-				m.Stages[0].Status = "OK"
-				m.Stages[1].Status = "RUNNING"
-				m.Stages[1].Details = ev.Message
-			case "OSINT_HARVEST":
-				if m.Stages[1].Status != "ALERT" {
-					m.Stages[1].Status = "OK"
-				}
-				m.Stages[2].Status = "RUNNING"
-				m.Stages[2].Details = ev.Message
-			case "EVIDENCE_CORRELATION":
-				m.Stages[2].Status = "OK"
-				m.Stages[3].Status = "RUNNING"
-				m.Stages[3].Details = ev.Message
+		case ipc.EventAgentThought:
+			m.CurrentThought = ev.Thought
+
+		case ipc.EventAgentToolCall:
+			argsBytes, _ := json.Marshal(ev.Args)
+			m.ToolActivities = append(m.ToolActivities, ToolActivity{
+				ToolName:  ev.Tool,
+				Arguments: string(argsBytes),
+				Done:      false,
+			})
+
+		case ipc.EventAgentObservation:
+			if len(m.ToolActivities) > 0 {
+				m.ToolActivities[len(m.ToolActivities)-1].Observation = ev.Summary
+				m.ToolActivities[len(m.ToolActivities)-1].Done = true
 			}
 
 		case ipc.EventAnomalyDetected:
 			m.Anomalies = append(m.Anomalies, ev)
-			m.Stages[1].Status = "ALERT"
-			m.Stages[1].Details = fmt.Sprintf("Lonjakan volume (%.2fσ) pada %s", ev.ZScore, ev.AnomalyDate)
 
 		case ipc.EventFindingEmitted:
 			m.Findings = append(m.Findings, ev)
 
 		case ipc.EventSessionComplete:
-			m.Stages[3].Status = "OK"
-			m.Stages[3].Details = fmt.Sprintf("%d temuan tervalidasi", len(m.Findings))
 			m.Summary = ev.Summary
 			m.Completed = true
 			return m, tea.Quit
@@ -214,44 +203,54 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// View renders the TUI layout to ANSI string.
 func (m Model) View() string {
 	var b strings.Builder
 
 	// 1. Header Banner
 	b.WriteString("\n")
-	b.WriteString(titleStyle.Render(" [●] NISKAVA INVESTIGATOR v1.0.0 "))
+	b.WriteString(titleStyle.Render(" [●] NISKAVA AGENT v1.0.0 — AUTONOMOUS MARKET INTELLIGENCE "))
 	b.WriteString(" Target: ")
 	b.WriteString(tickerBadgeStyle.Render(m.Ticker))
 	b.WriteString(fmt.Sprintf(" (%d Hari Pengamatan)\n", m.Days))
 	b.WriteString("─────────────────────────────────────────────────────────────────────────────\n")
 
-	// 2. Stepper Progress
-	for i, stage := range m.Stages {
-		prefix := " ├── "
-		if i == len(m.Stages)-1 {
-			prefix = " └── "
-		}
-
-		var statusBadge string
-		switch stage.Status {
-		case "PENDING":
-			statusBadge = stagePendingStyle.Render("[WAIT]")
-		case "RUNNING":
-			statusBadge = stageRunningStyle.Render(fmt.Sprintf("[%s]", m.Spinner.View()))
-		case "ALERT":
-			statusBadge = stageAlertStyle.Render("[ALERT]")
-		case "OK":
-			statusBadge = stageOkStyle.Render("[OK]")
-		}
-
-		b.WriteString(fmt.Sprintf("%s[%d/4] %-32s %s %s\n", prefix, i+1, stage.Name, statusBadge, stage.Details))
+	// 2. Live Thought Stream (ReAct Inner Monologue)
+	if m.CurrentThought != "" {
+		thoughtHeader := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#38BDF8")).Render("💭 Penalaran Agen:")
+		b.WriteString(fmt.Sprintf("%s\n", thoughtHeader))
+		b.WriteString(thoughtBoxStyle.Render(m.CurrentThought) + "\n\n")
 	}
 
-	// 3. Findings Section (Audit Trail)
+	// 3. Dynamic Tool Invocations
+	if len(m.ToolActivities) > 0 {
+		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#F8FAFC")).Render("🛠️  Aktivitas Alat (Tool Execution):") + "\n")
+		for _, act := range m.ToolActivities {
+			if act.Done {
+				b.WriteString(fmt.Sprintf("  %s %s\n", toolDoneStyle.Render("✔"), lipgloss.NewStyle().Bold(true).Render(act.ToolName)))
+				if act.Observation != "" {
+					b.WriteString(fmt.Sprintf("    %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("#94A3B8")).Render(act.Observation)))
+				}
+			} else {
+				b.WriteString(fmt.Sprintf("  %s %s %s...\n", toolCallingStyle.Render("⚡"), m.Spinner.View(), act.ToolName))
+			}
+		}
+		b.WriteString("\n")
+	}
+
+	// 4. Anomaly Alert Box (if triggered)
+	if len(m.Anomalies) > 0 {
+		var anomLines []string
+		for _, a := range m.Anomalies {
+			anomLines = append(anomLines, fmt.Sprintf("• [%s] %s (Z-Score: %.2fσ | Return: %+.2f%%)\n  %s",
+				a.AnomalyDate, a.MetricType, a.ZScore, a.PriceChangePct, a.Description))
+		}
+		b.WriteString(anomalyBoxStyle.Render(fmt.Sprintf("🚨 ANOMALI KUANTITATIF TERDETEKSI (NUMPY LAW 1):\n%s", strings.Join(anomLines, "\n"))) + "\n\n")
+	}
+
+	// 5. Findings Section (Audit Trail 3-Tier Taxonomy)
 	if len(m.Findings) > 0 {
-		b.WriteString("\n─────────────────────────────────────────────────────────────────────────────\n")
-		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF")).Render("RINGKASAN TEMUAN (AUDIT TRAIL):") + "\n")
+		b.WriteString("─────────────────────────────────────────────────────────────────────────────\n")
+		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF")).Render("RINGKASAN TEMUAN (AUDIT TRAIL 3-TIER):") + "\n")
 
 		for _, f := range m.Findings {
 			var badge string
@@ -268,31 +267,31 @@ func (m Model) View() string {
 
 			b.WriteString(fmt.Sprintf("\n%s %s\n", badge, lipgloss.NewStyle().Bold(true).Render(f.Title)))
 			b.WriteString(fmt.Sprintf("            %s\n", f.ClaimText))
-			b.WriteString(fmt.Sprintf("            Status: %s | Skor Keyakinan: %.2f\n", f.CausalityStatus, f.ConfidenceScore))
+			b.WriteString(fmt.Sprintf("            Kausalitas: %s | Skor Keyakinan: %.2f\n", f.CausalityStatus, f.ConfidenceScore))
 		}
 	}
 
-	// 4. Final Summary
+	// 6. Final Summary
 	if m.Summary != "" {
 		b.WriteString("\n─────────────────────────────────────────────────────────────────────────────\n")
-		b.WriteString(lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("#00E5FF")).Render(m.Summary) + "\n")
+		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00E5FF")).Render(m.Summary) + "\n")
 	}
 
-	// 5. Non-Advisory Disclaimer Footer (Law 2 / Hackathon Rule 12)
+	// 7. Non-Advisory Disclaimer Footer (Law 2 / Hackathon Rule 12)
 	b.WriteString("\n")
 	disclaimerText := "DISCLAIMER FINANSIAL (NON-ADVISORY - LAW 2 & ATURAN 12):\n" +
 		"Niskava Agent adalah platform intelijen pasar dan OSINT otonom, BUKAN penasihat investasi.\n" +
-		"Sistem TIDAK PERNAH memberikan rekomendasi BELI/JUAL atau target harga sekuritas."
+		"Sistem TIDAK PERNAH memberikan rekomendasi BELI/JUAL atau target harga sekuritas apa pun."
 	b.WriteString(disclaimerBoxStyle.Render(disclaimerText) + "\n\n")
 
-	// 6. Navigation hint
+	// 8. Navigation hint
 	if m.SessionID != "" {
 		b.WriteString(fmt.Sprintf("Sesi tersimpan: %s (%s)\n", m.SessionID, m.DBPath))
 		b.WriteString("Ketik 'niskava serve --open' untuk membuka visual workspace interaktif di browser.\n")
 	}
 
 	if m.Err != nil {
-		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#FF1744")).Render(fmt.Sprintf("\n[ERROR] %v\n", m.Err)))
+		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(fmt.Sprintf("\n[ERROR] %v\n", m.Err)))
 	}
 
 	return b.String()
