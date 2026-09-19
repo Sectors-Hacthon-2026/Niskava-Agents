@@ -32,6 +32,18 @@ jobs:
       - name: Go Vet Analysis
         run: go vet ./...
 
+      - name: Setup Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Python Dependencies for IPC Tests
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r engine/requirements.txt
+
       - name: Execute Go Test Suite
         run: go test -v -race ./internal/config ./internal/db ./internal/ipc ./internal/server ./internal/tui
 
