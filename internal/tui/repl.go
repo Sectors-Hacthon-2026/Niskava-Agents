@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/internal/db"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/internal/ipc"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/internal/server"
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -67,10 +68,185 @@ var (
 				Padding(0, 1)
 )
 
+// SlashCommand represents a registered slash command in the interactive REPL.
+type SlashCommand struct {
+	Command     string
+	Description string
+}
+
+var defaultSlashCommands = []SlashCommand{
+	{Command: "/help", Description: "Panduan lengkap perintah & instruksi sistem"},
+	{Command: "/reset", Description: "Mulai sesi obrolan baru & bersihkan memory graph"},
+	{Command: "/clear", Description: "Bersihkan layar terminal & tampilkan ulang banner HUD"},
+	{Command: "/web", Description: "Buka dashboard visual Web Workspace di browser"},
+	{Command: "/sessions", Description: "Inspeksi riwayat sesi investigasi & audit trail dari SQLite"},
+	{Command: "/health", Description: "Periksa status daemon server, database, & provider AI"},
+	{Command: "/exit", Description: "Keluar dari sesi Live REPL kembali ke menu utama"},
+}
+
+// ReplInputModel is the Bubbletea interactive text input model with OpenCode-style slash popup.
+type ReplInputModel struct {
+	TextInput        textinput.Model
+	PromptPrefix     string
+	SlashCommands    []SlashCommand
+	FilteredCommands []SlashCommand
+	SlashCursor      int
+	SlashActive      bool
+	SubmittedValue   string
+	Quitting         bool
+}
+
+// NewReplInputModel initializes the interactive REPL prompt input.
+func NewReplInputModel(promptPrefix string) ReplInputModel {
+	ti := textinput.New()
+	ti.Prompt = promptBoxStyle.Render(promptPrefix + " ")
+	ti.Placeholder = "Ketik pertanyaan riset pasar atau / untuk perintah..."
+	ti.Focus()
+
+	return ReplInputModel{
+		TextInput:        ti,
+		PromptPrefix:     promptPrefix,
+		SlashCommands:    defaultSlashCommands,
+		FilteredCommands: defaultSlashCommands,
+	}
+}
+
+func (m ReplInputModel) Init() tea.Cmd {
+	return textinput.Blink
+}
+
+func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyCtrlC, tea.KeyEsc:
+			if m.SlashActive && msg.Type == tea.KeyEsc {
+				m.SlashActive = false
+				return m, nil
+			}
+			m.Quitting = true
+			m.SubmittedValue = "/exit"
+			return m, tea.Quit
+
+		case tea.KeyUp:
+			if m.SlashActive && len(m.FilteredCommands) > 0 {
+				if m.SlashCursor > 0 {
+					m.SlashCursor--
+				} else {
+					m.SlashCursor = len(m.FilteredCommands) - 1
+				}
+				return m, nil
+			}
+
+		case tea.KeyDown:
+			if m.SlashActive && len(m.FilteredCommands) > 0 {
+				if m.SlashCursor < len(m.FilteredCommands)-1 {
+					m.SlashCursor++
+				} else {
+					m.SlashCursor = 0
+				}
+				return m, nil
+			}
+
+		case tea.KeyTab:
+			if m.SlashActive && len(m.FilteredCommands) > 0 {
+				selected := m.FilteredCommands[m.SlashCursor].Command
+				m.TextInput.SetValue(selected)
+				m.TextInput.SetCursor(len(selected))
+				m.SlashActive = false
+				return m, nil
+			}
+
+		case tea.KeyEnter:
+			val := strings.TrimSpace(m.TextInput.Value())
+			if m.SlashActive && len(m.FilteredCommands) > 0 && strings.HasPrefix(val, "/") {
+				val = m.FilteredCommands[m.SlashCursor].Command
+			}
+			m.SubmittedValue = val
+			return m, tea.Quit
+		}
+	}
+
+	m.TextInput, cmd = m.TextInput.Update(msg)
+
+	// Live filter slash commands when input starts with '/'
+	val := strings.TrimSpace(m.TextInput.Value())
+	if strings.HasPrefix(val, "/") {
+		m.SlashActive = true
+		m.FilteredCommands = nil
+		for _, sc := range m.SlashCommands {
+			if strings.HasPrefix(sc.Command, val) || strings.Contains(sc.Command, strings.ToLower(val)) {
+				m.FilteredCommands = append(m.FilteredCommands, sc)
+			}
+		}
+		if len(m.FilteredCommands) == 0 {
+			m.FilteredCommands = m.SlashCommands
+		}
+		if m.SlashCursor >= len(m.FilteredCommands) {
+			m.SlashCursor = 0
+		}
+	} else {
+		m.SlashActive = false
+		m.SlashCursor = 0
+		m.FilteredCommands = m.SlashCommands
+	}
+
+	return m, cmd
+}
+
+func (m ReplInputModel) View() string {
+	var b strings.Builder
+
+	// Render input prompt box
+	b.WriteString("\n" + m.TextInput.View() + "\n")
+
+	// Render OpenCode-style Slash Autocomplete Popup Box when slash active
+	if m.SlashActive && len(m.FilteredCommands) > 0 {
+		popupHeader := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#052E16")).
+			Background(lipgloss.Color("#22C55E")).
+			Padding(0, 1).
+			Render("SLASH COMMANDS (Gunakan ↑/↓ untuk memilih, Tab/Enter untuk melengkapi)")
+
+		boxStyle := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#22C55E")).
+			Padding(0, 1)
+
+		var popupLines []string
+		popupLines = append(popupLines, popupHeader)
+
+		for i, sc := range m.FilteredCommands {
+			cursor := "  "
+			if i == m.SlashCursor {
+				cursor = "▶ "
+			}
+
+			cmdStr := fmt.Sprintf("%-12s", sc.Command)
+			descStr := sc.Description
+
+			if i == m.SlashCursor {
+				cmdR := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00FF87")).Render(cmdStr)
+				descR := lipgloss.NewStyle().Foreground(lipgloss.Color("#F8FAFC")).Render(descStr)
+				popupLines = append(popupLines, fmt.Sprintf("%s%s %s", lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF87")).Render(cursor), cmdR, descR))
+			} else {
+				cmdR := lipgloss.NewStyle().Foreground(lipgloss.Color("#4ADE80")).Render(cmdStr)
+				descR := lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Render(descStr)
+				popupLines = append(popupLines, fmt.Sprintf("  %s %s", cmdR, descR))
+			}
+		}
+
+		b.WriteString(boxStyle.Render(strings.Join(popupLines, "\n")) + "\n")
+	}
+
+	return b.String()
+}
+
 // RunLiveREPL starts an interactive, conversational research assistant session.
 func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
-	reader := bufio.NewReader(os.Stdin)
-
 	// Determine active model display
 	modelLabel := "hermes"
 	if cfg.Auth.AIProvider == "openai" && cfg.Auth.OpenAIModel != "" {
@@ -86,14 +262,16 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 	promptPrefix := fmt.Sprintf("niskava [%s] >", modelLabel)
 
 	for {
-		fmt.Printf("\n%s ", promptBoxStyle.Render(promptPrefix))
-		input, err := reader.ReadString('\n')
+		// Run interactive Bubbletea prompt input with live OpenCode slash popup
+		inputModel := NewReplInputModel(promptPrefix)
+		p := tea.NewProgram(inputModel)
+		m, err := p.Run()
 		if err != nil {
 			fmt.Println("\nKeluar dari sesi Live Assistant.")
 			break
 		}
 
-		input = strings.TrimSpace(input)
+		input := strings.TrimSpace(m.(ReplInputModel).SubmittedValue)
 		if input == "" {
 			continue
 		}
