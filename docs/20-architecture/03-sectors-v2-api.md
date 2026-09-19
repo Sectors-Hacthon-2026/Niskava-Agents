@@ -299,3 +299,37 @@ Sistem menetapkan alokasi anggaran kredit yang ketat untuk menjamin ketersediaan
 * **Fase Development & Testing (19 Agu – 25 Sep):** Maksimal 100 kredit (selebihnya wajib menggunakan `MOCK_SECTORS=1`).
 * **Perekaman Video Demo & Teaser (26 – 28 Sep):** Maksimal 50 kredit.
 * **Cadangan Evaluasi Langsung Dewan Juri (1 – 8 Okt):** **Minimal 850 kredit utuh**.
+
+---
+
+## 6. Arsitektur Dual-Mode: REST Client & Model Context Protocol (MCP) Adapter
+
+Untuk fleksibilitas integrasi, Niskava menyediakan adapter ganda untuk mengonsumsi Sectors Financial API:
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                   SECTORS INTEGRATION LAYER (DUAL-MODE)                │
+├────────────────────────────────────┬───────────────────────────────────┤
+│ Mode A: High-Performance REST      │ Mode B: Standardized MCP Server   │
+│ Client with SQLite Cache           │ (Model Context Protocol)          │
+├────────────────────────────────────┼───────────────────────────────────┤
+│ • Digunakan oleh internal engine   │ • Diekspos sebagai MCP tool       │
+│ • Caching permanen candlestick     │   registry standar untuk agent    │
+│ • Zero overhead IPC                │ • Kompatibel dengan ekosistem MCP │
+│ • Python SectorsAPIClient          │   (Claude Desktop, Cursor, Hermes)│
+└────────────────────────────────────┴───────────────────────────────────┘
+```
+
+### Pemetaan Endpoint Sectors v2 ke Primitive Tools MCP:
+| MCP Tool Name | Endpoint Sectors v2 | Deskripsi Fungsional |
+|---|---|---|
+| `sectors_get_daily_candles` | `/v2/daily/{symbol}/` | Ambil deret waktu OHLCV harian untuk jendela waktu observasi. |
+| `sectors_get_company_report` | `/v2/company/report/{symbol}/` | Ambil profil fundamental, rasio valuasi, dan tinjauan perseroan. |
+| `sectors_get_foreign_flow` | `/v2/foreign-flow/{symbol}/` | Ambil deret aliran modal bersih investor asing (Net Foreign Flow). |
+| `sectors_get_suspensions` | `/v2/suspensions/` | Ambil riwayat suspensi bursa dan tautan dokumen resmi pengumuman BEI. |
+| `sectors_get_corporate_actions`| `/v2/corporate-actions/{symbol}/` | Ambil jadwal dividen, stock split, dan rights issue perseroan. |
+| `sectors_get_filings` | `/v2/filings/` | Ambil pelaporan transaksi kepemilikan orang dalam (*insider trading*). |
+| `sectors_get_broker_summary` | `/v2/broker-summary-top/{symbol}/`| Ambil daftar 3 broker akumulasi dan distribusi teratas. |
+| `sectors_get_subsector_peers` | `/v2/subsector/{subsector}/` | Ambil data komparasi emiten dan rata-rata industri subsektor. |
+| `sectors_get_mining_detail` | `/v2/mining-company-detail/{slug}/`| Ambil data operasional tambang dan cadangan komoditas. |
+

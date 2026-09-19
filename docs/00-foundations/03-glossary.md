@@ -38,6 +38,10 @@ Daftar istilah standar domain pasar modal Indonesia (IDX), rekayasa kecerdasan b
 | **Hallucination Mitigation** | Metode perlindungan sistem dari kesalahan fabrikasi fakta oleh LLM, dicapai dengan pemrosesan deterministik sebelum LLM dan taksonomi verifikasi bukti. |
 | **Confidence Score** | Skor probabilitas validitas temuan (skala 0.00 hingga 1.00) yang dihitung berdasarkan kualitas dan konsistensi sumber bukti. |
 | **Causality Label** | Label relasi waktu antara berita dan pergerakan pasar: `LIKELY_CATALYST` (berita memicu volume), `PRECEDED_ANNOUNCEMENT` (volume mendahului pengumuman), atau `UNEXPLAINED_BY_NEWS`. |
-| **Verification Status** | Klasifikasi validitas temuan: `SUPPORTED` (didukung data resmi), `UNCERTAIN` (rumor/indikasi awal), atau `CONTRADICTED` (fakta membantah narasi pasar). |
 | **IPC (Inter-Process Communication)** | Jalur komunikasi data streaming antara proses Go Core daemon dan Python Agent Engine melalui JSON Lines via STDIN/STDOUT. |
 | **SSE (Server-Sent Events)** | Protokol HTTP streaming satu arah untuk mengirimkan pembaruan langkah pemikiran agen (*reasoning steps*) secara real-time dari Go server ke Web UI. |
+| **Model Context Protocol (MCP)** | Standar protokol terbuka yang mendefinisikan bagaimana AI agent mengekspos dan mengeksekusi primitive tools data eksternal (misal Sectors MCP). |
+| **Domain Skills (Agent Skills)** | Standar Operasional Prosedur (SOP) analisis finansial modular yang diisolasi menjadi modul independen dengan kontrak input/output, prerequisites MCP tools, dan deterministic gate. |
+| **Deterministic Compute Gate** | Lapisan komputasi matematika deterministik (NumPy) yang bertindak sebagai firewall pemutus halusinasi angka sebelum data dipaparkan ke LLM. |
+| **Thin AI Wrapper** | Pola antipattern produk AI yang hanya meneruskan input user dan raw JSON bursa langsung ke prompt LLM tanpa komputasi deterministik, isolasi skill, atau taksonomi verifikasi bukti. |
+| **ReAct Loop (Reasoning + Acting)** | Paradigma eksekusi agen yang memadukan penalaran analitik internal (*Thought*), aksi pemanggilan tool (*Action*), dan pengamatan fakta (*Observation*). |

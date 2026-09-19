@@ -45,10 +45,24 @@ Niskava Agent dibangun di atas arsitektur tripartit hybrid yang memadukan keanda
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                            PYTHON AGENT ENGINE                              │
 │                                                                             │
-│  ┌───────────────────┐      ┌───────────────────┐     ┌──────────────────┐  │
-│  │  ReAct Agent Loop │      │   Quant Anomaly   │     │ Sectors v2 Client│  │
-│  │  (Multi-Turn LLM) │◀────▶│   Math Engine     │     │ & OSINT Harvester│  │
-│  └───────────────────┘      └───────────────────┘     └──────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ Layer 4: ReAct Cognitive Orchestrator (Multi-Turn Reasoning Loop)    │  │
+│  └───────────────────────────────────┬───────────────────────────────────┘  │
+│                                      │ Activates Skill SOPs                 │
+│                                      ▼                                      │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ Layer 3: Modular Skills Registry (market-anomaly, causality, insider) │  │
+│  └───────────────────────────────────┬───────────────────────────────────┘  │
+│                                      │ Enforces Deterministic Math          │
+│                                      ▼                                      │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ Layer 2: Deterministic Compute Gate (NumPy Anomaly & Flow Firewall)  │  │
+│  └───────────────────────────────────┬───────────────────────────────────┘  │
+│                                      │ Standardized Tool Calls              │
+│                                      ▼                                      │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ Layer 1: MCP & OSINT Primitives (Sectors MCP + Dual-Engine OSINT)     │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 

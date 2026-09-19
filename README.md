@@ -40,11 +40,10 @@ Niskava adopts a 3-tier hybrid stack (*Go + Python + React*) designed for execut
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    PYTHON AGENT ENGINE                      │
-│  - Deterministic Quant Anomaly Engine (NumPy Z-Scores)      │
-│  - Sectors Financial API v2 Client (REST / MCP)             │
-│  - Resilient Dual-Engine OSINT Harvester (News & Filings)   │
-│  - Local Graph Memory Engine (NetworkX + SQLite)            │
-│  - Temporal Causality & Evidence Correlation Engine         │
+│  [Layer 4] ReAct Cognitive Orchestrator & Memory Engine     │
+│  [Layer 3] Modular Skills Registry (Domain SOP Modules)     │
+│  [Layer 2] Deterministic Compute Gate (NumPy Anomaly Math)  │
+│  [Layer 1] Sectors MCP Server & Dual-Engine OSINT Harvester │
 └──────────────────────────────┬──────────────────────────────┘
                                │
                                ▼

@@ -55,7 +55,7 @@ Every AI agent modifying, generating, or refactoring code in this repository MUS
 
 ## 3. Hybrid Architecture & Component Responsibilities
 
-The codebase follows the Tripartite Hybrid Stack (01-hybrid-stack-go-python-react):
+The codebase follows the Tripartite Hybrid Stack (01-hybrid-stack-go-python-react) powered by a **4-Layer Agentic Hierarchy** in the Python Engine (08-modular-skills-and-mcp-architecture):
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -70,12 +70,22 @@ The codebase follows the Tripartite Hybrid Stack (01-hybrid-stack-go-python-reac
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    PYTHON AGENT ENGINE                      │
-│  - Deterministic Anomaly Math Engine (NumPy Z-Scores)       │
-│  - Autonomous ReAct Agent Loop & Deterministic Tool Router  │
-│  - Sectors Financial API v2 Client (REST / MCP)             │
-│  - Targeted OSINT Harvester (News, Filings, Web)            │
+│                                                             │
+│  [Layer 4: Cognitive ReAct Loop & Memory Engine]            │
+│  - Autonomous ReAct Agent Loop (Prompt-driven Hermes-style) │
 │  - Local Graph Memory Engine (NetworkX + SQLite)            │
-│  - Evidence Correlation & Temporal Causality Reasoning     │
+│  - Evidence Correlation & Temporal Causality Reasoning      │
+│                              │                              │
+│  [Layer 3: Modular Skills Registry (Domain SOPs)]           │
+│  - market-anomaly-recon, event-causality-audit              │
+│  - insider-bandarmology-forensic, financial-health-stress   │
+│                              │                              │
+│  [Layer 2: Deterministic Compute Gate (NumPy Firewall)]     │
+│  - Anomaly Math: MA20, Z-Scores (Vz, Fz), Abnormal Returns  │
+│                              │                              │
+│  [Layer 1: MCP & OSINT Primitives]                          │
+│  - Sectors Financial API v2 Client & MCP Server Adapter     │
+│  - Dual-Engine Targeted OSINT (Unified News + Google RSS)   │
 └──────────────────────────────┬──────────────────────────────┘
                                │
                                ▼
@@ -166,5 +176,6 @@ When asked to work on specific aspects of the system, navigate directly to these
 | **Web Workspace & Visual UI** | `docs/10-product/03-product-scope-and-surfaces.md` | `web/src/` |
 | **Security & Regulatory Compliance** | `docs/20-architecture/08-security-and-compliance.md` | `internal/security/` |
 | **Git Workflow & Branch Protection** | `docs/20-architecture/09-git-workflow-and-branching-strategy.md` | Git topology (`dev` -> `main`) |
+| **Modular Skills & MCP Registry** | `docs/30-agent/02-skills-catalog.md`, `docs/90-decisions/08-modular-skills-and-mcp-architecture.md` | `engine/agent/tools.py` |
 | **Architecture Decisions** | `docs/90-decisions/*.md` | Root and sub-packages |
 

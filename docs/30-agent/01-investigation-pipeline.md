@@ -9,24 +9,27 @@ Setiap sesi investigasi Niskava Agent dieksekusi melalui 7 tahapan terstruktur y
 
 ---
 
-## 1. Diagram Alur Investigasi
+## 1. Diagram Alur Investigasi & Skill Orchestration
 
 ```text
-1. INITIATION ──▶ 2. SECTORS_BASELINE ──▶ 3. QUANT_ANOMALY
-                                                 │
-                         ┌───────────────────────┴───────────────────────┐
-                         ▼                                               ▼
-             [Anomali Terdeteksi]                              [Tidak Ada Anomali]
-           4. GAP_DETECTION                                   4b. FUNDAMENTAL_ONLY
-                         │                                               │
-                         ▼                                               │
-              5. OSINT_HARVEST                                           │
-                         │                                               │
-                         ▼                                               ▼
-             6. EVIDENCE_CORRELATION ◀───────────────────────────────────┘
-                         │
-                         ▼
-             7. SYNTHESIS_AND_STREAMING (Audit Trail & Reporting)
+[1. INITIATION] ──▶ [2. SECTORS_BASELINE (MCP Tools)] ──▶ [3. QUANT_ANOMALY (NumPy Gate)]
+                                                                    │
+                             ┌──────────────────────────────────────┴──────────────────────────────────────┐
+                             ▼                                                                             ▼
+                 [Anomali Terkonfirmasi]                                                         [Tidak Ada Anomali]
+                 [4. GAP_DETECTION & SKILL ROUTING]                                              [4b. FUNDAMENTAL_ONLY]
+                             │                                                                             │
+         ┌───────────────────┴───────────────────┐                                                         │
+         ▼                                       ▼                                                         │
+[Skill: event-causality-audit]       [Skill: insider-bandarmology]                                         │
+[5. OSINT_HARVEST (Dual Engine)]     [5. FILINGS & BROKER RECON]                                           │
+         │                                       │                                                         │
+         └───────────────────┬───────────────────┘                                                         │
+                             ▼                                                                             │
+                 [6. EVIDENCE_CORRELATION & CAUSALITY] ◀───────────────────────────────────────────────────┘
+                             │
+                             ▼
+                 [7. SYNTHESIS_AND_STREAMING] (Audit Trail, SQLite Persistence, SSE Broadcast)
 ```
 
 ---
