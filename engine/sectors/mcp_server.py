@@ -1,12 +1,7 @@
-"""Sectors Financial API v2 Model Context Protocol (MCP) Server.
+"""Sectors Financial API v2 Model Context Protocol (MCP) Server (Legacy Wrapper).
 
-Implements standard MCP JSON-RPC 2.0 (stdio) protocol for exposing
-IDX ground truth market data to AI agents (Claude Desktop, Cursor, Hermes, Niskava).
-
-Complies with:
-- Law 1: Deterministic Before Generative (Structured factual data)
-- Law 4: Local-First Data Sovereignty (Transparent SQLite caching)
-- Law 5: Credit Budget Discipline (Local sectors_cache)
+Maintains backward compatibility while delegating to modular tool implementations.
+For the unified full-stack MCP server, use engine.mcp.UnifiedMCPServer.
 """
 
 import json
@@ -14,6 +9,10 @@ import os
 import sys
 from typing import Any, Dict, List, Optional
 
+from engine.mcp.tools.sectors import (
+    execute_sectors_tool,
+    get_sectors_tool_definitions,
+)
 from engine.sectors.client import SectorsAPIClient
 
 
@@ -38,159 +37,12 @@ class SectorsMCPServer:
         )
 
     def get_tool_definitions(self) -> List[Dict[str, Any]]:
-        """Return MCP standardized tool schemas."""
-        return [
-            {
-                "name": "sectors_get_daily_candles",
-                "description": "Ambil deret waktu harga dan volume perdagangan harian (OHLCV) saham IDX dari Sectors API v2.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker 4 huruf IDX (contoh: ANTM, BBRI)"},
-                        "days": {"type": "integer", "description": "Jendela observasi harian (default: 30)", "default": 30},
-                    },
-                    "required": ["ticker"],
-                },
-            },
-            {
-                "name": "sectors_get_company_report",
-                "description": "Ambil profil fundamental, valuasi (PE, PBV, ROE), dan gambaran umum emiten dari Sectors API v2.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker 4 huruf IDX (contoh: ANTM)"},
-                        "sections": {
-                            "type": "string",
-                            "description": "Bagian laporan yang diambil (default: 'valuation,financials,peers')",
-                            "default": "valuation,financials,peers",
-                        },
-                    },
-                    "required": ["ticker"],
-                },
-            },
-            {
-                "name": "sectors_get_foreign_flow",
-                "description": "Ambil data akumulasi dan distribusi modal investor asing (Net Foreign Flow) per saham.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker 4 huruf IDX"},
-                    },
-                    "required": ["ticker"],
-                },
-            },
-            {
-                "name": "sectors_get_suspensions",
-                "description": "Ambil catatan suspensi resmi bursa, pengumuman UMA, dan tautan surat pengumuman PDF resmi BEI.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker 4 huruf IDX"},
-                    },
-                    "required": ["ticker"],
-                },
-            },
-            {
-                "name": "sectors_get_corporate_actions",
-                "description": "Ambil jadwal aksi korporasi emiten (dividen, stock split, rights issue).",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker 4 huruf IDX"},
-                    },
-                    "required": ["ticker"],
-                },
-            },
-            {
-                "name": "sectors_get_filings",
-                "description": "Ambil laporan transaksi kepemilikan orang dalam (insider trading) direksi dan komisaris.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker 4 huruf IDX"},
-                    },
-                    "required": ["ticker"],
-                },
-            },
-            {
-                "name": "sectors_get_broker_summary",
-                "description": "Ambil ringkasan broker pembeli bersih (top buyers) dan penjual bersih (top sellers) teratas.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker 4 huruf IDX"},
-                    },
-                    "required": ["ticker"],
-                },
-            },
-            {
-                "name": "sectors_get_subsector_peers",
-                "description": "Ambil data komparasi emiten dan rata-rata industri subsektor untuk analisis divergensi.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "subsector": {
-                            "type": "string",
-                            "description": "Slug subsektor industri (contoh: 'metals-and-minerals-mining')",
-                        },
-                    },
-                    "required": ["subsector"],
-                },
-            },
-            {
-                "name": "sectors_get_mining_detail",
-                "description": "Ambil detail operasional tambang, izin konsesi IUP, dan lokasi smelter emiten pertambangan.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "slug": {
-                            "type": "string",
-                            "description": "Slug emiten tambang (contoh: 'aneka-tambang')",
-                        },
-                    },
-                    "required": ["slug"],
-                },
-            },
-        ]
+        """Return MCP standardized tool schemas for Sectors API."""
+        return get_sectors_tool_definitions()
 
     def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Any:
         """Dispatch tool call to SectorsAPIClient."""
-        ticker = arguments.get("ticker", "").upper()
-        if name == "sectors_get_daily_candles":
-            days = arguments.get("days", 30)
-            candles = self.client.get_daily_candles(ticker)
-            if days and len(candles) > days:
-                return candles[-days:]
-            return candles
-
-        if name == "sectors_get_company_report":
-            sections = arguments.get("sections", "valuation,financials,peers")
-            return self.client.get_company_report(ticker, sections=sections)
-
-        if name == "sectors_get_foreign_flow":
-            return self.client.get_foreign_flow(ticker)
-
-        if name == "sectors_get_suspensions":
-            return self.client.get_suspensions(ticker)
-
-        if name == "sectors_get_corporate_actions":
-            return self.client.get_corporate_actions(ticker)
-
-        if name == "sectors_get_filings":
-            return self.client.get_filings(ticker)
-
-        if name == "sectors_get_broker_summary":
-            return self.client.get_broker_summary(ticker)
-
-        if name == "sectors_get_subsector_peers":
-            subsector = arguments.get("subsector", "")
-            return self.client.get_subsector_peers(subsector)
-
-        if name == "sectors_get_mining_detail":
-            slug = arguments.get("slug", "")
-            return self.client.get_mining_detail(slug)
-
-        raise ValueError(f"Unknown MCP tool: {name}")
+        return execute_sectors_tool(self.client, name, arguments)
 
     def handle_request(self, request: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Handle a single JSON-RPC 2.0 request dictionary."""
