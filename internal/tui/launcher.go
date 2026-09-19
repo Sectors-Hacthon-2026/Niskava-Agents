@@ -268,7 +268,7 @@ func (m LauncherModel) View() string {
 		}
 
 		shortcutStr := fmt.Sprintf("[%s]", item.ShortcutKey)
-		
+
 		if noColor {
 			if isActive {
 				b.WriteString(fmt.Sprintf("%s%s  %-35s\n", cursor, shortcutStr, item.Title))

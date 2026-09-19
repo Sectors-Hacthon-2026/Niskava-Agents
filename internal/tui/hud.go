@@ -14,14 +14,14 @@ import (
 // Lipgloss Color Palette for NISKAVA-HUD (Light Green / Matrix OSINT Aesthetic)
 var (
 	// Light Green Theme Palette
-	colorPrimaryGreen   = lipgloss.Color("#22C55E") // Bright Emerald Green
-	colorLightGreen     = lipgloss.Color("#4ADE80") // Light Lime Green
-	colorMintGreen      = lipgloss.Color("#86EFAC") // Soft Mint Accent
-	colorDarkGreenBg    = lipgloss.Color("#052E16") // Deep Green Midnight Slate
-	colorGoldAccent     = lipgloss.Color("#FACC15") // Cyber Gold / Amber
-	colorMutedSlate     = lipgloss.Color("#64748B") // Subdued Slate
-	colorSoftWhite      = lipgloss.Color("#F8FAFC") // Text White
-	colorCyanDot        = lipgloss.Color("#38BDF8") // Subtle Cyan Node Accent
+	colorPrimaryGreen = lipgloss.Color("#22C55E") // Bright Emerald Green
+	colorLightGreen   = lipgloss.Color("#4ADE80") // Light Lime Green
+	colorMintGreen    = lipgloss.Color("#86EFAC") // Soft Mint Accent
+	colorDarkGreenBg  = lipgloss.Color("#052E16") // Deep Green Midnight Slate
+	colorGoldAccent   = lipgloss.Color("#FACC15") // Cyber Gold / Amber
+	colorMutedSlate   = lipgloss.Color("#64748B") // Subdued Slate
+	colorSoftWhite    = lipgloss.Color("#F8FAFC") // Text White
+	colorCyanDot      = lipgloss.Color("#38BDF8") // Subtle Cyan Node Accent
 
 	// Text & Box Styles
 	hudTitleStyle = lipgloss.NewStyle().
@@ -86,7 +86,7 @@ func RenderConstellationLine(width int) string {
 	if width < 40 {
 		width = 76
 	}
-	
+
 	// Create pattern line
 	var sb strings.Builder
 	nodes := map[int]string{
