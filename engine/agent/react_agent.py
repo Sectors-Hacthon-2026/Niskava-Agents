@@ -82,6 +82,7 @@ class NiskavaReActAgent:
         model: Optional[str] = None,
     ):
         self.tools = tool_registry
+        self.memory = getattr(tool_registry, "memory", None)
         self.emitter = emitter or (lambda ev: None)
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
         self.model = model or os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
@@ -128,15 +129,81 @@ class NiskavaReActAgent:
             "timestamp": datetime.now().isoformat() + "Z",
         })
 
+        # Augment prompt with local conversational graph memory (Law 6)
+        effective_prompt = user_prompt
+        if self.memory:
+            # 1. Detect portfolio/position mentions (e.g. 'beli ANTM di 1450')
+            pos_match = re.search(
+                r"(?:beli|entry|posisi|pegang|holds?)\s+([A-Za-z]{4})\b.*?(\d{3,6})",
+                user_prompt,
+                re.IGNORECASE,
+            )
+            if pos_match:
+                tkr = pos_match.group(1).upper()
+                price = pos_match.group(2)
+                try:
+                    self.memory.store_observation(
+                        source_label="User",
+                        source_type="USER",
+                        relation="HOLDS_AT",
+                        target_label=f"Price: {price}",
+                        target_type="PRICE_LEVEL",
+                        context_snippet=f"Posisi modal di {tkr} pada level {price}",
+                        session_id=session_id,
+                    )
+                    self.memory.store_observation(
+                        source_label=f"Price: {price}",
+                        source_type="PRICE_LEVEL",
+                        relation="TICKER_REF",
+                        target_label=tkr,
+                        target_type="TICKER",
+                        session_id=session_id,
+                    )
+                except Exception:
+                    pass
+
+            # 2. Extract potential entities in prompt to recall past graph context
+            memory_blocks = []
+            candidates = set(re.findall(r"\b[A-Za-z]{4}\b", user_prompt))
+            for cand in candidates:
+                xml_mem = self.memory.format_investigative_prompt(cand.upper(), radius=2)
+                if xml_mem:
+                    memory_blocks.append(xml_mem)
+
+            if memory_blocks:
+                effective_prompt = f"{user_prompt}\n\n" + "\n".join(memory_blocks)
+
         if self.mock_mode:
-            return self._run_deterministic_chat_cycle(session_id, user_prompt, history, start_time)
-
-        if self.ai_provider in ("openai", "9router"):
-            return self._run_openai_chat_cycle(session_id, user_prompt, history, start_time)
+            res = self._run_deterministic_chat_cycle(session_id, effective_prompt, history, start_time)
+        elif self.ai_provider in ("openai", "9router"):
+            res = self._run_openai_chat_cycle(session_id, effective_prompt, history, start_time)
         elif self.ai_provider == "gemini":
-            return self._run_gemini_chat_cycle(session_id, user_prompt, history, start_time)
+            res = self._run_gemini_chat_cycle(session_id, effective_prompt, history, start_time)
+        else:
+            res = self._run_deterministic_chat_cycle(session_id, effective_prompt, history, start_time)
 
-        return self._run_deterministic_chat_cycle(session_id, user_prompt, history, start_time)
+        if self.memory and isinstance(res, dict):
+            findings = res.get("findings", [])
+            anomalies = res.get("anomalies", [])
+            target_ticker = None
+            if anomalies:
+                target_ticker = anomalies[0].get("ticker")
+            if not target_ticker:
+                for c in candidates:
+                    target_ticker = c.upper()
+                    break
+            if target_ticker and (anomalies or findings):
+                try:
+                    self.memory.record_investigation(
+                        session_id=session_id,
+                        ticker=target_ticker,
+                        anomalies=anomalies,
+                        findings=findings,
+                    )
+                except Exception:
+                    pass
+
+        return res
 
     def investigate(
         self,
@@ -158,14 +225,27 @@ class NiskavaReActAgent:
         })
 
         if self.mock_mode:
-            return self._run_deterministic_react_cycle(session_id, ticker, days, start_time)
-
-        if self.ai_provider in ("openai", "9router"):
-            return self._run_openai_react_cycle(session_id, ticker, days, start_time)
+            res = self._run_deterministic_react_cycle(session_id, ticker, days, start_time)
+        elif self.ai_provider in ("openai", "9router"):
+            res = self._run_openai_react_cycle(session_id, ticker, days, start_time)
         elif self.ai_provider == "gemini" and self.api_key:
-            return self._run_gemini_react_cycle(session_id, ticker, days, start_time)
+            res = self._run_gemini_react_cycle(session_id, ticker, days, start_time)
+        else:
+            res = self._run_deterministic_react_cycle(session_id, ticker, days, start_time)
 
-        return self._run_deterministic_react_cycle(session_id, ticker, days, start_time)
+        # Persist to local conversational graph memory (Law 6)
+        if self.memory and isinstance(res, dict):
+            try:
+                self.memory.record_investigation(
+                    session_id=session_id,
+                    ticker=ticker,
+                    anomalies=res.get("anomalies", []),
+                    findings=res.get("findings", []),
+                )
+            except Exception:
+                pass
+
+        return res
 
     def _run_openai_chat_cycle(
         self,

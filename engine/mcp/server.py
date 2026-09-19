@@ -44,13 +44,14 @@ class UnifiedMCPServer:
 
     def __init__(
         self,
-        db_path: str = "~/.niskava/niskava.db",
+        db_path: Optional[str] = None,
         api_key: Optional[str] = None,
         mock_mode: Optional[bool] = None,
         client: Optional[SectorsAPIClient] = None,
         harvester: Optional[DualEngineOSINTHarvester] = None,
     ):
-        self.db_path = os.path.expanduser(db_path)
+        resolved_db = db_path or os.environ.get("NISKAVA_DB_PATH", "~/.niskava/niskava.db")
+        self.db_path = os.path.expanduser(resolved_db)
         self.mock_mode = mock_mode
         self.client = client or SectorsAPIClient(
             db_path=self.db_path,

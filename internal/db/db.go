@@ -96,8 +96,9 @@ CREATE TABLE IF NOT EXISTS memory_edges (
     target_id TEXT NOT NULL REFERENCES memory_nodes(id) ON DELETE CASCADE,
     relation TEXT NOT NULL,
     context_snippet TEXT,
-    session_id TEXT REFERENCES investigations(id) ON DELETE SET NULL,
+    session_id TEXT,
     weight REAL NOT NULL DEFAULT 1.0,
+    confidence_score REAL NOT NULL DEFAULT 1.0,
     last_observed_at TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (source_id, target_id, relation)
@@ -184,6 +185,51 @@ func Open(dbPath string) (*DB, error) {
 	if _, err := conn.Exec(SchemaDDL); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("failed to apply database migrations: %w", err)
+	}
+
+	// Self-healing migration for confidence_score column if existing database was created prior
+	_, _ = conn.Exec("ALTER TABLE memory_edges ADD COLUMN confidence_score REAL NOT NULL DEFAULT 1.0;")
+
+	// Ensure memory_edges is decoupled from investigations FK so CHAT sessions can persist edges
+	var hasInvFK bool
+	rows, err := conn.Query("PRAGMA foreign_key_list(memory_edges)")
+	if err == nil {
+		for rows.Next() {
+			var id, seq int
+			var table, from, to, onUpdate, onDelete, match string
+			if scanErr := rows.Scan(&id, &seq, &table, &from, &to, &onUpdate, &onDelete, &match); scanErr == nil {
+				if table == "investigations" {
+					hasInvFK = true
+					break
+				}
+			}
+		}
+		rows.Close()
+	}
+	if hasInvFK {
+		migrationSQL := `
+			PRAGMA foreign_keys = OFF;
+			CREATE TABLE IF NOT EXISTS memory_edges_v2 (
+				source_id TEXT NOT NULL REFERENCES memory_nodes(id) ON DELETE CASCADE,
+				target_id TEXT NOT NULL REFERENCES memory_nodes(id) ON DELETE CASCADE,
+				relation TEXT NOT NULL,
+				context_snippet TEXT,
+				session_id TEXT,
+				weight REAL NOT NULL DEFAULT 1.0,
+				confidence_score REAL NOT NULL DEFAULT 1.0,
+				last_observed_at TEXT NOT NULL,
+				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (source_id, target_id, relation)
+			);
+			INSERT OR IGNORE INTO memory_edges_v2 SELECT source_id, target_id, relation, context_snippet, session_id, weight, confidence_score, last_observed_at, created_at FROM memory_edges;
+			DROP TABLE memory_edges;
+			ALTER TABLE memory_edges_v2 RENAME TO memory_edges;
+			CREATE INDEX IF NOT EXISTS idx_mem_edges_src ON memory_edges(source_id);
+			CREATE INDEX IF NOT EXISTS idx_mem_edges_tgt ON memory_edges(target_id);
+			CREATE INDEX IF NOT EXISTS idx_mem_edges_session ON memory_edges(session_id);
+			PRAGMA foreign_keys = ON;
+		`
+		_, _ = conn.Exec(migrationSQL)
 	}
 
 	return &DB{conn: conn}, nil
@@ -365,4 +411,113 @@ func (d *DB) GetChatHistory(sessionID string, limit int) ([]ChatMessage, error) 
 		history = append(history, m)
 	}
 	return history, nil
+}
+
+// MemoryNode represents an entity in the local conversational graph memory.
+type MemoryNode struct {
+	ID             string  `json:"id"`
+	Label          string  `json:"label"`
+	NodeType       string  `json:"node_type"`
+	MetadataJSON   *string `json:"metadata_json,omitempty"`
+	LastObservedAt string  `json:"last_observed_at"`
+	CreatedAt      string  `json:"created_at"`
+}
+
+// MemoryEdge represents a directed relationship between two entities.
+type MemoryEdge struct {
+	SourceID        string  `json:"source_id"`
+	TargetID        string  `json:"target_id"`
+	Relation        string  `json:"relation"`
+	ContextSnippet  *string `json:"context_snippet,omitempty"`
+	SessionID       *string `json:"session_id,omitempty"`
+	Weight          float64 `json:"weight"`
+	ConfidenceScore float64 `json:"confidence_score"`
+	LastObservedAt  string  `json:"last_observed_at"`
+	CreatedAt       string  `json:"created_at"`
+}
+
+// GetMemoryGraph retrieves nodes and edges, optionally filtered by sessionID.
+func (d *DB) GetMemoryGraph(sessionID string) ([]MemoryNode, []MemoryEdge, error) {
+	nodeQuery := `
+		SELECT id, label, node_type, metadata_json, last_observed_at, created_at
+		FROM memory_nodes
+		ORDER BY last_observed_at DESC
+	`
+	nodeRows, err := d.conn.Query(nodeQuery)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to query memory nodes: %w", err)
+	}
+	defer nodeRows.Close()
+
+	var nodes []MemoryNode
+	for nodeRows.Next() {
+		var n MemoryNode
+		if err := nodeRows.Scan(&n.ID, &n.Label, &n.NodeType, &n.MetadataJSON, &n.LastObservedAt, &n.CreatedAt); err != nil {
+			return nil, nil, fmt.Errorf("failed to scan memory node: %w", err)
+		}
+		nodes = append(nodes, n)
+	}
+
+	var (
+		edgeQuery string
+		edgeArgs  []interface{}
+	)
+	if sessionID != "" {
+		edgeQuery = `
+			SELECT source_id, target_id, relation, context_snippet, session_id,
+			       weight, COALESCE(confidence_score, 1.0), last_observed_at, created_at
+			FROM memory_edges
+			WHERE session_id = ?
+			ORDER BY weight DESC
+		`
+		edgeArgs = append(edgeArgs, sessionID)
+	} else {
+		edgeQuery = `
+			SELECT source_id, target_id, relation, context_snippet, session_id,
+			       weight, COALESCE(confidence_score, 1.0), last_observed_at, created_at
+			FROM memory_edges
+			ORDER BY weight DESC
+		`
+	}
+
+	edgeRows, err := d.conn.Query(edgeQuery, edgeArgs...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to query memory edges: %w", err)
+	}
+	defer edgeRows.Close()
+
+	var edges []MemoryEdge
+	for edgeRows.Next() {
+		var e MemoryEdge
+		if err := edgeRows.Scan(&e.SourceID, &e.TargetID, &e.Relation, &e.ContextSnippet, &e.SessionID, &e.Weight, &e.ConfidenceScore, &e.LastObservedAt, &e.CreatedAt); err != nil {
+			return nil, nil, fmt.Errorf("failed to scan memory edge: %w", err)
+		}
+		edges = append(edges, e)
+	}
+
+	return nodes, edges, nil
+}
+
+// ClearMemoryGraph removes memory edges and nodes (optionally for a specific session).
+func (d *DB) ClearMemoryGraph(sessionID ...string) error {
+	if len(sessionID) > 0 && sessionID[0] != "" {
+		_, err := d.conn.Exec("DELETE FROM memory_edges WHERE session_id = ?", sessionID[0])
+		if err != nil {
+			return fmt.Errorf("failed to delete memory edges for session %s: %w", sessionID[0], err)
+		}
+		_, _ = d.conn.Exec(`
+			DELETE FROM memory_nodes 
+			WHERE id NOT IN (SELECT source_id FROM memory_edges)
+			  AND id NOT IN (SELECT target_id FROM memory_edges)
+		`)
+		return nil
+	}
+
+	if _, err := d.conn.Exec("DELETE FROM memory_edges"); err != nil {
+		return fmt.Errorf("failed to clear memory edges: %w", err)
+	}
+	if _, err := d.conn.Exec("DELETE FROM memory_nodes"); err != nil {
+		return fmt.Errorf("failed to clear memory nodes: %w", err)
+	}
+	return nil
 }

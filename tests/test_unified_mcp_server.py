@@ -95,7 +95,7 @@ def test_unified_mcp_tools_list(mcp_server):
     resp = mcp_server.handle_request(req)
     assert resp["id"] == 3
     tools = resp["result"]["tools"]
-    assert len(tools) == 14
+    assert len(tools) == 17
 
     tool_names = [t["name"] for t in tools]
     expected_tools = [
@@ -114,9 +114,12 @@ def test_unified_mcp_tools_list(mcp_server):
         "osint_extract_article_content",
         # Quant tools (1)
         "quant_compute_anomalies",
-        # Memory tools (2)
+        # Memory tools (5)
         "memory_recall_context",
         "memory_store_observation",
+        "memory_find_connection",
+        "memory_get_graph_stats",
+        "memory_export_graph_html",
     ]
     for expected in expected_tools:
         assert expected in tool_names, f"Missing tool: {expected}"
@@ -247,6 +250,50 @@ def test_unified_mcp_memory_tool_calls(mcp_server):
     assert len(recall_data["edges"]) >= 1
     assert recall_data["edges"][0]["relation"] == "OPERATES"
 
+    # 3. Find connection
+    conn_req = {
+        "jsonrpc": "2.0",
+        "id": 91,
+        "method": "tools/call",
+        "params": {
+            "name": "memory_find_connection",
+            "arguments": {"source_entity": "ANTM", "target_entity": "Smelter Haltim"},
+        },
+    }
+    conn_resp = mcp_server.handle_request(conn_req)
+    assert conn_resp["id"] == 91
+    conn_data = json.loads(conn_resp["result"]["content"][0]["text"])
+    assert conn_data["path_found"] is True
+    assert conn_data["hops"] >= 1
+
+    # 4. Get graph stats
+    stats_req = {
+        "jsonrpc": "2.0",
+        "id": 92,
+        "method": "tools/call",
+        "params": {"name": "memory_get_graph_stats", "arguments": {}},
+    }
+    stats_resp = mcp_server.handle_request(stats_req)
+    assert stats_resp["id"] == 92
+    stats_data = json.loads(stats_resp["result"]["content"][0]["text"])
+    assert stats_data["total_nodes"] >= 2
+    assert stats_data["total_edges"] >= 1
+
+    # 5. Export graph HTML
+    export_req = {
+        "jsonrpc": "2.0",
+        "id": 93,
+        "method": "tools/call",
+        "params": {
+            "name": "memory_export_graph_html",
+            "arguments": {"output_path": "/tmp/test_mcp_graph.html"},
+        },
+    }
+    export_resp = mcp_server.handle_request(export_req)
+    assert export_resp["id"] == 93
+    export_data = json.loads(export_resp["result"]["content"][0]["text"])
+    assert export_data["status"] == "EXPORTED"
+
 
 def test_unified_mcp_resources(mcp_server):
     # List resources
@@ -254,10 +301,11 @@ def test_unified_mcp_resources(mcp_server):
     list_resp = mcp_server.handle_request(list_req)
     assert list_resp["id"] == 10
     resources = list_resp["result"]["resources"]
-    assert len(resources) == 2
+    assert len(resources) == 3
     uris = [r["uri"] for r in resources]
     assert "niskava://status" in uris
     assert "niskava://cache-stats" in uris
+    assert "niskava://graph-stats" in uris
 
     # Read status resource
     read_req1 = {
@@ -286,6 +334,21 @@ def test_unified_mcp_resources(mcp_server):
     assert content2["uri"] == "niskava://cache-stats"
     cache_data = json.loads(content2["text"])
     assert "sectors_cache_total" in cache_data
+
+    # Read graph-stats resource
+    read_req3 = {
+        "jsonrpc": "2.0",
+        "id": 121,
+        "method": "resources/read",
+        "params": {"uri": "niskava://graph-stats"},
+    }
+    read_resp3 = mcp_server.handle_request(read_req3)
+    assert read_resp3["id"] == 121
+    content3 = read_resp3["result"]["contents"][0]
+    assert content3["uri"] == "niskava://graph-stats"
+    graph_data = json.loads(content3["text"])
+    assert "total_nodes" in graph_data
+    assert "total_edges" in graph_data
 
 
 def test_unified_mcp_prompts(mcp_server):

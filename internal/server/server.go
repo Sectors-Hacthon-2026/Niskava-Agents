@@ -214,7 +214,66 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		}
 	})
 
-	// 5. Interactive AI Assistant Web Workspace
+	// 5. Memory Graph JSON endpoint
+	mux.HandleFunc("/api/graph", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+
+		sessionID := r.URL.Query().Get("session_id")
+		nodes, edges, err := database.GetMemoryGraph(sessionID)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+			return
+		}
+
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"session_id":  sessionID,
+			"total_nodes": len(nodes),
+			"total_edges": len(edges),
+			"nodes":       nodes,
+			"edges":       edges,
+		})
+	})
+
+	// 6. Interactive Memory Graph View endpoint (serves full Cyber-OSINT visualizer)
+	mux.HandleFunc("/graph", func(w http.ResponseWriter, r *http.Request) {
+		pythonBin := "python3"
+		localVenv := filepath.Join(".venv", "bin", "python3")
+		if _, err := os.Stat(localVenv); err == nil {
+			pythonBin = localVenv
+		}
+
+		dbPath := filepath.Join(os.Getenv("HOME"), ".niskava", "niskava.db")
+		if customDB := os.Getenv("NISKAVA_DB_PATH"); customDB != "" {
+			dbPath = customDB
+		}
+
+		sessionID := r.URL.Query().Get("session_id")
+		tmpFile := filepath.Join(os.TempDir(), fmt.Sprintf("niskava_graph_%d.html", time.Now().UnixNano()))
+
+		args := []string{"-m", "engine.runner", "--db-path", dbPath, "--export-graph-html", tmpFile}
+		if sessionID != "" {
+			args = append(args, "--session", sessionID)
+		}
+
+		wd, _ := os.Getwd()
+		cmd := exec.CommandContext(r.Context(), pythonBin, args...)
+		cmd.Dir = wd
+		cmd.Env = append(os.Environ(), "PYTHONPATH="+wd)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to generate graph visualization: %v\nOutput: %s", err, string(out)), http.StatusInternalServerError)
+			return
+		}
+
+		defer os.Remove(tmpFile)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		http.ServeFile(w, r, tmpFile)
+	})
+
+	// 7. Interactive AI Assistant Web Workspace
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -297,6 +356,15 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
             <button class="prompt-chip" onclick="sendPrompt(this.innerText)">Apakah ada anomali transaksi asing di BBCA minggu ini?</button>
             <button class="prompt-chip" onclick="sendPrompt(this.innerText)">Cari keterbukaan informasi dan katalis saham BUMI</button>
             <button class="prompt-chip" onclick="sendPrompt(this.innerText)">Bandingkan pergerakan saham nikel INCO dan ANTM</button>
+        </div>
+
+        <div class="section-title">Visualisasi Graf Memori</div>
+        <div style="margin-bottom: 20px;">
+            <a href="/graph" target="_blank" style="text-decoration:none;">
+                <button class="prompt-chip" style="width:100%%; border-color:var(--accent); color:var(--accent); font-weight:700; background:rgba(0, 229, 255, 0.08);">
+                    🕸️ Buka Knowledge Graph
+                </button>
+            </a>
         </div>
 
         <div class="section-title" style="margin-top: auto;">Sistem & Persistensi</div>

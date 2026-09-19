@@ -19,6 +19,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
+from engine.memory.graph_memory import LocalGraphMemory
 from engine.osint.harvester import DualEngineOSINTHarvester, OSINTItem
 from engine.quant.anomaly import AnomalyResult, detect_historical_anomalies
 from engine.sectors.client import SectorsAPIClient
@@ -381,5 +382,17 @@ class InvestigationPipeline:
                         )
 
                 conn.commit()
+
+            # Deterministic post-investigation recording into local graph memory (Law 1, Law 6)
+            try:
+                mem = LocalGraphMemory(db_path=self.db_path)
+                mem.record_investigation(
+                    session_id=session_id,
+                    ticker=ticker,
+                    anomalies=anomalies,
+                    findings=findings,
+                )
+            except Exception:
+                pass
         except sqlite3.Error:
             pass

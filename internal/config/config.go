@@ -19,6 +19,7 @@ type Config struct {
 	Engine      EngineConfig      `yaml:"engine"`
 	Server      ServerConfig      `yaml:"server"`
 	Preferences PreferencesConfig `yaml:"preferences"`
+	Memory      MemoryConfig      `yaml:"memory"`
 }
 
 // AuthConfig stores API keys and model parameters for external services.
@@ -58,6 +59,14 @@ type PreferencesConfig struct {
 	OfflineMode   bool   `yaml:"offline_mode"`
 }
 
+// MemoryConfig configures the local conversational graph memory engine.
+type MemoryConfig struct {
+	Enabled          bool    `yaml:"enabled"`
+	DecayLambda      float64 `yaml:"decay_lambda"`
+	EgoRadius        int     `yaml:"ego_radius"`
+	MaxContextTokens int     `yaml:"max_context_tokens"`
+}
+
 // DefaultConfig returns safe baseline configuration values.
 func DefaultConfig() *Config {
 	homeDir, _ := os.UserHomeDir()
@@ -90,6 +99,12 @@ func DefaultConfig() *Config {
 		Preferences: PreferencesConfig{
 			DefaultMarket: "IDX",
 			OfflineMode:   false,
+		},
+		Memory: MemoryConfig{
+			Enabled:          true,
+			DecayLambda:      0.05,
+			EgoRadius:        2,
+			MaxContextTokens: 300,
 		},
 	}
 }

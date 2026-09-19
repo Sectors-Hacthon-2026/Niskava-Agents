@@ -48,6 +48,7 @@ def main() -> None:
     parser.add_argument("--session", default=None, help="Session ID (e.g. INV-2026-0042)")
     parser.add_argument("--db-path", default="~/.niskava/niskava.db", help="Path to local SQLite DB")
     parser.add_argument("--offline", action="store_true", help="Force offline mock mode")
+    parser.add_argument("--export-graph-html", default=None, help="Export graph HTML to specified path")
 
     args = parser.parse_args()
 
@@ -62,6 +63,17 @@ def main() -> None:
             db_path=args.db_path,
             mock_mode=mock_mode,
         )
+        if args.export_graph_html:
+            from engine.memory.visualizer import GraphVisualizer
+            viz = GraphVisualizer(memory=registry.memory)
+            saved = viz.export_to_file(output_path=args.export_graph_html, session_id=args.session)
+            emit_jsonl({
+                "event": "graph_exported",
+                "session_id": args.session or "ALL",
+                "file_path": saved,
+            })
+            return
+
         agent = NiskavaReActAgent(
             tool_registry=registry,
             emitter=emit_jsonl,

@@ -110,3 +110,55 @@ func TestChatMessagesPersistence(t *testing.T) {
 		t.Errorf("expected thought '%s', got %v", thought, history[1].Thought)
 	}
 }
+
+func TestMemoryGraphPersistenceAndClear(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_mem_graph.db")
+
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	// Seed nodes, investigation, and edges directly
+	_, err = database.conn.Exec(`
+		INSERT INTO investigations (id, ticker, market, timeframe_days, status, started_at)
+		VALUES ('S1', 'ANTM', 'IDX', 30, 'COMPLETED', CURRENT_TIMESTAMP);
+		INSERT INTO memory_nodes (id, label, node_type, last_observed_at)
+		VALUES ('ticker:antm', 'ANTM', 'TICKER', '2026-09-18T10:00:00Z'),
+		       ('user:default', 'User', 'USER', '2026-09-18T10:00:00Z');
+		INSERT INTO memory_edges (source_id, target_id, relation, weight, session_id, last_observed_at)
+		VALUES ('user:default', 'ticker:antm', 'INVESTIGATED', 1.0, 'S1', '2026-09-18T10:00:00Z');
+	`)
+	if err != nil {
+		t.Fatalf("failed to seed memory records: %v", err)
+	}
+
+	// 1. GetMemoryGraph
+	nodes, edges, err := database.GetMemoryGraph("")
+	if err != nil {
+		t.Fatalf("failed to get memory graph: %v", err)
+	}
+	if len(nodes) != 2 || len(edges) != 1 {
+		t.Errorf("expected 2 nodes and 1 edge, got %d nodes and %d edges", len(nodes), len(edges))
+	}
+	if edges[0].Relation != "INVESTIGATED" {
+		t.Errorf("expected relation INVESTIGATED, got %s", edges[0].Relation)
+	}
+
+	// 2. Clear by session
+	if err := database.ClearMemoryGraph("S1"); err != nil {
+		t.Fatalf("failed to clear memory graph for session S1: %v", err)
+	}
+	nodesAfter, edgesAfter, err := database.GetMemoryGraph("")
+	if err != nil {
+		t.Fatalf("failed to get memory graph after clear: %v", err)
+	}
+	if len(edgesAfter) != 0 {
+		t.Errorf("expected 0 edges after clear, got %d", len(edgesAfter))
+	}
+	if len(nodesAfter) != 0 {
+		t.Errorf("expected 0 orphaned nodes after clear, got %d", len(nodesAfter))
+	}
+}

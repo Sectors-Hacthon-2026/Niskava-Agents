@@ -9,6 +9,7 @@ Complies strictly with:
 import os
 from typing import Any, Callable, Dict, List, Optional
 
+from engine.memory.graph_memory import LocalGraphMemory
 from engine.osint.harvester import DualEngineOSINTHarvester, OSINTItem
 from engine.quant.anomaly import AnomalyResult, detect_historical_anomalies
 from engine.sectors.client import SectorsAPIClient
@@ -25,6 +26,7 @@ class NiskavaToolRegistry:
         osint_harvester: Optional[DualEngineOSINTHarvester] = None,
         mock_mode: Optional[bool] = None,
         skills_registry: Optional[SkillsRegistry] = None,
+        memory: Optional[LocalGraphMemory] = None,
     ):
         self.db_path = os.path.expanduser(db_path)
         self.mock_mode = mock_mode
@@ -35,6 +37,7 @@ class NiskavaToolRegistry:
             mock_mode=self.mock_mode
         )
         self.skills_registry = skills_registry or SkillsRegistry()
+        self.memory = memory or LocalGraphMemory(db_path=self.db_path)
 
     def execute_skill(self, skill_id: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a Layer 3 Domain Skill and return structured findings dict."""
@@ -115,6 +118,60 @@ class NiskavaToolRegistry:
             sectors_news_items=sectors_news,
         )
         return [item.model_dump() for item in items]
+
+    def memory_recall_context(
+        self,
+        query_entity: str,
+        radius: int = 2,
+    ) -> Dict[str, Any]:
+        """Recall associative past memories and observations around an entity from local graph."""
+        res = self.memory.retrieve_ego_subgraph(entity_query=query_entity, radius=radius)
+        return {
+            "query": res["query"],
+            "nodes_found": len(res["nodes"]),
+            "nodes": res["nodes"],
+            "edges": res["edges"],
+        }
+
+    def memory_store_observation(
+        self,
+        source_label: str,
+        relation: str,
+        target_label: str,
+        source_type: str = "TICKER",
+        target_type: str = "ENTITY",
+        context_snippet: str = "",
+        session_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Store a new observed relation between two entities into local graph memory."""
+        return self.memory.store_observation(
+            source_label=source_label,
+            relation=relation,
+            target_label=target_label,
+            source_type=source_type,
+            target_type=target_type,
+            context_snippet=context_snippet,
+            session_id=session_id,
+        )
+
+    def memory_find_connection(
+        self,
+        source_entity: str,
+        target_entity: str,
+    ) -> Dict[str, Any]:
+        """Find the shortest connection path between two entities in the knowledge graph."""
+        path = self.memory.find_shortest_path(source_entity, target_entity)
+        return {
+            "source": source_entity,
+            "target": target_entity,
+            "path_found": path is not None,
+            "hops": len(path) - 1 if path else 0,
+            "path": path or [],
+        }
+
+    def memory_get_graph_stats(self) -> Dict[str, Any]:
+        """Get summary graph topological statistics and top central entities."""
+        return self.memory.get_graph_stats()
 
     def get_tool_definitions(self) -> List[Dict[str, Any]]:
         """Return JSON-schema compatible tool definitions for LLM function calling."""
@@ -243,6 +300,44 @@ class NiskavaToolRegistry:
                     "required": ["ticker"],
                 },
             },
+            {
+                "name": "memory_recall_context",
+                "description": "Ambil konteks masa lalu dan relasi graf memori lokal untuk suatu entitas/ticker pasar modal.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query_entity": {"type": "string", "description": "Nama entitas atau ticker saham yang dicari (contoh: ANTM)"},
+                        "radius": {"type": "integer", "description": "Kedalaman hop penelusuran Ego-Graph (default 2)", "default": 2},
+                    },
+                    "required": ["query_entity"],
+                },
+            },
+            {
+                "name": "memory_store_observation",
+                "description": "Simpan observasi relasi baru ke dalam basis data graf memori lokal.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "source_label": {"type": "string", "description": "Label entitas asal"},
+                        "relation": {"type": "string", "description": "Relasi/predikat penghubung (misal: HOLDS_AT, OPERATES)"},
+                        "target_label": {"type": "string", "description": "Label entitas tujuan"},
+                        "context_snippet": {"type": "string", "description": "Kutipan atau konteks bukti"},
+                    },
+                    "required": ["source_label", "relation", "target_label"],
+                },
+            },
+            {
+                "name": "memory_find_connection",
+                "description": "Lacak rute hubungan terpendek (shortest path) antara dua entitas pasar untuk menemukan keterkaitan tersembunyi.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "source_entity": {"type": "string", "description": "Entitas pertama (contoh: ANTM)"},
+                        "target_entity": {"type": "string", "description": "Entitas kedua (contoh: BBCA)"},
+                    },
+                    "required": ["source_entity", "target_entity"],
+                },
+            },
         ]
         # Append Layer 3 Domain Skills tool definitions
         definitions.extend(self.skills_registry.get_all_tool_definitions())
@@ -333,6 +428,24 @@ class NiskavaToolRegistry:
                 ticker=ticker,
                 company_name=args.get("company_name"),
             ),
+            "memory_recall_context": lambda args: self.memory_recall_context(
+                query_entity=args.get("query_entity", ticker),
+                radius=int(args.get("radius", 2)),
+            ),
+            "memory_store_observation": lambda args: self.memory_store_observation(
+                source_label=args.get("source_label", ""),
+                relation=args.get("relation", ""),
+                target_label=args.get("target_label", ""),
+                source_type=args.get("source_type", "TICKER"),
+                target_type=args.get("target_type", "ENTITY"),
+                context_snippet=args.get("context_snippet", ""),
+                session_id=args.get("session_id"),
+            ),
+            "memory_find_connection": lambda args: self.memory_find_connection(
+                source_entity=args.get("source_entity", ""),
+                target_entity=args.get("target_entity", ""),
+            ),
+            "memory_get_graph_stats": lambda args: self.memory_get_graph_stats(),
         }
 
         handler = handlers.get(tool_name)

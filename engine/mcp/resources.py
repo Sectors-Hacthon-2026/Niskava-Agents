@@ -26,6 +26,12 @@ def get_resource_definitions() -> List[Dict[str, Any]]:
             "description": "Statistik jumlah entri cache lokal di sectors_cache untuk audit disiplin kredit.",
             "mimeType": "application/json",
         },
+        {
+            "uri": "niskava://graph-stats",
+            "name": "Local Conversational Graph Memory Statistics",
+            "description": "Statistik topologi graf memori percakapan, jumlah simpul entitas, relasi, dan entitas sentral.",
+            "mimeType": "application/json",
+        },
     ]
 
 
@@ -72,5 +78,15 @@ def read_resource(
             return {"error": str(exc)}
         finally:
             conn.close()
+
+    if uri == "niskava://graph-stats":
+        from engine.memory.graph_memory import LocalGraphMemory
+        mem = LocalGraphMemory(db_path=db_path)
+        stats = mem.get_graph_stats()
+        return {
+            "status": "OK",
+            "database_path": db_path,
+            **stats,
+        }
 
     raise ValueError(f"Resource not found: {uri}")

@@ -77,6 +77,7 @@ type SlashCommand struct {
 var defaultSlashCommands = []SlashCommand{
 	{Command: "/help", Description: "Panduan lengkap perintah & instruksi sistem"},
 	{Command: "/reset", Description: "Mulai sesi obrolan baru & bersihkan memory graph"},
+	{Command: "/graph", Description: "Buka visualisasi Cyber-OSINT Knowledge Graph di browser"},
 	{Command: "/clear", Description: "Bersihkan layar terminal & tampilkan ulang banner HUD"},
 	{Command: "/web", Description: "Buka dashboard visual Web Workspace di browser"},
 	{Command: "/sessions", Description: "Inspeksi riwayat sesi investigasi & audit trail dari SQLite"},
@@ -295,8 +296,18 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 		}
 
 		if lower == "/reset" {
+			if appDB != nil {
+				_ = appDB.ClearMemoryGraph()
+			}
 			sessionID = fmt.Sprintf("CHAT-%s-%04d", time.Now().Format("20060102"), time.Now().Unix()%10000)
-			fmt.Printf("\n[✓] Sesi direset. Sesi percakapan baru: %s\n", sessionID)
+			fmt.Printf("\n[✓] Sesi direset dan memory graph dibersihkan. Sesi percakapan baru: %s\n", sessionID)
+			continue
+		}
+
+		if lower == "/graph" {
+			graphURL := fmt.Sprintf("%s/graph", serverURL)
+			fmt.Printf("Membuka visualisasi Memory Knowledge Graph di browser (%s)...\n", graphURL)
+			_ = server.OpenBrowser(graphURL)
 			continue
 		}
 
@@ -481,7 +492,8 @@ func printHelp() {
 	fmt.Println("\nDAFTAR PERINTAH NISKAVA LIVE ASSISTANT:")
 	fmt.Println("  <PROMPT BEBAS>       Tanyakan pertanyaan riset pasar saham (contoh: 'Kenapa saham ANTM naik kemarin?')")
 	fmt.Println("  <KODE EMITEN>        Ketik langsung 4 huruf kode emiten untuk analisis cepat (contoh: ANTM, BBCA, BUMI)")
-	fmt.Println("  /reset               Mulai sesi percakapan baru (bersihkan konteks obrolan)")
+	fmt.Println("  /graph               Buka visualisasi Cyber-OSINT Knowledge Graph di browser")
+	fmt.Println("  /reset               Mulai sesi percakapan baru & bersihkan memory graph")
 	fmt.Println("  /sessions            Lihat riwayat sesi investigasi & audit trail dari SQLite lokal")
 	fmt.Println("  /web                 Buka dashboard visual Web Workspace di browser")
 	fmt.Println("  /health              Periksa status database, API keys, dan provider AI")
