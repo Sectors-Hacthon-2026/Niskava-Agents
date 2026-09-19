@@ -22,12 +22,15 @@ test-go:
 test-python:
 	PYTHONPATH=. .venv/bin/pytest tests/
 
+test-mcp:
+	PYTHONPATH=. .venv/bin/pytest tests/test_unified_mcp_server.py tests/test_sectors_mcp_server.py -v
+
 lint:
 	go vet ./...
 	gofmt -s -l internal/ cmd/
-	PYTHONPATH=. .venv/bin/python3 -m py_compile engine/*.py engine/*/*.py
+	PYTHONPATH=. .venv/bin/python3 -m py_compile engine/*.py engine/*/*.py engine/*/*/*.py
 
 clean:
 	rm -rf bin/
-	rm -rf __pycache__ engine/__pycache__ engine/*/__pycache__
+	rm -rf __pycache__ engine/__pycache__ engine/*/__pycache__ engine/*/*/__pycache__
 	rm -rf .pytest_cache tests/__pycache__
