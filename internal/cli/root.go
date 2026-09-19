@@ -55,8 +55,9 @@ and qualitative market disclosures/news.`,
 
 		hasAPIKey := cfg.Auth.SectorsAPIKey != "" || cfg.Auth.GeminiAPIKey != "" || cfg.Auth.OpenAIAPIKey != ""
 		for {
+			fmt.Print("\033[H\033[2J")
 			launcher := tui.NewLauncherModelWithHealth(srv.URL, "v1.0.0", hasAPIKey)
-			p := tea.NewProgram(launcher)
+			p := tea.NewProgram(launcher, tea.WithAltScreen())
 			m, err := p.Run()
 			if err != nil {
 				return fmt.Errorf("launcher error: %w", err)
