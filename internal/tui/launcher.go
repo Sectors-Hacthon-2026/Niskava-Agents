@@ -223,8 +223,7 @@ func (m LauncherModel) View() string {
 
 	var b strings.Builder
 
-	// 1. ASCII Art Banner: NISKAVA (PRD Spec 5.1)
-	b.WriteString("\n")
+	// 1. ASCII Art Banner: NISKAVA
 	asciiLines := []string{
 		"███╗   ██╗██╗███████╗██╗  ██╗██████╗  ██╗   ██╗██████╗ ",
 		"████╗  ██║██║██╔════╝██║ ██╔╝██╔══██╗ ██║   ██║██╔══██╗",
@@ -244,53 +243,45 @@ func (m LauncherModel) View() string {
 
 	tagline := "Multi-Interface AI Agent Runtime"
 	if noColor {
-		b.WriteString("  " + tagline + "\n\n")
+		b.WriteString("  " + tagline + "\n")
 	} else {
-		b.WriteString("  " + taglineStyle.Render(tagline) + "\n\n")
+		b.WriteString("  " + taglineStyle.Render(tagline) + "\n")
 	}
 
-	// 2. Solid Muted Green Separator (PRD Spec 5.2)
+	// 2. Solid Muted Green Separator
 	sepWidth := 78
 	solidLine := strings.Repeat("─", sepWidth)
 	if noColor {
-		b.WriteString("  " + solidLine + "\n\n")
+		b.WriteString("  " + solidLine + "\n")
 	} else {
-		b.WriteString("  " + accentBarStyle.Render("▍") + separatorLineStyle.Render(solidLine) + "\n\n")
+		b.WriteString("  " + accentBarStyle.Render("▍") + separatorLineStyle.Render(solidLine) + "\n")
 	}
 
-	// 3. Menu Items List with Shortcuts & Descriptions (PRD Spec 5.3)
+	// 3. Compact Menu Items List (Only active item displays description to fit within 24-line terminal)
 	for i, item := range m.Items {
 		isActive := i == m.Cursor
-
-		cursor := "  "
-		if isActive {
-			cursor = "▶ "
-		}
-
 		shortcutStr := fmt.Sprintf("[%s]", item.ShortcutKey)
 
 		if noColor {
 			if isActive {
-				b.WriteString(fmt.Sprintf("%s%s  %-35s\n", cursor, shortcutStr, item.Title))
-				b.WriteString(fmt.Sprintf("     %s\n\n", item.Description))
+				b.WriteString(fmt.Sprintf("▶ %s  %-35s\n", shortcutStr, item.Title))
+				b.WriteString(fmt.Sprintf("     %s\n", item.Description))
 			} else {
 				b.WriteString(fmt.Sprintf("  %s  %-35s\n", shortcutStr, item.Title))
-				b.WriteString(fmt.Sprintf("     %s\n\n", item.Description))
 			}
 		} else {
 			if isActive {
-				cursorR := cursorIndicatorStyle.Render(cursor)
+				cursorR := cursorIndicatorStyle.Render("▶ ")
 				scR := shortcutKeyActiveStyle.Render(shortcutStr)
 				titleR := itemTitleActiveStyle.Render(fmt.Sprintf(" %-40s", item.Title))
 				descR := itemDescStyle.Render(fmt.Sprintf("     %s", item.Description))
 
-				b.WriteString(fmt.Sprintf("%s%s %s\n%s\n\n", cursorR, scR, titleR, descR))
+				b.WriteString(fmt.Sprintf("%s%s %s\n%s\n", cursorR, scR, titleR, descR))
 			} else {
 				scR := shortcutKeyInactiveStyle.Render(shortcutStr)
 				titleR := itemTitleInactiveStyle.Render(item.Title)
-				descR := itemDescStyle.Render(fmt.Sprintf("     %s", item.Description))
 
-				b.WriteString(fmt.Sprintf("  %s  %s\n%s\n\n", scR, titleR, descR))
+				b.WriteString(fmt.Sprintf("  %s  %s\n", scR, titleR))
 			}
 		}
 	}
@@ -302,7 +293,7 @@ func (m LauncherModel) View() string {
 		b.WriteString("  " + accentBarStyle.Render("▍") + separatorLineStyle.Render(solidLine) + "\n")
 	}
 
-	// 5. Persistent Status Bar (PRD Spec 5.4)
+	// 5. Persistent Status Bar
 	serverHost := strings.TrimPrefix(m.ServerURL, "http://")
 	serverHost = strings.TrimPrefix(serverHost, "https://")
 	if serverHost == "" {
@@ -341,9 +332,9 @@ func (m LauncherModel) View() string {
 	)
 
 	if noColor {
-		b.WriteString("\n" + statusContent + "\n\n")
+		b.WriteString(statusContent + "\n")
 	} else {
-		b.WriteString("\n" + statusBarBgStyle.Render(statusContent) + "\n\n")
+		b.WriteString(statusBarBgStyle.Render(statusContent) + "\n")
 	}
 
 	return b.String()
