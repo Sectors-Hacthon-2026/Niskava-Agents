@@ -16,15 +16,17 @@ import (
 type EventType string
 
 const (
-	EventSessionStart     EventType = "session_start"
-	EventProgressStep     EventType = "progress_step"
-	EventAnomalyDetected  EventType = "anomaly_detected"
-	EventFindingEmitted   EventType = "finding_emitted"
-	EventSessionComplete  EventType = "session_complete"
-	EventSessionError     EventType = "session_error"
-	EventAgentThought     EventType = "agent_thought"
-	EventAgentToolCall    EventType = "agent_tool_call"
-	EventAgentObservation EventType = "agent_observation"
+	EventSessionStart         EventType = "session_start"
+	EventProgressStep         EventType = "progress_step"
+	EventAnomalyDetected      EventType = "anomaly_detected"
+	EventFindingEmitted       EventType = "finding_emitted"
+	EventSessionComplete      EventType = "session_complete"
+	EventSessionError         EventType = "session_error"
+	EventAgentThought         EventType = "agent_thought"
+	EventAgentToolCall        EventType = "agent_tool_call"
+	EventAgentObservation     EventType = "agent_observation"
+	EventAgentMessageChunk    EventType = "agent_message_chunk"
+	EventAgentMessageComplete EventType = "agent_message_complete"
 )
 
 // Event represents a generic JSON Lines IPC payload.
@@ -37,6 +39,8 @@ type Event struct {
 	Thought          string                 `json:"thought,omitempty"`
 	Tool             string                 `json:"tool,omitempty"`
 	Args             map[string]interface{} `json:"args,omitempty"`
+	Content          string                 `json:"content,omitempty"`
+	Chunk            string                 `json:"chunk,omitempty"`
 	Stage            string                 `json:"stage,omitempty"`
 	StepIndex        int                    `json:"step_index,omitempty"`
 	TotalSteps       int                    `json:"total_steps,omitempty"`
@@ -73,6 +77,7 @@ type RunnerParams struct {
 	Days       int
 	SessionID  string
 	Offline    bool
+	Prompt     string
 }
 
 // RunSubprocess spawns the Python runner and returns a channel of streaming events.
@@ -91,9 +96,16 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 
 		args := []string{
 			"-m", "engine.runner",
-			"--ticker", params.Ticker,
-			"--days", fmt.Sprintf("%d", params.Days),
 			"--db-path", params.DBPath,
+		}
+		if params.Prompt != "" {
+			args = append(args, "--prompt", params.Prompt)
+		}
+		if params.Ticker != "" {
+			args = append(args, "--ticker", params.Ticker)
+		}
+		if params.Days > 0 {
+			args = append(args, "--days", fmt.Sprintf("%d", params.Days))
 		}
 		if params.SessionID != "" {
 			args = append(args, "--session", params.SessionID)

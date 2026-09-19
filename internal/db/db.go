@@ -103,6 +103,16 @@ CREATE TABLE IF NOT EXISTS memory_edges (
     PRIMARY KEY (source_id, target_id, relation)
 );
 
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    thought TEXT,
+    tool_calls_json TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_investigations_ticker ON investigations(ticker);
 CREATE INDEX IF NOT EXISTS idx_investigations_status ON investigations(status);
 CREATE INDEX IF NOT EXISTS idx_anomalies_inv_id ON anomalies(investigation_id);
@@ -112,6 +122,7 @@ CREATE INDEX IF NOT EXISTS idx_timeline_inv_id ON timeline_events(investigation_
 CREATE INDEX IF NOT EXISTS idx_sectors_cache_endpoint ON sectors_cache(endpoint);
 CREATE INDEX IF NOT EXISTS idx_memory_edges_source ON memory_edges(source_id);
 CREATE INDEX IF NOT EXISTS idx_memory_edges_target ON memory_edges(target_id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
 `
 
 // DB wraps the SQL database pool and provides high-level domain operations.
@@ -297,4 +308,61 @@ func (d *DB) ListFindingsByInvestigation(invID string) ([]Finding, error) {
 		results = append(results, f)
 	}
 	return results, nil
+}
+
+// ChatMessage represents a single conversational turn in a research session.
+type ChatMessage struct {
+	ID            string  `json:"id"`
+	SessionID     string  `json:"session_id"`
+	Role          string  `json:"role"` // "user", "assistant", "system", "tool"
+	Content       string  `json:"content"`
+	Thought       *string `json:"thought,omitempty"`
+	ToolCallsJSON *string `json:"tool_calls_json,omitempty"`
+	CreatedAt     string  `json:"created_at"`
+}
+
+// SaveChatMessage records a user or assistant message to SQLite.
+func (d *DB) SaveChatMessage(msg *ChatMessage) error {
+	query := `
+		INSERT INTO chat_messages (id, session_id, role, content, thought, tool_calls_json, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
+	`
+	var createdAt interface{} = msg.CreatedAt
+	if msg.CreatedAt == "" {
+		createdAt = nil
+	}
+	_, err := d.conn.Exec(query, msg.ID, msg.SessionID, msg.Role, msg.Content, msg.Thought, msg.ToolCallsJSON, createdAt)
+	if err != nil {
+		return fmt.Errorf("failed to save chat message: %w", err)
+	}
+	return nil
+}
+
+// GetChatHistory retrieves messages for a specific session ordered chronologically.
+func (d *DB) GetChatHistory(sessionID string, limit int) ([]ChatMessage, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	query := `
+		SELECT id, session_id, role, content, thought, tool_calls_json, created_at
+		FROM chat_messages
+		WHERE session_id = ?
+		ORDER BY created_at ASC
+		LIMIT ?
+	`
+	rows, err := d.conn.Query(query, sessionID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chat history for session %s: %w", sessionID, err)
+	}
+	defer rows.Close()
+
+	var history []ChatMessage
+	for rows.Next() {
+		var m ChatMessage
+		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.Thought, &m.ToolCallsJSON, &m.CreatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan chat message: %w", err)
+		}
+		history = append(history, m)
+	}
+	return history, nil
 }

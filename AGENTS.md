@@ -11,6 +11,9 @@
 * **Core Motto:** *"Don't just answer questions. Investigate them."*
 * **Competition Target:** [Sectors Hackathon Indonesia 2026](https://hackathon.sectors.app/) — **Track 1: AI Agents & Assistants**.
 * **Primary Persona:** Professional equity analysts, financial journalists, and serious retail swing traders who require rigorous, verifiable evidence rather than speculative commentary.
+* **Dual Interaction Modes:**
+  1. **Interactive Conversational AI Assistant (Hermes-Style REPL & Web Canvas):** Prompt-driven natural language financial research terminal (`niskava` interactive REPL) and web canvas (`niskava serve`). Powered by an autonomous ReAct loop calling deterministic tools with streaming Glamour markdown rendering.
+  2. **Autonomous Headless Pipeline:** Single-command structured audit trail (`niskava investigate <TICKER> --days 30`).
 
 ---
 
@@ -20,7 +23,7 @@ Every AI agent modifying, generating, or refactoring code in this repository MUS
 
 ### Law 1: Deterministic Before Generative (P2 / 02-deterministic-quant-pre-llm)
 * **Rule:** Never allow an LLM to calculate statistics, volume moving averages, Z-scores, abnormal returns, or sector divergence.
-* **Mechanism:** All quantitative indicators MUST be computed deterministically via Python NumPy/Pandas before calling any LLM.
+* **Mechanism:** All quantitative indicators MUST be computed deterministically via Python NumPy/Pandas before calling any LLM. In conversational prompt mode, the agent MUST call the `compute_quant_anomalies` tool rather than estimating numbers or performing mental math.
 * **Rationale:** Eliminates numerical hallucination entirely and preserves precious token budget.
 
 ### Law 2: Strict Financial Non-Advisory Boundary (P3 / 05-strict-financial-non-advisory-boundary / Hackathon Rule 12)
@@ -36,7 +39,7 @@ Every AI agent modifying, generating, or refactoring code in this repository MUS
 * **Mechanism:** The codebase has ZERO trading execution APIs, broker connection libraries, or order-routing dependencies. It is strictly read-only market intelligence.
 
 ### Law 4: Local-First Data Sovereignty (P5 / 04-local-first-sqlite-storage)
-* **Rule:** No centralized cloud database. All user investigation sessions, findings, evidence graphs, and local caches MUST reside locally in `~/.niskava/niskava.db` using SQLite with Write-Ahead Logging (`PRAGMA journal_mode = WAL;`).
+* **Rule:** No centralized cloud database. All user investigation sessions, findings, evidence graphs, chat histories (`chat_messages`), and local caches MUST reside locally in `~/.niskava/niskava.db` using SQLite with Write-Ahead Logging (`PRAGMA journal_mode = WAL;`).
 * **Mechanism:** Go Core uses pure-Go zero-CGO SQLite (`modernc.org/sqlite`); Python uses standard `sqlite3`.
 
 ### Law 5: Credit Budget Discipline & Local Caching (P6 / 03-sectors-v2-and-credit-conservation)
@@ -46,19 +49,20 @@ Every AI agent modifying, generating, or refactoring code in this repository MUS
 
 ### Law 6: Local Conversational Graph Memory Engine (06-local-conversational-graph-memory)
 * **Rule:** Agents must maintain context across multi-day sessions without heavy external graph databases (e.g. Neo4j) or paid cloud vector services.
-* **Mechanism:** Persist associative graph relations in local SQLite (`memory_nodes` and `memory_edges`), load into Python `NetworkX.DiGraph` in-memory, and perform Ego-Graph traversal ($k \le 2$ hops) with exponential recency decay ($e^{-\lambda \Delta t}$).
+* **Mechanism:** Persist associative graph relations in local SQLite (`memory_nodes`, `memory_edges`, and `chat_messages`), load into Python `NetworkX.DiGraph` in-memory, and perform Ego-Graph traversal ($k \le 2$ hops) with exponential recency decay ($e^{-\lambda \Delta t}$).
 
 ---
 
 ## 3. Hybrid Architecture & Component Responsibilities
 
-The codebase follows the Tripartite Hybrid Stack (01-hybrid-stack-go-python-react):
+The codebase follows the Tripartite Hybrid Stack (01-hybrid-stack-go-python-react) powered by a **4-Layer Agentic Hierarchy** in the Python Engine (08-modular-skills-and-mcp-architecture):
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                          GO CORE                            │
 │  - Gateway, Single Executable CLI, REST/SSE Server          │
-│  - Interactive TUI (charmbracelet/bubbletea)                │
+│  - Interactive TUI & REPL (charmbracelet/bubbletea+glamour) │
+│  - Interactive Setup Wizard (`niskava setup`)               │
 │  - Pure-Go SQLite Persistence (modernc.org/sqlite)          │
 │  - Static Web UI Bundler (//go:embed)                       │
 └──────────────────────────────┬──────────────────────────────┘
@@ -66,19 +70,30 @@ The codebase follows the Tripartite Hybrid Stack (01-hybrid-stack-go-python-reac
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    PYTHON AGENT ENGINE                      │
-│  - Deterministic Anomaly Math Engine (NumPy Z-Scores)       │
-│  - Sectors Financial API v2 Client (REST / MCP)             │
-│  - Targeted OSINT Harvester (News, Filings, Web)            │
+│                                                             │
+│  [Layer 4: Cognitive ReAct Loop & Memory Engine]            │
+│  - Autonomous ReAct Agent Loop (Prompt-driven Hermes-style) │
 │  - Local Graph Memory Engine (NetworkX + SQLite)            │
-│  - Evidence Correlation & Temporal Causality Reasoning     │
+│  - Evidence Correlation & Temporal Causality Reasoning      │
+│                              │                              │
+│  [Layer 3: Modular Skills Registry (Domain SOPs)]           │
+│  - market-anomaly-recon, event-causality-audit              │
+│  - insider-bandarmology-forensic, financial-health-stress   │
+│                              │                              │
+│  [Layer 2: Deterministic Compute Gate (NumPy Firewall)]     │
+│  - Anomaly Math: MA20, Z-Scores (Vz, Fz), Abnormal Returns  │
+│                              │                              │
+│  [Layer 1: MCP & OSINT Primitives]                          │
+│  - Sectors Financial API v2 Client & MCP Server Adapter     │
+│  - Dual-Engine Targeted OSINT (Unified News + Google RSS)   │
 └──────────────────────────────┬──────────────────────────────┘
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │               REACT SPA WEB WORKSPACE (Vite)                │
 │  - Visual Cyber-OSINT / Bloomberg Terminal Aesthetic        │
+│  - Conversational AI Assistant Canvas with Live SSE Stream  │
 │  - TradingView / Recharts Candlestick Anomaly Markers       │
-│  - Real-Time Thinking Stream via Server-Sent Events (SSE)   │
 │  - Interactive Evidence Matrix & Timeline Graph             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -150,6 +165,8 @@ When asked to work on specific aspects of the system, navigate directly to these
 |---|---|---|
 | **Hackathon Strategy & Rules** | `docs/10-product/05-hackathon-strategy.md` | `README.md`, `AGENTS.md` |
 | **System Architecture & CLI** | `docs/20-architecture/01-system-overview.md` | `cmd/niskava/`, `internal/cli/` |
+| **Conversational REPL & TUI** | `docs/10-product/03-product-scope-and-surfaces.md` | `internal/tui/`, `engine/agent/react_agent.py` |
+| **Setup Wizard & Configuration** | `docs/20-architecture/01-system-overview.md` | `internal/cli/setup.go` |
 | **SQLite Schema & Persistence** | `docs/20-architecture/02-database-schema.md` | `internal/db/`, `engine/memory/` |
 | **Sectors v2 API Integration** | `docs/20-architecture/03-sectors-v2-api.md` | `engine/sectors/` (or `niskava/sectors/`) |
 | **Quantitative Anomaly Math** | `docs/20-architecture/05-anomaly-detection-math.md` | `engine/quant/` (or `niskava/quant/`) |
@@ -159,5 +176,6 @@ When asked to work on specific aspects of the system, navigate directly to these
 | **Web Workspace & Visual UI** | `docs/10-product/03-product-scope-and-surfaces.md` | `web/src/` |
 | **Security & Regulatory Compliance** | `docs/20-architecture/08-security-and-compliance.md` | `internal/security/` |
 | **Git Workflow & Branch Protection** | `docs/20-architecture/09-git-workflow-and-branching-strategy.md` | Git topology (`dev` -> `main`) |
+| **Modular Skills & MCP Registry** | `docs/30-agent/02-skills-catalog.md`, `docs/90-decisions/08-modular-skills-and-mcp-architecture.md` | `engine/agent/tools.py` |
 | **Architecture Decisions** | `docs/90-decisions/*.md` | Root and sub-packages |
 

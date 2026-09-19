@@ -44,3 +44,29 @@ func TestConfigEnvOverrides(t *testing.T) {
 		t.Errorf("expected offline mode true from MOCK_SECTORS=1")
 	}
 }
+
+func TestLoadDotEnv(t *testing.T) {
+	tempDir := t.TempDir()
+	envPath := filepath.Join(tempDir, ".env")
+	envContent := `
+# Test comment
+TEST_DOTENV_KEY=sectors_secret_val
+TEST_DOTENV_QUOTED="gemini_secret_val"
+`
+	if err := os.WriteFile(envPath, []byte(envContent), 0600); err != nil {
+		t.Fatalf("failed to write test env: %v", err)
+	}
+
+	loadDotEnv(envPath)
+	defer func() {
+		os.Unsetenv("TEST_DOTENV_KEY")
+		os.Unsetenv("TEST_DOTENV_QUOTED")
+	}()
+
+	if os.Getenv("TEST_DOTENV_KEY") != "sectors_secret_val" {
+		t.Errorf("expected sectors_secret_val, got %s", os.Getenv("TEST_DOTENV_KEY"))
+	}
+	if os.Getenv("TEST_DOTENV_QUOTED") != "gemini_secret_val" {
+		t.Errorf("expected gemini_secret_val, got %s", os.Getenv("TEST_DOTENV_QUOTED"))
+	}
+}

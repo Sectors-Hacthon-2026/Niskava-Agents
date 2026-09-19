@@ -9,24 +9,27 @@ Setiap sesi investigasi Niskava Agent dieksekusi melalui 7 tahapan terstruktur y
 
 ---
 
-## 1. Diagram Alur Investigasi
+## 1. Diagram Alur Investigasi & Skill Orchestration
 
 ```text
-1. INITIATION ──▶ 2. SECTORS_BASELINE ──▶ 3. QUANT_ANOMALY
-                                                 │
-                         ┌───────────────────────┴───────────────────────┐
-                         ▼                                               ▼
-             [Anomali Terdeteksi]                              [Tidak Ada Anomali]
-           4. GAP_DETECTION                                   4b. FUNDAMENTAL_ONLY
-                         │                                               │
-                         ▼                                               │
-              5. OSINT_HARVEST                                           │
-                         │                                               │
-                         ▼                                               ▼
-             6. EVIDENCE_CORRELATION ◀───────────────────────────────────┘
-                         │
-                         ▼
-             7. SYNTHESIS_AND_STREAMING (Audit Trail & Reporting)
+[1. INITIATION] ──▶ [2. SECTORS_BASELINE (MCP Tools)] ──▶ [3. QUANT_ANOMALY (NumPy Gate)]
+                                                                    │
+                             ┌──────────────────────────────────────┴──────────────────────────────────────┐
+                             ▼                                                                             ▼
+                 [Anomali Terkonfirmasi]                                                         [Tidak Ada Anomali]
+                 [4. GAP_DETECTION & SKILL ROUTING]                                              [4b. FUNDAMENTAL_ONLY]
+                             │                                                                             │
+         ┌───────────────────┴───────────────────┐                                                         │
+         ▼                                       ▼                                                         │
+[Skill: event-causality-audit]       [Skill: insider-bandarmology]                                         │
+[5. OSINT_HARVEST (Dual Engine)]     [5. FILINGS & BROKER RECON]                                           │
+         │                                       │                                                         │
+         └───────────────────┬───────────────────┘                                                         │
+                             ▼                                                                             │
+                 [6. EVIDENCE_CORRELATION & CAUSALITY] ◀───────────────────────────────────────────────────┘
+                             │
+                             ▼
+                 [7. SYNTHESIS_AND_STREAMING] (Audit Trail, SQLite Persistence, SSE Broadcast)
 ```
 
 ---
@@ -100,3 +103,46 @@ Arsitektur 7-Stage Pipeline dirancang secara khusus untuk memenuhi kriteria eval
 * Menyusun kartu temuan (*findings*), ringkasan naratif, dan timeline kronologis ke dalam database SQLite.
 * Memancarkan event streaming via STDOUT (JSONL) ke Go Core, yang selanjutnya diteruskan ke terminal CLI dan Web Dashboard via Server-Sent Events (SSE).
 * Status sesi diperbarui menjadi `COMPLETED`.
+
+---
+
+## 4. Mode Asisten Percakapan (Prompt-Driven ReAct Loop)
+
+Selain eksekusi batch otomatis (`niskava investigate <TICKER>`), Niskava Agent menyediakan antarmuka asisten riset percakapan (Hermes-style) melalui Terminal REPL dan Web Canvas (`/api/chat`).
+
+### Alur Penalaran ReAct Multi-Turn:
+```text
+User Prompt ("Kenapa volume ANTM melonjak tinggi baru-baru ini?")
+       │
+       ▼
+[ReAct Thought: Ekstraksi Ticker & Hipotesis]
+       │
+       ▼
+[Hukum 1: Panggilan Tool Deterministik NumPy]
+  ▶ Tool: compute_quant_anomalies(symbol="ANTM", days=30)
+  ✔ Observation: Volume Z-Score +3.84σ pada 12 Sep 2026, return +8.25%
+       │
+       ▼
+[Panggilan Tool Data Fundamental & OSINT]
+  ▶ Tool: get_company_report(symbol="ANTM")
+  ▶ Tool: harvest_osint_news(symbol="ANTM", query="ANTM smelter nikel")
+  ✔ Observation: 4 berita terverifikasi terkait smelter Halmahera Timur
+       │
+       ▼
+[Sintesis Berbasis Bukti & Klasifikasi Taksonomi]
+  - Verifikasi: SUPPORTED, UNCERTAIN, CONTRADICTED
+  - Confidence Score Rubrik (1.00, 0.95, 0.85, dst.)
+       │
+       ▼
+[Streaming Markdown via Glamour / Web SSE Canvas]
+```
+
+### Pemetaan Tahapan Pipeline ke Tool ReAct:
+| Tahapan Pipeline Tradisional | Tool Deterministik ReAct | Kepatuhan Invarian |
+|---|---|---|
+| **Stage 2: SECTORS_BASELINE** | `get_daily_candles`, `get_company_report` | Memeriksa cache lokal SQLite sebelum pemanggilan API Sectors (Hukum 5). |
+| **Stage 3: QUANT_ANOMALY** | `compute_quant_anomalies` | **Hukum 1 (Wajib):** Komputasi matematika $Z$-score dan moving average dieksekusi 100% oleh NumPy, bukan oleh LLM. |
+| **Stage 5: OSINT_HARVEST** | `harvest_osint_news` | Sanitasi teks via Trafilatura & isolasi konteks XML `<evidence_context>`. |
+| **Stage 6: EVIDENCE_CORRELATION** | Reasoning Engine ReAct | Menentukan kausalitas temporal tanpa rekomendasi beli/jual (Hukum 2). |
+| **Stage 7: SYNTHESIS** | Response Generator & SQLite Persistence | Menyimpan riwayat obrolan ke tabel `chat_messages` (Hukum 4). |
+

@@ -17,7 +17,7 @@ run: build
 test: test-go test-python
 
 test-go:
-	go test -v ./internal/config ./internal/db ./internal/ipc
+	go test -v ./internal/config ./internal/db ./internal/ipc ./internal/server
 
 test-python:
 	PYTHONPATH=. .venv/bin/pytest tests/

@@ -12,50 +12,67 @@ Kedua antarmuka ditenagai oleh satu binary biner Go yang sama dan membaca databa
 
 ---
 
-## 1. Surface A: Terminal CLI (`niskava`)
+## 1. Surface A: Terminal CLI & Conversational REPL (`niskava`)
 
-Dibangun menggunakan Go (`spf13/cobra` untuk router command dan `charmbracelet/bubbletea` untuk TUI interaktif):
+Dibangun menggunakan Go (`spf13/cobra`, `charmbracelet/bubbletea` untuk TUI interaktif, dan `charmbracelet/glamour` untuk rendering Markdown bergaya Bloomberg Terminal / Cyber-OSINT):
 
 ### Perintah Utama (CLI Commands)
 ```bash
-# Menjalankan investigasi otonom terhadap emiten tertentu
+# 1. Mode Asisten Percakapan Finansial (Hermes-Style REPL & Launcher)
+# Menjalankan interactive launcher dan REPL tanya-jawab bahasa alami
+niskava
+
+# 2. Wizard Konfigurasi Interaktif (Setup Onboarding)
+# Menuntun pembuatan konfigurasi .env (9router, Gemini, Sectors API) dengan live connection test
+niskava setup
+
+# 3. Investigasi Langsung Emiten (Headless 7-Stage Pipeline)
 niskava investigate ANTM --days 30
 
-# Melihat daftar seluruh riwayat sesi investigasi lokal
+# 4. Manajemen Sesi & Riwayat
 niskava sessions
-
-# Menampilkan kembali ringkasan sesi investigasi sebelumnya
 niskava resume INV-2026-0042
 
-# Menjalankan server web dashboard lokal dan membukanya otomatis di browser
+# 5. Menjalankan Server Web Dashboard & AI Assistant Canvas
 niskava serve --port 8080 --open
 
-# Menjalankan investigasi dalam mode offline (menggunakan mock/cache)
+# 6. Mode Offline / Testing
 niskava investigate ANTM --offline
 ```
 
-### Mockup Pengalaman Visual Terminal:
+### Mockup Pengalaman Interaktif Terminal REPL (Hermes Mode):
 ```text
-$ niskava investigate ANTM --days 30
+┌─────────────────────────────────────────────────────────────┐
+│               NISKAVA FINANCIAL AGENT v1.0.0               │
+│      Autonomous IDX Market Intelligence & OSINT REPL        │
+│       Provider: 9router (hermes) | Storage: Local SQLite    │
+└─────────────────────────────────────────────────────────────┘
 
-[●] NISKAVA INVESTIGATOR v1.0.0 — Target: ANTM (PT Aneka Tambang Tbk)
- ├── [1/4] Baseline Data Sectors v2 ............. [OK] 30 hari candle ditarik (Cache Hit)
- ├── [2/4] Deteksi Anomali Kuantitatif ......... [ALERT] Volume surge (3.84σ) pada 12 Sep
- ├── [3/4] Penelusuran OSINT Bertarget ......... [OK] 4 keterbukaan informasi & berita relevan
- └── [4/4] Validasi Bukti & Kausalitas ......... [OK] 3 temuan tervalidasi
+niskava [hermes] > Kenapa saham ANTM volumenya melonjak tinggi baru-baru ini?
 
-─────────────────────────────────────────────────────────────────────────────
-RINGKASAN TEMUAN (AUDIT TRAIL):
-[SUPPORTED]   Lonjakan volume abnormal pada 12 Sep (184.5M lembar vs rata-rata 48.2M).
-              Sumber: Sectors Daily API | Confidence: 1.00
-[SUPPORTED]   Keterbukaan Informasi: Peresmian ekspansi smelter nikel baru di Halmahera Timur.
-              Sumber: IDXnet / Sectors News | Causality: LIKELY_CATALYST | Confidence: 0.94
-[UNCERTAIN]   Spekulasi pasar forum ritel terkait isu divestasi saham oleh induk holding.
-              Sumber: Forum Komunitas (Unverified) | Causality: UNVERIFIED | Confidence: 0.35
+  ● Thought: Pengguna menanyakan anomali lonjakan volume saham ANTM.
+    Sesuai Hukum 1 (Deterministic Before Generative), saya memanggil tool
+    compute_quant_anomalies untuk menghitung statistik deterministik terlebih dahulu.
+  ▶ Tool Call: compute_quant_anomalies(symbol="ANTM", days=30)
+  ✔ Observation: Volume Z-Score 3.84σ (184.5M lembar) terdeteksi pada 12 Sep 2026.
+  ▶ Tool Call: harvest_osint_news(symbol="ANTM", query="ANTM lonjakan volume")
+  ✔ Observation: Ditemukan 4 berita dan keterbukaan informasi smelter Halmahera Timur.
 
-─────────────────────────────────────────────────────────────────────────────
-Sesi investigasi tersimpan sebagai: INV-2026-0042 (~/.niskava/niskava.db)
-Ketik 'niskava serve --open' untuk membuka visual workspace interaktif di browser.
+# Ringkasan Intelijen: Lonjakan Volume ANTM
+
+Berdasarkan investigasi kuantitatif deterministik dan penelusuran OSINT:
+
+* **Deteksi Kuantitatif (Sectors v2):**
+  Pada 12 September 2026, terjadi lonjakan volume abnormal sebesar **184.5M lembar**
+  (rata-rata 20 hari: 48.2M lembar), menghasilkan **Volume Z-Score +3.84σ**
+  dan pergerakan harga abnormal **+8.25%** dengan net buy investor asing **Rp111,3 Miliar**.
+
+* **Korelasi Kausalitas Berita (OSINT):**
+  - `[SUPPORTED]` (Conf: 0.95): Keterbukaan informasi resmi BEI terkait peresmian ekspansi
+    smelter nikel Halmahera Timur dirilis pada 12 September pagi.
+  - `[UNCERTAIN]` (Conf: 0.65): Beredar rumor akuisisi konsesi tambang tambahan di forum ritel.
+
+* **Audit Trail:** Sesi percakapan tersimpan di `~/.niskava/niskava.db`.
 ```
 
 ---
@@ -65,21 +82,25 @@ Ketik 'niskava serve --open' untuk membuka visual workspace interaktif di browse
 Frontend Single Page Application (SPA) modern yang dibangun dengan **Vite + React 18 + Tailwind CSS + shadcn/ui**, dikompilasi ke dalam biner Go menggunakan directive `//go:embed web/dist`.
 
 ### Komponen Kunci Web Dashboard:
-1. **Header & Status Banner**: Menampilkan status koneksi agent, waktu investigasi, ticker aktif, dan tombol ekspor laporan (Markdown / JSON).
-2. **Metrics & Anomaly Strip**: Kartu ringkasan cepat:
+1. **Interactive AI Assistant Canvas (`/api/chat`)**:
+   * Antarmuka percakapan interaktif dengan dukungan Server-Sent Events (SSE) real-time.
+   * Menampilkan kartu *Thinking Step*, *Tool Invocation* (Quant / OSINT), dan *Evidence Synthesis*.
+   * Mempertahankan riwayat multi-turn chat secara persisten melalui SQLite (`chat_messages`).
+2. **Header & Status Banner**: Menampilkan status koneksi agent/model provider, waktu investigasi, ticker aktif, dan tombol ekspor laporan (Markdown / JSON).
+3. **Metrics & Anomaly Strip**: Kartu ringkasan cepat:
    * *Volume $Z$-Score* (misal: `+3.84σ` — Abnormal High)
    * *Abnormal Return* (misal: `+8.25%` vs Sektor `+0.45%`)
    * *Broker Dominance* (misal: Asing Net Buy IDR 84 Miliar)
-3. **Interactive Financial Chart**:
+4. **Interactive Financial Chart**:
    * Menampilkan grafik candlestick harga dan bar volume.
    * Pin anomali visual (*anomaly flag marker*) pada tanggal $T_{anomaly}$ yang dapat diklik untuk menyorot bukti terkait.
-4. **Chronological Event Timeline**:
+5. **Chronological Event Timeline**:
    * Urutan vertikal peristiwa: dari pergerakan volume awal $\rightarrow$ rilis pengumuman bursa $\rightarrow$ pemberitaan media massa $\rightarrow$ penutupan harga.
-5. **Evidence Cards Matrix**:
+6. **Evidence Cards Matrix**:
    * Kartu temuan dengan penanda warna taksonomi:
      * Hijau (`SUPPORTED`): Data resmi Sectors / Pengumuman BEI.
      * Kuning (`UNCERTAIN`): Berita media pihak ketiga atau rumor pasar belum terverifikasi.
      * Merah (`CONTRADICTED`): Narasi yang terbantahkan oleh fakta laporan keuangan.
    * Setiap kartu memiliki tombol *"Lihat Sumber Asli"* dan indikator confidence score.
-6. **Live SSE Terminal Drawer**:
-   * Laci terminal tersembunyi di bagian bawah yang menampilkan stream log penalaran (*thinking steps*) agent secara real-time saat investigasi sedang diproses.
+7. **Live SSE Terminal Drawer**:
+   * Laci terminal interaktif di bagian bawah yang menampilkan stream log penalaran (*thinking steps*) agent secara real-time saat investigasi sedang diproses.

@@ -96,13 +96,13 @@ Untuk memaksimalkan performa, *developer experience*, kapabilitas AI, dan esteti
   * **Local HTTP & SSE Server**: Menyediakan REST API untuk session management dan Server-Sent Events (SSE) untuk streaming *real-time thinking steps* agent.
   * **Local Persistence**: SQLite (`modernc.org/sqlite` murni Go tanpa CGO) untuk menyimpan investigation session, findings, dan evidence graph.
 
-### Komponen 2: Python Agent Engine (AI & Quantitative Core)
-* **Peran**: Otak analisis, eksekutor skills, dan integrasi intelligence.
-* **Fitur Utama**:
-  * **Deterministic Anomaly Detection**: Menghitung anomali teknikal & fundamental secara pasti (moving average breakout, abnormal volume Z-score, deviasi sektoral) sebelum memanggil LLM agar hemat token dan akurat.
-  * **Sectors MCP Integration**: Menjadi *ground truth* data saham IDX (historical prices, financial metrics, valuation, sector peers).
-  * **OSINT & News Harvester**: Menarik berita pasar modal, keterbukaan informasi (IDX/KSEI), dan pengumuman korporasi berdasarkan *timestamp anomaly*.
-  * **Evidence Synthesizer**: Menghubungkan titik-titik data kuantitatif dan narasi berita.
+### Komponen 2: Python Agent Engine (AI, Modular Skills & Quantitative Core)
+* **Peran**: Otak analisis otonom (Hermes/OpenCode style), eksekutor SOP skills, dan integrasi data bursa.
+* **Fitur Utama (Arsitektur 4-Layer)**:
+  * **Layer 4: Cognitive ReAct Loop**: Mengelola alur penalaran bertahap (*Thought* $\to$ *Tool Call* $\to$ *Observation* $\to$ *Synthesis*), pemetaan Ego-Graph memory, dan penyusunan temuan bukti.
+  * **Layer 3: Modular Skills Registry**: Menyediakan SOP analisis terstandarisasi (`market-anomaly-recon`, `event-causality-audit`, `insider-bandarmology-forensic`, `financial-health-stress-test`).
+  * **Layer 2: Deterministic Compute Gate**: Menghitung anomali teknikal & fundamental secara pasti via NumPy (Volume Z-Score, Abnormal Return, Foreign Flow Z-Score) sebelum LLM diaktifkan, memutus halusinasi angka secara total.
+  * **Layer 1: Sectors MCP & Dual-Engine OSINT**: Adapter data bursa terstandarisasi via Sectors MCP dan panen berita/keterbukaan informasi resmi BEI secara terarah pada jendela $T_{\text{anomaly}} \pm 2\text{ hari}$.
 
 ### Komponen 3: Web Dashboard (Vite + React + Tailwind + shadcn/ui)
 * **Peran**: Investigation Workspace visual bergaya *Cyber-OSINT / Bloomberg Terminal*.
