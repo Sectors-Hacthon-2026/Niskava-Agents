@@ -45,6 +45,16 @@ Setiap temuan yang disajikan kepada pengguna wajib memiliki jejak audit (*audit 
 ### P8 — Kontinuitas Akses Offline (Offline Continuity)
 Sesi investigasi yang telah selesai dianalisis dan disimpan di database lokal harus dapat dibuka, dibaca, dan dieksplorasi kembali di CLI maupun Web Dashboard secara penuh tanpa memerlukan koneksi internet aktif.
 
+### P9 — Pemisahan Lapisan Terstandarisasi (MCP Primitives & Modular Skills Separation)
+Agen dilarang memadukan *I/O bursa*, *kalkulasi matematika*, dan *prosedur analisis* ke dalam satu fungsi serba bisa. Sistem wajib mematuhi pemisahan 4-layer:
+1. **MCP Primitives**: Tool I/O standar data bursa (Sectors MCP) dan web scraping.
+2. **Deterministic Compute Gate**: Firewall pemrosesan numerik (NumPy).
+3. **Modular Domain Skills**: Standar Operasional Prosedur (SOP) analisis terisolasi dengan input/output contract yang ketat.
+4. **Cognitive ReAct Agent**: Orkestrator pembuat keputusan, pemanggil tool, dan perangkum bukti.
+
+### P10 — Larangan Dump Data Mentah (Zero Raw Prompt Stuffing)
+Sistem dilarang memasukkan ribuan baris data candlestick atau JSON bursa mentah langsung ke dalam context window LLM. Data mentah wajib diringkas melalui Deterministic Compute Gate menjadi metrik statistik bernilai tinggi ($V_z$, $R_t$, $F_z$, rasio fundamental kunci) sebelum dikonsumsi oleh agen ReAct, guna menjaga integritas konteks dan efisiensi token.
+
 ---
 
 ## 2. Klausul Kepatuhan Hukum & Disclaimer Finansial Wajib
