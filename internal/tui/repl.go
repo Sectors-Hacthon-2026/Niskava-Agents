@@ -51,11 +51,11 @@ var (
 				Foreground(lipgloss.Color("#10B981"))
 
 	replAnomalyBoxStyle = lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("#EF4444")).
-			Foreground(lipgloss.Color("#FCA5A5")).
-			Padding(0, 1).
-			MarginTop(1)
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(lipgloss.Color("#EF4444")).
+				Foreground(lipgloss.Color("#FCA5A5")).
+				Padding(0, 1).
+				MarginTop(1)
 
 	supportedBadgeStyle = lipgloss.NewStyle().
 				Bold(true).
