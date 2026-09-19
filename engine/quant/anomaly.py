@@ -45,6 +45,24 @@ def compute_volume_z_score(
     return mu, sigma, z
 
 
+def compute_foreign_flow_z_score(
+    historical_flows: np.ndarray,
+    current_flow: float
+) -> tuple[float, float, float]:
+    """Compute rolling MA20 foreign inflow baseline and Foreign Flow Z-Score (Fz).
+
+    Returns:
+        tuple[mu_20, sigma_20, f_z]
+    """
+    if len(historical_flows) == 0:
+        return 0.0, 0.0, 0.0
+
+    mu = float(np.mean(historical_flows))
+    sigma = float(np.std(historical_flows))
+    z = (current_flow - mu) / sigma if sigma > 0 else 0.0
+    return mu, sigma, z
+
+
 def detect_historical_anomalies(
     daily_candles: List[Dict[str, Any]],
     sector_return_map: Optional[Dict[str, float]] = None,
