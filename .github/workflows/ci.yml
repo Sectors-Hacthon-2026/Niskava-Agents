@@ -82,7 +82,7 @@ jobs:
 
       - name: Check Python Syntax & Compilation
         run: |
-          python -m py_compile engine/*.py engine/*/*.py
+          python -m compileall engine/
 
       - name: Execute Pytest Suite (Unit & MCP Tests)
         env:

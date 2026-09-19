@@ -59,3 +59,11 @@ def test_tool_execution_direct_and_mcp_aliases(tmp_path):
 
     mining = registry.execute_tool("sectors_get_mining_detail", {"slug": "aneka-tambang"})
     assert mining["commodity"] == "NICKEL"
+
+
+def test_skill_tool_execution(tmp_path):
+    registry = NiskavaToolRegistry(db_path=str(tmp_path / "test.db"), mock_mode=True)
+    res = registry.execute_tool("skill_market_anomaly_recon", {"ticker": "ANTM", "days": 30})
+    assert isinstance(res, dict)
+    assert res["skill_id"] == "market-anomaly-recon"
+    assert "metrics" in res

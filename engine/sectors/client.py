@@ -216,6 +216,36 @@ class SectorsAPIClient:
         endpoint = f"/mining-company-detail/{slug.lower()}/"
         return self._request(endpoint, ttl_seconds=2592000)
 
+    def get_commodity_price(
+        self, commodity: str, start_year: Optional[int] = None, end_year: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """Fetch historical commodity spot benchmark prices (e.g. nickel, coal, gold)."""
+        endpoint = f"/commodity-price/{commodity.lower()}/"
+        params = {}
+        if start_year:
+            params["start_year"] = start_year
+        if end_year:
+            params["end_year"] = end_year
+        return self._request(endpoint, params, ttl_seconds=604800)
+
+    def get_quarterly_financials(
+        self, symbol: str, report_date: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Fetch quarterly financial reports and balance sheet line items."""
+        endpoint = f"/quarterly-financials/{symbol.upper()}/"
+        params = {"report_date": report_date} if report_date else {}
+        return self._request(endpoint, params, ttl_seconds=2592000)
+
+    def get_broker_registry(self) -> List[Dict[str, Any]]:
+        """Fetch IDX broker directory with domicile (foreign/domestic) and cohort (retail/institution)."""
+        endpoint = "/broker-registry/"
+        return self._request(endpoint, ttl_seconds=2592000)
+
+    def get_subsectors(self) -> List[Dict[str, Any]]:
+        """Fetch complete list of official IDX sectors and subsectors."""
+        endpoint = "/subsectors/"
+        return self._request(endpoint, ttl_seconds=2592000)
+
     def _generate_mock_data(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Any:
         """Generate realistic mock data fixtures for offline development and CI tests."""
         symbol = (params.get("symbol") if params else None) or "ANTM"
@@ -336,6 +366,53 @@ class SectorsAPIClient:
                 "concession_area_ha": 45000,
                 "operational_status": "ACTIVE",
             }
+
+        if "/commodity-price/" in endpoint:
+            # 30 daily/monthly benchmark spot prices
+            base_date = datetime.now() - timedelta(days=35)
+            prices = []
+            curr_val = 16500.0  # e.g. USD/ton for nickel
+            for i in range(30):
+                d_str = (base_date + timedelta(days=i)).strftime("%Y-%m-%d")
+                curr_val *= 1.0 + ((i % 4) - 1.5) * 0.008
+                prices.append({"date": d_str, "price": round(curr_val, 2)})
+            return prices
+
+        if "/quarterly-financials/" in endpoint:
+            return [
+                {
+                    "symbol": symbol,
+                    "quarter": "2026-Q2",
+                    "report_date": "2026-06-30",
+                    "total_assets": 35_000_000_000_000.0,
+                    "current_assets": 14_000_000_000_000.0,
+                    "cash_and_equivalents": 9_400_000_000_000.0,
+                    "total_liabilities": 11_000_000_000_000.0,
+                    "current_liabilities": 5_000_000_000_000.0,
+                    "total_debt": 4_620_000_000_000.0,
+                    "total_equity": 24_000_000_000_000.0,
+                    "revenue": 18_200_000_000_000.0,
+                    "ebit": 3_200_000_000_000.0,
+                    "interest_expense": 380_000_000_000.0,
+                }
+            ]
+
+        if "/broker-registry/" in endpoint:
+            return [
+                {"code": "CS", "name": "Credit Suisse Sekuritas Indonesia", "domicile": "FOREIGN", "cohort": "INSTITUTION"},
+                {"code": "ZP", "name": "Maybank Sekuritas Indonesia", "domicile": "FOREIGN", "cohort": "INSTITUTION"},
+                {"code": "AK", "name": "UBS Sekuritas Indonesia", "domicile": "FOREIGN", "cohort": "INSTITUTION"},
+                {"code": "YP", "name": "Mirae Asset Sekuritas Indonesia", "domicile": "DOMESTIC", "cohort": "RETAIL"},
+                {"code": "PD", "name": "Indo Premier Sekuritas", "domicile": "DOMESTIC", "cohort": "RETAIL"},
+                {"code": "CC", "name": "Mandiri Sekuritas", "domicile": "DOMESTIC", "cohort": "INSTITUTION"},
+            ]
+
+        if "/subsectors/" in endpoint:
+            return [
+                {"sector": "Basic Materials", "subsector": "metals-and-minerals-mining"},
+                {"sector": "Energy", "subsector": "oil-gas-and-coal"},
+                {"sector": "Financials", "subsector": "banks"},
+            ]
 
         return {"status": "ok", "mock": True}
 

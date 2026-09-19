@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 from engine.osint.harvester import DualEngineOSINTHarvester, OSINTItem
 from engine.quant.anomaly import AnomalyResult, detect_historical_anomalies
 from engine.sectors.client import SectorsAPIClient
+from engine.skills.registry import SkillsRegistry
 
 
 class NiskavaToolRegistry:
@@ -23,6 +24,7 @@ class NiskavaToolRegistry:
         sectors_client: Optional[SectorsAPIClient] = None,
         osint_harvester: Optional[DualEngineOSINTHarvester] = None,
         mock_mode: Optional[bool] = None,
+        skills_registry: Optional[SkillsRegistry] = None,
     ):
         self.db_path = os.path.expanduser(db_path)
         self.mock_mode = mock_mode
@@ -32,6 +34,18 @@ class NiskavaToolRegistry:
         self.osint_harvester = osint_harvester or DualEngineOSINTHarvester(
             mock_mode=self.mock_mode
         )
+        self.skills_registry = skills_registry or SkillsRegistry()
+
+    def execute_skill(self, skill_id: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a Layer 3 Domain Skill and return structured findings dict."""
+        context = {
+            "sectors_client": self.sectors_client,
+            "osint_harvester": self.osint_harvester,
+            "db_path": self.db_path,
+            "mock_mode": self.mock_mode,
+        }
+        res = self.skills_registry.execute_skill(skill_id, arguments, context)
+        return res.to_dict()
 
     def get_daily_candles(self, ticker: str, days: int = 30) -> List[Dict[str, Any]]:
         """Retrieve daily OHLCV candlesticks for the specified ticker."""
@@ -230,11 +244,26 @@ class NiskavaToolRegistry:
                 },
             },
         ]
+        # Append Layer 3 Domain Skills tool definitions
+        definitions.extend(self.skills_registry.get_all_tool_definitions())
+        return definitions
 
     def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
         """Dynamically dispatch and execute a registered tool (supporting direct & MCP names)."""
         ticker = arguments.get("ticker", "")
         days = arguments.get("days", 30)
+
+        # Check for Layer 3 Domain Skill execution
+        if tool_name == "execute_skill":
+            return self.execute_skill(
+                skill_id=arguments.get("skill_id", ""),
+                arguments=arguments.get("arguments", {}),
+            )
+        if tool_name.startswith("skill_"):
+            skill_id = tool_name[6:].replace("_", "-")
+            return self.execute_skill(skill_id=skill_id, arguments=arguments)
+        if self.skills_registry.get_skill(tool_name):
+            return self.execute_skill(skill_id=tool_name, arguments=arguments)
 
         handlers: Dict[str, Callable[..., Any]] = {
             "get_daily_candles": lambda args: self.get_daily_candles(

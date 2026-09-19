@@ -98,6 +98,37 @@ def test_get_mining_detail(client):
     assert "smelter_count" in detail
 
 
+def test_get_commodity_price(client):
+    prices = client.get_commodity_price("nickel")
+    assert isinstance(prices, list)
+    assert len(prices) >= 1
+    assert "price" in prices[0]
+    assert "date" in prices[0]
+
+
+def test_get_quarterly_financials(client):
+    fin = client.get_quarterly_financials("ANTM")
+    assert isinstance(fin, list)
+    assert len(fin) >= 1
+    assert "current_assets" in fin[0]
+    assert "current_liabilities" in fin[0]
+
+
+def test_get_broker_registry(client):
+    reg = client.get_broker_registry()
+    assert isinstance(reg, list)
+    assert len(reg) >= 1
+    assert "code" in reg[0]
+    assert "cohort" in reg[0]
+
+
+def test_get_subsectors(client):
+    subs = client.get_subsectors()
+    assert isinstance(subs, list)
+    assert len(subs) >= 1
+    assert "subsector" in subs[0]
+
+
 def test_sqlite_caching_law_5(client, tmp_path):
     """Verify Law 5: Caching prevents redundant HTTP calls."""
     # First call: populates cache
