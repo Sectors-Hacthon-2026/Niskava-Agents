@@ -316,15 +316,8 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 			continue
 		}
 
-		// Check if input is just a ticker code (e.g. ANTM) and formulate prompt
-		userPrompt := input
-		cleanInput := strings.ToUpper(input)
-		if len(cleanInput) >= 4 && len(cleanInput) <= 5 && !strings.Contains(cleanInput, " ") {
-			userPrompt = fmt.Sprintf("Investigasi anomali transaksi kuantitatif dan keterbukaan informasi bursa untuk emiten %s selama 30 hari terakhir.", cleanInput)
-		}
-
-		// Execute conversational research turn
-		executeChatTurn(userPrompt, sessionID, cfg, appDB)
+		// Execute conversational research turn with verbatim user prompt
+		executeChatTurn(input, sessionID, cfg, appDB)
 	}
 }
 
@@ -445,6 +438,17 @@ func executeChatTurn(prompt, sessionID string, cfg *config.Config, appDB *db.DB)
 			case ipc.EventAgentMessageComplete:
 				if assistantResponse.Len() == 0 {
 					assistantResponse.WriteString(ev.Content)
+				}
+
+			case ipc.EventSessionError:
+				if assistantResponse.Len() == 0 {
+					errBox := lipgloss.NewStyle().
+						Border(lipgloss.RoundedBorder()).
+						BorderForeground(lipgloss.Color("#EF4444")).
+						Padding(0, 1).
+						Foreground(lipgloss.Color("#FCA5A5")).
+						Render(fmt.Sprintf("❌ [ERROR SESSION]: %s", ev.Error))
+					assistantResponse.WriteString(errBox)
 				}
 			}
 		}
