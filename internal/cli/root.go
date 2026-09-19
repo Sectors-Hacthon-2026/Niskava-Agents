@@ -53,8 +53,9 @@ and qualitative market disclosures/news.`,
 			return fmt.Errorf("failed to start background daemon: %w", err)
 		}
 
+		hasAPIKey := cfg.Auth.SectorsAPIKey != "" || cfg.Auth.GeminiAPIKey != "" || cfg.Auth.OpenAIAPIKey != ""
 		for {
-			launcher := tui.NewLauncherModel(srv.URL, "v1.0.0")
+			launcher := tui.NewLauncherModelWithHealth(srv.URL, "v1.0.0", hasAPIKey)
 			p := tea.NewProgram(launcher)
 			m, err := p.Run()
 			if err != nil {
@@ -77,6 +78,11 @@ and qualitative market disclosures/news.`,
 				// Show saved sessions
 				_ = sessionsCmd.RunE(cmd, []string{})
 				fmt.Println("Tekan Enter untuk kembali ke Menu...")
+				_, _ = fmt.Scanln()
+
+			case "help":
+				tui.PrintFullHelpGuide()
+				fmt.Println("\nTekan Enter untuk kembali ke Menu...")
 				_, _ = fmt.Scanln()
 
 			case "health":

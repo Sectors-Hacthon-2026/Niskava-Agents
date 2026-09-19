@@ -18,37 +18,28 @@ import (
 )
 
 var (
-	// Terminal Color Styles (Bloomberg / Cyber-OSINT Aesthetic)
-	bannerTitleStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("#00E5FF")).
-				Background(lipgloss.Color("#0F172A")).
-				Padding(0, 2)
-
-	bannerSubStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#94A3B8"))
-
+	// Terminal Color Styles (Light Green / Matrix OSINT Aesthetic)
 	promptBoxStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#00E5FF"))
+			Foreground(lipgloss.Color("#4ADE80"))
 
 	userBubbleStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#38BDF8")).
+			BorderForeground(lipgloss.Color("#22C55E")).
 			Foreground(lipgloss.Color("#F8FAFC")).
 			Padding(0, 1).
 			MarginTop(1)
 
 	thoughtStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#64748B")).
+			Foreground(lipgloss.Color("#86EFAC")).
 			Italic(true)
 
 	toolCallStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#F59E0B")).
+			Foreground(lipgloss.Color("#FACC15")).
 			Bold(true)
 
 	observationStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#10B981"))
+				Foreground(lipgloss.Color("#4ADE80"))
 
 	replAnomalyBoxStyle = lipgloss.NewStyle().
 				Border(lipgloss.NormalBorder()).
@@ -59,14 +50,14 @@ var (
 
 	supportedBadgeStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#0F172A")).
-				Background(lipgloss.Color("#10B981")).
+				Foreground(lipgloss.Color("#052E16")).
+				Background(lipgloss.Color("#22C55E")).
 				Padding(0, 1)
 
 	uncertainBadgeStyle = lipgloss.NewStyle().
 				Bold(true).
 				Foreground(lipgloss.Color("#0F172A")).
-				Background(lipgloss.Color("#F59E0B")).
+				Background(lipgloss.Color("#FACC15")).
 				Padding(0, 1)
 
 	contradictedBadgeStyle = lipgloss.NewStyle().
@@ -90,7 +81,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 
 	sessionID := fmt.Sprintf("CHAT-%s-%04d", time.Now().Format("20060102"), time.Now().Unix()%10000)
 
-	renderBanner(modelLabel, serverURL, sessionID)
+	renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
 
 	promptPrefix := fmt.Sprintf("niskava [%s] >", modelLabel)
 
@@ -121,7 +112,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 
 		if lower == "/clear" || lower == "clear" {
 			fmt.Print("\033[H\033[2J")
-			renderBanner(modelLabel, serverURL, sessionID)
+			renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
 			continue
 		}
 
@@ -159,18 +150,10 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 	}
 }
 
-func renderBanner(modelLabel, serverURL, sessionID string) {
-	fmt.Println()
-	fmt.Println("=============================================================================")
-	fmt.Printf(" %s\n", bannerTitleStyle.Render("NISKAVA AGENT — CONVERSATIONAL FINANCIAL OSINT ASSISTANT"))
-	fmt.Printf(" %s · Daemon: %s · Sesi: %s\n",
-		bannerSubStyle.Render("Model: "+modelLabel),
-		lipgloss.NewStyle().Foreground(lipgloss.Color("#38BDF8")).Render(serverURL),
-		lipgloss.NewStyle().Foreground(lipgloss.Color("#A855F7")).Render(sessionID),
-	)
-	fmt.Println(" Tanyakan apa saja mengenai pasar saham IDX, anomali transaksi, atau katalis berita.")
-	fmt.Println(" Ketik /help untuk melihat perintah utilitas sistem.")
-	fmt.Println("=============================================================================")
+func renderBanner(modelLabel, serverURL, sessionID, dbPath string) {
+	fmt.Print(RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID))
+	helpHint := lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Render("  [PETUNJUK: Ketik /help untuk panduan perintah, /reset untuk reset chat, /clear untuk bersihkan layar, /exit untuk keluar]")
+	fmt.Printf("\n%s\n", helpHint)
 }
 
 func executeChatTurn(prompt, sessionID string, cfg *config.Config, appDB *db.DB) {
@@ -184,8 +167,8 @@ func executeChatTurn(prompt, sessionID string, cfg *config.Config, appDB *db.DB)
 	}
 	_ = appDB.SaveChatMessage(userMsg)
 
-	// Display User Card
-	fmt.Printf("\n%s\n", userBubbleStyle.Render("👤 "+prompt))
+	// Display User Card (Pure Text, No Emoji Icon)
+	fmt.Printf("\n%s\n", userBubbleStyle.Render("USER > "+prompt))
 
 	pythonBin := cfg.Engine.PythonBin
 	if pythonBin == "python3" {

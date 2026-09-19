@@ -13,34 +13,34 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Aesthetic styles using lipgloss
+// Aesthetic styles using lipgloss (Light Green / Matrix OSINT Theme)
 var (
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#00E5FF")).
-			Background(lipgloss.Color("#0F172A")).
+			Foreground(lipgloss.Color("#22C55E")).
+			Background(lipgloss.Color("#052E16")).
 			Padding(0, 1)
 
 	tickerBadgeStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#FFFFFF")).
-				Background(lipgloss.Color("#0284C7")).
+				Foreground(lipgloss.Color("#052E16")).
+				Background(lipgloss.Color("#4ADE80")).
 				Padding(0, 1)
 
 	thoughtBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#38BDF8")).
+			BorderForeground(lipgloss.Color("#22C55E")).
 			Padding(0, 1).
-			Foreground(lipgloss.Color("#E0F2FE")).
+			Foreground(lipgloss.Color("#86EFAC")).
 			Italic(true)
 
 	toolCallingStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#F59E0B"))
+				Foreground(lipgloss.Color("#FACC15"))
 
 	toolDoneStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#10B981"))
+			Foreground(lipgloss.Color("#22C55E"))
 
 	anomalyBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.NormalBorder()).
@@ -50,12 +50,12 @@ var (
 
 	supportedStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#10B981")).
+			Foreground(lipgloss.Color("#22C55E")).
 			SetString("[SUPPORTED]")
 
 	uncertainStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#F59E0B")).
+			Foreground(lipgloss.Color("#FACC15")).
 			SetString("[UNCERTAIN]")
 
 	contradictedStyle = lipgloss.NewStyle().
@@ -100,7 +100,7 @@ type Model struct {
 func NewModel(ticker string, days int, dbPath string, eventsChan <-chan ipc.Event, errChan <-chan error) Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF"))
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#4ADE80"))
 
 	return Model{
 		Ticker:     ticker,
@@ -208,11 +208,11 @@ func (m Model) View() string {
 
 	// 1. Header Banner
 	b.WriteString("\n")
-	b.WriteString(titleStyle.Render(" [●] NISKAVA AGENT v1.0.0 — AUTONOMOUS MARKET INTELLIGENCE "))
+	b.WriteString(titleStyle.Render(" [●] NISKAVA AGENT — AUTONOMOUS MARKET INTELLIGENCE "))
 	b.WriteString(" Target: ")
 	b.WriteString(tickerBadgeStyle.Render(m.Ticker))
 	b.WriteString(fmt.Sprintf(" (%d Hari Pengamatan)\n", m.Days))
-	b.WriteString("─────────────────────────────────────────────────────────────────────────────\n")
+	b.WriteString(RenderConstellationLine(80) + "\n\n")
 
 	// 2. Live Thought Stream (ReAct Inner Monologue)
 	if m.CurrentThought != "" {
