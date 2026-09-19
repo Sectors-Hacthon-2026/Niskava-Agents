@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 from engine.osint.harvester import DualEngineOSINTHarvester, OSINTItem
 from engine.quant.anomaly import AnomalyResult, detect_historical_anomalies
 from engine.sectors.client import SectorsAPIClient
+from engine.skills.registry import SkillsRegistry
 
 
 class NiskavaToolRegistry:
@@ -23,6 +24,7 @@ class NiskavaToolRegistry:
         sectors_client: Optional[SectorsAPIClient] = None,
         osint_harvester: Optional[DualEngineOSINTHarvester] = None,
         mock_mode: Optional[bool] = None,
+        skills_registry: Optional[SkillsRegistry] = None,
     ):
         self.db_path = os.path.expanduser(db_path)
         self.mock_mode = mock_mode
@@ -32,6 +34,18 @@ class NiskavaToolRegistry:
         self.osint_harvester = osint_harvester or DualEngineOSINTHarvester(
             mock_mode=self.mock_mode
         )
+        self.skills_registry = skills_registry or SkillsRegistry()
+
+    def execute_skill(self, skill_id: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a Layer 3 Domain Skill and return structured findings dict."""
+        context = {
+            "sectors_client": self.sectors_client,
+            "osint_harvester": self.osint_harvester,
+            "db_path": self.db_path,
+            "mock_mode": self.mock_mode,
+        }
+        res = self.skills_registry.execute_skill(skill_id, arguments, context)
+        return res.to_dict()
 
     def get_daily_candles(self, ticker: str, days: int = 30) -> List[Dict[str, Any]]:
         """Retrieve daily OHLCV candlesticks for the specified ticker."""
@@ -59,6 +73,30 @@ class NiskavaToolRegistry:
     def get_foreign_flow(self, ticker: str) -> List[Dict[str, Any]]:
         """Fetch net foreign inflow / outflow data."""
         return self.sectors_client.get_foreign_flow(ticker.upper())
+
+    def get_suspensions(self, ticker: str) -> List[Dict[str, Any]]:
+        """Fetch exchange suspension notices and official IDX PDF announcements."""
+        return self.sectors_client.get_suspensions(ticker.upper())
+
+    def get_corporate_actions(self, ticker: str) -> List[Dict[str, Any]]:
+        """Fetch scheduled corporate actions (dividends, splits, rights issue)."""
+        return self.sectors_client.get_corporate_actions(ticker.upper())
+
+    def get_filings(self, ticker: str) -> List[Dict[str, Any]]:
+        """Fetch insider trading and substantial shareholder filings."""
+        return self.sectors_client.get_filings(ticker.upper())
+
+    def get_broker_summary(self, ticker: str) -> Dict[str, Any]:
+        """Fetch top broker accumulation and distribution summary."""
+        return self.sectors_client.get_broker_summary(ticker.upper())
+
+    def get_subsector_peers(self, subsector: str) -> Dict[str, Any]:
+        """Fetch industrial subsector peers and valuation benchmarks."""
+        return self.sectors_client.get_subsector_peers(subsector.lower())
+
+    def get_mining_detail(self, slug: str) -> Dict[str, Any]:
+        """Fetch operational mining concession and smelter details."""
+        return self.sectors_client.get_mining_detail(slug.lower())
 
     def harvest_market_news(
         self,
@@ -128,6 +166,72 @@ class NiskavaToolRegistry:
                 },
             },
             {
+                "name": "get_suspensions",
+                "description": "Ambil riwayat suspensi bursa, pengumuman UMA, dan tautan surat pengumuman PDF resmi BEI.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "ticker": {"type": "string", "description": "Kode ticker IDX"},
+                    },
+                    "required": ["ticker"],
+                },
+            },
+            {
+                "name": "get_corporate_actions",
+                "description": "Ambil jadwal aksi korporasi emiten (dividen, stock split, rights issue).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "ticker": {"type": "string", "description": "Kode ticker IDX"},
+                    },
+                    "required": ["ticker"],
+                },
+            },
+            {
+                "name": "get_filings",
+                "description": "Ambil pelaporan transaksi kepemilikan orang dalam (insider trading) direksi dan komisaris.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "ticker": {"type": "string", "description": "Kode ticker IDX"},
+                    },
+                    "required": ["ticker"],
+                },
+            },
+            {
+                "name": "get_broker_summary",
+                "description": "Ambil daftar broker pembeli bersih (top buyers) dan penjual bersih (top sellers) teratas.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "ticker": {"type": "string", "description": "Kode ticker IDX"},
+                    },
+                    "required": ["ticker"],
+                },
+            },
+            {
+                "name": "get_subsector_peers",
+                "description": "Ambil data komparasi emiten dan rata-rata industri subsektor untuk analisis divergensi.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "subsector": {"type": "string", "description": "Slug subsektor industri"},
+                    },
+                    "required": ["subsector"],
+                },
+            },
+            {
+                "name": "get_mining_detail",
+                "description": "Ambil detail operasional konsesi tambang dan fasilitas smelter emiten.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "slug": {"type": "string", "description": "Slug emiten tambang"},
+                    },
+                    "required": ["slug"],
+                },
+            },
+            {
                 "name": "harvest_market_news",
                 "description": "Panen berita pasar modal terkurasi dan keterbukaan informasi bursa resmi menggunakan arsitektur Dual-Engine OSINT.",
                 "parameters": {
@@ -140,29 +244,93 @@ class NiskavaToolRegistry:
                 },
             },
         ]
+        # Append Layer 3 Domain Skills tool definitions
+        definitions.extend(self.skills_registry.get_all_tool_definitions())
+        return definitions
 
     def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
-        """Dynamically dispatch and execute a registered tool."""
+        """Dynamically dispatch and execute a registered tool (supporting direct & MCP names)."""
+        ticker = arguments.get("ticker", "")
+        days = arguments.get("days", 30)
+
+        # Check for Layer 3 Domain Skill execution
+        if tool_name == "execute_skill":
+            return self.execute_skill(
+                skill_id=arguments.get("skill_id", ""),
+                arguments=arguments.get("arguments", {}),
+            )
+        if tool_name.startswith("skill_"):
+            skill_id = tool_name[6:].replace("_", "-")
+            return self.execute_skill(skill_id=skill_id, arguments=arguments)
+        if self.skills_registry.get_skill(tool_name):
+            return self.execute_skill(skill_id=tool_name, arguments=arguments)
+
         handlers: Dict[str, Callable[..., Any]] = {
             "get_daily_candles": lambda args: self.get_daily_candles(
-                ticker=args.get("ticker", ""),
-                days=args.get("days", 30),
+                ticker=ticker,
+                days=days,
+            ),
+            "sectors_get_daily_candles": lambda args: self.get_daily_candles(
+                ticker=ticker,
+                days=days,
             ),
             "compute_quant_anomalies": lambda args: self.compute_quant_anomalies(
-                ticker=args.get("ticker", ""),
+                ticker=ticker,
                 volume_z_threshold=float(args.get("volume_z_threshold", 2.5)),
             ),
             "get_company_fundamentals": lambda args: self.get_company_fundamentals(
-                ticker=args.get("ticker", ""),
+                ticker=ticker,
+            ),
+            "sectors_get_company_report": lambda args: self.get_company_fundamentals(
+                ticker=ticker,
             ),
             "query_company_profile": lambda args: self.get_company_fundamentals(
-                ticker=args.get("ticker", ""),
+                ticker=ticker,
             ),
             "get_foreign_flow": lambda args: self.get_foreign_flow(
-                ticker=args.get("ticker", ""),
+                ticker=ticker,
+            ),
+            "sectors_get_foreign_flow": lambda args: self.get_foreign_flow(
+                ticker=ticker,
+            ),
+            "get_suspensions": lambda args: self.get_suspensions(
+                ticker=ticker,
+            ),
+            "sectors_get_suspensions": lambda args: self.get_suspensions(
+                ticker=ticker,
+            ),
+            "get_corporate_actions": lambda args: self.get_corporate_actions(
+                ticker=ticker,
+            ),
+            "sectors_get_corporate_actions": lambda args: self.get_corporate_actions(
+                ticker=ticker,
+            ),
+            "get_filings": lambda args: self.get_filings(
+                ticker=ticker,
+            ),
+            "sectors_get_filings": lambda args: self.get_filings(
+                ticker=ticker,
+            ),
+            "get_broker_summary": lambda args: self.get_broker_summary(
+                ticker=ticker,
+            ),
+            "sectors_get_broker_summary": lambda args: self.get_broker_summary(
+                ticker=ticker,
+            ),
+            "get_subsector_peers": lambda args: self.get_subsector_peers(
+                subsector=args.get("subsector", ""),
+            ),
+            "sectors_get_subsector_peers": lambda args: self.get_subsector_peers(
+                subsector=args.get("subsector", ""),
+            ),
+            "get_mining_detail": lambda args: self.get_mining_detail(
+                slug=args.get("slug", ""),
+            ),
+            "sectors_get_mining_detail": lambda args: self.get_mining_detail(
+                slug=args.get("slug", ""),
             ),
             "harvest_market_news": lambda args: self.harvest_market_news(
-                ticker=args.get("ticker", ""),
+                ticker=ticker,
                 company_name=args.get("company_name"),
             ),
         }
@@ -172,3 +340,4 @@ class NiskavaToolRegistry:
             raise ValueError(f"Tool '{tool_name}' tidak terdaftar di Niskava Tool Registry.")
 
         return handler(arguments)
+

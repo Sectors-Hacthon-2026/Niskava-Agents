@@ -72,6 +72,24 @@ class SectorsAPIClient:
             return None
         return None
 
+    def _init_db(self, conn: sqlite3.Connection) -> None:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sectors_cache (
+                cache_key TEXT PRIMARY KEY,
+                endpoint TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                expires_at TEXT
+            );
+            """
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sectors_cache_endpoint ON sectors_cache(endpoint);"
+        )
+        conn.commit()
+
     def _set_cache(
         self,
         cache_key: str,
@@ -84,6 +102,7 @@ class SectorsAPIClient:
         try:
             payload_json = json.dumps(data)
             with sqlite3.connect(self.db_path) as conn:
+                self._init_db(conn)
                 cursor = conn.cursor()
                 if ttl_seconds:
                     cursor.execute(
@@ -165,9 +184,71 @@ class SectorsAPIClient:
         params = {"symbol": symbol.upper()} if symbol else {}
         return self._request(endpoint, params, ttl_seconds=3600)
 
+    def get_suspensions(self, symbol: str) -> List[Dict[str, Any]]:
+        """Fetch exchange suspension and UMA notices with official PDF links."""
+        endpoint = "/suspensions/"
+        params = {"symbol": symbol.upper()}
+        return self._request(endpoint, params, ttl_seconds=86400)
+
+    def get_corporate_actions(self, symbol: str) -> List[Dict[str, Any]]:
+        """Fetch scheduled corporate actions (dividends, splits, rights issue)."""
+        endpoint = f"/corporate-actions/{symbol.upper()}/"
+        return self._request(endpoint, ttl_seconds=86400)
+
+    def get_filings(self, symbol: str) -> List[Dict[str, Any]]:
+        """Fetch insider trading and substantial shareholder filings."""
+        endpoint = "/filings/"
+        params = {"symbol": symbol.upper()}
+        return self._request(endpoint, params, ttl_seconds=86400)
+
+    def get_broker_summary(self, symbol: str) -> Dict[str, Any]:
+        """Fetch top broker accumulation and distribution summary."""
+        endpoint = f"/broker-summary-top/{symbol.upper()}/"
+        return self._request(endpoint, ttl_seconds=86400)
+
+    def get_subsector_peers(self, subsector: str) -> Dict[str, Any]:
+        """Fetch industrial subsector peers and valuation benchmarks."""
+        endpoint = f"/subsector/{subsector.lower()}/"
+        return self._request(endpoint, ttl_seconds=604800)
+
+    def get_mining_detail(self, slug: str) -> Dict[str, Any]:
+        """Fetch operational mining concession and smelter details."""
+        endpoint = f"/mining-company-detail/{slug.lower()}/"
+        return self._request(endpoint, ttl_seconds=2592000)
+
+    def get_commodity_price(
+        self, commodity: str, start_year: Optional[int] = None, end_year: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """Fetch historical commodity spot benchmark prices (e.g. nickel, coal, gold)."""
+        endpoint = f"/commodity-price/{commodity.lower()}/"
+        params = {}
+        if start_year:
+            params["start_year"] = start_year
+        if end_year:
+            params["end_year"] = end_year
+        return self._request(endpoint, params, ttl_seconds=604800)
+
+    def get_quarterly_financials(
+        self, symbol: str, report_date: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Fetch quarterly financial reports and balance sheet line items."""
+        endpoint = f"/quarterly-financials/{symbol.upper()}/"
+        params = {"report_date": report_date} if report_date else {}
+        return self._request(endpoint, params, ttl_seconds=2592000)
+
+    def get_broker_registry(self) -> List[Dict[str, Any]]:
+        """Fetch IDX broker directory with domicile (foreign/domestic) and cohort (retail/institution)."""
+        endpoint = "/broker-registry/"
+        return self._request(endpoint, ttl_seconds=2592000)
+
+    def get_subsectors(self) -> List[Dict[str, Any]]:
+        """Fetch complete list of official IDX sectors and subsectors."""
+        endpoint = "/subsectors/"
+        return self._request(endpoint, ttl_seconds=2592000)
+
     def _generate_mock_data(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Any:
         """Generate realistic mock data fixtures for offline development and CI tests."""
-        symbol = "ANTM"
+        symbol = (params.get("symbol") if params else None) or "ANTM"
         if "/daily/" in endpoint:
             # 30 days of synthetic candles with a volume surge on day 25
             candles = []
@@ -220,4 +301,118 @@ class SectorsAPIClient:
                 }
             ]
 
+        if "/suspensions/" in endpoint:
+            return [
+                {
+                    "symbol": symbol,
+                    "suspension_date": "2026-09-15",
+                    "reason": "Unusual Market Activity (UMA) - Lonjakan transaksi signifikan",
+                    "pdf_url": "https://www.idx.co.id/filings/ANTM-UMA-20260915.pdf",
+                }
+            ]
+
+        if "/corporate-actions/" in endpoint:
+            return [
+                {
+                    "symbol": symbol,
+                    "action_type": "DIVIDEND",
+                    "cum_date": "2026-06-05",
+                    "ex_date": "2026-06-06",
+                    "dividend_per_share": 128.5,
+                    "currency": "IDR",
+                }
+            ]
+
+        if "/filings/" in endpoint:
+            return [
+                {
+                    "symbol": symbol,
+                    "insider_name": "Direktur Operasional",
+                    "position": "Director",
+                    "action": "BUY",
+                    "shares": 1500000,
+                    "filing_date": "2026-09-11",
+                }
+            ]
+
+        if "/broker-summary-top/" in endpoint:
+            return {
+                "symbol": symbol,
+                "top_buyers": [
+                    {"broker_code": "CS", "broker_name": "Credit Suisse Sekuritas", "net_buy_shares": 52000000},
+                    {"broker_code": "ZP", "broker_name": "Maybank Sekuritas", "net_buy_shares": 31000000},
+                    {"broker_code": "AK", "broker_name": "UBS Sekuritas", "net_buy_shares": 18000000},
+                ],
+                "top_sellers": [
+                    {"broker_code": "YP", "broker_name": "Mirae Asset Sekuritas", "net_sell_shares": 45000000},
+                    {"broker_code": "PD", "broker_name": "Indo Premier Sekuritas", "net_sell_shares": 29000000},
+                ],
+            }
+
+        if "/subsector/" in endpoint:
+            return {
+                "subsector": "metals-and-minerals-mining",
+                "peer_count": 14,
+                "median_pe": 16.8,
+                "median_pb": 1.95,
+                "peers": ["ANTM", "TINS", "INCO", "MBMA"],
+            }
+
+        if "/mining-company-detail/" in endpoint:
+            return {
+                "slug": "aneka-tambang",
+                "commodity": "NICKEL",
+                "smelter_count": 3,
+                "concession_area_ha": 45000,
+                "operational_status": "ACTIVE",
+            }
+
+        if "/commodity-price/" in endpoint:
+            # 30 daily/monthly benchmark spot prices
+            base_date = datetime.now() - timedelta(days=35)
+            prices = []
+            curr_val = 16500.0  # e.g. USD/ton for nickel
+            for i in range(30):
+                d_str = (base_date + timedelta(days=i)).strftime("%Y-%m-%d")
+                curr_val *= 1.0 + ((i % 4) - 1.5) * 0.008
+                prices.append({"date": d_str, "price": round(curr_val, 2)})
+            return prices
+
+        if "/quarterly-financials/" in endpoint:
+            return [
+                {
+                    "symbol": symbol,
+                    "quarter": "2026-Q2",
+                    "report_date": "2026-06-30",
+                    "total_assets": 35_000_000_000_000.0,
+                    "current_assets": 14_000_000_000_000.0,
+                    "cash_and_equivalents": 9_400_000_000_000.0,
+                    "total_liabilities": 11_000_000_000_000.0,
+                    "current_liabilities": 5_000_000_000_000.0,
+                    "total_debt": 4_620_000_000_000.0,
+                    "total_equity": 24_000_000_000_000.0,
+                    "revenue": 18_200_000_000_000.0,
+                    "ebit": 3_200_000_000_000.0,
+                    "interest_expense": 380_000_000_000.0,
+                }
+            ]
+
+        if "/broker-registry/" in endpoint:
+            return [
+                {"code": "CS", "name": "Credit Suisse Sekuritas Indonesia", "domicile": "FOREIGN", "cohort": "INSTITUTION"},
+                {"code": "ZP", "name": "Maybank Sekuritas Indonesia", "domicile": "FOREIGN", "cohort": "INSTITUTION"},
+                {"code": "AK", "name": "UBS Sekuritas Indonesia", "domicile": "FOREIGN", "cohort": "INSTITUTION"},
+                {"code": "YP", "name": "Mirae Asset Sekuritas Indonesia", "domicile": "DOMESTIC", "cohort": "RETAIL"},
+                {"code": "PD", "name": "Indo Premier Sekuritas", "domicile": "DOMESTIC", "cohort": "RETAIL"},
+                {"code": "CC", "name": "Mandiri Sekuritas", "domicile": "DOMESTIC", "cohort": "INSTITUTION"},
+            ]
+
+        if "/subsectors/" in endpoint:
+            return [
+                {"sector": "Basic Materials", "subsector": "metals-and-minerals-mining"},
+                {"sector": "Energy", "subsector": "oil-gas-and-coal"},
+                {"sector": "Financials", "subsector": "banks"},
+            ]
+
         return {"status": "ok", "mock": True}
+

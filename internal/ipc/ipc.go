@@ -17,12 +17,12 @@ import (
 type EventType string
 
 const (
-	EventSessionStart     EventType = "session_start"
-	EventProgressStep     EventType = "progress_step"
-	EventAnomalyDetected  EventType = "anomaly_detected"
-	EventFindingEmitted   EventType = "finding_emitted"
-	EventSessionComplete  EventType = "session_complete"
-	EventSessionError     EventType = "session_error"
+	EventSessionStart         EventType = "session_start"
+	EventProgressStep         EventType = "progress_step"
+	EventAnomalyDetected      EventType = "anomaly_detected"
+	EventFindingEmitted       EventType = "finding_emitted"
+	EventSessionComplete      EventType = "session_complete"
+	EventSessionError         EventType = "session_error"
 	EventAgentThought         EventType = "agent_thought"
 	EventAgentToolCall        EventType = "agent_tool_call"
 	EventAgentObservation     EventType = "agent_observation"

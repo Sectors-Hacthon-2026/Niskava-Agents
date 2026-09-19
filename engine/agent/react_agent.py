@@ -40,7 +40,16 @@ SYSTEM_PROMPT = """You are Niskava Agent, an elite financial intelligence and ma
      0.65 = Unverified market commentary or rumors
    - Always cite publication date, source name, and source URL.
 
-=== AVAILABLE TOOLS ===
+=== AVAILABLE TOOLS & DOMAIN SKILLS ===
+1. HIGH-LEVEL DOMAIN SKILLS (Layer 3 SOPs - Preferred):
+- skill_market_anomaly_recon(ticker="<TICKER>", days=30): Detect statistical volume surges (MA20 Z-score), abnormal returns, and foreign flow divergence.
+- skill_event_causality_audit(ticker="<TICKER>", anomaly_date="YYYY-MM-DD"): Audit temporal causality between price/volume spikes and disclosures, suspensions, and accredited news.
+- skill_insider_bandarmology_forensic(ticker="<TICKER>"): Top-3 buyer concentration (C3), broker cohort mapping (foreign/domestic/retail/institution), and insider filings.
+- skill_financial_health_stress_test(ticker="<TICKER>", rumor_claim="<CLAIM>"): Audit balance sheet liquidity/solvency and fact-check bankruptcy/default rumors (marks refuted rumors CONTRADICTED).
+- skill_mining_commodity_divergence(ticker="<TICKER>", commodity="<COMMODITY>"): Pearson correlation between IDX mining stocks and global commodity spot prices (Nickel, Coal, Gold).
+- skill_peer_valuation_benchmark(ticker="<TICKER>", subsector="<SUBSECTOR>"): Multi-metric relative valuation (P/E, P/B) against subsector median and IQR.
+
+2. PRIMITIVE TOOLS (Layer 1):
 - get_daily_candles(ticker="<TICKER>", days=<INT>): Fetch daily OHLCV candlesticks for an IDX ticker.
 - compute_quant_anomalies(ticker="<TICKER>", volume_z_threshold=2.5): Run NumPy deterministic anomaly math (MA20, Z-scores, abnormal returns).
 - harvest_market_news(ticker="<TICKER>"): Run targeted Dual-Engine OSINT for official disclosures and accredited financial media.
@@ -142,7 +151,7 @@ class NiskavaReActAgent:
 
         if self.ai_provider in ("openai", "9router"):
             return self._run_openai_chat_cycle(session_id, user_prompt, history, start_time)
-        elif self.ai_provider == "gemini" and self.api_key:
+        elif self.ai_provider == "gemini":
             return self._run_gemini_chat_cycle(session_id, user_prompt, history, start_time)
 
         return self._run_deterministic_chat_cycle(session_id, user_prompt, history, start_time)
@@ -204,6 +213,7 @@ class NiskavaReActAgent:
         anomalies: List[Dict[str, Any]] = []
         final_response = ""
 
+        last_error = ""
         for _ in range(4):
             payload = {
                 "model": self.openai_model,
@@ -214,6 +224,8 @@ class NiskavaReActAgent:
             try:
                 resp = requests.post(url, headers=headers, json=payload, timeout=18.0)
                 if resp.status_code != 200:
+                    error_body = resp.text.strip()[:300]
+                    last_error = f"HTTP {resp.status_code}: {error_body}" if error_body else f"HTTP {resp.status_code}"
                     break
                 raw = resp.text.strip()
                 if "data: [DONE]" in raw:
@@ -221,11 +233,26 @@ class NiskavaReActAgent:
                 first_brace = raw.find("{")
                 last_brace = raw.rfind("}")
                 if first_brace == -1 or last_brace == -1:
+                    last_error = f"Format respons tidak valid (tidak ditemukan objek JSON): {raw[:200]}"
                     break
                 data = json.loads(raw[first_brace : last_brace + 1])
-                msg = data["choices"][0]["message"]
+                choices = data.get("choices", [])
+                if not choices:
+                    last_error = f"Format respons tidak valid (tidak ada item 'choices'): {raw[:200]}"
+                    break
+                msg = choices[0].get("message", {})
                 content = msg.get("content") or msg.get("reasoning") or ""
-            except Exception:
+                if not content:
+                    last_error = "Model AI mengembalikan konten respons kosong."
+                    break
+            except requests.exceptions.Timeout:
+                last_error = f"Koneksi timeout setelah 18 detik ke {url}"
+                break
+            except requests.exceptions.ConnectionError:
+                last_error = f"Gagal terhubung ke {url} (Koneksi jaringan ditolak atau server tidak aktif)"
+                break
+            except Exception as exc:
+                last_error = f"Kesalahan saat menghubungi {url}: {exc}"
                 break
 
             # Parse thoughts
@@ -304,7 +331,48 @@ class NiskavaReActAgent:
                     break
 
         if not final_response:
-            return self._run_deterministic_chat_cycle(session_id, user_prompt, history, start_time)
+            err_detail = last_error or "Model AI tidak menghasilkan sintesis respons valid dalam siklus ReAct."
+            error_markdown = (
+                f"### ⚠️ Gagal Terhubung ke Provider AI (OpenAI / 9router)\n\n"
+                f"- **Endpoint**: `{url}`\n"
+                f"- **Model**: `{self.openai_model}`\n"
+                f"- **Detail Error**: {err_detail}\n\n"
+                f"**Solusi Pemecahan Masalah:**\n"
+                f"1. Pastikan server AI lokal atau gateway 9router sedang berjalan di `{base_url}`.\n"
+                f"2. Periksa konfigurasi `OPENAI_BASE_URL` dan `OPENAI_API_KEY` pada file `~/.niskava/.env`.\n"
+                f"3. Jalankan `niskava setup` untuk mengganti model atau beralih ke provider lain.\n"
+                f"4. Gunakan mode offline (`--offline`) jika ingin menjalankan analisis deterministik tanpa LLM."
+            )
+            self._emit({
+                "event": "agent_thought",
+                "session_id": session_id,
+                "thought": f"Gagal mengeksekusi inferensi AI: {err_detail}",
+            })
+            self._emit({
+                "event": "agent_message_chunk",
+                "session_id": session_id,
+                "chunk": error_markdown,
+            })
+            self._emit({
+                "event": "agent_message_complete",
+                "session_id": session_id,
+                "content": error_markdown,
+            })
+            self._emit({
+                "event": "session_error",
+                "session_id": session_id,
+                "error": f"AI provider connection error ({self.openai_model} @ {url}): {err_detail}",
+            })
+            duration_ms = int((time.time() - start_time) * 1000)
+            return {
+                "session_id": session_id,
+                "response": error_markdown,
+                "error": err_detail,
+                "anomalies": anomalies,
+                "findings": findings,
+                "duration_ms": duration_ms,
+                "status": "ERROR",
+            }
 
         self._emit({
             "event": "agent_message_chunk",
@@ -346,12 +414,50 @@ class NiskavaReActAgent:
         """Conversational cycle powered by Gemini API."""
         import requests
 
+        if not self.api_key:
+            err_detail = "GEMINI_API_KEY tidak ditemukan di environment atau konfigurasi."
+            error_markdown = (
+                f"### ⚠️ Konfigurasi Gemini API Key Tidak Ditemukan\n\n"
+                f"- **Provider**: Gemini\n"
+                f"- **Model**: `{self.model}`\n"
+                f"- **Detail**: {err_detail}\n\n"
+                f"**Solusi Pemecahan Masalah:**\n"
+                f"1. Masukkan API key valid ke `~/.niskava/.env` (`GEMINI_API_KEY=AIza...`).\n"
+                f"2. Atau jalankan `niskava setup` untuk mengisi API key secara interaktif.\n"
+                f"3. Atau gunakan mode offline (`--offline`) jika ingin menjalankan analisis deterministik tanpa LLM."
+            )
+            self._emit({
+                "event": "agent_message_chunk",
+                "session_id": session_id,
+                "chunk": error_markdown,
+            })
+            self._emit({
+                "event": "agent_message_complete",
+                "session_id": session_id,
+                "content": error_markdown,
+            })
+            self._emit({
+                "event": "session_error",
+                "session_id": session_id,
+                "error": err_detail,
+            })
+            duration_ms = int((time.time() - start_time) * 1000)
+            return {
+                "session_id": session_id,
+                "response": error_markdown,
+                "error": err_detail,
+                "duration_ms": duration_ms,
+                "status": "ERROR",
+            }
+
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
         prompt = f"{SYSTEM_PROMPT}\n\nPertanyaan Pengguna:\n{user_prompt}"
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.2, "maxOutputTokens": 800},
         }
+
+        err_detail = ""
         try:
             resp = requests.post(url, json=payload, timeout=15.0)
             if resp.status_code == 200:
@@ -385,10 +491,56 @@ class NiskavaReActAgent:
                             "summary": raw_text[:200] + "...",
                         })
                         return {"session_id": session_id, "response": raw_text, "duration_ms": duration_ms}
-        except Exception:
-            pass
+                    else:
+                        err_detail = "Respons Gemini tidak memuat bagian teks."
+                else:
+                    err_detail = f"Tidak ada kandidat respons dari Gemini: {data}"
+            else:
+                err_detail = f"HTTP {resp.status_code}: {resp.text.strip()[:300]}"
+        except requests.exceptions.Timeout:
+            err_detail = "Koneksi timeout setelah 15 detik ke Gemini API."
+        except requests.exceptions.ConnectionError:
+            err_detail = "Gagal terhubung ke Gemini API (Koneksi jaringan gagal)."
+        except Exception as exc:
+            err_detail = f"Kesalahan saat menghubungi Gemini API: {exc}"
 
-        return self._run_deterministic_chat_cycle(session_id, user_prompt, history, start_time)
+        error_markdown = (
+            f"### ⚠️ Gagal Terhubung ke Provider AI (Google Gemini)\n\n"
+            f"- **Model**: `{self.model}`\n"
+            f"- **Detail Error**: {err_detail}\n\n"
+            f"**Solusi Pemecahan Masalah:**\n"
+            f"1. Pastikan koneksi internet aktif dan `GEMINI_API_KEY` valid.\n"
+            f"2. Periksa kuota API atau gunakan provider lain via `niskava setup`.\n"
+            f"3. Gunakan mode offline (`--offline`) jika ingin menjalankan analisis deterministik tanpa LLM."
+        )
+        self._emit({
+            "event": "agent_thought",
+            "session_id": session_id,
+            "thought": f"Gagal mengeksekusi inferensi Gemini: {err_detail}",
+        })
+        self._emit({
+            "event": "agent_message_chunk",
+            "session_id": session_id,
+            "chunk": error_markdown,
+        })
+        self._emit({
+            "event": "agent_message_complete",
+            "session_id": session_id,
+            "content": error_markdown,
+        })
+        self._emit({
+            "event": "session_error",
+            "session_id": session_id,
+            "error": f"Gemini API error ({self.model}): {err_detail}",
+        })
+        duration_ms = int((time.time() - start_time) * 1000)
+        return {
+            "session_id": session_id,
+            "response": error_markdown,
+            "error": err_detail,
+            "duration_ms": duration_ms,
+            "status": "ERROR",
+        }
 
     def _run_deterministic_chat_cycle(
         self,
@@ -401,7 +553,12 @@ class NiskavaReActAgent:
         # Extract ticker from prompt (e.g. 4 capital letters)
         candidates = re.findall(r"\b[A-Z]{4}\b", user_prompt.upper())
         # Filter out common English/Indonesian words that happen to be 4 letters
-        stopwords = {"YANG", "DARI", "PADA", "BISA", "AKAN", "SAAT", "KITA", "DENG", "APAL", "INFO", "CHAT", "TENT", "KATA", "BAGA", "SIAP", "APAK", "HALO", "PAGI", "SORE"}
+        stopwords = {
+            "YANG", "DARI", "PADA", "BISA", "AKAN", "SAAT", "KITA", "DENG", "APAL",
+            "INFO", "CHAT", "TENT", "KATA", "HALO", "PAGI", "SIAP", "TEST", "USER",
+            "HELP", "EXIT", "QUIT", "TANY", "APA", "BAGA", "SIAPA", "KODE", "HARI",
+            "BUAT", "BAIK", "SAYA", "KAMU", "COBA", "DATA", "MODE", "DENGAN", "SORE"
+        }
         tickers = [c for c in candidates if c not in stopwords]
         ticker = tickers[0] if tickers else None
 
@@ -417,7 +574,44 @@ class NiskavaReActAgent:
                     break
 
         if not ticker:
-            ticker = "ANTM"
+            response_text = (
+                "Halo! Saya Niskava Agent (Mode Offline/Mock).\n\n"
+                "Saya tidak mendeteksi kode emiten saham IDX yang spesifik dalam pesan Anda.\n\n"
+                "Untuk menganalisis anomali transaksi dan keterbukaan informasi, silakan sebutkan kode saham 4-huruf yang ingin diperiksa (contoh: **ANTM**, **BBCA**, **BBRI**, **BUMI**).\n\n"
+                "> *Catatan*: Anda saat ini berada dalam mode offline/mock. Untuk menggunakan asisten percakapan bebas (ReAct), aktifkan koneksi AI provider di `niskava setup`."
+            )
+            self._emit({
+                "event": "agent_thought",
+                "session_id": session_id,
+                "thought": "Prompt pengguna tidak memuat kode emiten IDX 4-huruf yang valid. Mengembalikan panduan mode offline.",
+            })
+            self._emit({
+                "event": "agent_message_chunk",
+                "session_id": session_id,
+                "chunk": response_text,
+            })
+            self._emit({
+                "event": "agent_message_complete",
+                "session_id": session_id,
+                "content": response_text,
+            })
+            duration_ms = int((time.time() - start_time) * 1000)
+            self._emit({
+                "event": "session_complete",
+                "session_id": session_id,
+                "status": "COMPLETED",
+                "total_anomalies": 0,
+                "total_findings": 0,
+                "duration_ms": duration_ms,
+                "summary": response_text[:200] + "...",
+            })
+            return {
+                "session_id": session_id,
+                "response": response_text,
+                "anomalies": [],
+                "findings": [],
+                "duration_ms": duration_ms,
+            }
 
         if is_followup:
             thought_msg = f"Melanjutkan konteks sesi {session_id}. Mengingat emiten target sebelumnya: {ticker}. Menganalisis pertanyaan lanjutan: '{user_prompt[:60]}'."
