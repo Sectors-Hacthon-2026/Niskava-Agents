@@ -294,10 +294,14 @@ def test_unified_mcp_prompts(mcp_server):
     list_resp = mcp_server.handle_request(list_req)
     assert list_resp["id"] == 13
     prompts = list_resp["result"]["prompts"]
-    assert len(prompts) == 2
+    assert len(prompts) == 6
     prompt_names = [p["name"] for p in prompts]
     assert "investigate_ticker_anomaly" in prompt_names
     assert "bandarmology_insider_audit" in prompt_names
+    assert "financial_health_stress_test" in prompt_names
+    assert "mining_commodity_divergence" in prompt_names
+    assert "peer_valuation_benchmark" in prompt_names
+    assert "event_causality_audit" in prompt_names
 
     # Get prompt
     get_req = {
