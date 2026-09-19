@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -56,9 +57,17 @@ var investigateCmd = &cobra.Command{
 
 		// If python3 default, check if local .venv exists
 		if pythonBin == "python3" {
-			localVenv := filepath.Join(".venv", "bin", "python3")
-			if _, err := os.Stat(localVenv); err == nil {
-				pythonBin = localVenv
+			if runtime.GOOS == "windows" {
+				pythonBin = "python"
+				localVenv := filepath.Join(".venv", "Scripts", "python.exe")
+				if _, err := os.Stat(localVenv); err == nil {
+					pythonBin = localVenv
+				}
+			} else {
+				localVenv := filepath.Join(".venv", "bin", "python3")
+				if _, err := os.Stat(localVenv); err == nil {
+					pythonBin = localVenv
+				}
 			}
 		}
 

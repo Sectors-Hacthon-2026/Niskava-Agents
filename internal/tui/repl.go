@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -188,7 +189,15 @@ func executeChatTurn(prompt, sessionID string, cfg *config.Config, appDB *db.DB)
 	fmt.Printf("\n%s\n", userBubbleStyle.Render("👤 "+prompt))
 
 	pythonBin := cfg.Engine.PythonBin
-	if pythonBin == "python3" {
+	if pythonBin == "python3" && runtime.GOOS == "windows" {
+		pythonBin = "python"
+	}
+	if runtime.GOOS == "windows" {
+		localVenv := filepath.Join(".venv", "Scripts", "python.exe")
+		if _, err := os.Stat(localVenv); err == nil {
+			pythonBin = localVenv
+		}
+	} else if pythonBin == "python3" {
 		localVenv := filepath.Join(".venv", "bin", "python3")
 		if _, err := os.Stat(localVenv); err == nil {
 			pythonBin = localVenv

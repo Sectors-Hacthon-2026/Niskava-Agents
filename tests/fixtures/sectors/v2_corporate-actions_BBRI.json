@@ -1,0 +1,13 @@
+[
+  {
+    "symbol": "BBRI",
+    "action_type": "DIVIDEND",
+    "cum_date": "2026-03-14",
+    "ex_date": "2026-03-15",
+    "recording_date": "2026-03-18",
+    "payment_date": "2026-04-03",
+    "dividend_per_share": 319.0,
+    "currency": "IDR",
+    "financial_year": "2025"
+  }
+]

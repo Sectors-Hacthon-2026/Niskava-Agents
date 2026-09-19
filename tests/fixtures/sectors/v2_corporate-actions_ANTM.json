@@ -1,0 +1,13 @@
+[
+  {
+    "symbol": "ANTM",
+    "action_type": "DIVIDEND",
+    "cum_date": "2026-06-05",
+    "ex_date": "2026-06-06",
+    "recording_date": "2026-06-09",
+    "payment_date": "2026-06-25",
+    "dividend_per_share": 128.5,
+    "currency": "IDR",
+    "financial_year": "2025"
+  }
+]

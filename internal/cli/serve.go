@@ -1,8 +1,13 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/internal/server"
 	"github.com/spf13/cobra"
 )
 
@@ -20,12 +25,25 @@ var serveCmd = &cobra.Command{
 			port = cfg.Server.Port
 		}
 
-		fmt.Printf("[●] Niskava Web Server starting on http://localhost:%d\n", port)
-		fmt.Println("Sesi REST API dan SSE streaming siap diakses.")
-		if openFlag {
-			fmt.Println("Membuka browser otomatis...")
+		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer cancel()
+
+		srv, err := server.Start(ctx, port, appDB)
+		if err != nil {
+			return fmt.Errorf("failed to start server: %w", err)
 		}
+
+		fmt.Printf("[●] Niskava Web Server active at %s\n", srv.URL)
+		fmt.Println("Sesi REST API dan SSE streaming siap diakses.")
 		fmt.Println("Tekan Ctrl+C untuk menghentikan server.")
+
+		if openFlag {
+			fmt.Printf("Membuka Web Workspace di browser: %s\n", srv.URL)
+			_ = server.OpenBrowser(srv.URL)
+		}
+
+		<-ctx.Done()
+		fmt.Println("\nMenghentikan server daemon...")
 		return nil
 	},
 }

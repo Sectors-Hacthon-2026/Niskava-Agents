@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"runtime"
 	"strings"
 )
 
@@ -90,8 +91,16 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 		defer close(errChan)
 
 		pythonBin := params.PythonBin
-		if pythonBin == "" {
-			pythonBin = "python3"
+		if pythonBin == "" || (pythonBin == "python3" && runtime.GOOS == "windows") {
+			if runtime.GOOS == "windows" {
+				if path, err := exec.LookPath("python"); err == nil {
+					pythonBin = path
+				} else {
+					pythonBin = "python"
+				}
+			} else {
+				pythonBin = "python3"
+			}
 		}
 
 		args := []string{

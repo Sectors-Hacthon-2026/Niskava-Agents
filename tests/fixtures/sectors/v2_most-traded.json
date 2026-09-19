@@ -1,0 +1,7 @@
+[
+  {"symbol": "BBRI", "company_name": "Bank Rakyat Indonesia (Persero) Tbk", "volume": 125000000, "price": 4950},
+  {"symbol": "BBCA", "company_name": "Bank Central Asia Tbk", "volume": 85000000, "price": 10250},
+  {"symbol": "ANTM", "company_name": "Aneka Tambang Tbk", "volume": 184500000, "price": 1580},
+  {"symbol": "BMRI", "company_name": "Bank Mandiri (Persero) Tbk", "volume": 67000000, "price": 6850},
+  {"symbol": "TLKM", "company_name": "Telkom Indonesia (Persero) Tbk", "volume": 58000000, "price": 3120}
+]

@@ -109,4 +109,16 @@ func TestChatMessagesPersistence(t *testing.T) {
 	if history[1].Thought == nil || *history[1].Thought != thought {
 		t.Errorf("expected thought '%s', got %v", thought, history[1].Thought)
 	}
+
+	// 4. List chat sessions
+	sessions, err := database.ListChatSessions(10)
+	if err != nil {
+		t.Fatalf("failed to list chat sessions: %v", err)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("expected 1 session summary, got %d", len(sessions))
+	}
+	if sessions[0].SessionID != sessionID || sessions[0].MessageCount != 2 {
+		t.Errorf("unexpected session summary: %+v", sessions[0])
+	}
 }

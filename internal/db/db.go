@@ -186,6 +186,11 @@ func Open(dbPath string) (*DB, error) {
 		return nil, fmt.Errorf("failed to apply database migrations: %w", err)
 	}
 
+	// Safe alter migrations for existing tables
+	_, _ = conn.Exec("ALTER TABLE investigations ADD COLUMN market TEXT NOT NULL DEFAULT 'IDX';")
+	_, _ = conn.Exec("ALTER TABLE investigations ADD COLUMN created_at TEXT DEFAULT '';")
+	_, _ = conn.Exec("ALTER TABLE sectors_cache ADD COLUMN is_mock INTEGER NOT NULL DEFAULT 0;")
+
 	return &DB{conn: conn}, nil
 }
 
@@ -365,4 +370,59 @@ func (d *DB) GetChatHistory(sessionID string, limit int) ([]ChatMessage, error) 
 		history = append(history, m)
 	}
 	return history, nil
+}
+
+// ChatSessionSummary represents a summary of a chat session.
+type ChatSessionSummary struct {
+	SessionID    string `json:"session_id"`
+	FirstMessage string `json:"first_message"`
+	LastMessage  string `json:"last_message"`
+	MessageCount int    `json:"message_count"`
+	UpdatedAt    string `json:"updated_at"`
+}
+
+// ListChatSessions retrieves unique chat sessions ordered by latest activity.
+func (d *DB) ListChatSessions(limit int) ([]ChatSessionSummary, error) {
+	if limit <= 0 {
+		limit = 30
+	}
+	query := `
+		SELECT 
+			session_id,
+			COALESCE((SELECT content FROM chat_messages m2 WHERE m2.session_id = m.session_id AND m2.role = 'user' ORDER BY m2.created_at ASC LIMIT 1), '') as first_msg,
+			COALESCE((SELECT content FROM chat_messages m3 WHERE m3.session_id = m.session_id ORDER BY m3.created_at DESC LIMIT 1), '') as last_msg,
+			COUNT(*) as msg_count,
+			MAX(created_at) as updated_at
+		FROM chat_messages m
+		GROUP BY session_id
+		ORDER BY updated_at DESC
+		LIMIT ?
+	`
+	rows, err := d.conn.Query(query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list chat sessions: %w", err)
+	}
+	defer rows.Close()
+
+	var sessions []ChatSessionSummary
+	for rows.Next() {
+		var s ChatSessionSummary
+		if err := rows.Scan(&s.SessionID, &s.FirstMessage, &s.LastMessage, &s.MessageCount, &s.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan chat session: %w", err)
+		}
+		sessions = append(sessions, s)
+	}
+	return sessions, nil
+}
+
+// ClearAllChatHistory wipes all chat messages from the database.
+func (d *DB) ClearAllChatHistory() error {
+	_, err := d.conn.Exec("DELETE FROM chat_messages")
+	return err
+}
+
+// DeleteChatSession deletes all chat messages for a specific session ID.
+func (d *DB) DeleteChatSession(sessionID string) error {
+	_, err := d.conn.Exec("DELETE FROM chat_messages WHERE session_id = ?", sessionID)
+	return err
 }

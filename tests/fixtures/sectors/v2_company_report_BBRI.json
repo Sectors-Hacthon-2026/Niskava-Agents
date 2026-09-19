@@ -1,0 +1,50 @@
+{
+  "symbol": "BBRI",
+  "company_name": "PT Bank Rakyat Indonesia (Persero) Tbk",
+  "sector": "Financials",
+  "subsector": "Banks",
+  "overview": {
+    "market_cap": 750000000000000,
+    "shares_outstanding": 151559000000,
+    "pe_ratio": 11.8,
+    "pbv_ratio": 2.25,
+    "dividend_yield": 0.062
+  },
+  "valuation": {
+    "pe_ttm": 11.8,
+    "pbv": 2.25,
+    "ps_ratio": 4.1,
+    "ev_to_ebitda": 9.2
+  },
+  "financials": {
+    "revenue_ttm": 182000000000000,
+    "net_income_ttm": 60400000000000,
+    "net_interest_margin": 0.078,
+    "loan_to_deposit_ratio": 0.882,
+    "non_performing_loan": 0.029,
+    "capital_adequacy_ratio": 0.254,
+    "total_assets": 1965000000000000,
+    "total_equity": 333000000000000,
+    "roe": 0.182
+  },
+  "peers": [
+    {
+      "symbol": "BBCA",
+      "name": "PT Bank Central Asia Tbk",
+      "market_cap": 1200000000000000,
+      "pe_ratio": 22.1
+    },
+    {
+      "symbol": "BMRI",
+      "name": "PT Bank Mandiri (Persero) Tbk",
+      "market_cap": 620000000000000,
+      "pe_ratio": 10.9
+    },
+    {
+      "symbol": "BBNI",
+      "name": "PT Bank Negara Indonesia (Persero) Tbk",
+      "market_cap": 195000000000000,
+      "pe_ratio": 9.2
+    }
+  ]
+}

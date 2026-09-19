@@ -45,6 +45,33 @@ func TestConfigEnvOverrides(t *testing.T) {
 	}
 }
 
+// TestLoadDotEnvToConfig verifies a key written into a .env-style file is
+// picked up by Load() via loadDotEnv (the real production path).
+func TestLoadDotEnvToConfig(t *testing.T) {
+	tempDir := t.TempDir()
+	envPath := filepath.Join(tempDir, ".env")
+	envContent := "SECTORS_API_KEY=sectors_key_from_file_123\nNISKAVA_PORT=9191\n"
+	if err := os.WriteFile(envPath, []byte(envContent), 0600); err != nil {
+		t.Fatalf("failed to write test env: %v", err)
+	}
+
+	// loadDotEnv sets env vars only when absent; ensure clean slate.
+	os.Unsetenv("SECTORS_API_KEY")
+	defer os.Unsetenv("SECTORS_API_KEY")
+
+	loadDotEnv(envPath)
+	cfg, err := Load(filepath.Join(tempDir, "config.yaml"))
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if cfg.Auth.SectorsAPIKey != "sectors_key_from_file_123" {
+		t.Errorf("expected SectorsAPIKey from .env file, got %q", cfg.Auth.SectorsAPIKey)
+	}
+	if cfg.Server.Port != 9191 {
+		t.Errorf("expected port 9191 from .env file, got %d", cfg.Server.Port)
+	}
+}
+
 func TestLoadDotEnv(t *testing.T) {
 	tempDir := t.TempDir()
 	envPath := filepath.Join(tempDir, ".env")

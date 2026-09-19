@@ -1,0 +1,29 @@
+[
+  {
+    "id": "news-antm-001",
+    "title": "Antam Tuntaskan Ekspansi Smelter Nikel di Halmahera Timur",
+    "ticker": "ANTM",
+    "url": "https://ekonomi.bisnis.com/read/20260912/44/1789234/antam-resmikan-smelter-nikel",
+    "published_at": "2026-09-12T07:15:00Z",
+    "source": "Bisnis Indonesia",
+    "summary": "PT Aneka Tambang Tbk (ANTM) mengumumkan penyelesaian proses commissioning smelter feronikel di Haltim dengan estimasi peningkatan kapasitas produksi 13.500 TNi."
+  },
+  {
+    "id": "news-antm-002",
+    "title": "Asing Borong Saham ANTM Rp111 Miliar Pasca Pengumuman Ekspansi",
+    "ticker": "ANTM",
+    "url": "https://investasi.kontan.co.id/news/asing-akumulasi-antm",
+    "published_at": "2026-09-12T16:45:00Z",
+    "source": "Kontan",
+    "summary": "Investor asing membukukan aksi beli bersih signifikan sebesar Rp111,3 Miliar pada saham ANTM setelah rilis penyelesaian smelter."
+  },
+  {
+    "id": "news-bbri-001",
+    "title": "BRI Bukukan Laba Bersih Rp60,4 Triliun Didorong Pertumbuhan Kredit UMKM",
+    "ticker": "BBRI",
+    "url": "https://finansial.bisnis.com/read/20260910/90/1790111/bri-cetak-laba-rekor",
+    "published_at": "2026-09-10T08:00:00Z",
+    "source": "Bisnis Indonesia",
+    "summary": "PT Bank Rakyat Indonesia (Persero) Tbk (BBRI) membukukan kenaikan laba bersih konsolidasian tahunan didukung ekspansi kredit segmen mikro dan ultra mikro."
+  }
+]

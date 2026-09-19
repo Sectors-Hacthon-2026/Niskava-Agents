@@ -1,0 +1,58 @@
+[
+  {
+    "date": "2026-09-08",
+    "symbol": "BBRI",
+    "foreign_buy_value": 85000000000,
+    "foreign_sell_value": 90000000000,
+    "net_foreign_inflow": -5000000000,
+    "close_price": 5125
+  },
+  {
+    "date": "2026-09-09",
+    "symbol": "BBRI",
+    "foreign_buy_value": 92000000000,
+    "foreign_sell_value": 88000000000,
+    "net_foreign_inflow": 4000000000,
+    "close_price": 5150
+  },
+  {
+    "date": "2026-09-10",
+    "symbol": "BBRI",
+    "foreign_buy_value": 480000000000,
+    "foreign_sell_value": 120000000000,
+    "net_foreign_inflow": 360000000000,
+    "close_price": 5450
+  },
+  {
+    "date": "2026-09-11",
+    "symbol": "BBRI",
+    "foreign_buy_value": 140000000000,
+    "foreign_sell_value": 110000000000,
+    "net_foreign_inflow": 30000000000,
+    "close_price": 5425
+  },
+  {
+    "date": "2026-09-12",
+    "symbol": "BBRI",
+    "foreign_buy_value": 135000000000,
+    "foreign_sell_value": 125000000000,
+    "net_foreign_inflow": 10000000000,
+    "close_price": 5400
+  },
+  {
+    "date": "2026-09-15",
+    "symbol": "BBRI",
+    "foreign_buy_value": 150000000000,
+    "foreign_sell_value": 140000000000,
+    "net_foreign_inflow": 10000000000,
+    "close_price": 5450
+  },
+  {
+    "date": "2026-09-16",
+    "symbol": "BBRI",
+    "foreign_buy_value": 160000000000,
+    "foreign_sell_value": 145000000000,
+    "net_foreign_inflow": 15000000000,
+    "close_price": 5475
+  }
+]

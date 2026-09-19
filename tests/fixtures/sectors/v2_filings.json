@@ -1,0 +1,28 @@
+[
+  {
+    "symbol": "ANTM",
+    "holder_name": "Nico Kanter",
+    "holder_type": "DIRECTOR",
+    "transaction_type": "BUY",
+    "transaction_date": "2026-09-11",
+    "shares_transacted": 250000,
+    "price_per_share": 1455.0,
+    "shares_after_transaction": 1250000,
+    "percentage_after_transaction": 0.0052,
+    "purpose": "Investasi Pribadi",
+    "announcement_date": "2026-09-12"
+  },
+  {
+    "symbol": "BBRI",
+    "holder_name": "Sunarso",
+    "holder_type": "DIRECTOR",
+    "transaction_type": "BUY",
+    "transaction_date": "2026-09-09",
+    "shares_transacted": 500000,
+    "price_per_share": 5150.0,
+    "shares_after_transaction": 4500000,
+    "percentage_after_transaction": 0.003,
+    "purpose": "Investasi",
+    "announcement_date": "2026-09-10"
+  }
+]

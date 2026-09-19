@@ -1,0 +1,36 @@
+{
+  "symbol": "ANTM",
+  "company_name": "PT Aneka Tambang Tbk",
+  "sector": "Basic Materials",
+  "subsector": "Metals & Mining",
+  "overview": {
+    "market_cap": 38200000000000,
+    "shares_outstanding": 24030764725,
+    "pe_ratio": 12.8,
+    "pbv_ratio": 1.45,
+    "dividend_yield": 0.054
+  },
+  "valuation": {
+    "pe_ttm": 12.8,
+    "pbv": 1.45,
+    "ps_ratio": 0.85,
+    "ev_to_ebitda": 7.4
+  },
+  "financials": {
+    "revenue_ttm": 44850000000000,
+    "net_income_ttm": 3050000000000,
+    "gross_margin": 0.185,
+    "operating_margin": 0.098,
+    "net_margin": 0.068,
+    "total_debt": 6120000000000,
+    "total_equity": 26340000000000,
+    "debt_to_equity": 0.23,
+    "quick_ratio": 1.85,
+    "current_ratio": 2.45
+  },
+  "peers": [
+    {"symbol": "INCO", "name": "Vale Indonesia Tbk", "market_cap": 37800000000000, "pe_ratio": 14.2},
+    {"symbol": "MDKA", "name": "Merdeka Copper Gold Tbk", "market_cap": 52100000000000, "pe_ratio": 28.5},
+    {"symbol": "TINS", "name": "Timah Tbk", "market_cap": 9400000000000, "pe_ratio": 9.8}
+  ]
+}

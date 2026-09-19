@@ -5,7 +5,9 @@ package config
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -58,6 +60,19 @@ type PreferencesConfig struct {
 	OfflineMode   bool   `yaml:"offline_mode"`
 }
 
+func defaultPythonBin() string {
+	if runtime.GOOS == "windows" {
+		if path, err := exec.LookPath("python"); err == nil {
+			return path
+		}
+		return "python"
+	}
+	if path, err := exec.LookPath("python3"); err == nil {
+		return path
+	}
+	return "python3"
+}
+
 // DefaultConfig returns safe baseline configuration values.
 func DefaultConfig() *Config {
 	homeDir, _ := os.UserHomeDir()
@@ -81,7 +96,7 @@ func DefaultConfig() *Config {
 			DBPath: defaultDBPath,
 		},
 		Engine: EngineConfig{
-			PythonBin:  "python3",
+			PythonBin:  defaultPythonBin(),
 			EnginePath: "./engine",
 		},
 		Server: ServerConfig{
