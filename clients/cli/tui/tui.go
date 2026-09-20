@@ -208,22 +208,22 @@ func (m Model) View() string {
 
 	// 1. Header Banner
 	b.WriteString("\n")
-	b.WriteString(titleStyle.Render(" [●] NISKAVA AGENT — AUTONOMOUS MARKET INTELLIGENCE "))
-	b.WriteString(" Target: ")
+	b.WriteString(titleStyle.Render(T("header_title")))
+	b.WriteString(T("target_label"))
 	b.WriteString(tickerBadgeStyle.Render(m.Ticker))
-	b.WriteString(fmt.Sprintf(" (%d Hari Pengamatan)\n", m.Days))
+	b.WriteString(fmt.Sprintf(T("observation_horizon"), m.Days))
 	b.WriteString(RenderConstellationLine(80) + "\n\n")
 
 	// 2. Live Thought Stream (ReAct Inner Monologue)
 	if m.CurrentThought != "" {
-		thoughtHeader := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#38BDF8")).Render("💭 Penalaran Agen:")
+		thoughtHeader := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#38BDF8")).Render(T("agent_reasoning"))
 		b.WriteString(fmt.Sprintf("%s\n", thoughtHeader))
 		b.WriteString(thoughtBoxStyle.Render(m.CurrentThought) + "\n\n")
 	}
 
 	// 3. Dynamic Tool Invocations
 	if len(m.ToolActivities) > 0 {
-		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#F8FAFC")).Render("🛠️  Aktivitas Alat (Tool Execution):") + "\n")
+		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#F8FAFC")).Render(T("tool_activity")) + "\n")
 		for _, act := range m.ToolActivities {
 			if act.Done {
 				b.WriteString(fmt.Sprintf("  %s %s\n", toolDoneStyle.Render("✔"), lipgloss.NewStyle().Bold(true).Render(act.ToolName)))
@@ -244,13 +244,13 @@ func (m Model) View() string {
 			anomLines = append(anomLines, fmt.Sprintf("• [%s] %s (Z-Score: %.2fσ | Return: %+.2f%%)\n  %s",
 				a.AnomalyDate, a.MetricType, a.ZScore, a.PriceChangePct, a.Description))
 		}
-		b.WriteString(anomalyBoxStyle.Render(fmt.Sprintf("🚨 ANOMALI KUANTITATIF TERDETEKSI (NUMPY LAW 1):\n%s", strings.Join(anomLines, "\n"))) + "\n\n")
+		b.WriteString(anomalyBoxStyle.Render(fmt.Sprintf("%s\n%s", T("anomaly_detected"), strings.Join(anomLines, "\n"))) + "\n\n")
 	}
 
 	// 5. Findings Section (Audit Trail 3-Tier Taxonomy)
 	if len(m.Findings) > 0 {
 		b.WriteString("─────────────────────────────────────────────────────────────────────────────\n")
-		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF")).Render("RINGKASAN TEMUAN (AUDIT TRAIL 3-TIER):") + "\n")
+		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF")).Render(T("audit_trail_summary")) + "\n")
 
 		for _, f := range m.Findings {
 			var badge string
@@ -267,7 +267,7 @@ func (m Model) View() string {
 
 			b.WriteString(fmt.Sprintf("\n%s %s\n", badge, lipgloss.NewStyle().Bold(true).Render(f.Title)))
 			b.WriteString(fmt.Sprintf("            %s\n", f.ClaimText))
-			b.WriteString(fmt.Sprintf("            Kausalitas: %s | Skor Keyakinan: %.2f\n", f.CausalityStatus, f.ConfidenceScore))
+			b.WriteString(fmt.Sprintf("            %s: %s | %s: %.2f\n", T("causality_label"), f.CausalityStatus, T("confidence_score_label"), f.ConfidenceScore))
 		}
 	}
 
@@ -279,15 +279,12 @@ func (m Model) View() string {
 
 	// 7. Non-Advisory Disclaimer Footer (Law 2 / Hackathon Rule 12)
 	b.WriteString("\n")
-	disclaimerText := "DISCLAIMER FINANSIAL (NON-ADVISORY - LAW 2 & ATURAN 12):\n" +
-		"Niskava Agent adalah platform intelijen pasar dan OSINT otonom, BUKAN penasihat investasi.\n" +
-		"Sistem TIDAK PERNAH memberikan rekomendasi BELI/JUAL atau target harga sekuritas apa pun."
+	disclaimerText := T("financial_disclaimer")
 	b.WriteString(disclaimerBoxStyle.Render(disclaimerText) + "\n\n")
 
 	// 8. Navigation hint
 	if m.SessionID != "" {
-		b.WriteString(fmt.Sprintf("Sesi tersimpan: %s (%s)\n", m.SessionID, m.DBPath))
-		b.WriteString("Ketik 'niskava serve --open' untuk membuka visual workspace interaktif di browser.\n")
+		b.WriteString(fmt.Sprintf(T("session_saved_hint"), m.SessionID, m.DBPath))
 	}
 
 	if m.Err != nil {

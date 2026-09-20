@@ -98,50 +98,7 @@ func NewLauncherModel(serverURL string, version string) LauncherModel {
 
 // NewLauncherModelWithHealth initializes the revamped launcher menu with live health state.
 func NewLauncherModelWithHealth(serverURL string, version string, apiKeyOK bool) LauncherModel {
-	items := []LauncherItem{
-		{
-			ShortcutKey: "W",
-			Title:       "Web UI (Open in Browser)",
-			Description: "Jalankan server web & buka otomatis di browser default",
-			ActionID:    "web",
-		},
-		{
-			ShortcutKey: "T",
-			Title:       "Terminal UI (Interactive Live CLI)",
-			Description: "Sesi REPL interaktif berbasis perintah riset & anomali",
-			ActionID:    "terminal",
-		},
-		{
-			ShortcutKey: "S",
-			Title:       "Riwayat Sesi & Audit Trail (SQLite)",
-			Description: "Inspeksi riwayat investigasi & bukti terverifikasi dari database",
-			ActionID:    "sessions",
-		},
-		{
-			ShortcutKey: "H",
-			Title:       "Panduan & Instruksi Penggunaan (Help Guide)",
-			Description: "Instruksi lengkap navigasi, opsi menu, dan perintah slash",
-			ActionID:    "help",
-		},
-		{
-			ShortcutKey: "C",
-			Title:       "System & API Key Health Check",
-			Description: "Periksa status daemon server, koneksi database, dan provider AI",
-			ActionID:    "health",
-		},
-		{
-			ShortcutKey: "Q",
-			Title:       "Quick Setup Wizard (.env)",
-			Description: "Konfigurasi cepat API key Sectors, Gemini, atau OpenAI",
-			ActionID:    "setup",
-		},
-		{
-			ShortcutKey: "E",
-			Title:       "Exit",
-			Description: "Hentikan daemon server dan keluar dari Niskava Agent",
-			ActionID:    "exit",
-		},
-	}
+	items := GetLocalizedLauncherItems()
 
 	return LauncherModel{
 		ServerURL: serverURL,
@@ -161,7 +118,7 @@ func (m LauncherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		k := strings.ToLower(msg.String())
 		switch k {
-		case "ctrl+c", "e", "x", "7":
+		case "ctrl+c", "e", "x", "8":
 			m.Quitting = true
 			m.Selected = "exit"
 			return m, tea.Quit
@@ -205,7 +162,11 @@ func (m LauncherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Selected = "health"
 			return m, tea.Quit
 
-		case "q", "6":
+		case "l", "6":
+			m.Selected = "lang"
+			return m, tea.Quit
+
+		case "q", "7":
 			m.Selected = "setup"
 			return m, tea.Quit
 		}
@@ -216,7 +177,7 @@ func (m LauncherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m LauncherModel) View() string {
 	if m.Quitting {
-		return "\nKeluar dari Niskava Agent. Sampai jumpa!\n"
+		return T("launcher_quitting_msg")
 	}
 
 	noColor := os.Getenv("NO_COLOR") != ""

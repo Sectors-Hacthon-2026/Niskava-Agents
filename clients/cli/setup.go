@@ -30,8 +30,8 @@ var (
 
 var setupCmd = &cobra.Command{
 	Use:   "setup",
-	Short: "Wizard interaktif konfigurasi environment Niskava Agent (.env)",
-	Long:  `Menjalankan panduan langkah demi langkah untuk mengatur AI Provider (9router/Gemini/OpenAI), API key, dan preferensi lokal Niskava Agent.`,
+	Short: "Interactive setup wizard for Niskava Agent environment (.env)",
+	Long:  `Launches a step-by-step wizard to configure AI Provider (Gemini/OpenAI/9router), API keys, and local Niskava Agent preferences.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return RunInteractiveSetup()
 	},
@@ -47,17 +47,17 @@ func RunInteractiveSetup() error {
 
 	fmt.Println()
 	fmt.Println("=============================================================================")
-	fmt.Printf(" %s\n", wizardTitleStyle.Render("NISKAVA AGENT — QUICK SETUP WIZARD (1 MENIT)"))
-	fmt.Println(" Konfigurasi otomatis koneksi AI Provider, Sectors Financial API, dan Storage.")
+	fmt.Printf(" %s\n", wizardTitleStyle.Render("NISKAVA AGENT — QUICK SETUP WIZARD (1 MINUTE)"))
+	fmt.Println(" Automatic setup for AI Provider connection, Sectors Financial API, & Storage.")
 	fmt.Println("=============================================================================")
 	fmt.Println()
 
 	// 1. AI Provider Selection
-	fmt.Println(accentStyle.Render("Langkah 1: Pilih AI Provider untuk ReAct Research Assistant:"))
-	fmt.Println("  [1] 9router Lokal (http://localhost:20128/v1, Model: hermes) [Rekomendasi]")
+	fmt.Println(accentStyle.Render("Step 1: Select AI Provider for ReAct Research Assistant:"))
+	fmt.Println("  [1] Local 9router (http://localhost:20128/v1, Model: hermes) [Recommended]")
 	fmt.Println("  [2] Google Gemini Cloud (Google AI Studio, Model: gemini-2.0-flash)")
-	fmt.Println("  [3] Custom OpenAI-Compatible (OpenAI, vLLM, Ollama, dll)")
-	fmt.Print("\nPilihan [1/2/3, default: 1]: ")
+	fmt.Println("  [3] Custom OpenAI-Compatible (OpenAI, vLLM, Ollama, etc)")
+	fmt.Print("\nChoice [1/2/3, default: 1]: ")
 
 	providerChoice, _ := reader.ReadString('\n')
 	providerChoice = strings.TrimSpace(providerChoice)
@@ -82,11 +82,11 @@ func RunInteractiveSetup() error {
 	switch providerChoice {
 	case "2":
 		aiProvider = "gemini"
-		fmt.Print("\nMasukkan Google Gemini API Key (https://aistudio.google.com/): ")
+		fmt.Print("\nEnter Google Gemini API Key (https://aistudio.google.com/): ")
 		geminiKey, _ = reader.ReadString('\n')
 		geminiKey = strings.TrimSpace(geminiKey)
 
-		fmt.Print("Model Gemini [default: gemini-2.0-flash]: ")
+		fmt.Print("Gemini Model Name [default: gemini-2.0-flash]: ")
 		m, _ := reader.ReadString('\n')
 		m = strings.TrimSpace(m)
 		if m != "" {
@@ -95,18 +95,18 @@ func RunInteractiveSetup() error {
 
 	case "3":
 		aiProvider = "openai"
-		fmt.Print("\nMasukkan Base URL [contoh: https://api.openai.com/v1]: ")
+		fmt.Print("\nEnter Base URL [example: https://api.openai.com/v1]: ")
 		openAIBaseURL, _ = reader.ReadString('\n')
 		openAIBaseURL = strings.TrimSpace(openAIBaseURL)
 		if openAIBaseURL == "" {
 			openAIBaseURL = "https://api.openai.com/v1"
 		}
 
-		fmt.Print("Masukkan API Key: ")
+		fmt.Print("Enter API Key: ")
 		openAIKey, _ = reader.ReadString('\n')
 		openAIKey = strings.TrimSpace(openAIKey)
 
-		fmt.Print("Model Name [contoh: gpt-4o-mini]: ")
+		fmt.Print("Model Name [example: gpt-4o-mini]: ")
 		openAIModel, _ = reader.ReadString('\n')
 		openAIModel = strings.TrimSpace(openAIModel)
 		if openAIModel == "" {
@@ -140,15 +140,15 @@ func RunInteractiveSetup() error {
 
 	// 2. Sectors Financial API Key
 	fmt.Println()
-	fmt.Println(accentStyle.Render("Langkah 2: Sectors Financial API v2 (Bursa Efek Indonesia):"))
-	fmt.Println("  (Dapatkan key di https://sectors.app. Tekan ENTER untuk mode Offline Mock).")
-	fmt.Print("Sectors API Key [opsional]: ")
+	fmt.Println(accentStyle.Render("Step 2: Sectors Financial API v2 (Indonesia Stock Exchange):"))
+	fmt.Println("  (Get key at https://sectors.app. Press ENTER for Offline Mock Mode).")
+	fmt.Print("Sectors API Key [optional]: ")
 	sectorsKey, _ := reader.ReadString('\n')
 	sectorsKey = strings.TrimSpace(sectorsKey)
 
 	// 3. Health ping test
 	fmt.Println()
-	fmt.Println("Menguji koneksi provider...")
+	fmt.Println("Testing provider connection...")
 	if aiProvider == "openai" && strings.Contains(openAIBaseURL, "localhost:20128") {
 		client := http.Client{Timeout: 3 * time.Second}
 		req, _ := http.NewRequestWithContext(context.Background(), "GET", openAIBaseURL+"/models", nil)
@@ -156,16 +156,16 @@ func RunInteractiveSetup() error {
 		resp, err := client.Do(req)
 		if err == nil && resp.StatusCode == 200 {
 			_ = resp.Body.Close()
-			fmt.Println(successBadgeStyle.Render("  [✓] 9router lokal terhubung dengan baik!"))
+			fmt.Println(successBadgeStyle.Render("  [✓] Local 9router connected successfully!"))
 		} else {
-			fmt.Println("  [!] 9router belum aktif di localhost:20128. Konfigurasi tetap disimpan.")
+			fmt.Println("  [!] 9router not active on localhost:20128. Config saved successfully.")
 		}
 	}
 
 	// 4. Generate .env content
 	envContent := fmt.Sprintf(`# =============================================================================
 # NISKAVA AGENT — ENVIRONMENT CONFIGURATION (.env)
-# Disusun otomatis via 'niskava setup' pada %s
+# Generated automatically via 'niskava setup' on %s
 # =============================================================================
 
 # 1. AI MODEL CONFIGURATION (ReAct Agent)
@@ -174,7 +174,7 @@ OPENAI_BASE_URL=%s
 OPENAI_API_KEY=%s
 OPENAI_MODEL=%s
 
-# Google Gemini (Cadangan)
+# Google Gemini (Backup)
 GEMINI_API_KEY=%s
 GEMINI_MODEL=%s
 
@@ -182,11 +182,11 @@ GEMINI_MODEL=%s
 SECTORS_API_KEY=%s
 SECTORS_BASE_URL=https://api.sectors.app/v2
 
-# Mode Offline / Mock (Hukum 5: Hemat Kredit)
+# Offline / Mock Mode (Law 5: Credit Conservation)
 MOCK_SECTORS=%s
 NISKAVA_OFFLINE=%s
 
-# 3. LOCAL STORAGE & ENGINE (Hukum 4: Local-First SQLite WAL)
+# 3. LOCAL STORAGE & ENGINE (Law 4: Local-First SQLite WAL)
 NISKAVA_DB_PATH=~/.niskava/niskava.db
 NISKAVA_PYTHON_BIN=.venv/bin/python3
 NISKAVA_ENGINE_PATH=./backend/engine
@@ -216,13 +216,13 @@ NEWS_TIMEOUT_SECONDS=10
 
 	// Write to .env with 0600 permissions
 	if err := os.WriteFile(".env", []byte(envContent), 0600); err != nil {
-		return fmt.Errorf("gagal menyimpan file .env: %w", err)
+		return fmt.Errorf("failed to save .env file: %w", err)
 	}
 
 	fmt.Println()
 	fmt.Println("=============================================================================")
-	fmt.Println(successBadgeStyle.Render(" SETUP SELESAI! File .env berhasil dibuat dengan aman (izin 0600)."))
-	fmt.Println(" Anda dapat langsung memulai antarmuka interaktif dengan:")
+	fmt.Println(successBadgeStyle.Render(" SETUP COMPLETED! Secure .env file generated successfully (0600 permissions)."))
+	fmt.Println(" You can launch the interactive interface right away with:")
 	fmt.Println("   " + accentStyle.Render("./bin/niskava"))
 	fmt.Println("=============================================================================")
 	fmt.Println()

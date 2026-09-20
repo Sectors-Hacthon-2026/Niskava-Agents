@@ -15,10 +15,11 @@ import (
 )
 
 var (
-	cfgFile string
-	verbose bool
-	cfg     *config.Config
-	appDB   *db.DB
+	cfgFile  string
+	langFlag string
+	verbose  bool
+	cfg      *config.Config
+	appDB    *db.DB
 )
 
 // RootCmd represents the base command when called without any subcommands.
@@ -35,6 +36,11 @@ and qualitative market disclosures/news.`,
 		if err != nil {
 			return fmt.Errorf("failed to load configuration: %w", err)
 		}
+
+		if langFlag != "" {
+			cfg.Preferences.Language = langFlag
+		}
+		tui.SetLanguage(cfg.Preferences.Language)
 
 		appDB, err = db.Open(cfg.Storage.DBPath)
 		if err != nil {
@@ -113,6 +119,18 @@ and qualitative market disclosures/news.`,
 				fmt.Println("Tekan Enter untuk kembali ke Menu...")
 				_, _ = fmt.Scanln()
 
+			case "lang":
+				langModel := tui.NewLangSelectorModel()
+				pLang := tea.NewProgram(langModel, tea.WithAltScreen())
+				mLang, errLang := pLang.Run()
+				if errLang == nil {
+					selLang := mLang.(tui.LangSelectorModel).Selected
+					if selLang != "" {
+						tui.SetLanguage(selLang)
+						cfg.Preferences.Language = tui.ActiveLanguage
+					}
+				}
+
 			case "setup":
 				_ = RunInteractiveSetup()
 				fmt.Println("Tekan Enter untuk kembali ke Menu...")
@@ -142,5 +160,6 @@ func Execute() {
 
 func init() {
 	RootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is ~/.niskava/config.yaml)")
+	RootCmd.PersistentFlags().StringVarP(&langFlag, "lang", "l", "", "language preference: 'en' for English (default) or 'id' for Indonesian")
 	RootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose logging")
 }

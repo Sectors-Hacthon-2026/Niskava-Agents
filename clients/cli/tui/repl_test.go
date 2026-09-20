@@ -23,7 +23,7 @@ func TestReplInputModelSlashPopupFiltering(t *testing.T) {
 	if !m.SlashActive {
 		t.Errorf("expected SlashActive to be true after typing '/'")
 	}
-	if len(m.FilteredCommands) != len(defaultSlashCommands) {
+	if len(m.FilteredCommands) != len(GetLocalizedSlashCommands()) {
 		t.Errorf("expected all slash commands to be present for '/'")
 	}
 

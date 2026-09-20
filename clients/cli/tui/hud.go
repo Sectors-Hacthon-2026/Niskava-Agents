@@ -140,7 +140,7 @@ func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 
 	// 3. Status Dots Indicator
 	b.WriteString("\n")
-	b.WriteString(statusDotStyle.Render("● ● ● ●") + "  " + lipgloss.NewStyle().Foreground(colorMutedSlate).Render("[SYSTEM ONLINE & MONITORING CORE]"))
+	b.WriteString(statusDotStyle.Render("● ● ● ●") + "  " + lipgloss.NewStyle().Foreground(colorMutedSlate).Render(T("hud_system_online")))
 	b.WriteString("\n\n")
 
 	// 4. Motto Tagline
@@ -167,11 +167,12 @@ func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 	}{
 		{Label: "DESIGNATION", Val: "NISKAVA (" + sessionID + ")", IsHL: false},
 		{Label: "SUBSTRATE", Val: "sectors-v2 / " + modelLabel, IsHL: false},
-		{Label: "RUNTIME", Val: "local (go core + python react loop)", IsHL: false},
+		{Label: "RUNTIME", Val: T("hud_runtime_val"), IsHL: false},
+		{Label: "LANGUAGE", Val: T("hud_language_val"), IsHL: true},
 		{Label: "CONSCIOUS", Val: dbAge, IsHL: false},
 		{Label: "BRAIN SIZE", Val: dbSize, IsHL: false},
 		{Label: "INTERFACES", Val: "cli, web-workspace (" + serverURL + ")", IsHL: false},
-		{Label: "PURPOSE", Val: "market intelligence & financial osint", IsHL: true},
+		{Label: "PURPOSE", Val: T("hud_purpose_val"), IsHL: false},
 	}
 
 	for _, spec := range specs {
