@@ -138,17 +138,7 @@ func (m LauncherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
-			selectedID := m.Items[m.Cursor].ActionID
-			if selectedID == "lang" {
-				if ActiveLanguage == "en" {
-					SetLanguage("id")
-				} else {
-					SetLanguage("en")
-				}
-				m.Items = GetLocalizedLauncherItems()
-				return m, nil
-			}
-			m.Selected = selectedID
+			m.Selected = m.Items[m.Cursor].ActionID
 			return m, tea.Quit
 
 		// Direct Hotkey Shortcuts (PRD Spec 5.3)
@@ -173,13 +163,8 @@ func (m LauncherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "l", "6":
-			if ActiveLanguage == "en" {
-				SetLanguage("id")
-			} else {
-				SetLanguage("en")
-			}
-			m.Items = GetLocalizedLauncherItems()
-			return m, nil
+			m.Selected = "lang"
+			return m, tea.Quit
 
 		case "q", "7":
 			m.Selected = "setup"

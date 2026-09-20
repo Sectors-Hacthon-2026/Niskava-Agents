@@ -2,6 +2,8 @@ package tui
 
 import (
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestI18nLanguageSwitching(t *testing.T) {
@@ -29,4 +31,19 @@ func TestI18nLanguageSwitching(t *testing.T) {
 
 	// Reset to English
 	SetLanguage("en")
+}
+
+func TestLangSelectorModel(t *testing.T) {
+	model := NewLangSelectorModel()
+	if len(model.Languages) < 2 {
+		t.Fatalf("expected at least 2 supported languages")
+	}
+
+	// Test pressing '2' to select Indonesian "id"
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	m := updated.(LangSelectorModel)
+
+	if m.Selected != "id" {
+		t.Errorf("expected selected language 'id', got %s", m.Selected)
+	}
 }

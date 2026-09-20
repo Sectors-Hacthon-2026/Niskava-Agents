@@ -3,16 +3,61 @@ package tui
 
 import "strings"
 
+// LanguageInfo defines metadata for a supported interface language.
+type LanguageInfo struct {
+	Code       string // "en", "id", etc.
+	Name       string // "English", "Indonesian"
+	NativeName string // "English", "Bahasa Indonesia"
+	FlagSymbol string // "🇺🇸", "🇮🇩"
+	IsDefault  bool
+}
+
+// SupportedLanguages lists all registered languages available in Niskava Agent.
+var SupportedLanguages = []LanguageInfo{
+	{
+		Code:       "en",
+		Name:       "English",
+		NativeName: "English",
+		FlagSymbol: "🇺🇸",
+		IsDefault:  true,
+	},
+	{
+		Code:       "id",
+		Name:       "Indonesian",
+		NativeName: "Bahasa Indonesia",
+		FlagSymbol: "🇮🇩",
+		IsDefault:  false,
+	},
+}
+
+// GetSupportedLanguages returns the complete list of registered languages.
+func GetSupportedLanguages() []LanguageInfo {
+	return SupportedLanguages
+}
+
 // ActiveLanguage determines the current active locale (defaults to "en").
 var ActiveLanguage = "en"
 
 // SetLanguage updates the active locale.
 func SetLanguage(lang string) {
-	if strings.ToLower(lang) == "id" || strings.ToLower(lang) == "indonesian" {
-		ActiveLanguage = "id"
-	} else {
-		ActiveLanguage = "en"
+	langLower := strings.ToLower(lang)
+	for _, l := range SupportedLanguages {
+		if langLower == l.Code || langLower == strings.ToLower(l.Name) || langLower == strings.ToLower(l.NativeName) {
+			ActiveLanguage = l.Code
+			return
+		}
 	}
+	ActiveLanguage = "en"
+}
+
+// GetActiveLanguageInfo returns metadata for the current active language.
+func GetActiveLanguageInfo() LanguageInfo {
+	for _, l := range SupportedLanguages {
+		if l.Code == ActiveLanguage {
+			return l
+		}
+	}
+	return SupportedLanguages[0]
 }
 
 // TUIStrings map holds English ("en") default and Indonesian ("id") translations for all UI elements.
@@ -232,6 +277,38 @@ var TUIStrings = map[string]map[string]string{
 	"sessions_empty": {
 		"en": "No saved investigation sessions found.",
 		"id": "Belum ada sesi investigasi tersimpan.",
+	},
+	"hud_system_online": {
+		"en": "[SYSTEM ONLINE & MONITORING CORE]",
+		"id": "[SISTEM ONLINE & PEMANTAUAN CORE]",
+	},
+	"hud_runtime_val": {
+		"en": "local (go core + python react loop)",
+		"id": "lokal (go core + python react loop)",
+	},
+	"hud_language_val": {
+		"en": "English [EN] (Default)",
+		"id": "Bahasa Indonesia [ID]",
+	},
+	"hud_purpose_val": {
+		"en": "market intelligence & financial osint",
+		"id": "intelijen pasar & osint keuangan",
+	},
+	"banner_hint": {
+		"en": "  [HINT: Type /help for guide, /lang to switch language, /reset to clear chat, /exit to quit]",
+		"id": "  [PETUNJUK: Ketik /help untuk panduan, /lang untuk ganti bahasa, /reset untuk reset chat, /exit untuk keluar]",
+	},
+	"lang_selector_title": {
+		"en": "🌐 SELECT INTERFACE LANGUAGE / PILIH BAHASA ANTARMUKA",
+		"id": "🌐 PILIH BAHASA ANTARMUKA / SELECT INTERFACE LANGUAGE",
+	},
+	"lang_active_badge": {
+		"en": "[ACTIVE]",
+		"id": "[AKTIF]",
+	},
+	"lang_selector_hint": {
+		"en": "[Press 1/2, Arrow Keys + Enter to Select, Esc to Cancel]",
+		"id": "[Tekan 1/2, Tombol Panah + Enter untuk Memilih, Esc untuk Batal]",
 	},
 }
 

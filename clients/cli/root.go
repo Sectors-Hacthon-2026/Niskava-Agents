@@ -119,6 +119,18 @@ and qualitative market disclosures/news.`,
 				fmt.Println("Tekan Enter untuk kembali ke Menu...")
 				_, _ = fmt.Scanln()
 
+			case "lang":
+				langModel := tui.NewLangSelectorModel()
+				pLang := tea.NewProgram(langModel, tea.WithAltScreen())
+				mLang, errLang := pLang.Run()
+				if errLang == nil {
+					selLang := mLang.(tui.LangSelectorModel).Selected
+					if selLang != "" {
+						tui.SetLanguage(selLang)
+						cfg.Preferences.Language = tui.ActiveLanguage
+					}
+				}
+
 			case "setup":
 				_ = RunInteractiveSetup()
 				fmt.Println("Tekan Enter untuk kembali ke Menu...")

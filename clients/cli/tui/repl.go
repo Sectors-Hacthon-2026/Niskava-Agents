@@ -321,12 +321,28 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 		if strings.HasPrefix(lower, "/lang") {
 			parts := strings.Fields(input)
 			if len(parts) > 1 {
-				lang := parts[1]
-				SetLanguage(lang)
-				cfg.Preferences.Language = ActiveLanguage
-				fmt.Printf("\n[✓] Language preference switched to: %s\n", ActiveLanguage)
+				langArg := parts[1]
+				SetLanguage(langArg)
 			} else {
-				fmt.Printf("\nActive Language: %s. Usage: /lang en  or  /lang id\n", ActiveLanguage)
+				langModel := NewLangSelectorModel()
+				pLang := tea.NewProgram(langModel)
+				mLang, errLang := pLang.Run()
+				if errLang == nil {
+					selLang := mLang.(LangSelectorModel).Selected
+					if selLang != "" {
+						SetLanguage(selLang)
+					}
+				}
+			}
+			cfg.Preferences.Language = ActiveLanguage
+
+			fmt.Print("\033[H\033[2J")
+			renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
+			activeInfo := GetActiveLanguageInfo()
+			if ActiveLanguage == "en" {
+				fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(fmt.Sprintf("  [✓] Language preference switched to %s %s (%s).", activeInfo.FlagSymbol, activeInfo.NativeName, activeInfo.Code)))
+			} else {
+				fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(fmt.Sprintf("  [✓] Preferensi bahasa berhasil diubah ke %s %s (%s).", activeInfo.FlagSymbol, activeInfo.NativeName, activeInfo.Code)))
 			}
 			continue
 		}
@@ -343,7 +359,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 
 func renderBanner(modelLabel, serverURL, sessionID, dbPath string) {
 	fmt.Print(RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID))
-	helpHint := lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Render("  [HINT: Type /help for guide, /lang to switch language (en/id), /reset to clear chat, /exit to quit]")
+	helpHint := lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Render(T("banner_hint"))
 	fmt.Printf("\n%s\n", helpHint)
 }
 
