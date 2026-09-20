@@ -11,19 +11,68 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/internal/db"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/internal/ipc"
 )
 
+// SessionManager manages active running session streams and allows cancellation (OpenCode pattern).
+type SessionManager struct {
+	mu     sync.Mutex
+	active map[string]context.CancelFunc
+}
+
+func NewSessionManager() *SessionManager {
+	return &SessionManager{
+		active: make(map[string]context.CancelFunc),
+	}
+}
+
+func (sm *SessionManager) Register(sessionID string, cancel context.CancelFunc) bool {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	if _, exists := sm.active[sessionID]; exists {
+		return false
+	}
+	sm.active[sessionID] = cancel
+	return true
+}
+
+func (sm *SessionManager) Unregister(sessionID string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	delete(sm.active, sessionID)
+}
+
+func (sm *SessionManager) Abort(sessionID string) bool {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	if cancel, exists := sm.active[sessionID]; exists {
+		cancel()
+		delete(sm.active, sessionID)
+		return true
+	}
+	return false
+}
+
+func (sm *SessionManager) IsBusy(sessionID string) bool {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	_, exists := sm.active[sessionID]
+	return exists
+}
+
 // Server encapsulates the background HTTP server instance.
 type Server struct {
-	httpServer *http.Server
-	Port       int
-	DB         *db.DB
-	URL        string
+	httpServer     *http.Server
+	Port           int
+	DB             *db.DB
+	URL            string
+	SessionManager *SessionManager
 }
 
 // ChatRequest represents the JSON payload for /api/chat.
@@ -32,19 +81,63 @@ type ChatRequest struct {
 	SessionID string `json:"session_id,omitempty"`
 }
 
+// CreateSessionRequest represents the JSON payload to create a new session.
+type CreateSessionRequest struct {
+	ID    string `json:"id,omitempty"`
+	Title string `json:"title,omitempty"`
+	Model string `json:"model,omitempty"`
+}
+
+// UpdateSessionRequest represents mutable attributes of a session.
+type UpdateSessionRequest struct {
+	Title    *string `json:"title,omitempty"`
+	IsPinned *bool   `json:"is_pinned,omitempty"`
+	Status   *string `json:"status,omitempty"`
+}
+
+// ForkSessionRequest represents the payload to fork a conversation.
+type ForkSessionRequest struct {
+	NewID         string `json:"new_id,omitempty"`
+	Title         string `json:"title,omitempty"`
+	UpToMessageID string `json:"up_to_message_id,omitempty"`
+}
+
+
 // Start launches the background HTTP server on the specified port (or auto-finds free port).
 func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, error) {
 	mux := http.NewServeMux()
 
 	s := &Server{
-		Port: requestedPort,
-		DB:   database,
+		Port:           requestedPort,
+		DB:             database,
+		SessionManager: NewSessionManager(),
+	}
+
+	// Helper for CORS preflight and headers
+	enableCORS := func(w http.ResponseWriter, r *http.Request) bool {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return true
+		}
+		return false
+	}
+
+	// Helper to send JSON responses
+	sendJSON := func(w http.ResponseWriter, status int, data interface{}) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(data)
 	}
 
 	// 1. Health check endpoint
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		if enableCORS(w, r) {
+			return
+		}
+		sendJSON(w, http.StatusOK, map[string]interface{}{
 			"status":    "ok",
 			"app":       "Niskava Agent",
 			"version":   "1.0.0",
@@ -53,9 +146,240 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		})
 	})
 
-	// 2. Sessions list endpoint
+	// 2. Chat Sessions Collection API (GET list, POST create)
+	mux.HandleFunc("/api/chat/sessions", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+
+		switch r.Method {
+		case http.MethodGet:
+			limit := 50
+			offset := 0
+			if lStr := r.URL.Query().Get("limit"); lStr != "" {
+				if parsed, err := strconv.Atoi(lStr); err == nil && parsed > 0 {
+					limit = parsed
+				}
+			}
+			if oStr := r.URL.Query().Get("offset"); oStr != "" {
+				if parsed, err := strconv.Atoi(oStr); err == nil && parsed >= 0 {
+					offset = parsed
+				}
+			}
+			search := r.URL.Query().Get("q")
+			sessions, total, err := database.ListChatSessions(limit, offset, search)
+			if err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+				return
+			}
+			if sessions == nil {
+				sessions = []db.ChatSession{}
+			}
+			sendJSON(w, http.StatusOK, map[string]interface{}{
+				"total":    total,
+				"limit":    limit,
+				"offset":   offset,
+				"sessions": sessions,
+			})
+
+		case http.MethodPost:
+			var req CreateSessionRequest
+			if r.Body != nil && r.ContentLength > 0 {
+				_ = json.NewDecoder(r.Body).Decode(&req)
+			}
+			if req.ID == "" {
+				req.ID = fmt.Sprintf("CHAT-%s-%04d", time.Now().Format("20060102"), time.Now().Unix()%10000)
+			}
+			if req.Title == "" {
+				req.Title = "Sesi Riset Pasar"
+			}
+			if req.Model == "" {
+				req.Model = "hermes"
+			}
+			sess := &db.ChatSession{
+				ID:        req.ID,
+				Title:     req.Title,
+				Model:     req.Model,
+				Status:    "IDLE",
+			}
+			if err := database.CreateChatSession(sess); err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+				return
+			}
+			sendJSON(w, http.StatusCreated, map[string]interface{}{
+				"status":  "created",
+				"session": sess,
+			})
+
+		default:
+			http.Error(w, `{"error": "method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+	})
+
+	// 3. Chat Session Item & Actions API (/api/chat/sessions/{id} and subpaths)
+	mux.HandleFunc("/api/chat/sessions/", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+
+		subPath := strings.TrimPrefix(r.URL.Path, "/api/chat/sessions/")
+		subPath = strings.Trim(subPath, "/")
+		parts := strings.Split(subPath, "/")
+		if len(parts) == 0 || parts[0] == "" {
+			http.Error(w, `{"error": "session ID required"}`, http.StatusBadRequest)
+			return
+		}
+
+		sessionID := parts[0]
+
+		// Singular session item operations: /api/chat/sessions/{id}
+		if len(parts) == 1 {
+			switch r.Method {
+			case http.MethodGet:
+				sess, err := database.GetChatSession(sessionID)
+				if err != nil {
+					http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+					return
+				}
+				if sess == nil {
+					http.Error(w, `{"error": "session not found"}`, http.StatusNotFound)
+					return
+				}
+				sendJSON(w, http.StatusOK, map[string]interface{}{
+					"session": sess,
+				})
+
+			case http.MethodPatch:
+				var req UpdateSessionRequest
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					http.Error(w, `{"error": "invalid JSON body"}`, http.StatusBadRequest)
+					return
+				}
+				if err := database.UpdateChatSession(sessionID, req.Title, req.IsPinned, req.Status); err != nil {
+					http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+					return
+				}
+				updated, _ := database.GetChatSession(sessionID)
+				sendJSON(w, http.StatusOK, map[string]interface{}{
+					"status":  "updated",
+					"session": updated,
+				})
+
+			case http.MethodDelete:
+				// If currently streaming, abort first
+				_ = s.SessionManager.Abort(sessionID)
+				if err := database.DeleteChatSession(sessionID); err != nil {
+					http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+					return
+				}
+				sendJSON(w, http.StatusOK, map[string]interface{}{
+					"status":     "deleted",
+					"session_id": sessionID,
+				})
+
+			default:
+				http.Error(w, `{"error": "method not allowed"}`, http.StatusMethodNotAllowed)
+			}
+			return
+		}
+
+		// Action subpaths: /api/chat/sessions/{id}/{action}
+		action := parts[1]
+		switch action {
+		case "fork":
+			if r.Method != http.MethodPost {
+				http.Error(w, `{"error": "POST required"}`, http.StatusMethodNotAllowed)
+				return
+			}
+			var req ForkSessionRequest
+			if r.Body != nil && r.ContentLength > 0 {
+				_ = json.NewDecoder(r.Body).Decode(&req)
+			}
+			if req.NewID == "" {
+				req.NewID = fmt.Sprintf("CHAT-%s-FORK-%04d", time.Now().Format("20060102"), time.Now().Unix()%10000)
+			}
+			if err := database.ForkChatSession(sessionID, req.NewID, req.Title, req.UpToMessageID); err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+				return
+			}
+			forkedSess, _ := database.GetChatSession(req.NewID)
+			sendJSON(w, http.StatusCreated, map[string]interface{}{
+				"status":  "forked",
+				"session": forkedSess,
+			})
+
+		case "abort":
+			if r.Method != http.MethodPost {
+				http.Error(w, `{"error": "POST required"}`, http.StatusMethodNotAllowed)
+				return
+			}
+			aborted := s.SessionManager.Abort(sessionID)
+			idle := "IDLE"
+			_ = database.UpdateChatSession(sessionID, nil, nil, &idle)
+			sendJSON(w, http.StatusOK, map[string]interface{}{
+				"status":      "aborted",
+				"session_id":  sessionID,
+				"was_running": aborted,
+			})
+
+		case "reset":
+			if r.Method != http.MethodPost {
+				http.Error(w, `{"error": "POST required"}`, http.StatusMethodNotAllowed)
+				return
+			}
+			_ = s.SessionManager.Abort(sessionID)
+			if err := database.ClearSessionHistory(sessionID); err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+				return
+			}
+			sendJSON(w, http.StatusOK, map[string]interface{}{
+				"status":     "reset",
+				"session_id": sessionID,
+			})
+
+		case "messages":
+			if r.Method != http.MethodGet {
+				http.Error(w, `{"error": "GET required"}`, http.StatusMethodNotAllowed)
+				return
+			}
+			limit := 100
+			if lStr := r.URL.Query().Get("limit"); lStr != "" {
+				if parsed, err := strconv.Atoi(lStr); err == nil && parsed > 0 {
+					limit = parsed
+				}
+			}
+			messages, err := database.GetChatHistory(sessionID, limit)
+			if err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+				return
+			}
+			if messages == nil {
+				messages = []db.ChatMessage{}
+			}
+			sendJSON(w, http.StatusOK, map[string]interface{}{
+				"session_id": sessionID,
+				"total":      len(messages),
+				"messages":   messages,
+			})
+
+		default:
+			http.Error(w, `{"error": "unknown session action"}`, http.StatusNotFound)
+		}
+	})
+
+	// 4. Investigations sessions list endpoint (pipeline audit sessions)
 	mux.HandleFunc("/api/sessions", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		if enableCORS(w, r) {
+			return
+		}
 		if database == nil {
 			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
 			return
@@ -67,15 +391,17 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			return
 		}
 
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		sendJSON(w, http.StatusOK, map[string]interface{}{
 			"total": len(sessions),
 			"data":  sessions,
 		})
 	})
 
-	// 3. Chat History endpoint
+	// 5. Chat History endpoint (backward compatible)
 	mux.HandleFunc("/api/chat/history", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		if enableCORS(w, r) {
+			return
+		}
 		if database == nil {
 			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
 			return
@@ -93,15 +419,18 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			return
 		}
 
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		sendJSON(w, http.StatusOK, map[string]interface{}{
 			"session_id": sessionID,
 			"total":      len(history),
 			"messages":   history,
 		})
 	})
 
-	// 4. Conversational Chat SSE Streaming endpoint
+	// 6. Conversational Chat SSE Streaming endpoint
 	mux.HandleFunc("/api/chat", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed. Use POST.", http.StatusMethodNotAllowed)
 			return
@@ -123,6 +452,28 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			sessionID = fmt.Sprintf("WEB-%s-%04d", time.Now().Format("20060102"), time.Now().Unix()%10000)
 		}
 
+		// Concurrency protection: reject if session is already running
+		if s.SessionManager.IsBusy(sessionID) {
+			http.Error(w, `{"error": "session is currently processing another turn"}`, http.StatusConflict)
+			return
+		}
+
+		// Ensure chat session exists in database
+		if database != nil {
+			sess, _ := database.GetChatSession(sessionID)
+			if sess == nil {
+				_ = database.CreateChatSession(&db.ChatSession{
+					ID:     sessionID,
+					Title:  "Sesi Riset Pasar",
+					Model:  "hermes",
+					Status: "BUSY",
+				})
+			} else {
+				busyStatus := "BUSY"
+				_ = database.UpdateChatSession(sessionID, nil, nil, &busyStatus)
+			}
+		}
+
 		// Save User Message
 		if database != nil {
 			_ = database.SaveChatMessage(&db.ChatMessage{
@@ -130,6 +481,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 				SessionID: sessionID,
 				Role:      "user",
 				Content:   req.Prompt,
+				Status:    "COMPLETED",
 				CreatedAt: time.Now().UTC().Format(time.RFC3339),
 			})
 		}
@@ -145,6 +497,23 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 			return
 		}
+
+		// Create cancellable context for this chat execution
+		chatCtx, cancelChat := context.WithCancel(r.Context())
+		defer cancelChat()
+
+		if !s.SessionManager.Register(sessionID, cancelChat) {
+			http.Error(w, `{"error": "session is currently busy"}`, http.StatusConflict)
+			return
+		}
+		defer s.SessionManager.Unregister(sessionID)
+
+		defer func() {
+			if database != nil {
+				idleStatus := "IDLE"
+				_ = database.UpdateChatSession(sessionID, nil, nil, &idleStatus)
+			}
+		}()
 
 		pythonBin := "python3"
 		localVenv := filepath.Join(".venv", "bin", "python3")
@@ -168,17 +537,31 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			Offline:   os.Getenv("NISKAVA_OFFLINE") == "1",
 		}
 
-		eventsChan, errChan := ipc.RunSubprocess(r.Context(), runnerParams)
+		eventsChan, errChan := ipc.RunSubprocess(chatCtx, runnerParams)
 
 		var assistantResponse strings.Builder
+		wasAborted := false
 
 		for {
 			select {
-			case <-r.Context().Done():
+			case <-chatCtx.Done():
+				wasAborted = true
+				fmt.Fprintf(w, "event: session_error\ndata: {\"error\": \"execution aborted by user or context cancelled\"}\n\n")
+				flusher.Flush()
+				if database != nil && assistantResponse.Len() > 0 {
+					_ = database.SaveChatMessage(&db.ChatMessage{
+						ID:        fmt.Sprintf("MSG-%d", time.Now().UnixNano()),
+						SessionID: sessionID,
+						Role:      "assistant",
+						Content:   assistantResponse.String() + " [Aborted]",
+						Status:    "ABORTED",
+						CreatedAt: time.Now().UTC().Format(time.RFC3339),
+					})
+				}
 				return
 
 			case err, ok := <-errChan:
-				if ok && err != nil {
+				if ok && err != nil && !wasAborted {
 					fmt.Fprintf(w, "event: error\ndata: %s\n\n", err.Error())
 					flusher.Flush()
 				}
@@ -197,8 +580,10 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 							SessionID: sessionID,
 							Role:      "assistant",
 							Content:   assistantResponse.String(),
+							Status:    "COMPLETED",
 							CreatedAt: time.Now().UTC().Format(time.RFC3339),
 						})
+						_ = database.TouchChatSession(sessionID, assistantResponse.String())
 					}
 					return
 				}
@@ -213,6 +598,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			}
 		}
 	})
+
 
 	// 5. Memory Graph JSON endpoint
 	mux.HandleFunc("/api/graph", func(w http.ResponseWriter, r *http.Request) {
