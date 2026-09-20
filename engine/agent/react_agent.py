@@ -91,6 +91,7 @@ class NiskavaReActAgent:
         self.openai_base_url = os.environ.get("OPENAI_BASE_URL", "http://localhost:20128/v1")
         self.openai_api_key = os.environ.get("OPENAI_API_KEY", "")
         self.openai_model = os.environ.get("OPENAI_MODEL", "hermes")
+        self.db_path = getattr(tool_registry, "db_path", os.path.expanduser("~/.niskava/niskava.db"))
 
         # Auto-detect provider if not explicitly set
         if not self.ai_provider:
@@ -112,6 +113,107 @@ class NiskavaReActAgent:
     def _emit(self, event_data: Dict[str, Any]) -> None:
         self.emitter(event_data)
 
+    def _get_compacted_history(self, session_id: str, max_turns: int = 8) -> List[Dict[str, str]]:
+        """Load and adaptively compact multi-turn conversation history from SQLite WAL (OpenCode pattern)."""
+        import sqlite3
+        if not self.db_path or not os.path.exists(self.db_path):
+            return []
+
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT role, content, thought, tool_calls_json, status, created_at
+                    FROM chat_messages
+                    WHERE session_id = ?
+                    ORDER BY created_at ASC
+                    """,
+                    (session_id,),
+                )
+                rows = cursor.fetchall()
+                if not rows:
+                    return []
+
+                raw_history: List[Dict[str, str]] = []
+                for row in rows:
+                    role = row["role"]
+                    if role not in ("user", "assistant", "system"):
+                        continue
+                    content = row["content"] or ""
+                    raw_history.append({"role": role, "content": content})
+
+                # If history fits within max_turns, return as is
+                if len(raw_history) <= max_turns:
+                    return raw_history
+
+                # OpenCode Context Compaction: Keep first turn (2), compact middle (1), keep remaining last turns
+                first_turn = raw_history[:2]
+                keep_last = max(1, max_turns - 3)
+                last_turns = raw_history[-keep_last:]
+
+                middle_count = len(raw_history) - len(first_turn) - len(last_turns)
+                summary_block = {
+                    "role": "system",
+                    "content": f"[Konteks Sebelumnya: {middle_count} putaran obrolan terdahulu telah diringkas untuk menjaga efisiensi token]",
+                }
+                return first_turn + [summary_block] + last_turns
+        except Exception:
+            return []
+
+    def _auto_generate_session_title(self, user_prompt: str, session_id: str) -> None:
+        """Deterministically generate a 3-5 word informative session title on first turn."""
+        import sqlite3
+        if not self.db_path or not os.path.exists(self.db_path):
+            return
+
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                # Check current title
+                row = cursor.execute("SELECT title FROM chat_sessions WHERE id = ?", (session_id,)).fetchone()
+                if row and row[0] and row[0] not in ("Sesi Riset Pasar", "New Chat", session_id):
+                    # Already has customized title
+                    return
+
+                # Generate clean title from ticker or keywords
+                clean_prompt = re.sub(r"[^\w\s]", "", user_prompt).strip()
+                words = clean_prompt.split()
+                stopwords = {
+                    "YANG", "DARI", "PADA", "BISA", "AKAN", "SAAT", "KITA", "DENG", "APAL",
+                    "INFO", "CHAT", "TENT", "KATA", "HALO", "PAGI", "SIAP", "TEST", "USER",
+                    "HELP", "EXIT", "QUIT", "TANY", "APA", "BAGA", "SIAPA", "KODE", "HARI"
+                }
+                tickers = [w.upper() for w in words if len(w) == 4 and w.isalpha() and w.upper() not in stopwords]
+                if tickers:
+                    title = f"Riset Saham {tickers[0]}"
+                    lowered = clean_prompt.lower()
+                    if "anomali" in lowered or "volume" in lowered:
+                        title = f"Anomali & Volume {tickers[0]}"
+                    elif "asing" in lowered or "flow" in lowered:
+                        title = f"Foreign Flow {tickers[0]}"
+                    elif "valuasi" in lowered or "rasio" in lowered or "per" in lowered:
+                        title = f"Valuasi & Rasio {tickers[0]}"
+                elif len(words) >= 3:
+                    title = " ".join(words[:5]).capitalize()
+                elif len(words) > 0:
+                    title = " ".join(words).capitalize()
+                else:
+                    title = "Riset Pasar Modal"
+
+                cursor.execute(
+                    """
+                    INSERT INTO chat_sessions (id, title, model, status, message_count, last_message_preview, is_pinned, created_at, updated_at)
+                    VALUES (?, ?, 'hermes', 'IDLE', 0, '', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT(id) DO UPDATE SET title = excluded.title
+                    """,
+                    (session_id, title),
+                )
+                conn.commit()
+        except Exception:
+            pass
+
     def chat(
         self,
         user_prompt: str,
@@ -121,6 +223,14 @@ class NiskavaReActAgent:
         """Conversational Research Assistant entrypoint supporting free-form natural language prompts."""
         session_id = session_id or f"CHAT-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
         start_time = time.time()
+
+        # Load compacted multi-turn history from SQLite WAL if not explicitly passed
+        if history is None:
+            history = self._get_compacted_history(session_id, max_turns=8)
+
+        # Auto-generate informative session title on first turn
+        if not history or len(history) == 0:
+            self._auto_generate_session_title(user_prompt, session_id)
 
         self._emit({
             "event": "session_start",
@@ -622,6 +732,20 @@ class NiskavaReActAgent:
             "BUAT", "BAIK", "SAYA", "KAMU", "COBA", "DATA", "MODE", "DENGAN"
         }
         tickers = [c for c in candidates if c not in stopwords]
+
+        if not tickers and history:
+            # Multi-turn context recall: look for ticker in previous turns to prevent amnesia
+            for h in reversed(history):
+                prev_cands = re.findall(r"\b[A-Z]{4}\b", h.get("content", "").upper())
+                prev_tickers = [c for c in prev_cands if c not in stopwords]
+                if prev_tickers:
+                    tickers = prev_tickers
+                    self._emit({
+                        "event": "agent_thought",
+                        "session_id": session_id,
+                        "thought": f"Emiten target tidak disebutkan di prompt terbaru, namun terdeteksi dari riwayat percakapan sebelumnya: {tickers[0]}",
+                    })
+                    break
 
         if not tickers:
             response_text = (

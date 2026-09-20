@@ -6,11 +6,20 @@ Emits JSON Lines to sys.stdout per docs/20-architecture/04-ipc-and-api-contract.
 import argparse
 import json
 import os
+import signal
 import sys
 from typing import Any, Dict
 
 from engine.agent.react_agent import NiskavaReActAgent
 from engine.agent.tools import NiskavaToolRegistry
+
+
+def _handle_signal(sig: int, frame: Any) -> None:
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, _handle_signal)
+signal.signal(signal.SIGTERM, _handle_signal)
 
 
 def emit_jsonl(event_dict: Dict[str, Any]) -> None:
