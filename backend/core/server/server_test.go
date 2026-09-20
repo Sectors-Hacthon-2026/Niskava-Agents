@@ -344,4 +344,3 @@ func TestChatSession_Export_And_Search(t *testing.T) {
 		t.Errorf("expected 0 search results for nonexistent, got %v", emptySearch["total"])
 	}
 }
-

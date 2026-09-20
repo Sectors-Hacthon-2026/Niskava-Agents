@@ -128,7 +128,10 @@ class NiskavaReActAgent:
 
         # Provider mode: "universal" (default) or "mock" / "offline"
         raw_provider = (ai_provider or os.environ.get("AI_PROVIDER", "")).lower()
-        if mock_mode or raw_provider in ("mock", "offline") or os.environ.get("NISKAVA_OFFLINE") == "1":
+        if mock_mode is not None:
+            self.mock_mode = mock_mode
+            self.ai_provider = "mock" if mock_mode else (ai_provider or "universal")
+        elif raw_provider in ("mock", "offline") or os.environ.get("NISKAVA_OFFLINE") == "1":
             self.mock_mode = True
             self.ai_provider = "mock"
         else:

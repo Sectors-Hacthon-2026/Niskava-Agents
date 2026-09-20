@@ -177,10 +177,10 @@ func TestChatSessionsCompleteLifecycle(t *testing.T) {
 	// 1. Create a session explicitly
 	sessionID := "CHAT-2026-TEST-A"
 	sess := &ChatSession{
-		ID:        sessionID,
-		Title:     "Analisis Saham ANTM",
-		Model:     "hermes",
-		Status:    "IDLE",
+		ID:     sessionID,
+		Title:  "Analisis Saham ANTM",
+		Model:  "hermes",
+		Status: "IDLE",
 	}
 	if err := database.CreateChatSession(sess); err != nil {
 		t.Fatalf("failed to create chat session: %v", err)
@@ -390,4 +390,3 @@ func TestDB_Path_SelfHealing_And_SearchMessages(t *testing.T) {
 		t.Errorf("expected 0 results for empty query, got %d", len(blankResults))
 	}
 }
-

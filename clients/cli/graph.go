@@ -70,7 +70,11 @@ Example:
 
 		proc := exec.Command(pythonBin, execArgs...)
 		proc.Dir = wd
-		proc.Env = append(os.Environ(), "PYTHONPATH="+wd)
+		pythonPath := filepath.Join(wd, "backend") + string(filepath.ListSeparator) + wd
+		if existing := os.Getenv("PYTHONPATH"); existing != "" {
+			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
+		}
+		proc.Env = append(os.Environ(), "PYTHONPATH="+pythonPath)
 		out, err := proc.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("gagal mengekspor visualisasi graf: %w\nOutput: %s", err, string(out))

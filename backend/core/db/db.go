@@ -809,7 +809,7 @@ func (d *DB) ForkChatSession(sourceID, newID, newTitle, upToMessageID string) er
 	defer rows.Close()
 
 	var (
-		copiedMsgs []ChatMessage
+		copiedMsgs  []ChatMessage
 		lastPreview string
 	)
 	for rows.Next() {
@@ -870,7 +870,6 @@ func (d *DB) ClearSessionHistory(sessionID string) error {
 
 	return tx.Commit()
 }
-
 
 // MemoryNode represents an entity in the local conversational graph memory.
 type MemoryNode struct {

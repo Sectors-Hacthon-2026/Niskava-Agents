@@ -102,7 +102,6 @@ type ForkSessionRequest struct {
 	UpToMessageID string `json:"up_to_message_id,omitempty"`
 }
 
-
 // Start launches the background HTTP server on the specified port (or auto-finds free port).
 func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, error) {
 	mux := http.NewServeMux()
@@ -201,10 +200,10 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 				req.Model = "hermes"
 			}
 			sess := &db.ChatSession{
-				ID:        req.ID,
-				Title:     req.Title,
-				Model:     req.Model,
-				Status:    "IDLE",
+				ID:     req.ID,
+				Title:  req.Title,
+				Model:  req.Model,
+				Status: "IDLE",
 			}
 			if err := database.CreateChatSession(sess); err != nil {
 				http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
@@ -711,7 +710,6 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		}
 	})
 
-
 	// 5. Memory Graph JSON endpoint
 	mux.HandleFunc("/api/graph", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -765,7 +763,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		wd, _ := os.Getwd()
 		cmd := exec.CommandContext(r.Context(), pythonBin, args...)
 		cmd.Dir = wd
-		cmd.Env = append(os.Environ(), "PYTHONPATH="+wd)
+		pythonPath := filepath.Join(wd, "backend") + string(filepath.ListSeparator) + wd
+		if existing := os.Getenv("PYTHONPATH"); existing != "" {
+			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
+		}
+		cmd.Env = append(os.Environ(), "PYTHONPATH="+pythonPath)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to generate graph visualization: %v\nOutput: %s", err, string(out)), http.StatusInternalServerError)
 			return

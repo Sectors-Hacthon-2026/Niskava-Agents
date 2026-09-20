@@ -77,7 +77,11 @@ Example Claude Desktop configuration (~/.config/Claude/claude_desktop_config.jso
 
 		// Build environment
 		proc.Env = os.Environ()
-		proc.Env = append(proc.Env, "PYTHONPATH="+wd, "PYTHONUNBUFFERED=1")
+		pythonPath := filepath.Join(wd, "backend") + string(filepath.ListSeparator) + wd
+		if existing := os.Getenv("PYTHONPATH"); existing != "" {
+			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
+		}
+		proc.Env = append(proc.Env, "PYTHONPATH="+pythonPath, "PYTHONUNBUFFERED=1")
 		if cfg != nil {
 			proc.Env = append(proc.Env, fmt.Sprintf("NISKAVA_DB_PATH=%s", cfg.Storage.DBPath))
 			if cfg.Auth.SectorsAPIKey != "" {
