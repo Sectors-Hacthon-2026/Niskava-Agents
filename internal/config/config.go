@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -63,6 +64,11 @@ func DefaultConfig() *Config {
 	homeDir, _ := os.UserHomeDir()
 	defaultDBPath := filepath.Join(homeDir, ".niskava", "niskava.db")
 
+	defaultPythonBin := "python3"
+	if runtime.GOOS == "windows" {
+		defaultPythonBin = "python"
+	}
+
 	return &Config{
 		Auth: AuthConfig{
 			AIProvider:      "gemini",
@@ -81,7 +87,7 @@ func DefaultConfig() *Config {
 			DBPath: defaultDBPath,
 		},
 		Engine: EngineConfig{
-			PythonBin:  "python3",
+			PythonBin:  defaultPythonBin,
 			EnginePath: "./engine",
 		},
 		Server: ServerConfig{

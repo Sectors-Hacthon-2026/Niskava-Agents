@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"runtime"
 	"strings"
 )
 
@@ -89,10 +90,7 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 		defer close(eventsChan)
 		defer close(errChan)
 
-		pythonBin := params.PythonBin
-		if pythonBin == "" {
-			pythonBin = "python3"
-		}
+		pythonBin := resolvePythonBin(params.PythonBin)
 
 		args := []string{
 			"-m", "engine.runner",
@@ -182,4 +180,25 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 	}()
 
 	return eventsChan, errChan
+}
+
+func resolvePythonBin(customBin string) string {
+	if customBin != "" && customBin != "python3" && customBin != "python" {
+		if _, err := exec.LookPath(customBin); err == nil {
+			return customBin
+		}
+	}
+	candidates := []string{"python", "python3", "py"}
+	if runtime.GOOS == "windows" {
+		candidates = []string{"python", "py", "python3"}
+	}
+	for _, cand := range candidates {
+		if p, err := exec.LookPath(cand); err == nil && !strings.Contains(strings.ToLower(p), "windowsapps") {
+			return p
+		}
+	}
+	if runtime.GOOS == "windows" {
+		return "python"
+	}
+	return "python3"
 }
