@@ -98,6 +98,76 @@ class TestAgentMultiTurnAndSessions(unittest.TestCase):
         self.assertLessEqual(len(compacted), 8)
         self.assertTrue(any("Konteks Sebelumnya" in m.get("content", "") for m in compacted))
 
+    def test_gemini_multiturn_payload_and_react_loop(self) -> None:
+        from unittest.mock import MagicMock, patch
+
+        emitted_events = []
+        gemini_agent = NiskavaReActAgent(
+            tool_registry=self.registry,
+            emitter=lambda ev: emitted_events.append(ev),
+            ai_provider="gemini",
+            api_key="AIzaSyMockTestKey",
+            mock_mode=False,
+        )
+
+        # Mock responses from Gemini: Call 1 triggers a tool, Call 2 returns final response
+        mock_resp_tool = MagicMock()
+        mock_resp_tool.status_code = 200
+        mock_resp_tool.json.return_value = {
+            "candidates": [{
+                "content": {
+                    "parts": [{
+                        "text": '<thought>Perlu cek anomali ANTM</thought><tool_call>{"name": "compute_quant_anomalies", "arguments": {"ticker": "ANTM"}}</tool_call>'
+                    }]
+                }
+            }]
+        }
+
+        mock_resp_final = MagicMock()
+        mock_resp_final.status_code = 200
+        mock_resp_final.json.return_value = {
+            "candidates": [{
+                "content": {
+                    "parts": [{
+                        "text": '<thought>Sintesis hasil</thought><response>Analisis selesai. Ditemukan anomali volume ANTM.</response>'
+                    }]
+                }
+            }]
+        }
+
+        with patch("requests.post", side_effect=[mock_resp_tool, mock_resp_final]) as mock_post:
+            history = [
+                {"role": "user", "content": "Halo apa kabar?"},
+                {"role": "assistant", "content": "Kabar baik, silakan bertanya."},
+            ]
+            res = gemini_agent.chat(
+                user_prompt="Cek anomali ANTM",
+                session_id="SESS-GEM-01",
+                history=history,
+            )
+
+            # Check that requests.post was called twice (ReAct loop)
+            self.assertEqual(mock_post.call_count, 2)
+
+            # Validate first call payload includes multi-turn history converted for Gemini
+            first_payload = mock_post.call_args_list[0][1]["json"]
+            self.assertIn("contents", first_payload)
+            contents = first_payload["contents"]
+            self.assertEqual(contents[0]["role"], "user")
+            self.assertEqual(contents[0]["parts"][0]["text"], "Halo apa kabar?")
+            self.assertEqual(contents[1]["role"], "model")
+            self.assertEqual(contents[1]["parts"][0]["text"], "Kabar baik, silakan bertanya.")
+            self.assertEqual(contents[2]["role"], "user")
+
+            # Validate tool execution occurred
+            tool_events = [ev for ev in emitted_events if ev.get("event") == "agent_tool_call"]
+            self.assertEqual(len(tool_events), 1)
+            self.assertEqual(tool_events[0]["tool"], "compute_quant_anomalies")
+
+            # Validate final response
+            self.assertIn("Analisis selesai. Ditemukan anomali volume ANTM.", res["response"])
+
 
 if __name__ == "__main__":
     unittest.main()
+
