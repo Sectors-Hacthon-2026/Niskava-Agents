@@ -29,4 +29,9 @@ func TestRenderHUDHeader(t *testing.T) {
 	if !strings.Contains(header, "PURPOSE") {
 		t.Errorf("expected header to contain PURPOSE metadata label")
 	}
+
+	defaultHeader := RenderHUDHeader("", "http://localhost:8080", "", "TEST-SESSION-002")
+	if !strings.Contains(defaultHeader, "hermes") {
+		t.Errorf("expected default header to contain hermes as default model substrate")
+	}
 }

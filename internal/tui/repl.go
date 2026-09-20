@@ -249,11 +249,13 @@ func (m ReplInputModel) View() string {
 // RunLiveREPL starts an interactive, conversational research assistant session.
 func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 	// Determine active model display
-	modelLabel := "hermes"
-	if cfg.Auth.AIProvider == "openai" && cfg.Auth.OpenAIModel != "" {
-		modelLabel = cfg.Auth.OpenAIModel
-	} else if cfg.Auth.AIProvider == "gemini" && cfg.Auth.GeminiModel != "" {
-		modelLabel = cfg.Auth.GeminiModel
+	modelLabel := cfg.Auth.OpenAIModel
+	if modelLabel == "" {
+		if cfg.Auth.GeminiModel != "" {
+			modelLabel = cfg.Auth.GeminiModel
+		} else {
+			modelLabel = "hermes"
+		}
 	}
 
 	sessionID := fmt.Sprintf("CHAT-%s-%04d", time.Now().Format("20060102"), time.Now().Unix()%10000)
@@ -513,22 +515,28 @@ func printHealth(cfg *config.Config) {
 	}
 	fmt.Printf("• Sectors API Key: %s\n", secKeyStatus)
 
-	if cfg.Auth.AIProvider == "openai" || cfg.Auth.OpenAIAPIKey != "" {
-		providerName := "9router / OpenAI Compatible"
-		if cfg.Auth.OpenAIBaseURL != "" {
-			providerName = fmt.Sprintf("9router (%s)", cfg.Auth.OpenAIBaseURL)
+	activeModel := cfg.Auth.OpenAIModel
+	if activeModel == "" {
+		if cfg.Auth.GeminiModel != "" {
+			activeModel = cfg.Auth.GeminiModel
+		} else {
+			activeModel = "hermes"
 		}
-		fmt.Printf("• AI Provider    : %s\n", providerName)
-		fmt.Printf("• Active Model   : %s\n", cfg.Auth.OpenAIModel)
-		fmt.Printf("• Model API Key  : Terpasang (Live Ready)\n")
-	} else {
-		gemKeyStatus := "Terpasang"
-		if cfg.Auth.GeminiAPIKey == "" {
-			gemKeyStatus = "Belum Terpasang (Simulasi Cerdas Aktif)"
-		}
-		fmt.Printf("• AI Provider    : Google Gemini (%s)\n", cfg.Auth.GeminiModel)
-		fmt.Printf("• Gemini API Key : %s\n", gemKeyStatus)
 	}
+
+	baseURL := cfg.Auth.OpenAIBaseURL
+	if baseURL == "" {
+		baseURL = "OpenAI-Compatible Standard"
+	}
+
+	keyStatus := "Terpasang (Live Ready)"
+	if cfg.Auth.OpenAIAPIKey == "" && cfg.Auth.GeminiAPIKey == "" {
+		keyStatus = "Belum Terpasang (Simulasi Cerdas / Offline Aktif)"
+	}
+
+	fmt.Printf("• Inference Engine: Universal ReAct (%s)\n", baseURL)
+	fmt.Printf("• Active Model   : %s\n", activeModel)
+	fmt.Printf("• Model API Key  : %s\n", keyStatus)
 	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
 }
 

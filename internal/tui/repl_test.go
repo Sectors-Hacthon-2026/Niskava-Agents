@@ -8,7 +8,7 @@ import (
 )
 
 func TestReplInputModelSlashPopupFiltering(t *testing.T) {
-	model := NewReplInputModel("niskava [gemini-2.5-flash] >")
+	model := NewReplInputModel("niskava [hermes] >")
 
 	// 1. Initially SlashActive should be false
 	if model.SlashActive {
@@ -48,7 +48,7 @@ func TestReplInputModelSlashPopupFiltering(t *testing.T) {
 }
 
 func TestReplInputModelTabAutocompletion(t *testing.T) {
-	model := NewReplInputModel("niskava [gemini-2.5-flash] >")
+	model := NewReplInputModel("niskava [hermes] >")
 
 	// Set value to '/re' and activate popup
 	model.TextInput.SetValue("/re")

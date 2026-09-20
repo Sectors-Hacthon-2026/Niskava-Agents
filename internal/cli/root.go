@@ -93,13 +93,22 @@ and qualitative market disclosures/news.`,
 				fmt.Printf("• Database Path   : %s\n", cfg.Storage.DBPath)
 				fmt.Printf("• Python Engine   : %s\n", cfg.Engine.PythonBin)
 				fmt.Printf("• Sectors API Key : %t (Terpasang)\n", cfg.Auth.SectorsAPIKey != "")
-				if cfg.Auth.AIProvider == "openai" || cfg.Auth.OpenAIAPIKey != "" {
-					fmt.Printf("• AI Provider     : 9router (%s) [ALIVE]\n", cfg.Auth.OpenAIBaseURL)
-					fmt.Printf("• Active Model    : %s\n", cfg.Auth.OpenAIModel)
-				} else {
-					fmt.Printf("• AI Provider     : Google Gemini (%s)\n", cfg.Auth.GeminiModel)
-					fmt.Printf("• Gemini API Key  : %t (Terpasang)\n", cfg.Auth.GeminiAPIKey != "")
+				activeModel := cfg.Auth.OpenAIModel
+				if activeModel == "" {
+					if cfg.Auth.GeminiModel != "" {
+						activeModel = cfg.Auth.GeminiModel
+					} else {
+						activeModel = "hermes"
+					}
 				}
+				baseURL := cfg.Auth.OpenAIBaseURL
+				if baseURL == "" {
+					baseURL = "OpenAI-Compatible Standard"
+				}
+				hasModelKey := cfg.Auth.OpenAIAPIKey != "" || cfg.Auth.GeminiAPIKey != ""
+				fmt.Printf("• Inference Engine: Universal ReAct (%s) [ALIVE]\n", baseURL)
+				fmt.Printf("• Active Model    : %s\n", activeModel)
+				fmt.Printf("• Model API Key   : %t (Terpasang)\n", hasModelKey)
 				fmt.Println("─────────────────────────────────────────────────────────────────────────────")
 				fmt.Println("Tekan Enter untuk kembali ke Menu...")
 				_, _ = fmt.Scanln()
