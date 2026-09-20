@@ -287,7 +287,7 @@ func (m Model) View() string {
 	// 8. Navigation hint
 	if m.SessionID != "" {
 		b.WriteString(fmt.Sprintf("Sesi tersimpan: %s (%s)\n", m.SessionID, m.DBPath))
-		b.WriteString("Ketik 'niskava serve --open' untuk membuka visual workspace interaktif di browser.\n")
+		b.WriteString("Ketik '.\\bin\\niskava.exe serve --open' untuk membuka visual workspace interaktif di browser.\n")
 	}
 
 	if m.Err != nil {

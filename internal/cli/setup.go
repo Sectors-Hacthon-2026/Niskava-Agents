@@ -55,7 +55,7 @@ func RunInteractiveSetup() error {
 	// 1. AI Provider Selection
 	fmt.Println(accentStyle.Render("Langkah 1: Pilih AI Provider untuk ReAct Research Assistant:"))
 	fmt.Println("  [1] 9router Lokal (http://localhost:20128/v1, Model: hermes) [Rekomendasi]")
-	fmt.Println("  [2] Google Gemini Cloud (Google AI Studio, Model: gemini-2.0-flash)")
+	fmt.Println("  [2] Google Gemini Cloud (Google AI Studio, Model: gemini-3.6-flash)")
 	fmt.Println("  [3] Custom OpenAI-Compatible (OpenAI, vLLM, Ollama, dll)")
 	fmt.Print("\nPilihan [1/2/3, default: 1]: ")
 
@@ -76,7 +76,7 @@ func RunInteractiveSetup() error {
 		openAIKey     = existingKey
 		openAIModel   = "hermes"
 		geminiKey     = ""
-		geminiModel   = "gemini-2.0-flash"
+		geminiModel   = "gemini-3.6-flash"
 	)
 
 	switch providerChoice {
@@ -86,7 +86,7 @@ func RunInteractiveSetup() error {
 		geminiKey, _ = reader.ReadString('\n')
 		geminiKey = strings.TrimSpace(geminiKey)
 
-		fmt.Print("Model Gemini [default: gemini-2.0-flash]: ")
+		fmt.Print("Model Gemini [default: gemini-3.6-flash]: ")
 		m, _ := reader.ReadString('\n')
 		m = strings.TrimSpace(m)
 		if m != "" {
@@ -120,7 +120,11 @@ func RunInteractiveSetup() error {
 		u, _ := reader.ReadString('\n')
 		u = strings.TrimSpace(u)
 		if u != "" {
-			openAIBaseURL = u
+			if !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
+				openAIBaseURL = "http://localhost:20128/v1"
+			} else {
+				openAIBaseURL = u
+			}
 		}
 
 		fmt.Printf("9router API Key [%s]: ", openAIKey)

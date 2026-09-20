@@ -84,7 +84,7 @@ class NiskavaReActAgent:
         self.tools = tool_registry
         self.emitter = emitter or (lambda ev: None)
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
-        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
 
         self.ai_provider = os.environ.get("AI_PROVIDER", "").lower()
         self.openai_base_url = os.environ.get("OPENAI_BASE_URL", "http://localhost:20128/v1")
@@ -107,6 +107,14 @@ class NiskavaReActAgent:
                 os.environ.get("MOCK_SECTORS", "0") in ("1", "true", "True")
                 or os.environ.get("NISKAVA_OFFLINE", "0") in ("1", "true", "True")
             )
+
+    def _resolve_openai_base_url(self) -> str:
+        url = (self.openai_base_url or "http://localhost:20128/v1").strip().rstrip("/")
+        if not url or url in ("1", "2", "3") or not (url.startswith("http://") or url.startswith("https://")):
+            url = "http://localhost:20128/v1"
+        if not url.endswith("/v1"):
+            url = url + "/v1"
+        return url
 
     def _emit(self, event_data: Dict[str, Any]) -> None:
         self.emitter(event_data)
@@ -177,7 +185,7 @@ class NiskavaReActAgent:
         """Multi-turn conversational ReAct agent powered by 9router / OpenAI-compatible endpoint."""
         import requests
 
-        base_url = (self.openai_base_url or "http://localhost:20128/v1").rstrip("/")
+        base_url = self._resolve_openai_base_url()
         url = f"{base_url}/chat/completions"
         headers = {"Content-Type": "application/json"}
         if self.openai_api_key:
@@ -204,7 +212,7 @@ class NiskavaReActAgent:
                 "max_tokens": 700,
             }
             try:
-                resp = requests.post(url, headers=headers, json=payload, timeout=18.0)
+                resp = requests.post(url, headers=headers, json=payload, timeout=120.0)
                 if resp.status_code != 200:
                     error_body = resp.text.strip()[:300]
                     last_error = f"HTTP {resp.status_code}: {error_body}" if error_body else f"HTTP {resp.status_code}"
@@ -228,7 +236,7 @@ class NiskavaReActAgent:
                     last_error = "Model AI mengembalikan konten respons kosong."
                     break
             except requests.exceptions.Timeout:
-                last_error = f"Koneksi timeout setelah 18 detik ke {url}"
+                last_error = f"Koneksi timeout setelah 120 detik ke {url} (Model Ollama lokal membutuhkan waktu lebih lama untuk memuat)"
                 break
             except requests.exceptions.ConnectionError:
                 last_error = f"Gagal terhubung ke {url} (Koneksi jaringan ditolak atau server tidak aktif)"
@@ -295,7 +303,7 @@ class NiskavaReActAgent:
 
                     # Feed back to model
                     messages.append({"role": "assistant", "content": content})
-                    messages.append({"role": "user", "content": f"<observation>{obs_str}</observation>"})
+                    messages.append({"role": "user", "content": f"<observation>{obs_str}</observation>\nSintesiskan laporan investigasi intelijen pasar lengkap dalam bahasa Indonesia yang berwibawa di dalam tag <thought>...</thought> dan <response>...</response>."})
                     continue
                 except Exception:
                     pass
@@ -434,94 +442,189 @@ class NiskavaReActAgent:
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
         prompt = f"{SYSTEM_PROMPT}\n\nPertanyaan Pengguna:\n{user_prompt}"
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 800},
-        }
 
+        contents: List[Dict[str, Any]] = [
+            {"role": "user", "parts": [{"text": prompt}]}
+        ]
+        if history:
+            for h in history:
+                r = "user" if h.get("role") == "user" else "model"
+                contents.append({"role": r, "parts": [{"text": h.get("content", "")}]})
+
+        anomalies: List[Dict[str, Any]] = []
+        findings: List[Dict[str, Any]] = []
+        final_response = ""
         err_detail = ""
-        try:
-            resp = requests.post(url, json=payload, timeout=15.0)
-            if resp.status_code == 200:
+
+        for _ in range(4):
+            payload = {
+                "contents": contents,
+                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1000},
+            }
+            try:
+                resp = requests.post(url, json=payload, timeout=25.0)
+                if resp.status_code != 200:
+                    err_detail = f"HTTP {resp.status_code}: {resp.text.strip()[:300]}"
+                    break
                 data = resp.json()
                 candidates = data.get("candidates", [])
-                if candidates and "content" in candidates[0]:
-                    parts = candidates[0]["content"].get("parts", [])
-                    if parts and "text" in parts[0]:
-                        raw_text = parts[0]["text"].strip()
-                        self._emit({
-                            "event": "agent_thought",
-                            "session_id": session_id,
-                            "thought": f"[{self.model}] Menganalisis pasar bursa IDX...",
-                        })
-                        self._emit({
-                            "event": "agent_message_chunk",
-                            "session_id": session_id,
-                            "chunk": raw_text,
-                        })
-                        self._emit({
-                            "event": "agent_message_complete",
-                            "session_id": session_id,
-                            "content": raw_text,
-                        })
-                        duration_ms = int((time.time() - start_time) * 1000)
-                        self._emit({
-                            "event": "session_complete",
-                            "session_id": session_id,
-                            "status": "COMPLETED",
-                            "duration_ms": duration_ms,
-                            "summary": raw_text[:200] + "...",
-                        })
-                        return {"session_id": session_id, "response": raw_text, "duration_ms": duration_ms}
-                    else:
-                        err_detail = "Respons Gemini tidak memuat bagian teks."
-                else:
+                if not candidates or "content" not in candidates[0]:
                     err_detail = f"Tidak ada kandidat respons dari Gemini: {data}"
-            else:
-                err_detail = f"HTTP {resp.status_code}: {resp.text.strip()[:300]}"
-        except requests.exceptions.Timeout:
-            err_detail = "Koneksi timeout setelah 15 detik ke Gemini API."
-        except requests.exceptions.ConnectionError:
-            err_detail = "Gagal terhubung ke Gemini API (Koneksi jaringan gagal)."
-        except Exception as exc:
-            err_detail = f"Kesalahan saat menghubungi Gemini API: {exc}"
+                    break
+                parts = candidates[0]["content"].get("parts", [])
+                if not parts or "text" not in parts[0]:
+                    err_detail = "Respons Gemini tidak memuat bagian teks."
+                    break
+                raw_text = parts[0]["text"].strip()
+            except requests.exceptions.Timeout:
+                err_detail = "Koneksi timeout setelah 25 detik ke Gemini API."
+                break
+            except requests.exceptions.ConnectionError:
+                err_detail = "Gagal terhubung ke Gemini API (Koneksi jaringan gagal)."
+                break
+            except Exception as exc:
+                err_detail = f"Kesalahan saat menghubungi Gemini API: {exc}"
+                break
 
-        error_markdown = (
-            f"### ⚠️ Gagal Terhubung ke Provider AI (Google Gemini)\n\n"
-            f"- **Model**: `{self.model}`\n"
-            f"- **Detail Error**: {err_detail}\n\n"
-            f"**Solusi Pemecahan Masalah:**\n"
-            f"1. Pastikan koneksi internet aktif dan `GEMINI_API_KEY` valid.\n"
-            f"2. Periksa kuota API atau gunakan provider lain via `niskava setup`.\n"
-            f"3. Gunakan mode offline (`--offline`) jika ingin menjalankan analisis deterministik tanpa LLM."
-        )
-        self._emit({
-            "event": "agent_thought",
-            "session_id": session_id,
-            "thought": f"Gagal mengeksekusi inferensi Gemini: {err_detail}",
-        })
+            # Parse thoughts
+            thoughts = re.findall(r"<thought>(.*?)</thought>", raw_text, re.DOTALL)
+            for th in thoughts:
+                clean_th = th.strip()
+                if clean_th:
+                    self._emit({
+                        "event": "agent_thought",
+                        "session_id": session_id,
+                        "thought": f"[{self.model}] {clean_th}",
+                    })
+
+            # Check for tool call
+            tool_calls = re.findall(r"<tool_call>(.*?)</tool_call>", raw_text, re.DOTALL)
+            if tool_calls:
+                call_str = tool_calls[0].strip()
+                try:
+                    call_json = json.loads(call_str)
+                    tool_name = call_json.get("name")
+                    tool_args = call_json.get("arguments", {})
+
+                    self._emit({
+                        "event": "agent_tool_call",
+                        "session_id": session_id,
+                        "tool": tool_name,
+                        "args": tool_args,
+                    })
+
+                    # Execute deterministic tool
+                    tool_res = self.tools.execute_tool(tool_name, tool_args)
+
+                    # Extract anomalies if computed
+                    if tool_name == "compute_quant_anomalies" and isinstance(tool_res, list):
+                        for a in tool_res:
+                            anomalies.append(a)
+                            self._emit({
+                                "event": "anomaly_detected",
+                                "session_id": session_id,
+                                "ticker": tool_args.get("ticker", ""),
+                                "anomaly_date": a.get("date") or a.get("anomaly_date", ""),
+                                "metric_type": a.get("metric_type", ""),
+                                "z_score": a.get("z_score", 0.0),
+                                "metric_value": a.get("metric_value", 0.0),
+                                "baseline_value": a.get("baseline_value", 0.0),
+                                "price_change_pct": a.get("price_change_pct", 0.0),
+                                "sector_change_pct": a.get("sector_change_pct", 0.0),
+                                "description": a.get("description", ""),
+                            })
+
+                    obs_str = f"Observation for {tool_name}: {json.dumps(tool_res)[:1500]}"
+                    self._emit({
+                        "event": "agent_observation",
+                        "session_id": session_id,
+                        "tool": tool_name,
+                        "summary": f"Data observasi diterima ({len(str(tool_res))} bytes).",
+                    })
+
+                    # Feed back to model
+                    contents.append({"role": "model", "parts": [{"text": raw_text}]})
+                    contents.append({"role": "user", "parts": [{"text": f"<observation>{obs_str}</observation>\nSintesiskan laporan investigasi intelijen pasar lengkap dalam bahasa Indonesia yang berwibawa di dalam tag <thought>...</thought> dan <response>...</response>."}]})
+                    continue
+                except Exception:
+                    pass
+
+            # Check for final response
+            responses = re.findall(r"<response>(.*?)</response>", raw_text, re.DOTALL)
+            if responses:
+                final_response = responses[0].strip()
+                break
+            else:
+                cleaned = re.sub(r"<thought>.*?</thought>", "", raw_text, flags=re.DOTALL)
+                cleaned = re.sub(r"<tool_call>.*?</tool_call>", "", cleaned, flags=re.DOTALL).strip()
+                if cleaned:
+                    final_response = cleaned
+                    break
+
+        if not final_response:
+            err_msg = err_detail or "Model Gemini tidak menghasilkan sintesis respons valid dalam siklus ReAct."
+            error_markdown = (
+                f"### ⚠️ Gagal Terhubung ke Provider AI (Google Gemini)\n\n"
+                f"- **Model**: `{self.model}`\n"
+                f"- **Detail Error**: {err_msg}\n\n"
+                f"**Solusi Pemecahan Masalah:**\n"
+                f"1. Pastikan koneksi internet aktif dan `GEMINI_API_KEY` valid.\n"
+                f"2. Periksa kuota API atau gunakan provider lain via `niskava setup`.\n"
+                f"3. Gunakan mode offline (`--offline`) jika ingin menjalankan analisis deterministik tanpa LLM."
+            )
+            self._emit({
+                "event": "agent_thought",
+                "session_id": session_id,
+                "thought": f"Gagal mengeksekusi inferensi Gemini: {err_msg}",
+            })
+            self._emit({
+                "event": "agent_message_chunk",
+                "session_id": session_id,
+                "chunk": error_markdown,
+            })
+            self._emit({
+                "event": "agent_message_complete",
+                "session_id": session_id,
+                "content": error_markdown,
+            })
+            self._emit({
+                "event": "session_error",
+                "session_id": session_id,
+                "error": f"Gemini API error ({self.model}): {err_msg}",
+            })
+            duration_ms = int((time.time() - start_time) * 1000)
+            return {
+                "session_id": session_id,
+                "response": error_markdown,
+                "error": err_msg,
+                "duration_ms": duration_ms,
+                "status": "ERROR",
+            }
+
         self._emit({
             "event": "agent_message_chunk",
             "session_id": session_id,
-            "chunk": error_markdown,
+            "chunk": final_response,
         })
         self._emit({
             "event": "agent_message_complete",
             "session_id": session_id,
-            "content": error_markdown,
-        })
-        self._emit({
-            "event": "session_error",
-            "session_id": session_id,
-            "error": f"Gemini API error ({self.model}): {err_detail}",
+            "content": final_response,
         })
         duration_ms = int((time.time() - start_time) * 1000)
+        self._emit({
+            "event": "session_complete",
+            "session_id": session_id,
+            "status": "COMPLETED",
+            "duration_ms": duration_ms,
+            "summary": final_response[:200] + "...",
+        })
         return {
             "session_id": session_id,
-            "response": error_markdown,
-            "error": err_detail,
+            "response": final_response,
+            "anomalies": anomalies,
+            "findings": findings,
             "duration_ms": duration_ms,
-            "status": "ERROR",
         }
 
     def _run_deterministic_chat_cycle(
@@ -947,7 +1050,7 @@ Berdasarkan analisis deterministik kuantitatif dan penelusuran OSINT keterbukaan
         try:
             import requests
 
-            base_url = (self.openai_base_url or "http://localhost:20128/v1").rstrip("/")
+            base_url = self._resolve_openai_base_url()
             url = f"{base_url}/chat/completions"
             headers = {"Content-Type": "application/json"}
             if self.openai_api_key:

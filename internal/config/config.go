@@ -75,7 +75,7 @@ func DefaultConfig() *Config {
 			SectorsAPIKey:   "",
 			SectorsBaseURL:  "https://api.sectors.app/v2",
 			GeminiAPIKey:    "",
-			GeminiModel:     "gemini-2.0-flash",
+			GeminiModel:     "gemini-3.6-flash",
 			OpenAIAPIKey:    "",
 			OpenAIBaseURL:   "http://localhost:20128/v1",
 			OpenAIModel:     "hermes",
