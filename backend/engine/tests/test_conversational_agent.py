@@ -55,10 +55,9 @@ class TestConversationalAgent(unittest.TestCase):
             self.assertEqual(len(result["anomalies"]), 0)
             self.assertEqual(len(result["findings"]), 0)
 
-            # Response should guide the user to input a ticker, NOT fake ANTM data
+            # Response should guide the user or greet naturally, NOT fake ANTM data
             resp = result["response"]
-            self.assertIn("Mode Offline/Mock", resp)
-            self.assertIn("kode saham", resp)
+            self.assertIn("Niskava Agent", resp)
             self.assertNotIn("35.71", resp)
 
             event_types = [e.get("event") for e in self.events]

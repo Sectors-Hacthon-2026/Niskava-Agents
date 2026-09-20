@@ -11,8 +11,9 @@ import os
 import sqlite3
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
 import requests
+
+from engine.utils.resilience import RetryConfig, execute_with_retry
 
 
 class SectorsAPIClient:
@@ -142,7 +143,18 @@ class SectorsAPIClient:
 
         try:
             url = f"{self.base_url}{endpoint}"
-            resp = self.session.get(url, params=params, timeout=12.0)
+            cfg = RetryConfig(
+                max_retries=3,
+                initial_delay=1.0,
+                max_delay=8.0,
+                backoff_factor=2.0,
+                jitter=True,
+                retryable_statuses={429, 500, 502, 503, 504},
+            )
+            resp = execute_with_retry(
+                lambda: self.session.get(url, params=params, timeout=12.0),
+                config=cfg,
+            )
             resp.raise_for_status()
             data = resp.json()
             self._set_cache(cache_key, endpoint, data, ttl_seconds)

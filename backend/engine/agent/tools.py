@@ -103,17 +103,28 @@ class NiskavaToolRegistry:
 
     def harvest_market_news(
         self,
-        ticker: str,
+        ticker: Optional[str] = None,
         company_name: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Harvest curated news and targeted IDX regulatory filings via Dual-Engine OSINT."""
-        if not company_name:
-            report = self.get_company_fundamentals(ticker)
-            company_name = report.get("company_name", ticker)
+        if not ticker:
+            # General market headlines when no specific ticker is provided
+            sectors_news = self.sectors_client.get_news(None)
+            items: List[OSINTItem] = self.osint_harvester.harvest(
+                ticker="IHSG",
+                company_name="Pasar Modal Indonesia",
+                sectors_news_items=sectors_news,
+            )
+            return [item.model_dump() for item in items]
 
-        sectors_news = self.sectors_client.get_news(ticker)
+        clean_ticker = ticker.upper()
+        if not company_name:
+            report = self.get_company_fundamentals(clean_ticker)
+            company_name = report.get("company_name", clean_ticker)
+
+        sectors_news = self.sectors_client.get_news(clean_ticker)
         items: List[OSINTItem] = self.osint_harvester.harvest(
-            ticker=ticker.upper(),
+            ticker=clean_ticker,
             company_name=company_name,
             sectors_news_items=sectors_news,
         )
@@ -290,14 +301,14 @@ class NiskavaToolRegistry:
             },
             {
                 "name": "harvest_market_news",
-                "description": "Panen berita pasar modal terkurasi dan keterbukaan informasi bursa resmi menggunakan arsitektur Dual-Engine OSINT.",
+                "description": "Panen berita pasar modal terkurasi dan keterbukaan informasi bursa resmi menggunakan arsitektur Dual-Engine OSINT. Jika ticker tidak diisi, mengambil berita pasar modal umum terkini.",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker IDX"},
+                        "ticker": {"type": "string", "description": "Kode ticker IDX (opsional, kosongkan jika mencari berita pasar umum)"},
                         "company_name": {"type": "string", "description": "Nama resmi perseroan (opsional)"},
                     },
-                    "required": ["ticker"],
+                    "required": [],
                 },
             },
             {

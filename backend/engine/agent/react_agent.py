@@ -16,56 +16,39 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
 from engine.agent.tools import NiskavaToolRegistry
+from engine.sectors.tickers import extract_valid_tickers, is_valid_idx_ticker
+from engine.utils.resilience import RetryConfig, execute_with_retry
 
-SYSTEM_PROMPT = """You are Niskava Agent, an elite financial intelligence and market anomaly investigator for the Indonesia Stock Exchange (IDX). You assist equity analysts, financial journalists, and serious retail swing traders by turning market questions into rigorous, verifiable evidence.
+SYSTEM_PROMPT = """You are Niskava Agent, an intelligent financial research assistant and market intelligence specialist for the Indonesia Stock Exchange (IDX). You assist equity analysts, financial journalists, and retail traders with market analysis, fundamental research, news, regulatory insights, and quantitative investigations.
 
-=== NON-NEGOTIABLE OPERATIONAL LAWS ===
+=== CORE PERSONA & COMMUNICATION STYLE ===
+- Communicate naturally in professional, clear, and engaging Indonesian (Bahasa Indonesia).
+- Be a helpful, knowledgeable peer analyst. Do NOT recite or dump your internal rules, tool lists, skill names, or system architecture unless the user explicitly asks what capabilities you have.
+- Answer conversational questions (greetings, financial concepts, IDX trading rules, ratio definitions) directly and clearly without calling tools unnecessarily.
+- When the user asks about general market news ("cek berita hari ini", "sentimen pasar"), use 'harvest_market_news' with no ticker to provide a structured overview of market headlines.
+
+=== OPERATIONAL LAWS & BOUNDARIES ===
 1. LAW 1 (Deterministic Before Generative):
-   - NEVER calculate volume moving averages, Z-scores, abnormal returns, price change percentages, or statistical thresholds in your head.
-   - ALWAYS invoke the deterministic quantitative tool 'compute_quant_anomalies' or 'get_daily_candles'. All numerical facts MUST originate strictly from tool observations.
+   - When quantitative indicators (volume moving averages, Z-scores, abnormal returns, price changes) are needed for a stock, NEVER guess or calculate numbers in your head. Call the deterministic tools ('compute_quant_anomalies', 'get_daily_candles') and base your analysis on factual tool observations.
    
 2. LAW 2 (Strict Financial Non-Advisory Boundary):
-   - You are an investigative intelligence researcher, NOT a financial advisor.
-   - You MUST NEVER output direct BUY/SELL recommendations, price targets, or portfolio allocation advice under any circumstances.
-   - You MUST classify every evidentiary finding into the Three-Tier Verification Taxonomy:
-     * [SUPPORTED]: Factually confirmed by official Sectors API quantitative data or official IDXnet corporate disclosures.
-     * [UNCERTAIN]: Correlation observed, but causality is unverified (market gossip, unconfirmed rumors).
+   - You are an objective research and intelligence assistant, NOT an investment advisor or broker.
+   - NEVER output direct BUY/SELL recommendations, target prices, or portfolio advice.
+   - When presenting investigative findings on specific corporate events or rumors, categorize evidence objectively:
+     * [SUPPORTED]: Confirmed by official Sectors API data or formal IDX disclosures.
+     * [UNCERTAIN]: Correlation observed, but causality unverified (rumors, social media).
      * [CONTRADICTED]: Claims refuted by official disclosures or financial facts.
-
-3. EVIDENCE CITATION & CONFIDENCE RUBRIC:
-   - Always assign a confidence score based on the standardized discrete rubric:
-     1.00 = Extracted from official Sectors API or IDXnet regulatory disclosures
-     0.95 = Explicit timestamp correlation with official corporate press releases
-     0.85 = Strong inference backed by accredited mainstream financial press (Kontan, Bisnis, CNBC Indonesia)
-     0.65 = Unverified market commentary or rumors
-   - Always cite publication date, source name, and source URL.
-
-=== AVAILABLE TOOLS & DOMAIN SKILLS ===
-1. HIGH-LEVEL DOMAIN SKILLS (Layer 3 SOPs - Preferred):
-- skill_market_anomaly_recon(ticker="<TICKER>", days=30): Detect statistical volume surges (MA20 Z-score), abnormal returns, and foreign flow divergence.
-- skill_event_causality_audit(ticker="<TICKER>", anomaly_date="YYYY-MM-DD"): Audit temporal causality between price/volume spikes and disclosures, suspensions, and accredited news.
-- skill_insider_bandarmology_forensic(ticker="<TICKER>"): Top-3 buyer concentration (C3), broker cohort mapping (foreign/domestic/retail/institution), and insider filings.
-- skill_financial_health_stress_test(ticker="<TICKER>", rumor_claim="<CLAIM>"): Audit balance sheet liquidity/solvency and fact-check bankruptcy/default rumors (marks refuted rumors CONTRADICTED).
-- skill_mining_commodity_divergence(ticker="<TICKER>", commodity="<COMMODITY>"): Pearson correlation between IDX mining stocks and global commodity spot prices (Nickel, Coal, Gold).
-- skill_peer_valuation_benchmark(ticker="<TICKER>", subsector="<SUBSECTOR>"): Multi-metric relative valuation (P/E, P/B) against subsector median and IQR.
-
-2. PRIMITIVE TOOLS (Layer 1):
-- get_daily_candles(ticker="<TICKER>", days=<INT>): Fetch daily OHLCV candlesticks for an IDX ticker.
-- compute_quant_anomalies(ticker="<TICKER>", volume_z_threshold=2.5): Run NumPy deterministic anomaly math (MA20, Z-scores, abnormal returns).
-- harvest_market_news(ticker="<TICKER>"): Run targeted Dual-Engine OSINT for official disclosures and accredited financial media.
-- query_company_profile(ticker="<TICKER>"): Retrieve company sector, subsector, market capitalization, and fundamental overview.
-- get_foreign_flow(ticker="<TICKER>"): Fetch net foreign institutional inflow/outflow.
+   - Always conclude formal stock investigations with the standard non-advisory disclaimer.
 
 === INTERACTION PROTOCOL (ReAct XML) ===
-To investigate, think step-by-step in Indonesian:
-<thought>Penalaran analitik internal mengenai apa yang ditanyakan dan tool apa yang dibutuhkan</thought>
+Think step-by-step:
+<thought>Internal reasoning in Indonesian about user intent and what data (if any) is needed</thought>
+If a tool is needed:
 <tool_call>{"name": "tool_name", "arguments": {...}}</tool_call>
-(The environment executes the tool and returns <observation>...</observation>)
-Continue thinking and calling tools if necessary.
-When ready to answer the user, output:
-<thought>Analisis akhir dan sintesis bukti</thought>
+(After receiving <observation>...</observation>, continue thinking and synthesizing)
+When ready to respond to the user:
 <response>
-[Sampaikan sintesis investigasi lengkap dalam bahasa Indonesia yang profesional, berwibawa, disertai fakta angka deterministik dari tool, tabel/kartu bukti temuan bertanda [SUPPORTED] / [UNCERTAIN] / [CONTRADICTED], dan disclaimer non-advisory resmi di akhir.]
+[Your comprehensive, natural response in Indonesian]
 </response>
 """
 
@@ -277,34 +260,36 @@ class NiskavaReActAgent:
                 re.IGNORECASE,
             )
             if pos_match:
-                tkr = pos_match.group(1).upper()
-                price = pos_match.group(2)
-                try:
-                    self.memory.store_observation(
-                        source_label="User",
-                        source_type="USER",
-                        relation="HOLDS_AT",
-                        target_label=f"Price: {price}",
-                        target_type="PRICE_LEVEL",
-                        context_snippet=f"Posisi modal di {tkr} pada level {price}",
-                        session_id=session_id,
-                    )
-                    self.memory.store_observation(
-                        source_label=f"Price: {price}",
-                        source_type="PRICE_LEVEL",
-                        relation="TICKER_REF",
-                        target_label=tkr,
-                        target_type="TICKER",
-                        session_id=session_id,
-                    )
-                except Exception:
-                    pass
+                raw_tkr = pos_match.group(1).upper()
+                if is_valid_idx_ticker(raw_tkr):
+                    tkr = raw_tkr
+                    price = pos_match.group(2)
+                    try:
+                        self.memory.store_observation(
+                            source_label="User",
+                            source_type="USER",
+                            relation="HOLDS_AT",
+                            target_label=f"Price: {price}",
+                            target_type="PRICE_LEVEL",
+                            context_snippet=f"Posisi modal di {tkr} pada level {price}",
+                            session_id=session_id,
+                        )
+                        self.memory.store_observation(
+                            source_label=f"Price: {price}",
+                            source_type="PRICE_LEVEL",
+                            relation="TICKER_REF",
+                            target_label=tkr,
+                            target_type="TICKER",
+                            session_id=session_id,
+                        )
+                    except Exception:
+                        pass
 
             # 2. Extract potential entities in prompt to recall past graph context
             memory_blocks = []
-            candidates = set(re.findall(r"\b[A-Za-z]{4}\b", user_prompt))
-            for cand in candidates:
-                xml_mem = self.memory.format_investigative_prompt(cand.upper(), radius=2)
+            valid_candidates = extract_valid_tickers(user_prompt)
+            for cand in valid_candidates:
+                xml_mem = self.memory.format_investigative_prompt(cand, radius=2)
                 if xml_mem:
                     memory_blocks.append(xml_mem)
 
@@ -365,7 +350,7 @@ class NiskavaReActAgent:
             if anomalies:
                 target_ticker = anomalies[0].get("ticker")
             if not target_ticker:
-                for c in candidates:
+                for c in valid_candidates:
                     target_ticker = c.upper()
                     break
             if target_ticker and (anomalies or findings):
@@ -454,6 +439,23 @@ class NiskavaReActAgent:
         anomalies: List[Dict[str, Any]] = []
         final_response = ""
 
+        def on_llm_retry(attempt: int, delay: float, status_code: int, summary: str):
+            status_desc = f"HTTP {status_code}" if status_code else "Koneksi Terputus"
+            self._emit({
+                "event": "agent_thought",
+                "session_id": session_id,
+                "thought": f"[{model}] {status_desc}: Menunggu {delay:.1f}s sebelum mencoba kembali (Percobaan {attempt}/3)...",
+            })
+
+        retry_cfg = RetryConfig(
+            max_retries=3,
+            initial_delay=1.0,
+            max_delay=8.0,
+            backoff_factor=2.0,
+            jitter=True,
+            retryable_statuses={429, 500, 502, 503, 504},
+        )
+
         last_error = ""
         for _ in range(4):
             payload = {
@@ -463,7 +465,11 @@ class NiskavaReActAgent:
                 "max_tokens": 700,
             }
             try:
-                resp = requests.post(url, headers=headers, json=payload, timeout=18.0)
+                resp = execute_with_retry(
+                    lambda: requests.post(url, headers=headers, json=payload, timeout=18.0),
+                    config=retry_cfg,
+                    on_retry_callback=on_llm_retry,
+                )
                 if resp.status_code != 200:
                     error_body = resp.text.strip()[:300]
                     last_error = f"HTTP {resp.status_code}: {error_body}" if error_body else f"HTTP {resp.status_code}"
@@ -656,22 +662,12 @@ class NiskavaReActAgent:
         start_time: float,
     ) -> Dict[str, Any]:
         """Deterministic fallback chat synthesis extracting ticker and enforcing Law 1 & Law 2."""
-        # Extract ticker from prompt (e.g. 4 capital letters)
-        candidates = re.findall(r"\b[A-Z]{4}\b", user_prompt.upper())
-        # Filter out common English/Indonesian words that happen to be 4 letters
-        stopwords = {
-            "YANG", "DARI", "PADA", "BISA", "AKAN", "SAAT", "KITA", "DENG", "APAL",
-            "INFO", "CHAT", "TENT", "KATA", "HALO", "PAGI", "SIAP", "TEST", "USER",
-            "HELP", "EXIT", "QUIT", "TANY", "APA", "BAGA", "SIAPA", "KODE", "HARI",
-            "BUAT", "BAIK", "SAYA", "KAMU", "COBA", "DATA", "MODE", "DENGAN"
-        }
-        tickers = [c for c in candidates if c not in stopwords]
+        tickers = extract_valid_tickers(user_prompt)
 
         if not tickers and history:
             # Multi-turn context recall: look for ticker in previous turns to prevent amnesia
             for h in reversed(history):
-                prev_cands = re.findall(r"\b[A-Z]{4}\b", h.get("content", "").upper())
-                prev_tickers = [c for c in prev_cands if c not in stopwords]
+                prev_tickers = extract_valid_tickers(h.get("content", ""))
                 if prev_tickers:
                     tickers = prev_tickers
                     self._emit({
@@ -682,17 +678,68 @@ class NiskavaReActAgent:
                     break
 
         if not tickers:
-            response_text = (
-                "Halo! Saya Niskava Agent (Mode Offline/Mock).\n\n"
-                "Saya tidak mendeteksi kode emiten saham IDX yang spesifik dalam pesan Anda.\n\n"
-                "Untuk menganalisis anomali transaksi dan keterbukaan informasi, silakan sebutkan kode saham 4-huruf yang ingin diperiksa (contoh: **ANTM**, **BBCA**, **BBRI**, **BUMI**).\n\n"
-                "> *Catatan*: Anda saat ini berada dalam mode offline/mock. Untuk menggunakan asisten percakapan bebas (ReAct), aktifkan koneksi AI provider di `niskava setup`."
-            )
-            self._emit({
-                "event": "agent_thought",
-                "session_id": session_id,
-                "thought": "Prompt pengguna tidak memuat kode emiten IDX 4-huruf yang valid. Mengembalikan panduan mode offline.",
-            })
+            prompt_lower = user_prompt.lower()
+            # 1. Intent: General Market News / Macro Overview
+            if any(w in prompt_lower for w in ["berita", "news", "kabar", "sentimen", "headline", "ihsg", "bursa"]):
+                self._emit({
+                    "event": "agent_thought",
+                    "session_id": session_id,
+                    "thought": "Pengguna menanyakan berita/kabar pasar modal umum. Memanggil harvest_market_news untuk berita pasar terkini...",
+                })
+                self._emit({
+                    "event": "agent_tool_call",
+                    "session_id": session_id,
+                    "tool": "harvest_market_news",
+                    "args": {},
+                })
+                news_items = self.tools.harvest_market_news(None)
+                self._emit({
+                    "event": "agent_observation",
+                    "session_id": session_id,
+                    "tool": "harvest_market_news",
+                    "summary": f"Berhasil menarik {len(news_items)} berita pasar modal terkini.",
+                })
+
+                lines = ["### 📰 Rangkuman Berita Pasar Modal Terkini (IDX)\n"]
+                for i, item in enumerate(news_items[:5], 1):
+                    title = item.get("title", "")
+                    src = item.get("source_name", "Pasar")
+                    pub = item.get("publication_date", "")
+                    lines.append(f"{i}. **{title}**")
+                    lines.append(f"   *Sumber: {src} | {pub}*\n")
+
+                lines.append("> [!NOTE]\n> Anda dapat meminta investigasi mendalam untuk emiten tertentu, contoh: *\"Cek anomali volume ANTM\"* atau *\"Analisis laporan keuangan BBRI\"*.")
+                response_text = "\n".join(lines)
+
+            # 2. Intent: Greeting / Sapaan
+            elif any(w in prompt_lower for w in ["halo", "hai", "pagi", "siang", "sore", "malam", "apa kabar", "assalamualaikum", "tes", "test"]):
+                response_text = (
+                    "Halo! Saya **Niskava Agent**, asisten riset dan intelijen pasar modal Indonesia (IDX).\n\n"
+                    "Ada yang bisa saya bantu hari ini? Anda dapat:\n"
+                    "- Menanyakan **berita dan sentimen pasar** (contoh: *\"Cek berita pasar hari ini\"*)\n"
+                    "- Menganalisis **anomali volume & transaksi saham** (contoh: *\"Cek anomali ANTM\"*, *\"Audit volume BBCA\"*)\n"
+                    "- Berdiskusi seputar **konsep finansial atau regulasi bursa** (contoh: *\"Apa itu rasio DER?\"*, *\"Bagaimana kriteria suspensi BEI?\"*)"
+                )
+                self._emit({
+                    "event": "agent_thought",
+                    "session_id": session_id,
+                    "thought": "Menerima sapaan pengguna. Menyapa kembali dan memberikan panduan interaksi.",
+                })
+
+            # 3. Intent: General questions without ticker
+            else:
+                response_text = (
+                    "Halo! Saya Niskava Agent, asisten riset pasar modal Indonesia (IDX).\n\n"
+                    "Saya tidak mendeteksi kode emiten saham IDX yang spesifik dalam pesan Anda.\n\n"
+                    "- Jika Anda ingin **menganalisis anomali transaksi atau keterbukaan informasi emiten**, silakan sebutkan kode sahamnya (contoh: **BBCA**, **ANTM**, **BBRI**, **GOTO**).\n"
+                    "- Jika Anda ingin **memantau berita pasar modal terkini**, ketik *\"cek berita hari ini\"*."
+                )
+                self._emit({
+                    "event": "agent_thought",
+                    "session_id": session_id,
+                    "thought": "Prompt tidak memuat kode emiten spesifik. Memberikan panduan penggunaan.",
+                })
+
             self._emit({
                 "event": "agent_message_chunk",
                 "session_id": session_id,
