@@ -222,3 +222,126 @@ func TestChatSessions_REST_Endpoints(t *testing.T) {
 	resp.Body.Close()
 }
 
+func TestChatSession_Export_And_Search(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_srv_export.db")
+
+	database, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	srv, err := Start(ctx, 0, database)
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	// 1. Setup Session and Messages
+	sessionID := "TEST-EXP-001"
+	_ = database.CreateChatSession(&db.ChatSession{
+		ID:     sessionID,
+		Title:  "Riset Komoditas ANTM",
+		Model:  "hermes",
+		Status: "IDLE",
+	})
+
+	thought := "Menghitung volume MA20 dan Z-Score saham ANTM..."
+	_ = database.SaveChatMessage(&db.ChatMessage{
+		ID:        "MSG-EXP-01",
+		SessionID: sessionID,
+		Role:      "user",
+		Content:   "Analisis volume lonjakan ANTM hari ini",
+		CreatedAt: time.Now().UTC().Format(time.RFC3339),
+	})
+	_ = database.SaveChatMessage(&db.ChatMessage{
+		ID:        "MSG-EXP-02",
+		SessionID: sessionID,
+		Role:      "assistant",
+		Thought:   &thought,
+		Content:   "Ditemukan anomali lonjakan volume 3.12σ pada perdagangan terakhir.",
+		CreatedAt: time.Now().UTC().Format(time.RFC3339),
+	})
+
+	// 2. Test Markdown Export
+	resp, err := client.Get(srv.URL + "/api/chat/sessions/" + sessionID + "/export?format=markdown")
+	if err != nil {
+		t.Fatalf("GET export markdown failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+	var mdBuf bytes.Buffer
+	_, _ = mdBuf.ReadFrom(resp.Body)
+	resp.Body.Close()
+	mdStr := mdBuf.String()
+
+	if !strings.Contains(mdStr, "# Laporan Riset Pasar: Riset Komoditas ANTM") {
+		t.Errorf("expected title in export markdown, got: %s", mdStr[:100])
+	}
+	if !strings.Contains(mdStr, "DISCLAIMER") {
+		t.Error("expected non-advisory disclaimer in export markdown")
+	}
+	if !strings.Contains(mdStr, "Proses Berpikir Analitis") || !strings.Contains(mdStr, thought) {
+		t.Error("expected chain-of-thought in export markdown")
+	}
+	if !strings.Contains(mdStr, "Ditemukan anomali lonjakan volume 3.12σ") {
+		t.Error("expected assistant message content in export markdown")
+	}
+
+	// 3. Test JSON Export
+	resp, err = client.Get(srv.URL + "/api/chat/sessions/" + sessionID + "/export?format=json")
+	if err != nil {
+		t.Fatalf("GET export json failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK for json export, got %d", resp.StatusCode)
+	}
+	var jsonExport map[string]interface{}
+	_ = json.NewDecoder(resp.Body).Decode(&jsonExport)
+	resp.Body.Close()
+
+	if jsonExport["session"] == nil || jsonExport["messages"] == nil {
+		t.Errorf("expected session and messages in json export, got: %+v", jsonExport)
+	}
+	messagesArr := jsonExport["messages"].([]interface{})
+	if len(messagesArr) != 2 {
+		t.Errorf("expected 2 messages in json export, got %d", len(messagesArr))
+	}
+
+	// 4. Test Global Message Search
+	resp, err = client.Get(srv.URL + "/api/chat/search?q=lonjakan")
+	if err != nil {
+		t.Fatalf("GET /api/chat/search failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK on search, got %d", resp.StatusCode)
+	}
+	var searchRes map[string]interface{}
+	_ = json.NewDecoder(resp.Body).Decode(&searchRes)
+	resp.Body.Close()
+
+	if int(searchRes["total"].(float64)) != 2 {
+		t.Errorf("expected 2 search results for 'lonjakan', got %v", searchRes["total"])
+	}
+
+	// Search non-existent
+	resp, err = client.Get(srv.URL + "/api/chat/search?q=BukanSaham123")
+	if err != nil {
+		t.Fatalf("GET /api/chat/search non-existent failed: %v", err)
+	}
+	var emptySearch map[string]interface{}
+	_ = json.NewDecoder(resp.Body).Decode(&emptySearch)
+	resp.Body.Close()
+
+	if int(emptySearch["total"].(float64)) != 0 {
+		t.Errorf("expected 0 search results for nonexistent, got %v", emptySearch["total"])
+	}
+}
+

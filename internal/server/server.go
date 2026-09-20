@@ -220,6 +220,44 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		}
 	})
 
+	// 2b. Global Chat Message Search API
+	mux.HandleFunc("/api/chat/search", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+		if r.Method != http.MethodGet {
+			http.Error(w, `{"error": "GET required"}`, http.StatusMethodNotAllowed)
+			return
+		}
+
+		query := r.URL.Query().Get("q")
+		limit := 50
+		if lStr := r.URL.Query().Get("limit"); lStr != "" {
+			if parsed, err := strconv.Atoi(lStr); err == nil && parsed > 0 {
+				limit = parsed
+			}
+		}
+
+		results, err := database.SearchChatMessages(query, limit)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+			return
+		}
+		if results == nil {
+			results = []db.ChatSearchResult{}
+		}
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"query":   query,
+			"total":   len(results),
+			"results": results,
+		})
+	})
+
 	// 3. Chat Session Item & Actions API (/api/chat/sessions/{id} and subpaths)
 	mux.HandleFunc("/api/chat/sessions/", func(w http.ResponseWriter, r *http.Request) {
 		if enableCORS(w, r) {
@@ -369,6 +407,75 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 				"total":      len(messages),
 				"messages":   messages,
 			})
+
+		case "export":
+			if r.Method != http.MethodGet {
+				http.Error(w, `{"error": "GET required"}`, http.StatusMethodNotAllowed)
+				return
+			}
+			sess, err := database.GetChatSession(sessionID)
+			if err != nil || sess == nil {
+				http.Error(w, `{"error": "session not found"}`, http.StatusNotFound)
+				return
+			}
+			messages, err := database.GetChatHistory(sessionID, 500)
+			if err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+				return
+			}
+
+			format := strings.ToLower(r.URL.Query().Get("format"))
+			if format == "json" {
+				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="niskava-session-%s.json"`, sessionID))
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"session":  sess,
+					"messages": messages,
+				})
+				return
+			}
+
+			// Default to structured Markdown report (Law 2 compliant)
+			var md strings.Builder
+			md.WriteString(fmt.Sprintf("# Laporan Riset Pasar: %s\n\n", sess.Title))
+			md.WriteString("| Parameter | Nilai |\n")
+			md.WriteString("|---|---|\n")
+			md.WriteString(fmt.Sprintf("| **Session ID** | `%s` |\n", sess.ID))
+			md.WriteString(fmt.Sprintf("| **Model AI** | `%s` |\n", sess.Model))
+			md.WriteString(fmt.Sprintf("| **Total Pesan** | %d |\n", len(messages)))
+			md.WriteString(fmt.Sprintf("| **Waktu Ekspor** | %s |\n\n", time.Now().UTC().Format(time.RFC3339)))
+
+			// Law 2: Strict Financial Non-Advisory Boundary
+			md.WriteString("> [!IMPORTANT]\n")
+			md.WriteString("> **DISCLAIMER (Non-Advisory Market Intelligence):**\n")
+			md.WriteString("> Niskava Agent adalah platform intelijen dan OSINT pasar modal otonom untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi atau broker berizin. Seluruh temuan, skor anomali, dan korelasi bukti disajikan secara deskriptif untuk tujuan riset dan verifikasi fakta, serta BUKAN merupakan rekomendasi beli/jual atau target harga investasi.\n\n")
+
+			md.WriteString("## Transkrip Percakapan & Temuan Riset\n\n")
+			for idx, msg := range messages {
+				timeStr := msg.CreatedAt
+				if len(timeStr) > 19 {
+					timeStr = strings.Replace(timeStr[:19], "T", " ", 1)
+				}
+				if msg.Role == "user" {
+					md.WriteString(fmt.Sprintf("### 👤 Pengguna (Turn %d) — *%s*\n\n", (idx/2)+1, timeStr))
+					md.WriteString(fmt.Sprintf("%s\n\n", msg.Content))
+				} else {
+					md.WriteString(fmt.Sprintf("### 🤖 Niskava Agent (%s) — *%s*\n\n", sess.Model, timeStr))
+					if msg.Thought != nil && strings.TrimSpace(*msg.Thought) != "" {
+						md.WriteString("<details>\n<summary>🔍 Proses Berpikir Analitis (Chain-of-Thought)</summary>\n\n")
+						md.WriteString(fmt.Sprintf("%s\n\n", *msg.Thought))
+						md.WriteString("</details>\n\n")
+					}
+					md.WriteString(fmt.Sprintf("%s\n\n", msg.Content))
+				}
+				md.WriteString("---\n\n")
+			}
+
+			w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+			w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="niskava-session-%s.md"`, sessionID))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(md.String()))
+			return
 
 		default:
 			http.Error(w, `{"error": "unknown session action"}`, http.StatusNotFound)
@@ -521,9 +628,14 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			pythonBin = localVenv
 		}
 
-		dbPath := filepath.Join(os.Getenv("HOME"), ".niskava", "niskava.db")
-		if customDB := os.Getenv("NISKAVA_DB_PATH"); customDB != "" {
-			dbPath = customDB
+		dbPath := ""
+		if s.DB != nil && s.DB.Path != "" {
+			dbPath = s.DB.Path
+		} else {
+			dbPath = filepath.Join(os.Getenv("HOME"), ".niskava", "niskava.db")
+			if customDB := os.Getenv("NISKAVA_DB_PATH"); customDB != "" {
+				dbPath = customDB
+			}
 		}
 
 		wd, _ := os.Getwd()
@@ -632,9 +744,14 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			pythonBin = localVenv
 		}
 
-		dbPath := filepath.Join(os.Getenv("HOME"), ".niskava", "niskava.db")
-		if customDB := os.Getenv("NISKAVA_DB_PATH"); customDB != "" {
-			dbPath = customDB
+		dbPath := ""
+		if s.DB != nil && s.DB.Path != "" {
+			dbPath = s.DB.Path
+		} else {
+			dbPath = filepath.Join(os.Getenv("HOME"), ".niskava", "niskava.db")
+			if customDB := os.Getenv("NISKAVA_DB_PATH"); customDB != "" {
+				dbPath = customDB
+			}
 		}
 
 		sessionID := r.URL.Query().Get("session_id")
