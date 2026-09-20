@@ -3,6 +3,7 @@ package ipc
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -27,9 +28,18 @@ func TestRunSubprocessMock(t *testing.T) {
 		curr = parent
 	}
 
-	pythonBin := filepath.Join(rootDir, ".venv", "bin", "python3")
+	pythonBin := filepath.Join(rootDir, ".venv", "Scripts", "python.exe")
 	if _, err := os.Stat(pythonBin); os.IsNotExist(err) {
-		pythonBin = "python3"
+		pythonBin = filepath.Join(rootDir, ".venv", "bin", "python3")
+		if _, err := os.Stat(pythonBin); os.IsNotExist(err) {
+			if path, err := exec.LookPath("python"); err == nil {
+				pythonBin = path
+			} else if path, err := exec.LookPath("python3"); err == nil {
+				pythonBin = path
+			} else {
+				pythonBin = "python"
+			}
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
