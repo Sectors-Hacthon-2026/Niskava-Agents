@@ -57,6 +57,7 @@ type ServerConfig struct {
 type PreferencesConfig struct {
 	DefaultMarket string `yaml:"default_market"`
 	OfflineMode   bool   `yaml:"offline_mode"`
+	Language      string `yaml:"language"`
 }
 
 // MemoryConfig configures the local conversational graph memory engine.
@@ -99,6 +100,7 @@ func DefaultConfig() *Config {
 		Preferences: PreferencesConfig{
 			DefaultMarket: "IDX",
 			OfflineMode:   false,
+			Language:      "en",
 		},
 		Memory: MemoryConfig{
 			Enabled:          true,
@@ -237,6 +239,9 @@ func Load(customConfigPath string) (*Config, error) {
 	}
 	if val := os.Getenv("NISKAVA_OFFLINE"); val == "1" || strings.ToLower(val) == "true" {
 		cfg.Preferences.OfflineMode = true
+	}
+	if val := os.Getenv("NISKAVA_LANG"); val != "" {
+		cfg.Preferences.Language = strings.ToLower(val)
 	}
 
 	return cfg, nil

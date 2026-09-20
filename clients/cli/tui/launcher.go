@@ -102,43 +102,43 @@ func NewLauncherModelWithHealth(serverURL string, version string, apiKeyOK bool)
 		{
 			ShortcutKey: "W",
 			Title:       "Web UI (Open in Browser)",
-			Description: "Jalankan server web & buka otomatis di browser default",
+			Description: "Start web daemon server & auto-open in default browser",
 			ActionID:    "web",
 		},
 		{
 			ShortcutKey: "T",
 			Title:       "Terminal UI (Interactive Live CLI)",
-			Description: "Sesi REPL interaktif berbasis perintah riset & anomali",
+			Description: "Interactive research REPL session with live anomaly reasoning",
 			ActionID:    "terminal",
 		},
 		{
 			ShortcutKey: "S",
-			Title:       "Riwayat Sesi & Audit Trail (SQLite)",
-			Description: "Inspeksi riwayat investigasi & bukti terverifikasi dari database",
+			Title:       "Session History & Audit Trail (SQLite)",
+			Description: "Inspect past investigation sessions & verified evidence from local database",
 			ActionID:    "sessions",
 		},
 		{
 			ShortcutKey: "H",
-			Title:       "Panduan & Instruksi Penggunaan (Help Guide)",
-			Description: "Instruksi lengkap navigasi, opsi menu, dan perintah slash",
+			Title:       "Help Guide & Usage Instructions",
+			Description: "Complete guide on navigation, slash commands, and system architecture",
 			ActionID:    "help",
 		},
 		{
 			ShortcutKey: "C",
 			Title:       "System & API Key Health Check",
-			Description: "Periksa status daemon server, koneksi database, dan provider AI",
+			Description: "Check status of daemon server, database connection, & AI providers",
 			ActionID:    "health",
 		},
 		{
 			ShortcutKey: "Q",
 			Title:       "Quick Setup Wizard (.env)",
-			Description: "Konfigurasi cepat API key Sectors, Gemini, atau OpenAI",
+			Description: "Quick setup wizard for Sectors, Gemini, or OpenAI API keys",
 			ActionID:    "setup",
 		},
 		{
 			ShortcutKey: "E",
 			Title:       "Exit",
-			Description: "Hentikan daemon server dan keluar dari Niskava Agent",
+			Description: "Stop daemon server and exit Niskava Agent",
 			ActionID:    "exit",
 		},
 	}
@@ -216,7 +216,7 @@ func (m LauncherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m LauncherModel) View() string {
 	if m.Quitting {
-		return "\nKeluar dari Niskava Agent. Sampai jumpa!\n"
+		return "\nExiting Niskava Agent. Goodbye!\n"
 	}
 
 	noColor := os.Getenv("NO_COLOR") != ""

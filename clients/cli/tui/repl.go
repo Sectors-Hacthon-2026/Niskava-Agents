@@ -75,14 +75,14 @@ type SlashCommand struct {
 }
 
 var defaultSlashCommands = []SlashCommand{
-	{Command: "/help", Description: "Panduan lengkap perintah & instruksi sistem"},
-	{Command: "/reset", Description: "Mulai sesi obrolan baru & bersihkan memory graph"},
-	{Command: "/graph", Description: "Buka visualisasi Cyber-OSINT Knowledge Graph di browser"},
-	{Command: "/clear", Description: "Bersihkan layar terminal & tampilkan ulang banner HUD"},
-	{Command: "/web", Description: "Buka dashboard visual Web Workspace di browser"},
-	{Command: "/sessions", Description: "Inspeksi riwayat sesi investigasi & audit trail dari SQLite"},
-	{Command: "/health", Description: "Periksa status daemon server, database, & provider AI"},
-	{Command: "/exit", Description: "Keluar dari sesi Live REPL kembali ke menu utama"},
+	{Command: "/help", Description: "Complete guide to commands & system instructions"},
+	{Command: "/reset", Description: "Start new chat session & clear memory graph"},
+	{Command: "/graph", Description: "Open visual Cyber-OSINT Knowledge Graph in browser"},
+	{Command: "/clear", Description: "Clear terminal screen & redraw HUD banner"},
+	{Command: "/web", Description: "Open Web Workspace visual dashboard in browser"},
+	{Command: "/sessions", Description: "Inspect investigation session history & audit trail from SQLite"},
+	{Command: "/health", Description: "Check status of daemon server, database, & AI providers"},
+	{Command: "/exit", Description: "Exit Live REPL session back to main menu"},
 }
 
 // ReplInputModel is the Bubbletea interactive text input model with OpenCode-style slash popup.
@@ -101,7 +101,7 @@ type ReplInputModel struct {
 func NewReplInputModel(promptPrefix string) ReplInputModel {
 	ti := textinput.New()
 	ti.Prompt = promptBoxStyle.Render(promptPrefix + " ")
-	ti.Placeholder = "Ketik pertanyaan riset pasar atau / untuk perintah..."
+	ti.Placeholder = T("prompt_placeholder")
 	ti.Focus()
 
 	return ReplInputModel{
