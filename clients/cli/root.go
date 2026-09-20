@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Sectors-Hacthon-2026/Niskava-Agents/internal/config"
-	"github.com/Sectors-Hacthon-2026/Niskava-Agents/internal/db"
-	"github.com/Sectors-Hacthon-2026/Niskava-Agents/internal/server"
-	"github.com/Sectors-Hacthon-2026/Niskava-Agents/internal/tui"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/db"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/server"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/clients/cli/tui"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )

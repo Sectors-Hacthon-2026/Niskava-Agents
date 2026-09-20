@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sectors-Hacthon-2026/Niskava-Agents/internal/db"
-	"github.com/Sectors-Hacthon-2026/Niskava-Agents/internal/ipc"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/db"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
 )
 
 // SessionManager manages active running session streams and allows cancellation (OpenCode pattern).

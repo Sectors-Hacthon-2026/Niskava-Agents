@@ -13,7 +13,19 @@ func TestRunSubprocessMock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get working dir: %v", err)
 	}
-	rootDir := filepath.Clean(filepath.Join(wd, "..", ".."))
+	curr := wd
+	rootDir := ""
+	for {
+		if _, err := os.Stat(filepath.Join(curr, "go.mod")); err == nil {
+			rootDir = curr
+			break
+		}
+		parent := filepath.Dir(curr)
+		if parent == curr {
+			break
+		}
+		curr = parent
+	}
 
 	pythonBin := filepath.Join(rootDir, ".venv", "bin", "python3")
 	if _, err := os.Stat(pythonBin); os.IsNotExist(err) {

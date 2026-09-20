@@ -5,7 +5,7 @@ all: build
 venv:
 	@test -d .venv || python3 -m venv .venv
 	@.venv/bin/pip install --upgrade pip
-	@.venv/bin/pip install -r engine/requirements.txt
+	@.venv/bin/pip install -r backend/engine/requirements.txt
 
 build:
 	@mkdir -p bin
@@ -17,20 +17,20 @@ run: build
 test: test-go test-python
 
 test-go:
-	go test -v ./internal/config ./internal/db ./internal/ipc ./internal/server
+	go test -v ./backend/core/... ./clients/cli/...
 
 test-python:
-	PYTHONPATH=. .venv/bin/pytest tests/
+	PYTHONPATH=backend .venv/bin/pytest backend/engine/tests/
 
 test-mcp:
-	PYTHONPATH=. .venv/bin/pytest tests/test_unified_mcp_server.py tests/test_sectors_mcp_server.py -v
+	PYTHONPATH=backend .venv/bin/pytest backend/engine/tests/test_unified_mcp_server.py backend/engine/tests/test_sectors_mcp_server.py -v
 
 lint:
 	go vet ./...
-	gofmt -s -l internal/ cmd/
-	PYTHONPATH=. .venv/bin/python3 -m py_compile engine/*.py engine/*/*.py engine/*/*/*.py
+	gofmt -s -l backend/ clients/ cmd/
+	PYTHONPATH=backend .venv/bin/python3 -m py_compile backend/engine/*.py backend/engine/*/*.py backend/engine/*/*/*.py
 
 clean:
 	rm -rf bin/
-	rm -rf __pycache__ engine/__pycache__ engine/*/__pycache__ engine/*/*/__pycache__
-	rm -rf .pytest_cache tests/__pycache__
+	rm -rf __pycache__ backend/engine/__pycache__ backend/engine/*/__pycache__ backend/engine/*/*/__pycache__
+	rm -rf .pytest_cache backend/engine/tests/__pycache__

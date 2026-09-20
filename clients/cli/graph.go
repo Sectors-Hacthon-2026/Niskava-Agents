@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/Sectors-Hacthon-2026/Niskava-Agents/internal/server"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/server"
 	"github.com/spf13/cobra"
 )
 

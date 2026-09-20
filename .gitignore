@@ -80,6 +80,8 @@ pnpm-debug.log*
 lerna-debug.log*
 web/dist/
 web/dist-ssr/
+clients/web/dist/
+clients/web/dist-ssr/
 *.local
 
 # --- IDEs & Editors ---

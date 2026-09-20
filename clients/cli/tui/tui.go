@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Sectors-Hacthon-2026/Niskava-Agents/internal/ipc"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"

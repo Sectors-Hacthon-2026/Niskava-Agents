@@ -8,7 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -119,12 +121,17 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 			cmd.Dir = params.WorkDir
 		}
 
-		// Ensure PYTHONPATH includes WorkDir or current directory
+		// Ensure PYTHONPATH includes backend directory, WorkDir, and environment PYTHONPATH
 		workDir := params.WorkDir
 		if workDir == "" {
 			workDir = "."
 		}
-		cmd.Env = append(cmd.Environ(), "PYTHONPATH="+workDir)
+		backendDir := filepath.Join(workDir, "backend")
+		pythonPath := backendDir + string(filepath.ListSeparator) + workDir
+		if existing := os.Getenv("PYTHONPATH"); existing != "" {
+			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
+		}
+		cmd.Env = append(cmd.Environ(), "PYTHONPATH="+pythonPath)
 
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {

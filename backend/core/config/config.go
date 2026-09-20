@@ -91,7 +91,7 @@ func DefaultConfig() *Config {
 		},
 		Engine: EngineConfig{
 			PythonBin:  "python3",
-			EnginePath: "./engine",
+			EnginePath: "./backend/engine",
 		},
 		Server: ServerConfig{
 			Port: 8080,

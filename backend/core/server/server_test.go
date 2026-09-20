@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sectors-Hacthon-2026/Niskava-Agents/internal/db"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/db"
 )
 
 func TestServerStartAndHealth(t *testing.T) {
