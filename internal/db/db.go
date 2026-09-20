@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -104,6 +105,19 @@ CREATE TABLE IF NOT EXISTS memory_edges (
     PRIMARY KEY (source_id, target_id, relation)
 );
 
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    model TEXT NOT NULL DEFAULT 'hermes',
+    status TEXT NOT NULL DEFAULT 'IDLE',
+    message_count INTEGER NOT NULL DEFAULT 0,
+    last_message_preview TEXT,
+    is_pinned INTEGER NOT NULL DEFAULT 0,
+    parent_session_id TEXT REFERENCES chat_sessions(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS chat_messages (
     id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL,
@@ -111,6 +125,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     content TEXT NOT NULL,
     thought TEXT,
     tool_calls_json TEXT,
+    status TEXT NOT NULL DEFAULT 'COMPLETED',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -123,6 +138,8 @@ CREATE INDEX IF NOT EXISTS idx_timeline_inv_id ON timeline_events(investigation_
 CREATE INDEX IF NOT EXISTS idx_sectors_cache_endpoint ON sectors_cache(endpoint);
 CREATE INDEX IF NOT EXISTS idx_memory_edges_source ON memory_edges(source_id);
 CREATE INDEX IF NOT EXISTS idx_memory_edges_target ON memory_edges(target_id);
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_parent ON chat_sessions(parent_session_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
 `
 
@@ -231,6 +248,26 @@ func Open(dbPath string) (*DB, error) {
 		`
 		_, _ = conn.Exec(migrationSQL)
 	}
+
+	// Self-healing migration for chat_messages status column
+	_, _ = conn.Exec("ALTER TABLE chat_messages ADD COLUMN status TEXT NOT NULL DEFAULT 'COMPLETED';")
+
+	// Self-healing backfill from existing chat_messages into chat_sessions
+	backfillSQL := `
+		INSERT OR IGNORE INTO chat_sessions (id, title, model, status, message_count, last_message_preview, created_at, updated_at)
+		SELECT 
+			session_id,
+			COALESCE(SUBSTR(MIN(CASE WHEN role = 'user' THEN content END), 1, 40), session_id) as title,
+			'hermes',
+			'IDLE',
+			COUNT(id) as message_count,
+			COALESCE(MAX(content), ''),
+			MIN(created_at),
+			MAX(created_at)
+		FROM chat_messages
+		GROUP BY session_id;
+	`
+	_, _ = conn.Exec(backfillSQL)
 
 	return &DB{conn: conn}, nil
 }
@@ -356,6 +393,20 @@ func (d *DB) ListFindingsByInvestigation(invID string) ([]Finding, error) {
 	return results, nil
 }
 
+// ChatSession represents an explicit conversational research session (Hermes/OpenCode pattern).
+type ChatSession struct {
+	ID                 string  `json:"id"`
+	Title              string  `json:"title"`
+	Model              string  `json:"model"`
+	Status             string  `json:"status"` // "IDLE", "BUSY", "ERROR"
+	MessageCount       int     `json:"message_count"`
+	LastMessagePreview string  `json:"last_message_preview"`
+	IsPinned           bool    `json:"is_pinned"`
+	ParentSessionID    *string `json:"parent_session_id,omitempty"`
+	CreatedAt          string  `json:"created_at"`
+	UpdatedAt          string  `json:"updated_at"`
+}
+
 // ChatMessage represents a single conversational turn in a research session.
 type ChatMessage struct {
 	ID            string  `json:"id"`
@@ -364,23 +415,53 @@ type ChatMessage struct {
 	Content       string  `json:"content"`
 	Thought       *string `json:"thought,omitempty"`
 	ToolCallsJSON *string `json:"tool_calls_json,omitempty"`
+	Status        string  `json:"status"` // "COMPLETED", "ABORTED", "FAILED"
 	CreatedAt     string  `json:"created_at"`
 }
 
-// SaveChatMessage records a user or assistant message to SQLite.
+// SaveChatMessage records a user or assistant message to SQLite and touches parent session.
 func (d *DB) SaveChatMessage(msg *ChatMessage) error {
+	if msg.Status == "" {
+		msg.Status = "COMPLETED"
+	}
 	query := `
-		INSERT INTO chat_messages (id, session_id, role, content, thought, tool_calls_json, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
+		INSERT INTO chat_messages (id, session_id, role, content, thought, tool_calls_json, status, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
 	`
 	var createdAt interface{} = msg.CreatedAt
 	if msg.CreatedAt == "" {
 		createdAt = nil
 	}
-	_, err := d.conn.Exec(query, msg.ID, msg.SessionID, msg.Role, msg.Content, msg.Thought, msg.ToolCallsJSON, createdAt)
+	_, err := d.conn.Exec(query, msg.ID, msg.SessionID, msg.Role, msg.Content, msg.Thought, msg.ToolCallsJSON, msg.Status, createdAt)
 	if err != nil {
 		return fmt.Errorf("failed to save chat message: %w", err)
 	}
+
+	// Touch and upsert parent chat session
+	now := time.Now().UTC().Format(time.RFC3339)
+	preview := msg.Content
+	if len(preview) > 120 {
+		preview = preview[:117] + "..."
+	}
+
+	defaultTitle := msg.Content
+	if len(defaultTitle) > 40 {
+		defaultTitle = defaultTitle[:37] + "..."
+	}
+	if defaultTitle == "" {
+		defaultTitle = "Sesi Riset Pasar"
+	}
+
+	upsertQuery := `
+		INSERT INTO chat_sessions (id, title, model, status, message_count, last_message_preview, is_pinned, created_at, updated_at)
+		VALUES (?, ?, 'hermes', 'IDLE', 1, ?, 0, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			message_count = message_count + 1,
+			last_message_preview = excluded.last_message_preview,
+			updated_at = excluded.updated_at
+	`
+	_, _ = d.conn.Exec(upsertQuery, msg.SessionID, defaultTitle, preview, now, now)
+
 	return nil
 }
 
@@ -390,7 +471,7 @@ func (d *DB) GetChatHistory(sessionID string, limit int) ([]ChatMessage, error) 
 		limit = 50
 	}
 	query := `
-		SELECT id, session_id, role, content, thought, tool_calls_json, created_at
+		SELECT id, session_id, role, content, thought, tool_calls_json, COALESCE(status, 'COMPLETED'), created_at
 		FROM chat_messages
 		WHERE session_id = ?
 		ORDER BY created_at ASC
@@ -405,13 +486,328 @@ func (d *DB) GetChatHistory(sessionID string, limit int) ([]ChatMessage, error) 
 	var history []ChatMessage
 	for rows.Next() {
 		var m ChatMessage
-		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.Thought, &m.ToolCallsJSON, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.Thought, &m.ToolCallsJSON, &m.Status, &m.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan chat message: %w", err)
 		}
 		history = append(history, m)
 	}
 	return history, nil
 }
+
+// CreateChatSession inserts a new chat session record.
+func (d *DB) CreateChatSession(s *ChatSession) error {
+	if s.Status == "" {
+		s.Status = "IDLE"
+	}
+	if s.Model == "" {
+		s.Model = "hermes"
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if s.CreatedAt == "" {
+		s.CreatedAt = now
+	}
+	if s.UpdatedAt == "" {
+		s.UpdatedAt = now
+	}
+	pinnedInt := 0
+	if s.IsPinned {
+		pinnedInt = 1
+	}
+
+	query := `
+		INSERT INTO chat_sessions (id, title, model, status, message_count, last_message_preview, is_pinned, parent_session_id, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	_, err := d.conn.Exec(query, s.ID, s.Title, s.Model, s.Status, s.MessageCount, s.LastMessagePreview, pinnedInt, s.ParentSessionID, s.CreatedAt, s.UpdatedAt)
+	if err != nil {
+		return fmt.Errorf("failed to create chat session %s: %w", s.ID, err)
+	}
+	return nil
+}
+
+// ListChatSessions lists chat sessions ordered by is_pinned desc and updated_at desc, supporting pagination and search.
+func (d *DB) ListChatSessions(limit, offset int, search string) ([]ChatSession, int, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	var (
+		whereClause string
+		args        []interface{}
+	)
+	trimmed := strings.TrimSpace(search)
+	if trimmed != "" {
+		whereClause = "WHERE title LIKE ? OR last_message_preview LIKE ? OR id LIKE ?"
+		pattern := "%" + trimmed + "%"
+		args = append(args, pattern, pattern, pattern)
+	}
+
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM chat_sessions %s", whereClause)
+	var total int
+	if err := d.conn.QueryRow(countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to count chat sessions: %w", err)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, title, model, status, message_count, COALESCE(last_message_preview, ''), is_pinned, parent_session_id, created_at, updated_at
+		FROM chat_sessions
+		%s
+		ORDER BY is_pinned DESC, updated_at DESC
+		LIMIT ? OFFSET ?
+	`, whereClause)
+
+	queryArgs := append(args, limit, offset)
+	rows, err := d.conn.Query(query, queryArgs...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list chat sessions: %w", err)
+	}
+	defer rows.Close()
+
+	var sessions []ChatSession
+	for rows.Next() {
+		var (
+			s        ChatSession
+			isPinned int
+			parentID sql.NullString
+		)
+		if err := rows.Scan(&s.ID, &s.Title, &s.Model, &s.Status, &s.MessageCount, &s.LastMessagePreview, &isPinned, &parentID, &s.CreatedAt, &s.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan chat session: %w", err)
+		}
+		s.IsPinned = isPinned == 1
+		if parentID.Valid {
+			s.ParentSessionID = &parentID.String
+		}
+		sessions = append(sessions, s)
+	}
+
+	return sessions, total, nil
+}
+
+// GetChatSession retrieves a single chat session by ID.
+func (d *DB) GetChatSession(id string) (*ChatSession, error) {
+	query := `
+		SELECT id, title, model, status, message_count, COALESCE(last_message_preview, ''), is_pinned, parent_session_id, created_at, updated_at
+		FROM chat_sessions
+		WHERE id = ?
+	`
+	row := d.conn.QueryRow(query, id)
+	var (
+		s        ChatSession
+		isPinned int
+		parentID sql.NullString
+	)
+	if err := row.Scan(&s.ID, &s.Title, &s.Model, &s.Status, &s.MessageCount, &s.LastMessagePreview, &isPinned, &parentID, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get chat session %s: %w", id, err)
+	}
+	s.IsPinned = isPinned == 1
+	if parentID.Valid {
+		s.ParentSessionID = &parentID.String
+	}
+	return &s, nil
+}
+
+// UpdateChatSession updates mutable properties of a chat session.
+func (d *DB) UpdateChatSession(id string, title *string, isPinned *bool, status *string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	var (
+		clauses []string
+		args    []interface{}
+	)
+
+	if title != nil {
+		clauses = append(clauses, "title = ?")
+		args = append(args, *title)
+	}
+	if isPinned != nil {
+		pinnedInt := 0
+		if *isPinned {
+			pinnedInt = 1
+		}
+		clauses = append(clauses, "is_pinned = ?")
+		args = append(args, pinnedInt)
+	}
+	if status != nil {
+		clauses = append(clauses, "status = ?")
+		args = append(args, *status)
+	}
+
+	if len(clauses) == 0 {
+		return nil
+	}
+
+	clauses = append(clauses, "updated_at = ?")
+	args = append(args, now)
+	args = append(args, id)
+
+	query := fmt.Sprintf("UPDATE chat_sessions SET %s WHERE id = ?", strings.Join(clauses, ", "))
+	res, err := d.conn.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to update chat session %s: %w", id, err)
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("chat session %s not found", id)
+	}
+	return nil
+}
+
+// TouchChatSession updates a session's updated_at timestamp and preview snippet.
+func (d *DB) TouchChatSession(id string, preview string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	if len(preview) > 120 {
+		preview = preview[:117] + "..."
+	}
+	query := `
+		UPDATE chat_sessions
+		SET updated_at = ?, last_message_preview = CASE WHEN ? != '' THEN ? ELSE last_message_preview END
+		WHERE id = ?
+	`
+	_, err := d.conn.Exec(query, now, preview, preview, id)
+	return err
+}
+
+// DeleteChatSession permanently removes a session and cascades deletion to chat_messages and memory_edges.
+func (d *DB) DeleteChatSession(id string) error {
+	tx, err := d.conn.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("DELETE FROM chat_messages WHERE session_id = ?", id); err != nil {
+		return fmt.Errorf("failed to delete messages for session %s: %w", id, err)
+	}
+	if _, err := tx.Exec("DELETE FROM memory_edges WHERE session_id = ?", id); err != nil {
+		return fmt.Errorf("failed to delete memory edges for session %s: %w", id, err)
+	}
+	res, err := tx.Exec("DELETE FROM chat_sessions WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("failed to delete chat session %s: %w", id, err)
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("chat session %s not found", id)
+	}
+
+	return tx.Commit()
+}
+
+// ForkChatSession clones conversation history up to upToMessageID into a new branched session (OpenCode pattern).
+func (d *DB) ForkChatSession(sourceID, newID, newTitle, upToMessageID string) error {
+	tx, err := d.conn.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var sourceModel string
+	err = tx.QueryRow("SELECT model FROM chat_sessions WHERE id = ?", sourceID).Scan(&sourceModel)
+	if err != nil {
+		return fmt.Errorf("source session %s not found: %w", sourceID, err)
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	if newTitle == "" {
+		newTitle = fmt.Sprintf("Cabang dari %s", sourceID)
+	}
+
+	var (
+		msgQuery string
+		msgArgs  []interface{}
+	)
+	if upToMessageID != "" {
+		msgQuery = `
+			SELECT id, role, content, thought, tool_calls_json, COALESCE(status, 'COMPLETED'), created_at
+			FROM chat_messages
+			WHERE session_id = ? AND created_at <= (SELECT created_at FROM chat_messages WHERE id = ?)
+			ORDER BY created_at ASC
+		`
+		msgArgs = []interface{}{sourceID, upToMessageID}
+	} else {
+		msgQuery = `
+			SELECT id, role, content, thought, tool_calls_json, COALESCE(status, 'COMPLETED'), created_at
+			FROM chat_messages
+			WHERE session_id = ?
+			ORDER BY created_at ASC
+		`
+		msgArgs = []interface{}{sourceID}
+	}
+
+	rows, err := tx.Query(msgQuery, msgArgs...)
+	if err != nil {
+		return fmt.Errorf("failed to query messages for fork: %w", err)
+	}
+	defer rows.Close()
+
+	var (
+		copiedMsgs []ChatMessage
+		lastPreview string
+	)
+	for rows.Next() {
+		var m ChatMessage
+		if err := rows.Scan(&m.ID, &m.Role, &m.Content, &m.Thought, &m.ToolCallsJSON, &m.Status, &m.CreatedAt); err != nil {
+			return fmt.Errorf("failed to scan message for fork: %w", err)
+		}
+		copiedMsgs = append(copiedMsgs, m)
+		lastPreview = m.Content
+	}
+	msgCount := len(copiedMsgs)
+	if len(lastPreview) > 120 {
+		lastPreview = lastPreview[:117] + "..."
+	}
+
+	insertSessionQuery := `
+		INSERT INTO chat_sessions (id, title, model, status, message_count, last_message_preview, is_pinned, parent_session_id, created_at, updated_at)
+		VALUES (?, ?, ?, 'IDLE', ?, ?, 0, ?, ?, ?)
+	`
+	if _, err := tx.Exec(insertSessionQuery, newID, newTitle, sourceModel, msgCount, lastPreview, sourceID, now, now); err != nil {
+		return fmt.Errorf("failed to insert forked session: %w", err)
+	}
+
+	insertMsgQuery := `
+		INSERT INTO chat_messages (id, session_id, role, content, thought, tool_calls_json, status, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	for idx, m := range copiedMsgs {
+		newMsgID := fmt.Sprintf("%s-M%d", newID, idx+1)
+		if _, err := tx.Exec(insertMsgQuery, newMsgID, newID, m.Role, m.Content, m.Thought, m.ToolCallsJSON, m.Status, m.CreatedAt); err != nil {
+			return fmt.Errorf("failed to copy message during fork: %w", err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// ClearSessionHistory deletes all messages for a specific session without removing the session record.
+func (d *DB) ClearSessionHistory(sessionID string) error {
+	tx, err := d.conn.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("DELETE FROM chat_messages WHERE session_id = ?", sessionID); err != nil {
+		return fmt.Errorf("failed to delete messages: %w", err)
+	}
+	if _, err := tx.Exec("DELETE FROM memory_edges WHERE session_id = ?", sessionID); err != nil {
+		return fmt.Errorf("failed to delete memory edges: %w", err)
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err = tx.Exec("UPDATE chat_sessions SET message_count = 0, last_message_preview = '', updated_at = ? WHERE id = ?", now, sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to reset session stats: %w", err)
+	}
+
+	return tx.Commit()
+}
+
 
 // MemoryNode represents an entity in the local conversational graph memory.
 type MemoryNode struct {
