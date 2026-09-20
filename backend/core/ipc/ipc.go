@@ -93,7 +93,13 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 
 		pythonBin := params.PythonBin
 		if pythonBin == "" {
-			pythonBin = "python3"
+			if path, err := exec.LookPath("python3"); err == nil {
+				pythonBin = path
+			} else if path, err := exec.LookPath("python"); err == nil {
+				pythonBin = path
+			} else {
+				pythonBin = "python"
+			}
 		}
 
 		args := []string{
