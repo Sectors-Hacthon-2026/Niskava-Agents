@@ -169,6 +169,70 @@ var TUIStrings = map[string]map[string]string{
 		"en": "Exit Live REPL session back to main menu",
 		"id": "Keluar dari sesi Live REPL kembali ke menu utama",
 	},
+	"help_header": {
+		"en": "\nCOMMAND LIST FOR NISKAVA LIVE ASSISTANT:",
+		"id": "\nDAFTAR PERINTAH NISKAVA LIVE ASSISTANT:",
+	},
+	"help_prompt_desc": {
+		"en": "  <FREE PROMPT>        Ask stock market research questions (e.g. 'Why did ANTM stock surge yesterday?')",
+		"id": "  <PROMPT BEBAS>       Tanyakan pertanyaan riset pasar saham (contoh: 'Kenapa saham ANTM naik kemarin?')",
+	},
+	"help_ticker_desc": {
+		"en": "  <STOCK TICKER>       Type 4-letter stock ticker directly for quick analysis (e.g. ANTM, BBCA, BUMI)",
+		"id": "  <KODE EMITEN>        Ketik langsung 4 huruf kode emiten untuk analisis cepat (contoh: ANTM, BBCA, BUMI)",
+	},
+	"help_graph_desc": {
+		"en": "  /graph               Open visual Cyber-OSINT Knowledge Graph in browser",
+		"id": "  /graph               Buka visualisasi Cyber-OSINT Knowledge Graph di browser",
+	},
+	"help_reset_desc": {
+		"en": "  /reset               Start new conversation session & clear memory graph",
+		"id": "  /reset               Mulai sesi percakapan baru & bersihkan memory graph",
+	},
+	"help_sessions_desc": {
+		"en": "  /sessions            Inspect investigation session history & audit trail from local SQLite",
+		"id": "  /sessions            Lihat riwayat sesi investigasi & audit trail dari SQLite lokal",
+	},
+	"help_web_desc": {
+		"en": "  /web                 Open Web Workspace visual dashboard in browser",
+		"id": "  /web                 Buka dashboard visual Web Workspace di browser",
+	},
+	"help_health_desc": {
+		"en": "  /health              Check status of database, API keys, and AI providers",
+		"id": "  /health              Periksa status database, API keys, dan provider AI",
+	},
+	"help_lang_desc": {
+		"en": "  /lang [en|id]        Switch active interface language preference",
+		"id": "  /lang [en|id]        Ubah preferensi bahasa aktif",
+	},
+	"help_clear_desc": {
+		"en": "  /clear               Clear terminal screen",
+		"id": "  /clear               Bersihkan layar terminal",
+	},
+	"help_exit_desc": {
+		"en": "  /exit, quit          Exit REPL session",
+		"id": "  /exit, quit          Keluar dari sesi REPL",
+	},
+	"health_header": {
+		"en": "\nSYSTEM HEALTH DIAGNOSTICS STATUS:",
+		"id": "\nSTATUS KESEHATAN SISTEM:",
+	},
+	"health_installed": {
+		"en": "Configured (Live Ready)",
+		"id": "Terpasang (Live Ready)",
+	},
+	"health_not_installed": {
+		"en": "Not Configured (Offline Mode Active)",
+		"id": "Belum Terpasang (Mode Offline Aktif)",
+	},
+	"sessions_header": {
+		"en": "\nSAVED INVESTIGATION SESSION HISTORY (SQLITE):",
+		"id": "\nRIWAYAT SESI INVESTIGASI TERSIMPAN (SQLITE):",
+	},
+	"sessions_empty": {
+		"en": "No saved investigation sessions found.",
+		"id": "Belum ada sesi investigasi tersimpan.",
+	},
 }
 
 // T retrieves localized string for ActiveLanguage, falling back to "en".

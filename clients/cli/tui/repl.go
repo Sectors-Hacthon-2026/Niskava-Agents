@@ -498,27 +498,28 @@ func renderFinalMarkdown(markdownContent string) {
 }
 
 func printHelp() {
-	fmt.Println("\nDAFTAR PERINTAH NISKAVA LIVE ASSISTANT:")
-	fmt.Println("  <PROMPT BEBAS>       Tanyakan pertanyaan riset pasar saham (contoh: 'Kenapa saham ANTM naik kemarin?')")
-	fmt.Println("  <KODE EMITEN>        Ketik langsung 4 huruf kode emiten untuk analisis cepat (contoh: ANTM, BBCA, BUMI)")
-	fmt.Println("  /graph               Buka visualisasi Cyber-OSINT Knowledge Graph di browser")
-	fmt.Println("  /reset               Mulai sesi percakapan baru & bersihkan memory graph")
-	fmt.Println("  /sessions            Lihat riwayat sesi investigasi & audit trail dari SQLite lokal")
-	fmt.Println("  /web                 Buka dashboard visual Web Workspace di browser")
-	fmt.Println("  /health              Periksa status database, API keys, dan provider AI")
-	fmt.Println("  /clear               Bersihkan layar terminal")
-	fmt.Println("  /exit, quit          Keluar dari sesi REPL")
+	fmt.Println(T("help_header"))
+	fmt.Println(T("help_prompt_desc"))
+	fmt.Println(T("help_ticker_desc"))
+	fmt.Println(T("help_graph_desc"))
+	fmt.Println(T("help_reset_desc"))
+	fmt.Println(T("help_sessions_desc"))
+	fmt.Println(T("help_web_desc"))
+	fmt.Println(T("help_health_desc"))
+	fmt.Println(T("help_lang_desc"))
+	fmt.Println(T("help_clear_desc"))
+	fmt.Println(T("help_exit_desc"))
 }
 
 func printHealth(cfg *config.Config) {
-	fmt.Println("\nSTATUS KESEHATAN SISTEM:")
+	fmt.Println(T("health_header"))
 	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
 	fmt.Printf("• Database Path  : %s\n", cfg.Storage.DBPath)
 	fmt.Printf("• Python Runtime : %s\n", cfg.Engine.PythonBin)
 
-	secKeyStatus := "Terpasang (Live Ready)"
+	secKeyStatus := T("health_installed")
 	if cfg.Auth.SectorsAPIKey == "" {
-		secKeyStatus = "Belum Terpasang (Mode Offline Aktif)"
+		secKeyStatus = T("health_not_installed")
 	}
 	fmt.Printf("• Sectors API Key: %s\n", secKeyStatus)
 
@@ -536,9 +537,9 @@ func printHealth(cfg *config.Config) {
 		baseURL = "OpenAI-Compatible Standard"
 	}
 
-	keyStatus := "Terpasang (Live Ready)"
+	keyStatus := T("health_installed")
 	if cfg.Auth.OpenAIAPIKey == "" && cfg.Auth.GeminiAPIKey == "" {
-		keyStatus = "Belum Terpasang (Simulasi Cerdas / Offline Aktif)"
+		keyStatus = T("health_not_installed")
 	}
 
 	fmt.Printf("• Inference Engine: Universal ReAct (%s)\n", baseURL)
@@ -550,16 +551,16 @@ func printHealth(cfg *config.Config) {
 func printSessions(appDB *db.DB) {
 	investigations, err := appDB.ListInvestigations(20)
 	if err != nil {
-		fmt.Printf("Gagal membaca database: %v\n", err)
+		fmt.Printf("Failed to query database: %v\n", err)
 		return
 	}
 
 	if len(investigations) == 0 {
-		fmt.Println("Belum ada sesi investigasi tersimpan.")
+		fmt.Println(T("sessions_empty"))
 		return
 	}
 
-	fmt.Println("\nRIWAYAT SESI INVESTIGASI TERSIMPAN (SQLITE):")
+	fmt.Println(T("sessions_header"))
 	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
 	fmt.Printf("%-22s %-8s %-12s %-20s %s\n", "SESSION ID", "TICKER", "STATUS", "STARTED AT", "SUMMARY")
 	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
