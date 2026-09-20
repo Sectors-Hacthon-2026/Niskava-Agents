@@ -104,3 +104,7 @@ web/dist-ssr/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# --- Internal Documentation & Private Notes ---
+docs/internal/
+*.internal.md

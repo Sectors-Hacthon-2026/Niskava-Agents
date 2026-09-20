@@ -12,3 +12,7 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.log
+
+# Internal & uncommitted notes
+internal/
+*.internal.md
