@@ -146,6 +146,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id
 // DB wraps the SQL database pool and provides high-level domain operations.
 type DB struct {
 	conn *sql.DB
+	Path string
 }
 
 // Investigation represents a single investigation session record.
@@ -186,16 +187,21 @@ type Finding struct {
 
 // Open initializes and migrates the SQLite database at dbPath.
 func Open(dbPath string) (*DB, error) {
+	absPath, err := filepath.Abs(dbPath)
+	if err != nil {
+		absPath = dbPath
+	}
+
 	// Ensure parent directory exists
-	dir := filepath.Dir(dbPath)
+	dir := filepath.Dir(absPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create db directory %s: %w", dir, err)
 	}
 
-	dsn := fmt.Sprintf("%s?_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)&_pragma=synchronous(NORMAL)", dbPath)
+	dsn := fmt.Sprintf("%s?_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)&_pragma=synchronous(NORMAL)", absPath)
 	conn, err := sql.Open("sqlite", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open sqlite database at %s: %w", dbPath, err)
+		return nil, fmt.Errorf("failed to open sqlite database at %s: %w", absPath, err)
 	}
 
 	// Run migration DDL
@@ -269,7 +275,10 @@ func Open(dbPath string) (*DB, error) {
 	`
 	_, _ = conn.Exec(backfillSQL)
 
-	return &DB{conn: conn}, nil
+	// Self-healing reset for zombie BUSY chat sessions (e.g. from server crash or abrupt restart)
+	_, _ = conn.Exec("UPDATE chat_sessions SET status = 'IDLE' WHERE status = 'BUSY';")
+
+	return &DB{conn: conn, Path: absPath}, nil
 }
 
 // Close closes the underlying database connection.
@@ -492,6 +501,60 @@ func (d *DB) GetChatHistory(sessionID string, limit int) ([]ChatMessage, error) 
 		history = append(history, m)
 	}
 	return history, nil
+}
+
+// ChatSearchResult represents a matched chat message across conversation history.
+type ChatSearchResult struct {
+	MessageID    string `json:"message_id"`
+	SessionID    string `json:"session_id"`
+	SessionTitle string `json:"session_title"`
+	Role         string `json:"role"`
+	Content      string `json:"content"`
+	CreatedAt    string `json:"created_at"`
+}
+
+// SearchChatMessages searches for messages matching a text query across all chat sessions.
+func (d *DB) SearchChatMessages(query string, limit int) ([]ChatSearchResult, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	trimmed := strings.TrimSpace(query)
+	if trimmed == "" {
+		return []ChatSearchResult{}, nil
+	}
+
+	searchSQL := `
+		SELECT 
+			m.id, 
+			m.session_id, 
+			COALESCE(s.title, 'Sesi Riset Pasar') AS session_title, 
+			m.role, 
+			m.content, 
+			m.created_at
+		FROM chat_messages m
+		LEFT JOIN chat_sessions s ON m.session_id = s.id
+		WHERE m.content LIKE ?
+		ORDER BY m.created_at DESC
+		LIMIT ?
+	`
+	rows, err := d.conn.Query(searchSQL, "%"+trimmed+"%", limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search chat messages: %w", err)
+	}
+	defer rows.Close()
+
+	var results []ChatSearchResult
+	for rows.Next() {
+		var r ChatSearchResult
+		if err := rows.Scan(&r.MessageID, &r.SessionID, &r.SessionTitle, &r.Role, &r.Content, &r.CreatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan chat search result: %w", err)
+		}
+		results = append(results, r)
+	}
+	if results == nil {
+		results = []ChatSearchResult{}
+	}
+	return results, nil
 }
 
 // CreateChatSession inserts a new chat session record.

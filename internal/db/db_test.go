@@ -3,6 +3,7 @@ package db
 import (
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestSQLiteMigrationsAndOperations(t *testing.T) {
@@ -295,6 +296,98 @@ func TestChatSessionsCompleteLifecycle(t *testing.T) {
 	messagesAfterDelete, _ := database.GetChatHistory(sessionID, 10)
 	if len(messagesAfterDelete) != 0 {
 		t.Errorf("expected 0 messages after cascade delete, got %d", len(messagesAfterDelete))
+	}
+}
+
+func TestDB_Path_SelfHealing_And_SearchMessages(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_healing_search.db")
+
+	db1, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+
+	// 1. Verify db.Path is populated with absolute path
+	if db1.Path == "" {
+		t.Fatal("expected db.Path to be populated, got empty string")
+	}
+	absExpected, _ := filepath.Abs(dbPath)
+	if db1.Path != absExpected {
+		t.Errorf("expected db.Path=%s, got %s", absExpected, db1.Path)
+	}
+
+	// 2. Create a session and set it to BUSY to simulate a running session when server terminates
+	sessionID := "SESS-ZOMBIE-001"
+	err = db1.CreateChatSession(&ChatSession{
+		ID:     sessionID,
+		Title:  "Analisis ANTM",
+		Model:  "hermes",
+		Status: "BUSY",
+	})
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+
+	// Add messages for search testing
+	_ = db1.SaveChatMessage(&ChatMessage{
+		ID:        "MSG-01",
+		SessionID: sessionID,
+		Role:      "user",
+		Content:   "Bagaimana rumor Rights Issue ANTM?",
+		CreatedAt: time.Now().UTC().Format(time.RFC3339),
+	})
+	_ = db1.SaveChatMessage(&ChatMessage{
+		ID:        "MSG-02",
+		SessionID: sessionID,
+		Role:      "assistant",
+		Content:   "Berdasarkan keterbukaan informasi, belum ada dokumen rights issue resmi untuk emiten ANTM.",
+		CreatedAt: time.Now().UTC().Format(time.RFC3339),
+	})
+
+	// Close db1
+	db1.Close()
+
+	// 3. Re-open database (simulate daemon restart) and verify self-healing reset BUSY -> IDLE
+	db2, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to re-open database: %v", err)
+	}
+	defer db2.Close()
+
+	sess, err := db2.GetChatSession(sessionID)
+	if err != nil || sess == nil {
+		t.Fatalf("failed to retrieve session after restart: %v", err)
+	}
+	if sess.Status != "IDLE" {
+		t.Errorf("expected self-healing status to be IDLE, got %s", sess.Status)
+	}
+
+	// 4. Test SearchChatMessages
+	results, err := db2.SearchChatMessages("Rights Issue", 10)
+	if err != nil {
+		t.Fatalf("SearchChatMessages failed: %v", err)
+	}
+	if len(results) != 2 {
+		t.Errorf("expected 2 results matching 'Rights Issue', got %d", len(results))
+	}
+	if len(results) > 0 && results[0].SessionTitle != "Analisis ANTM" {
+		t.Errorf("expected session_title 'Analisis ANTM', got %s", results[0].SessionTitle)
+	}
+
+	// Search non-existent
+	emptyResults, err := db2.SearchChatMessages("SahamTidakAdaXYZ", 10)
+	if err != nil {
+		t.Fatalf("SearchChatMessages failed for nonexistent: %v", err)
+	}
+	if len(emptyResults) != 0 {
+		t.Errorf("expected 0 results, got %d", len(emptyResults))
+	}
+
+	// Search empty query
+	blankResults, err := db2.SearchChatMessages("", 10)
+	if err != nil || len(blankResults) != 0 {
+		t.Errorf("expected 0 results for empty query, got %d", len(blankResults))
 	}
 }
 
