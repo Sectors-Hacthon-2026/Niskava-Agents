@@ -316,9 +316,13 @@ class NiskavaReActAgent:
             else:
                 cleaned = re.sub(r"<thought>.*?</thought>", "", content, flags=re.DOTALL)
                 cleaned = re.sub(r"<tool_call>.*?</tool_call>", "", cleaned, flags=re.DOTALL).strip()
+                cleaned = re.sub(r"</?response>", "", cleaned).strip()
                 if cleaned:
                     final_response = cleaned
                     break
+
+        if final_response:
+            final_response = re.sub(r"</?response>", "", final_response).strip()
 
         if not final_response:
             err_detail = last_error or "Model AI tidak menghasilkan sintesis respons valid dalam siklus ReAct."
@@ -456,6 +460,7 @@ class NiskavaReActAgent:
         final_response = ""
         err_detail = ""
 
+        executed_tools = set()
         for _ in range(4):
             payload = {
                 "contents": contents,
@@ -506,6 +511,14 @@ class NiskavaReActAgent:
                     tool_name = call_json.get("name")
                     tool_args = call_json.get("arguments", {})
 
+                    if tool_name in executed_tools:
+                        # Prevent loop if LLM calls same tool again
+                        contents.append({"role": "model", "parts": [{"text": raw_text}]})
+                        contents.append({"role": "user", "parts": [{"text": f"<observation>Tool '{tool_name}' sudah dieksekusi sebelumnya. JANGAN panggil tool ini lagi. Sekarang buat laporan sintesis akhir di dalam tag <thought>...</thought> dan <response>...</response>.</observation>"}]})
+                        continue
+
+                    executed_tools.add(tool_name)
+
                     self._emit({
                         "event": "agent_tool_call",
                         "session_id": session_id,
@@ -544,7 +557,7 @@ class NiskavaReActAgent:
 
                     # Feed back to model
                     contents.append({"role": "model", "parts": [{"text": raw_text}]})
-                    contents.append({"role": "user", "parts": [{"text": f"<observation>{obs_str}</observation>\nSintesiskan laporan investigasi intelijen pasar lengkap dalam bahasa Indonesia yang berwibawa di dalam tag <thought>...</thought> dan <response>...</response>."}]})
+                    contents.append({"role": "user", "parts": [{"text": f"<observation>{obs_str}</observation>\nData fakta untuk tool '{tool_name}' telah berhasil diterima. Kamu sudah memiliki data kuantitatif & bukti yang cukup. JANGAN panggil tool lain lagi. SEKARANG buat sintesis laporan investigasi intelijen pasar lengkap dalam bahasa Indonesia yang berwibawa di dalam tag <thought>...</thought> dan <response>...</response>."}]})
                     continue
                 except Exception:
                     pass
@@ -557,9 +570,13 @@ class NiskavaReActAgent:
             else:
                 cleaned = re.sub(r"<thought>.*?</thought>", "", raw_text, flags=re.DOTALL)
                 cleaned = re.sub(r"<tool_call>.*?</tool_call>", "", cleaned, flags=re.DOTALL).strip()
+                cleaned = re.sub(r"</?response>", "", cleaned).strip()
                 if cleaned:
                     final_response = cleaned
                     break
+
+        if final_response:
+            final_response = re.sub(r"</?response>", "", final_response).strip()
 
         if not final_response:
             err_msg = err_detail or "Model Gemini tidak menghasilkan sintesis respons valid dalam siklus ReAct."

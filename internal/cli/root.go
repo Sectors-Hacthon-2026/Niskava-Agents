@@ -15,10 +15,11 @@ import (
 )
 
 var (
-	cfgFile string
-	verbose bool
-	cfg     *config.Config
-	appDB   *db.DB
+	cfgFile     string
+	verbose     bool
+	offlineFlag bool
+	cfg         *config.Config
+	appDB       *db.DB
 )
 
 // RootCmd represents the base command when called without any subcommands.
@@ -34,6 +35,10 @@ and qualitative market disclosures/news.`,
 		cfg, err = config.Load(cfgFile)
 		if err != nil {
 			return fmt.Errorf("failed to load configuration: %w", err)
+		}
+
+		if offlineFlag {
+			cfg.Preferences.OfflineMode = true
 		}
 
 		appDB, err = db.Open(cfg.Storage.DBPath)
@@ -134,4 +139,5 @@ func Execute() {
 func init() {
 	RootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is ~/.niskava/config.yaml)")
 	RootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose logging")
+	RootCmd.PersistentFlags().BoolVar(&offlineFlag, "offline", false, "run in offline mock mode without calling remote APIs")
 }
