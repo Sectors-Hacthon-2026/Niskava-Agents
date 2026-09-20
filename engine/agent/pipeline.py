@@ -19,6 +19,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
+from engine.agent.verifier import FactVerificationGate
 from engine.osint.harvester import DualEngineOSINTHarvester, OSINTItem
 from engine.quant.anomaly import AnomalyResult, detect_historical_anomalies
 from engine.sectors.client import SectorsAPIClient
@@ -260,7 +261,7 @@ class InvestigationPipeline:
                 claim = f"Lonjakan volume ({anom.z_score}σ) terdeteksi pada {anom.date} tanpa keterbukaan informasi penjelas pada jendela waktu bersamaan."
                 evidence_list = [quant_evidence]
 
-            findings.append({
+            raw_finding = {
                 "event": "finding_emitted",
                 "session_id": session_id,
                 "id": finding_id,
@@ -270,7 +271,9 @@ class InvestigationPipeline:
                 "confidence_score": confidence,
                 "causality_status": causality,
                 "evidence": evidence_list,
-            })
+            }
+            verified_finding = FactVerificationGate.verify_finding(raw_finding)
+            findings.append(verified_finding)
 
         return findings
 
