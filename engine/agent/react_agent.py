@@ -80,36 +80,60 @@ class NiskavaReActAgent:
         api_key: Optional[str] = None,
         mock_mode: Optional[bool] = None,
         model: Optional[str] = None,
+        base_url: Optional[str] = None,
         ai_provider: Optional[str] = None,
     ):
         self.tools = tool_registry
         self.memory = getattr(tool_registry, "memory", None)
         self.emitter = emitter or (lambda ev: None)
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
-        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
-
-        self.ai_provider = (ai_provider or os.environ.get("AI_PROVIDER", "")).lower()
-        self.openai_base_url = os.environ.get("OPENAI_BASE_URL", "http://localhost:20128/v1")
-        self.openai_api_key = os.environ.get("OPENAI_API_KEY", "")
-        self.openai_model = os.environ.get("OPENAI_MODEL", "hermes")
         self.db_path = getattr(tool_registry, "db_path", os.path.expanduser("~/.niskava/niskava.db"))
 
-        # Auto-detect provider if not explicitly set
-        if not self.ai_provider:
-            if self.openai_api_key or os.environ.get("OPENAI_BASE_URL"):
-                self.ai_provider = "openai"
-            elif self.api_key:
-                self.ai_provider = "gemini"
-            else:
-                self.ai_provider = "mock"
+        # Primary Active Model & Universal Endpoint Resolution
+        self.model = (
+            model
+            or os.environ.get("NISKAVA_MODEL")
+            or os.environ.get("OPENAI_MODEL")
+            or os.environ.get("GEMINI_MODEL")
+            or "hermes"
+        )
 
-        if mock_mode is not None:
-            self.mock_mode = mock_mode
+        resolved_base_url = (
+            base_url
+            or os.environ.get("NISKAVA_BASE_URL")
+            or os.environ.get("OPENAI_BASE_URL")
+        )
+
+        self.api_key = (
+            api_key
+            or os.environ.get("NISKAVA_API_KEY")
+            or os.environ.get("OPENAI_API_KEY")
+            or os.environ.get("GEMINI_API_KEY")
+            or ""
+        )
+
+        # Transparent adapter for Google API keys (speaks standard OpenAI protocol)
+        if not resolved_base_url:
+            if os.environ.get("GEMINI_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
+                resolved_base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
+                if not model and not os.environ.get("NISKAVA_MODEL") and not os.environ.get("OPENAI_MODEL"):
+                    self.model = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+            else:
+                resolved_base_url = "http://localhost:20128/v1"
+
+        self.base_url = resolved_base_url.rstrip("/")
+        # Backward compatibility aliases
+        self.openai_base_url = self.base_url
+        self.openai_api_key = self.api_key
+        self.openai_model = self.model
+
+        # Provider mode: "universal" (default) or "mock" / "offline"
+        raw_provider = (ai_provider or os.environ.get("AI_PROVIDER", "")).lower()
+        if mock_mode or raw_provider in ("mock", "offline") or os.environ.get("NISKAVA_OFFLINE") == "1":
+            self.mock_mode = True
+            self.ai_provider = "mock"
         else:
-            self.mock_mode = (
-                os.environ.get("MOCK_SECTORS", "0") in ("1", "true", "True")
-                or os.environ.get("NISKAVA_OFFLINE", "0") in ("1", "true", "True")
-            )
+            self.mock_mode = False
+            self.ai_provider = "universal"
 
     def _emit(self, event_data: Dict[str, Any]) -> None:
         self.emitter(event_data)
@@ -284,14 +308,52 @@ class NiskavaReActAgent:
             if memory_blocks:
                 effective_prompt = f"{user_prompt}\n\n" + "\n".join(memory_blocks)
 
-        if self.mock_mode:
+        if self.mock_mode or self.ai_provider in ("mock", "offline"):
             res = self._run_deterministic_chat_cycle(session_id, effective_prompt, history, start_time)
-        elif self.ai_provider in ("openai", "9router"):
-            res = self._run_openai_chat_cycle(session_id, effective_prompt, history, start_time)
-        elif self.ai_provider == "gemini":
-            res = self._run_gemini_chat_cycle(session_id, effective_prompt, history, start_time)
+        elif self.ai_provider == "gemini" and not (self.api_key or getattr(self, "gemini_api_key", None)):
+            err_detail = "GEMINI_API_KEY tidak ditemukan di environment atau konfigurasi."
+            error_markdown = (
+                f"### ⚠️ Konfigurasi Gemini API Key Tidak Ditemukan\n\n"
+                f"- **Provider**: Gemini\n"
+                f"- **Model**: `{self.model}`\n"
+                f"- **Detail**: {err_detail}\n\n"
+                f"**Solusi Pemecahan Masalah:**\n"
+                f"1. Masukkan API key valid ke `~/.niskava/.env` (`GEMINI_API_KEY=AIza...`).\n"
+                f"2. Atau jalankan `niskava setup` untuk mengisi API key secara interaktif.\n"
+                f"3. Atau gunakan mode offline (`--offline`) jika ingin menjalankan analisis deterministik tanpa LLM."
+            )
+            self._emit({
+                "event": "agent_thought",
+                "session_id": session_id,
+                "thought": f"Gagal mengeksekusi inferensi Gemini: {err_detail}",
+            })
+            self._emit({
+                "event": "agent_message_chunk",
+                "session_id": session_id,
+                "chunk": error_markdown,
+            })
+            self._emit({
+                "event": "agent_message_complete",
+                "session_id": session_id,
+                "content": error_markdown,
+            })
+            self._emit({
+                "event": "session_error",
+                "session_id": session_id,
+                "error": err_detail,
+                "timestamp": datetime.now().isoformat() + "Z",
+            })
+            res = {
+                "session_id": session_id,
+                "status": "ERROR",
+                "error": err_detail,
+                "response": error_markdown,
+                "anomalies": [],
+                "findings": [],
+                "duration_ms": int((time.time() - start_time) * 1000),
+            }
         else:
-            res = self._run_deterministic_chat_cycle(session_id, effective_prompt, history, start_time)
+            res = self._run_universal_chat_cycle(session_id, effective_prompt, history, start_time)
 
         if self.memory and isinstance(res, dict):
             findings = res.get("findings", [])
@@ -358,21 +420,24 @@ class NiskavaReActAgent:
 
         return res
 
-    def _run_openai_chat_cycle(
+    def _run_universal_chat_cycle(
         self,
         session_id: str,
         user_prompt: str,
         history: Optional[List[Dict[str, str]]],
         start_time: float,
     ) -> Dict[str, Any]:
-        """Multi-turn conversational ReAct agent powered by 9router / OpenAI-compatible endpoint."""
+        """Multi-turn conversational ReAct agent powered by Universal OpenAI-compatible endpoint."""
         import requests
 
-        base_url = (self.openai_base_url or "http://localhost:20128/v1").rstrip("/")
+        base_url = (getattr(self, "openai_base_url", None) or self.base_url).rstrip("/")
+        model = getattr(self, "openai_model", None) or self.model
+        api_key = getattr(self, "openai_api_key", None) or self.api_key
+
         url = f"{base_url}/chat/completions"
         headers = {"Content-Type": "application/json"}
-        if self.openai_api_key:
-            headers["Authorization"] = f"Bearer {self.openai_api_key}"
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
 
         messages: List[Dict[str, str]] = [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -389,7 +454,7 @@ class NiskavaReActAgent:
         last_error = ""
         for _ in range(4):
             payload = {
-                "model": self.openai_model,
+                "model": model,
                 "messages": messages,
                 "temperature": 0.2,
                 "max_tokens": 700,
@@ -436,7 +501,7 @@ class NiskavaReActAgent:
                     self._emit({
                         "event": "agent_thought",
                         "session_id": session_id,
-                        "thought": f"[{self.openai_model}] {clean_th}",
+                        "thought": f"[{model}] {clean_th}",
                     })
 
             # Check for tool call
@@ -506,15 +571,14 @@ class NiskavaReActAgent:
         if not final_response:
             err_detail = last_error or "Model AI tidak menghasilkan sintesis respons valid dalam siklus ReAct."
             error_markdown = (
-                f"### ⚠️ Gagal Terhubung ke Provider AI (OpenAI / 9router)\n\n"
+                f"### ⚠️ Gagal Terhubung ke Provider AI\n\n"
                 f"- **Endpoint**: `{url}`\n"
-                f"- **Model**: `{self.openai_model}`\n"
+                f"- **Model**: `{model}`\n"
                 f"- **Detail Error**: {err_detail}\n\n"
                 f"**Solusi Pemecahan Masalah:**\n"
-                f"1. Pastikan server AI lokal atau gateway 9router sedang berjalan di `{base_url}`.\n"
-                f"2. Periksa konfigurasi `OPENAI_BASE_URL` dan `OPENAI_API_KEY` pada file `~/.niskava/.env`.\n"
-                f"3. Jalankan `niskava setup` untuk mengganti model atau beralih ke provider lain.\n"
-                f"4. Gunakan mode offline (`--offline`) jika ingin menjalankan analisis deterministik tanpa LLM."
+                f"1. Pastikan server LLM (Ollama / vLLM / 9router / OpenRouter) aktif di `{base_url}` atau API key terpasang.\n"
+                f"2. Periksa konfigurasi di file `~/.niskava/.env` atau jalankan `niskava setup`.\n"
+                f"3. Gunakan mode offline (`--offline`) jika ingin menjalankan analisis deterministik tanpa LLM."
             )
             self._emit({
                 "event": "agent_thought",
@@ -534,7 +598,7 @@ class NiskavaReActAgent:
             self._emit({
                 "event": "session_error",
                 "session_id": session_id,
-                "error": f"AI provider connection error ({self.openai_model} @ {url}): {err_detail}",
+                "error": f"AI provider connection error ({model} @ {url}): {err_detail}",
             })
             duration_ms = int((time.time() - start_time) * 1000)
             return {
@@ -577,250 +641,9 @@ class NiskavaReActAgent:
             "duration_ms": duration_ms,
         }
 
-    def _run_gemini_chat_cycle(
-        self,
-        session_id: str,
-        user_prompt: str,
-        history: Optional[List[Dict[str, str]]],
-        start_time: float,
-    ) -> Dict[str, Any]:
-        """Conversational cycle powered by Gemini API."""
-        import requests
-
-        if not self.api_key:
-            err_detail = "GEMINI_API_KEY tidak ditemukan di environment atau konfigurasi."
-            error_markdown = (
-                f"### ⚠️ Konfigurasi Gemini API Key Tidak Ditemukan\n\n"
-                f"- **Provider**: Gemini\n"
-                f"- **Model**: `{self.model}`\n"
-                f"- **Detail**: {err_detail}\n\n"
-                f"**Solusi Pemecahan Masalah:**\n"
-                f"1. Masukkan API key valid ke `~/.niskava/.env` (`GEMINI_API_KEY=AIza...`).\n"
-                f"2. Atau jalankan `niskava setup` untuk mengisi API key secara interaktif.\n"
-                f"3. Atau gunakan mode offline (`--offline`) jika ingin menjalankan analisis deterministik tanpa LLM."
-            )
-            self._emit({
-                "event": "agent_message_chunk",
-                "session_id": session_id,
-                "chunk": error_markdown,
-            })
-            self._emit({
-                "event": "agent_message_complete",
-                "session_id": session_id,
-                "content": error_markdown,
-            })
-            self._emit({
-                "event": "session_error",
-                "session_id": session_id,
-                "error": err_detail,
-            })
-            duration_ms = int((time.time() - start_time) * 1000)
-            return {
-                "session_id": session_id,
-                "response": error_markdown,
-                "error": err_detail,
-                "duration_ms": duration_ms,
-                "status": "ERROR",
-            }
-
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
-        contents: List[Dict[str, Any]] = []
-        if history:
-            for h in history:
-                role = "model" if h.get("role") in ("assistant", "model") else "user"
-                content_text = h.get("content", "")
-                if content_text:
-                    contents.append({
-                        "role": role,
-                        "parts": [{"text": content_text}],
-                    })
-        contents.append({
-            "role": "user",
-            "parts": [{"text": user_prompt}],
-        })
-
-        findings: List[Dict[str, Any]] = []
-        anomalies: List[Dict[str, Any]] = []
-        final_response = ""
-        last_error = ""
-
-        for cycle_idx in range(4):
-            payload = {
-                "systemInstruction": {
-                    "parts": [{"text": SYSTEM_PROMPT}]
-                },
-                "contents": contents,
-                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 800},
-            }
-            try:
-                resp = requests.post(url, json=payload, timeout=18.0)
-                if resp.status_code != 200:
-                    last_error = f"HTTP {resp.status_code}: {resp.text.strip()[:300]}"
-                    break
-                data = resp.json()
-                candidates = data.get("candidates", [])
-                if not candidates or "content" not in candidates[0]:
-                    last_error = f"Tidak ada kandidat respons dari Gemini: {data}"
-                    break
-                parts = candidates[0]["content"].get("parts", [])
-                if not parts or "text" not in parts[0]:
-                    last_error = "Respons Gemini tidak memuat bagian teks."
-                    break
-                content = parts[0]["text"].strip()
-            except requests.exceptions.Timeout:
-                last_error = "Koneksi timeout setelah 18 detik ke Gemini API."
-                break
-            except requests.exceptions.ConnectionError:
-                last_error = "Gagal terhubung ke Gemini API (Koneksi jaringan gagal)."
-                break
-            except Exception as exc:
-                last_error = f"Kesalahan saat menghubungi Gemini API: {exc}"
-                break
-
-            # Parse thoughts
-            thoughts = re.findall(r"<thought>(.*?)</thought>", content, re.DOTALL)
-            for th in thoughts:
-                clean_th = th.strip()
-                if clean_th:
-                    self._emit({
-                        "event": "agent_thought",
-                        "session_id": session_id,
-                        "thought": f"[{self.model}] {clean_th}",
-                    })
-
-            # Check for tool call
-            tool_calls = re.findall(r"<tool_call>(.*?)</tool_call>", content, re.DOTALL)
-            if tool_calls:
-                call_str = tool_calls[0].strip()
-                try:
-                    call_json = json.loads(call_str)
-                    tool_name = call_json.get("name")
-                    tool_args = call_json.get("arguments", {})
-
-                    self._emit({
-                        "event": "agent_tool_call",
-                        "session_id": session_id,
-                        "tool": tool_name,
-                        "args": tool_args,
-                    })
-
-                    # Execute deterministic tool
-                    tool_res = self.tools.execute_tool(tool_name, tool_args)
-
-                    # Extract anomalies if computed
-                    if tool_name == "compute_quant_anomalies" and isinstance(tool_res, list):
-                        for a in tool_res:
-                            anomalies.append(a)
-                            self._emit({
-                                "event": "anomaly_detected",
-                                "session_id": session_id,
-                                "ticker": tool_args.get("ticker", ""),
-                                "anomaly_date": a.get("date") or a.get("anomaly_date", ""),
-                                "metric_type": a.get("metric_type", ""),
-                                "z_score": a.get("z_score", 0.0),
-                                "metric_value": a.get("metric_value", 0.0),
-                                "baseline_value": a.get("baseline_value", 0.0),
-                                "price_change_pct": a.get("price_change_pct", 0.0),
-                                "sector_change_pct": a.get("sector_change_pct", 0.0),
-                                "description": a.get("description", ""),
-                            })
-
-                    obs_str = f"Observation for {tool_name}: {json.dumps(tool_res)[:450]}"
-                    self._emit({
-                        "event": "agent_observation",
-                        "session_id": session_id,
-                        "tool": tool_name,
-                        "summary": f"Data observasi diterima ({len(str(tool_res))} bytes).",
-                    })
-
-                    # Feed back to model conversation
-                    contents.append({"role": "model", "parts": [{"text": content}]})
-                    contents.append({"role": "user", "parts": [{"text": f"<observation>{obs_str}</observation>"}]})
-                    continue
-                except Exception:
-                    pass
-
-            # Check for final response
-            responses = re.findall(r"<response>(.*?)</response>", content, re.DOTALL)
-            if responses:
-                final_response = responses[0].strip()
-                break
-            else:
-                cleaned = re.sub(r"<thought>.*?</thought>", "", content, flags=re.DOTALL)
-                cleaned = re.sub(r"<tool_call>.*?</tool_call>", "", cleaned, flags=re.DOTALL).strip()
-                if cleaned:
-                    final_response = cleaned
-                    break
-
-        if not final_response:
-            err_detail = last_error or "Model Gemini tidak menghasilkan sintesis respons valid dalam siklus ReAct."
-            error_markdown = (
-                f"### ⚠️ Gagal Terhubung ke Provider AI (Google Gemini)\n\n"
-                f"- **Model**: `{self.model}`\n"
-                f"- **Detail Error**: {err_detail}\n\n"
-                f"**Solusi Pemecahan Masalah:**\n"
-                f"1. Pastikan koneksi internet aktif dan `GEMINI_API_KEY` valid.\n"
-                f"2. Periksa kuota API atau gunakan provider lain via `niskava setup`.\n"
-                f"3. Gunakan mode offline (`--offline`) jika ingin menjalankan analisis deterministik tanpa LLM."
-            )
-            self._emit({
-                "event": "agent_thought",
-                "session_id": session_id,
-                "thought": f"Gagal mengeksekusi inferensi Gemini: {err_detail}",
-            })
-            self._emit({
-                "event": "agent_message_chunk",
-                "session_id": session_id,
-                "chunk": error_markdown,
-            })
-            self._emit({
-                "event": "agent_message_complete",
-                "session_id": session_id,
-                "content": error_markdown,
-            })
-            self._emit({
-                "event": "session_error",
-                "session_id": session_id,
-                "error": f"Gemini API error ({self.model}): {err_detail}",
-            })
-            duration_ms = int((time.time() - start_time) * 1000)
-            return {
-                "session_id": session_id,
-                "response": error_markdown,
-                "error": err_detail,
-                "duration_ms": duration_ms,
-                "status": "ERROR",
-            }
-
-        self._emit({
-            "event": "agent_message_chunk",
-            "session_id": session_id,
-            "chunk": final_response,
-        })
-        self._emit({
-            "event": "agent_message_complete",
-            "session_id": session_id,
-            "content": final_response,
-        })
-
-        duration_ms = int((time.time() - start_time) * 1000)
-        self._emit({
-            "event": "session_complete",
-            "session_id": session_id,
-            "status": "COMPLETED",
-            "total_anomalies": len(anomalies),
-            "total_findings": len(findings),
-            "duration_ms": duration_ms,
-            "summary": final_response[:200] + "...",
-        })
-
-        return {
-            "session_id": session_id,
-            "response": final_response,
-            "anomalies": anomalies,
-            "findings": findings,
-            "duration_ms": duration_ms,
-        }
+    # Backward compatibility aliases
+    _run_openai_chat_cycle = _run_universal_chat_cycle
+    _run_gemini_chat_cycle = _run_universal_chat_cycle
 
     def _run_deterministic_chat_cycle(
         self,

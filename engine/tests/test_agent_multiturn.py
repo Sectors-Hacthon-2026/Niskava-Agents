@@ -1,5 +1,6 @@
 """Unit tests for Python Agent multi-turn context compaction, anti-amnesia, and auto-title."""
 
+import json
 import os
 import sqlite3
 import tempfile
@@ -98,66 +99,71 @@ class TestAgentMultiTurnAndSessions(unittest.TestCase):
         self.assertLessEqual(len(compacted), 8)
         self.assertTrue(any("Konteks Sebelumnya" in m.get("content", "") for m in compacted))
 
-    def test_gemini_multiturn_payload_and_react_loop(self) -> None:
+    def test_universal_model_agnostic_react_loop(self) -> None:
         from unittest.mock import MagicMock, patch
 
         emitted_events = []
-        gemini_agent = NiskavaReActAgent(
+        universal_agent = NiskavaReActAgent(
             tool_registry=self.registry,
             emitter=lambda ev: emitted_events.append(ev),
-            ai_provider="gemini",
-            api_key="AIzaSyMockTestKey",
+            model="deepseek-ai/deepseek-r1",
+            base_url="http://localhost:11434/v1",
+            api_key="mock-token-xyz",
             mock_mode=False,
         )
 
-        # Mock responses from Gemini: Call 1 triggers a tool, Call 2 returns final response
+        # Mock responses from OpenAI-compatible endpoint: Call 1 triggers tool, Call 2 returns final response
         mock_resp_tool = MagicMock()
         mock_resp_tool.status_code = 200
-        mock_resp_tool.json.return_value = {
-            "candidates": [{
-                "content": {
-                    "parts": [{
-                        "text": '<thought>Perlu cek anomali ANTM</thought><tool_call>{"name": "compute_quant_anomalies", "arguments": {"ticker": "ANTM"}}</tool_call>'
-                    }]
+        mock_resp_tool.text = json.dumps({
+            "choices": [{
+                "message": {
+                    "content": '<thought>Perlu cek anomali ANTM</thought><tool_call>{"name": "compute_quant_anomalies", "arguments": {"ticker": "ANTM"}}</tool_call>'
                 }
             }]
-        }
+        })
 
         mock_resp_final = MagicMock()
         mock_resp_final.status_code = 200
-        mock_resp_final.json.return_value = {
-            "candidates": [{
-                "content": {
-                    "parts": [{
-                        "text": '<thought>Sintesis hasil</thought><response>Analisis selesai. Ditemukan anomali volume ANTM.</response>'
-                    }]
+        mock_resp_final.text = json.dumps({
+            "choices": [{
+                "message": {
+                    "content": '<thought>Sintesis hasil</thought><response>Analisis selesai. Ditemukan anomali volume ANTM.</response>'
                 }
             }]
-        }
+        })
 
         with patch("requests.post", side_effect=[mock_resp_tool, mock_resp_final]) as mock_post:
             history = [
                 {"role": "user", "content": "Halo apa kabar?"},
                 {"role": "assistant", "content": "Kabar baik, silakan bertanya."},
             ]
-            res = gemini_agent.chat(
+            res = universal_agent.chat(
                 user_prompt="Cek anomali ANTM",
-                session_id="SESS-GEM-01",
+                session_id="SESS-UNI-01",
                 history=history,
             )
 
             # Check that requests.post was called twice (ReAct loop)
             self.assertEqual(mock_post.call_count, 2)
 
-            # Validate first call payload includes multi-turn history converted for Gemini
+            # Validate target URL and headers
+            target_url = mock_post.call_args_list[0][0][0]
+            self.assertEqual(target_url, "http://localhost:11434/v1/chat/completions")
+            headers = mock_post.call_args_list[0][1]["headers"]
+            self.assertEqual(headers.get("Authorization"), "Bearer mock-token-xyz")
+
+            # Validate model and messages in payload
             first_payload = mock_post.call_args_list[0][1]["json"]
-            self.assertIn("contents", first_payload)
-            contents = first_payload["contents"]
-            self.assertEqual(contents[0]["role"], "user")
-            self.assertEqual(contents[0]["parts"][0]["text"], "Halo apa kabar?")
-            self.assertEqual(contents[1]["role"], "model")
-            self.assertEqual(contents[1]["parts"][0]["text"], "Kabar baik, silakan bertanya.")
-            self.assertEqual(contents[2]["role"], "user")
+            self.assertEqual(first_payload["model"], "deepseek-ai/deepseek-r1")
+            self.assertIn("messages", first_payload)
+            messages = first_payload["messages"]
+            self.assertEqual(messages[0]["role"], "system")
+            self.assertEqual(messages[1]["role"], "user")
+            self.assertEqual(messages[1]["content"], "Halo apa kabar?")
+            self.assertEqual(messages[2]["role"], "assistant")
+            self.assertEqual(messages[2]["content"], "Kabar baik, silakan bertanya.")
+            self.assertEqual(messages[3]["role"], "user")
 
             # Validate tool execution occurred
             tool_events = [ev for ev in emitted_events if ev.get("event") == "agent_tool_call"]
