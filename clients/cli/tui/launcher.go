@@ -98,50 +98,7 @@ func NewLauncherModel(serverURL string, version string) LauncherModel {
 
 // NewLauncherModelWithHealth initializes the revamped launcher menu with live health state.
 func NewLauncherModelWithHealth(serverURL string, version string, apiKeyOK bool) LauncherModel {
-	items := []LauncherItem{
-		{
-			ShortcutKey: "W",
-			Title:       "Web UI (Open in Browser)",
-			Description: "Start web daemon server & auto-open in default browser",
-			ActionID:    "web",
-		},
-		{
-			ShortcutKey: "T",
-			Title:       "Terminal UI (Interactive Live CLI)",
-			Description: "Interactive research REPL session with live anomaly reasoning",
-			ActionID:    "terminal",
-		},
-		{
-			ShortcutKey: "S",
-			Title:       "Session History & Audit Trail (SQLite)",
-			Description: "Inspect past investigation sessions & verified evidence from local database",
-			ActionID:    "sessions",
-		},
-		{
-			ShortcutKey: "H",
-			Title:       "Help Guide & Usage Instructions",
-			Description: "Complete guide on navigation, slash commands, and system architecture",
-			ActionID:    "help",
-		},
-		{
-			ShortcutKey: "C",
-			Title:       "System & API Key Health Check",
-			Description: "Check status of daemon server, database connection, & AI providers",
-			ActionID:    "health",
-		},
-		{
-			ShortcutKey: "Q",
-			Title:       "Quick Setup Wizard (.env)",
-			Description: "Quick setup wizard for Sectors, Gemini, or OpenAI API keys",
-			ActionID:    "setup",
-		},
-		{
-			ShortcutKey: "E",
-			Title:       "Exit",
-			Description: "Stop daemon server and exit Niskava Agent",
-			ActionID:    "exit",
-		},
-	}
+	items := GetLocalizedLauncherItems()
 
 	return LauncherModel{
 		ServerURL: serverURL,
@@ -161,7 +118,7 @@ func (m LauncherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		k := strings.ToLower(msg.String())
 		switch k {
-		case "ctrl+c", "e", "x", "7":
+		case "ctrl+c", "e", "x", "8":
 			m.Quitting = true
 			m.Selected = "exit"
 			return m, tea.Quit
@@ -181,7 +138,17 @@ func (m LauncherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
-			m.Selected = m.Items[m.Cursor].ActionID
+			selectedID := m.Items[m.Cursor].ActionID
+			if selectedID == "lang" {
+				if ActiveLanguage == "en" {
+					SetLanguage("id")
+				} else {
+					SetLanguage("en")
+				}
+				m.Items = GetLocalizedLauncherItems()
+				return m, nil
+			}
+			m.Selected = selectedID
 			return m, tea.Quit
 
 		// Direct Hotkey Shortcuts (PRD Spec 5.3)
@@ -205,7 +172,16 @@ func (m LauncherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Selected = "health"
 			return m, tea.Quit
 
-		case "q", "6":
+		case "l", "6":
+			if ActiveLanguage == "en" {
+				SetLanguage("id")
+			} else {
+				SetLanguage("en")
+			}
+			m.Items = GetLocalizedLauncherItems()
+			return m, nil
+
+		case "q", "7":
 			m.Selected = "setup"
 			return m, tea.Quit
 		}
@@ -216,7 +192,7 @@ func (m LauncherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m LauncherModel) View() string {
 	if m.Quitting {
-		return "\nExiting Niskava Agent. Goodbye!\n"
+		return T("launcher_quitting_msg")
 	}
 
 	noColor := os.Getenv("NO_COLOR") != ""

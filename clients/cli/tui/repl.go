@@ -74,15 +74,8 @@ type SlashCommand struct {
 	Description string
 }
 
-var defaultSlashCommands = []SlashCommand{
-	{Command: "/help", Description: "Complete guide to commands & system instructions"},
-	{Command: "/reset", Description: "Start new chat session & clear memory graph"},
-	{Command: "/graph", Description: "Open visual Cyber-OSINT Knowledge Graph in browser"},
-	{Command: "/clear", Description: "Clear terminal screen & redraw HUD banner"},
-	{Command: "/web", Description: "Open Web Workspace visual dashboard in browser"},
-	{Command: "/sessions", Description: "Inspect investigation session history & audit trail from SQLite"},
-	{Command: "/health", Description: "Check status of daemon server, database, & AI providers"},
-	{Command: "/exit", Description: "Exit Live REPL session back to main menu"},
+func getDefaultSlashCommands() []SlashCommand {
+	return GetLocalizedSlashCommands()
 }
 
 // ReplInputModel is the Bubbletea interactive text input model with OpenCode-style slash popup.
@@ -104,11 +97,12 @@ func NewReplInputModel(promptPrefix string) ReplInputModel {
 	ti.Placeholder = T("prompt_placeholder")
 	ti.Focus()
 
+	cmds := GetLocalizedSlashCommands()
 	return ReplInputModel{
 		TextInput:        ti,
 		PromptPrefix:     promptPrefix,
-		SlashCommands:    defaultSlashCommands,
-		FilteredCommands: defaultSlashCommands,
+		SlashCommands:    cmds,
+		FilteredCommands: cmds,
 	}
 }
 
@@ -324,6 +318,19 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 			continue
 		}
 
+		if strings.HasPrefix(lower, "/lang") {
+			parts := strings.Fields(input)
+			if len(parts) > 1 {
+				lang := parts[1]
+				SetLanguage(lang)
+				cfg.Preferences.Language = ActiveLanguage
+				fmt.Printf("\n[✓] Language preference switched to: %s\n", ActiveLanguage)
+			} else {
+				fmt.Printf("\nActive Language: %s. Usage: /lang en  or  /lang id\n", ActiveLanguage)
+			}
+			continue
+		}
+
 		if lower == "/sessions" {
 			printSessions(appDB)
 			continue
@@ -336,7 +343,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 
 func renderBanner(modelLabel, serverURL, sessionID, dbPath string) {
 	fmt.Print(RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID))
-	helpHint := lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Render("  [PETUNJUK: Ketik /help untuk panduan perintah, /reset untuk reset chat, /clear untuk bersihkan layar, /exit untuk keluar]")
+	helpHint := lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Render("  [HINT: Type /help for guide, /lang to switch language (en/id), /reset to clear chat, /exit to quit]")
 	fmt.Printf("\n%s\n", helpHint)
 }
 

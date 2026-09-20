@@ -15,7 +15,7 @@ func SetLanguage(lang string) {
 	}
 }
 
-// TUIStrings map holds English ("en") and Indonesian ("id") translations for core UI elements.
+// TUIStrings map holds English ("en") default and Indonesian ("id") translations for all UI elements.
 var TUIStrings = map[string]map[string]string{
 	"header_title": {
 		"en": " [●] NISKAVA AGENT — AUTONOMOUS MARKET INTELLIGENCE ",
@@ -65,6 +65,110 @@ var TUIStrings = map[string]map[string]string{
 		"en": "Type market research question or / for commands...",
 		"id": "Ketik pertanyaan riset pasar atau / untuk perintah...",
 	},
+	"launcher_web_title": {
+		"en": "Web UI (Open in Browser)",
+		"id": "Web UI (Buka di Browser)",
+	},
+	"launcher_web_desc": {
+		"en": "Start web daemon server & auto-open in default browser",
+		"id": "Jalankan server web & buka otomatis di browser default",
+	},
+	"launcher_term_title": {
+		"en": "Terminal UI (Interactive Live CLI)",
+		"id": "Terminal UI (CLI Interaktif)",
+	},
+	"launcher_term_desc": {
+		"en": "Interactive research REPL session with live anomaly reasoning",
+		"id": "Sesi REPL interaktif berbasis perintah riset & anomali",
+	},
+	"launcher_sessions_title": {
+		"en": "Session History & Audit Trail (SQLite)",
+		"id": "Riwayat Sesi & Audit Trail (SQLite)",
+	},
+	"launcher_sessions_desc": {
+		"en": "Inspect past investigation sessions & verified evidence from local database",
+		"id": "Inspeksi riwayat investigasi & bukti terverifikasi dari database",
+	},
+	"launcher_help_title": {
+		"en": "Help Guide & Usage Instructions",
+		"id": "Panduan & Instruksi Penggunaan (Help Guide)",
+	},
+	"launcher_help_desc": {
+		"en": "Complete guide on navigation, slash commands, and system architecture",
+		"id": "Instruksi lengkap navigasi, opsi menu, dan perintah slash",
+	},
+	"launcher_health_title": {
+		"en": "System & API Key Health Check",
+		"id": "Pemeriksaan Kesehatan Sistem & API Key",
+	},
+	"launcher_health_desc": {
+		"en": "Check status of daemon server, database connection, & AI providers",
+		"id": "Periksa status daemon server, koneksi database, dan provider AI",
+	},
+	"launcher_setup_title": {
+		"en": "Quick Setup Wizard (.env)",
+		"id": "Quick Setup Wizard (.env)",
+	},
+	"launcher_setup_desc": {
+		"en": "Quick setup wizard for Sectors, Gemini, or OpenAI API keys",
+		"id": "Konfigurasi cepat API key Sectors, Gemini, atau OpenAI",
+	},
+	"launcher_lang_title": {
+		"en": "Language Preference (Active: English)",
+		"id": "Preferensi Bahasa (Aktif: Bahasa Indonesia)",
+	},
+	"launcher_lang_desc": {
+		"en": "Toggle active interface language between English (Default) and Bahasa Indonesia",
+		"id": "Ubah preferensi bahasa antarmuka antara Bahasa Inggris dan Bahasa Indonesia",
+	},
+	"launcher_exit_title": {
+		"en": "Exit",
+		"id": "Keluar",
+	},
+	"launcher_exit_desc": {
+		"en": "Stop daemon server and exit Niskava Agent",
+		"id": "Hentikan daemon server dan keluar dari Niskava Agent",
+	},
+	"launcher_quitting_msg": {
+		"en": "\nExiting Niskava Agent. Goodbye!\n",
+		"id": "\nKeluar dari Niskava Agent. Sampai jumpa!\n",
+	},
+	"slash_help_desc": {
+		"en": "Complete guide to commands & system instructions",
+		"id": "Panduan lengkap perintah & instruksi sistem",
+	},
+	"slash_reset_desc": {
+		"en": "Start new chat session & clear memory graph",
+		"id": "Mulai sesi obrolan baru & bersihkan memory graph",
+	},
+	"slash_graph_desc": {
+		"en": "Open visual Cyber-OSINT Knowledge Graph in browser",
+		"id": "Buka visualisasi Cyber-OSINT Knowledge Graph di browser",
+	},
+	"slash_clear_desc": {
+		"en": "Clear terminal screen & redraw HUD banner",
+		"id": "Bersihkan layar terminal & tampilkan ulang banner HUD",
+	},
+	"slash_web_desc": {
+		"en": "Open Web Workspace visual dashboard in browser",
+		"id": "Buka dashboard visual Web Workspace di browser",
+	},
+	"slash_sessions_desc": {
+		"en": "Inspect investigation session history & audit trail from SQLite",
+		"id": "Inspeksi riwayat sesi investigasi & audit trail dari SQLite",
+	},
+	"slash_health_desc": {
+		"en": "Check status of daemon server, database, & AI providers",
+		"id": "Periksa status daemon server, database, & provider AI",
+	},
+	"slash_lang_desc": {
+		"en": "Switch active language preference (/lang en | /lang id)",
+		"id": "Ubah preferensi bahasa aktif (/lang en | /lang id)",
+	},
+	"slash_exit_desc": {
+		"en": "Exit Live REPL session back to main menu",
+		"id": "Keluar dari sesi Live REPL kembali ke menu utama",
+	},
 }
 
 // T retrieves localized string for ActiveLanguage, falling back to "en".
@@ -78,4 +182,73 @@ func T(key string) string {
 		}
 	}
 	return key
+}
+
+// GetLocalizedLauncherItems returns menu items localized according to ActiveLanguage.
+func GetLocalizedLauncherItems() []LauncherItem {
+	return []LauncherItem{
+		{
+			ShortcutKey: "W",
+			Title:       T("launcher_web_title"),
+			Description: T("launcher_web_desc"),
+			ActionID:    "web",
+		},
+		{
+			ShortcutKey: "T",
+			Title:       T("launcher_term_title"),
+			Description: T("launcher_term_desc"),
+			ActionID:    "terminal",
+		},
+		{
+			ShortcutKey: "S",
+			Title:       T("launcher_sessions_title"),
+			Description: T("launcher_sessions_desc"),
+			ActionID:    "sessions",
+		},
+		{
+			ShortcutKey: "H",
+			Title:       T("launcher_help_title"),
+			Description: T("launcher_help_desc"),
+			ActionID:    "help",
+		},
+		{
+			ShortcutKey: "C",
+			Title:       T("launcher_health_title"),
+			Description: T("launcher_health_desc"),
+			ActionID:    "health",
+		},
+		{
+			ShortcutKey: "L",
+			Title:       T("launcher_lang_title"),
+			Description: T("launcher_lang_desc"),
+			ActionID:    "lang",
+		},
+		{
+			ShortcutKey: "Q",
+			Title:       T("launcher_setup_title"),
+			Description: T("launcher_setup_desc"),
+			ActionID:    "setup",
+		},
+		{
+			ShortcutKey: "E",
+			Title:       T("launcher_exit_title"),
+			Description: T("launcher_exit_desc"),
+			ActionID:    "exit",
+		},
+	}
+}
+
+// GetLocalizedSlashCommands returns slash commands localized according to ActiveLanguage.
+func GetLocalizedSlashCommands() []SlashCommand {
+	return []SlashCommand{
+		{Command: "/help", Description: T("slash_help_desc")},
+		{Command: "/reset", Description: T("slash_reset_desc")},
+		{Command: "/graph", Description: T("slash_graph_desc")},
+		{Command: "/clear", Description: T("slash_clear_desc")},
+		{Command: "/web", Description: T("slash_web_desc")},
+		{Command: "/sessions", Description: T("slash_sessions_desc")},
+		{Command: "/health", Description: T("slash_health_desc")},
+		{Command: "/lang", Description: T("slash_lang_desc")},
+		{Command: "/exit", Description: T("slash_exit_desc")},
+	}
 }
