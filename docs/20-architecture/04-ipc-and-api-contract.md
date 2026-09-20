@@ -1,25 +1,30 @@
 # 04 — Spesifikasi Kontrak IPC & REST/SSE API
 
 **Status:** ACCEPTED  
-**Versi Dokumen:** 1.0.0  
-**Terakhir Diperbarui:** 2026-09-16  
+**Versi Dokumen:** 1.2.0  
+**Terakhir Diperbarui:** 2026-09-20  
 
-Dokumen ini mendefinisikan kontrak komunikasi data antar komponen sistem:
-1. **Subprocess IPC Contract**: Komunikasi antara Go Core Daemon dan Python Agent Engine.
-2. **Local REST & SSE Server Surface**: Komunikasi antara Go Core Server dan Web Workspace (React SPA).
+Dokumen ini mendefinisikan kontrak komunikasi data antar komponen sistem Niskava:
+1. **Subprocess IPC Contract**: Protokol pertukaran data JSON Lines antara Go Core Daemon (`backend/core/ipc/`) dan Python Agent Engine (`backend/engine/`).
+2. **Local REST & SSE Server Surface**: Spesifikasi antarmuka API HTTP dan streaming Server-Sent Events antara Go Core Server (`backend/core/server/`) dan Web Workspace / Klien eksternal.
 
 ---
 
 ## 1. Subprocess IPC Protocol (Go ↔ Python)
 
 Go Core mengeksekusi Python Agent Engine sebagai child process melalui pemanggilan dinamis:
-```bash
-# Default invocation (relatif terhadap direktori kerja):
-python3 -m engine.runner --ticker ANTM --days 30 --session INV-2026-0042
 
-# Atau via path modul yang dikonfigurasi secara dinamis:
-${NISKAVA_PYTHON_BIN:-python3} -m ${NISKAVA_ENGINE_MODULE:-engine.runner} --ticker ANTM --days 30 --session INV-2026-0042
-```
+### Dua Mode Eksekusi IPC:
+1. **Headless Investigation Pipeline (7-Stage Sequential SOP):**
+   ```bash
+   ${NISKAVA_PYTHON_BIN:-python3} -m ${NISKAVA_ENGINE_MODULE:-backend.engine.runner} \
+     --ticker ANTM --days 30 --session INV-2026-0042
+   ```
+2. **Interactive Conversational ReAct Agent Turn:**
+   ```bash
+   ${NISKAVA_PYTHON_BIN:-python3} -m backend.engine.agent.react_agent \
+     --prompt "Investigasi pergerakan anomali ANTM" --session-id "SES-UUID-42"
+   ```
 
 > [!TIP]
 > **Resolusi Biner & Modul Dinamis:** Parameter eksekusi di atas dapat disesuaikan melalui CLI flag `--python-bin` dan `--engine-path`, environment variable (`NISKAVA_PYTHON_BIN`, `NISKAVA_ENGINE_PATH`), atau berkas konfigurasi `~/.niskava/config.yaml`. Jika modul dipindahkan atau direfaktor, Go Core tetap dapat memanggil engine tanpa perlu kompilasi ulang kode Go.
@@ -92,7 +97,68 @@ Setiap baris yang dicetak Python ke STDOUT merupakan objek JSON mandiri yang val
 }
 ```
 
-#### E. Event: `session_complete` & `session_error`
+#### E. Event ReAct Loop: `agent_thought`
+Menyampaikan penalaran internal model secara transparan ke UI:
+```json
+{
+  "event": "agent_thought",
+  "session_id": "SES-UUID-42",
+  "thought": "Pengguna menanyakan anomali ANTM. Saya harus memanggil compute_quant_anomalies untuk memeriksa volume Z-score."
+}
+```
+
+#### F. Event ReAct Loop: `agent_tool_call`
+Menyampaikan eksekusi pemanggilan tool deterministik:
+```json
+{
+  "event": "agent_tool_call",
+  "session_id": "SES-UUID-42",
+  "tool_name": "compute_quant_anomalies",
+  "tool_args": {
+    "symbol": "ANTM",
+    "days": 30
+  }
+}
+```
+
+#### G. Event ReAct Loop: `agent_observation`
+Menyampaikan hasil evaluasi dari tool deterministik:
+```json
+{
+  "event": "agent_observation",
+  "session_id": "SES-UUID-42",
+  "tool_name": "compute_quant_anomalies",
+  "result": {
+    "anomalies_count": 1,
+    "top_z_score": 3.84,
+    "date": "2026-09-12"
+  }
+}
+```
+
+#### H. Event ReAct Loop: `agent_message_chunk`
+Token teks streaming inkremental untuk rendering halus di klien:
+```json
+{
+  "event": "agent_message_chunk",
+  "session_id": "SES-UUID-42",
+  "chunk": "Berdasarkan evaluasi kuantitatif deterministik pada data 30 hari..."
+}
+```
+
+#### I. Event ReAct Loop: `agent_message_complete`
+Penanda akhir pesan giliran percakapan:
+```json
+{
+  "event": "agent_message_complete",
+  "session_id": "SES-UUID-42",
+  "content": "Berdasarkan evaluasi kuantitatif...",
+  "thought": "Penalaran lengkap...",
+  "tool_calls": []
+}
+```
+
+#### J. Event: `session_complete` & `session_error`
 ```json
 {
   "event": "session_complete",
@@ -107,33 +173,93 @@ Setiap baris yang dicetak Python ke STDOUT merupakan objek JSON mandiri yang val
 
 ---
 
-## 2. Local REST & SSE Surface (Go Server ↔ React SPA)
+## 2. Local REST & SSE Surface (Go Server ↔ React SPA / Clients)
 
-Go Core Daemon menjalankan server HTTP lokal pada port default `8080`.
+Go Core Daemon menjalankan HTTP REST & Server-Sent Events (SSE) server lokal pada port default `8080` (dapat dikonfigurasi via flag `--port` atau env var `NISKAVA_PORT`).
 
-### Katalog Endpoint REST
-| Method | Path | Kegunaan | Payload Request |
-|---|---|---|---|
-| `GET` | `/api/v1/health` | Status server dan verifikasi SQLite lokal | `-` |
-| `GET` | `/api/v1/sessions` | Mengambil daftar riwayat seluruh investigasi | Query: `?limit=20&page=1` |
-| `GET` | `/api/v1/sessions/:id` | Detail lengkap sesi investigasi (anomali, temuan, timeline) | `-` |
-| `POST` | `/api/v1/investigate` | Memulai investigasi baru secara asynchronous | `{"ticker": "ANTM", "days": 30}` |
+### Katalog Endpoint REST API
 
-### Server-Sent Events (SSE) Endpoint
-* **Path**: `GET /api/v1/investigations/:id/stream`
-* **Header**: `Content-Type: text/event-stream`, `Cache-Control: no-cache`
-* **Format**:
-```text
-event: progress
-data: {"step": 2, "message": "Deteksi anomali kuantitatif selesai..."}
+| Method | Endpoint Path | Kegunaan | Request Payload / Query Params | Format Response |
+|---|---|---|---|---|
+| `GET` | `/api/health` | Health check & verifikasi runtime daemon | `-` | JSON status, version, market, timestamp |
+| `GET` | `/api/chat/sessions` | Mengambil daftar sesi percakapan | `?limit=50&offset=0&q={search}` | JSON `{sessions: [...], total: N, limit: 50, offset: 0}` |
+| `POST` | `/api/chat/sessions` | Membuat sesi percakapan baru | `{"title": "Analisis ANTM", "model": "hermes"}` | JSON `{session: {...}}` (HTTP 201) |
+| `GET` | `/api/chat/sessions/{id}` | Detail metadata sesi tertentu | URL Param `{id}` | JSON `{session: {...}}` |
+| `PATCH` | `/api/chat/sessions/{id}` | Update metadata sesi (rename, pin, status) | `{"title": "...", "is_pinned": true}` | JSON `{session: {...}}` |
+| `DELETE` | `/api/chat/sessions/{id}` | Hapus sesi beserta seluruh pesan (cascade) | URL Param `{id}` | JSON `{"deleted": true, "id": "..."}` |
+| `GET` | `/api/chat/sessions/{id}/messages` | Ambil riwayat seluruh pesan dalam sesi | URL Param `{id}` | JSON `{messages: [...]}` (termasuk thought & tool calls) |
+| `POST` | `/api/chat/sessions/{id}/fork` | Cabangkan percakapan ke sesi baru | `{"title": "Fork Sesi", "up_to_message_id": "..."}` | JSON `{session: {...}}` (HTTP 201) |
+| `POST` | `/api/chat/sessions/{id}/reset` | Kosongkan seluruh pesan dalam sesi | URL Param `{id}` | JSON `{"reset": true, "id": "..."}` |
+| `POST` | `/api/chat/sessions/{id}/abort` | Batalkan eksekusi ReAct yang sedang streaming | URL Param `{id}` | JSON `{"aborted": true, "id": "..."}` |
+| `GET` | `/api/chat/sessions/{id}/export` | Ekspor transkrip percakapan | `?format=markdown` atau `?format=json` | Markdown plain text / JSON payload terstruktur |
+| `GET` | `/api/chat/search` | Pencarian pesan global lintas seluruh sesi | `?q={kata_kunci}` | JSON `{query: "...", count: N, results: [...]}` |
+| `POST` | `/api/chat` | Eksekusi turn percakapan dengan streaming SSE | `{"prompt": "...", "session_id": "..."}` | `text/event-stream` (Server-Sent Events) |
 
-event: anomaly
-data: {"ticker": "ANTM", "date": "2026-09-12", "z_score": 3.84}
+---
 
-event: finding
-data: {"title": "Smelter Commissioning", "status": "SUPPORTED", "confidence": 0.94}
+## 3. Protokol Streaming SSE (`POST /api/chat`)
 
-event: done
-data: {"status": "COMPLETED", "session_id": "INV-2026-0042"}
+Endpoint `POST /api/chat` menerima prompt pengguna dan mengalirkan respons ReAct secara real-time via Server-Sent Events (SSE).
+
+### Header Response:
+```http
+HTTP/1.1 200 OK
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+Access-Control-Allow-Origin: *
 ```
-React Web Workspace mendengarkan stream ini menggunakan objek `EventSource` bawaan browser.
+
+### Urutan Event SSE yang Dialirkan:
+
+1. **`event: thought`**  
+   Dialirkan ketika agen sedang menyusun hipotesis atau rencana pemanggilan tool.
+   ```text
+   event: thought
+   data: {"thought": "Mendeteksi indikasi anomali volume pada ANTM..."}
+   ```
+
+2. **`event: tool_call`**  
+   Dialirkan saat tool deterministik mulai dipanggil.
+   ```text
+   event: tool_call
+   data: {"tool": "compute_quant_anomalies", "args": {"symbol": "ANTM", "days": 30}}
+   ```
+
+3. **`event: observation`**  
+   Dialirkan ketika tool selesai menghasilkan observasi numerik/data.
+   ```text
+   event: observation
+   data: {"tool": "compute_quant_anomalies", "result": {"z_score": 3.84}}
+   ```
+
+4. **`event: message_chunk`**  
+   Dialirkan per token teks untuk respons narasi agent.
+   ```text
+   event: message_chunk
+   data: {"chunk": "Terdeteksi "}
+   ```
+
+5. **`event: message_complete`**  
+   Dialirkan ketika generasi pesan selesai dan seluruh pesan telah disimpan di SQLite.
+   ```text
+   event: message_complete
+   data: {"content": "Terdeteksi lonjakan volume 3.84σ...", "thought": "...", "tool_calls": []}
+   ```
+
+6. **`event: done`**  
+   Menandai akhir giliran percakapan. Sesi bertransisi dari `BUSY` kembali ke `IDLE`.
+   ```text
+   event: done
+   data: {"status": "COMPLETED", "session_id": "SES-UUID-42"}
+   ```
+
+7. **`event: error`** (Jika terjadi kegagalan)  
+   ```text
+   event: error
+   data: {"error": "Timeout saat memanggil upstream LLM"}
+   ```
+
+### Manajemen Pembatalan Klien (Client Abort):
+Klien web atau terminal dapat menghentikan streaming kapan saja dengan mengirimkan request `POST /api/chat/sessions/{id}/abort`. Go Core akan secara instan membatalkan context eksekusi runner Python dan mengembalikan sesi ke status `IDLE`.
+

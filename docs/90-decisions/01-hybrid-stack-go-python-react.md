@@ -21,20 +21,15 @@ Jika dibangun 100% Python, distribusi binary tunggal (PyInstaller) lambat, berat
 ## 2. Keputusan
 
 Menerapkan **arsitektur hybrid terpadu (Tripartite Hybrid Architecture)** dengan strategi repositori dan resolusi path yang dinamis:
-* **Pemisahan Repositori (Decoupled Repositories)**:
+* **Pemisahan Repositori & Struktur Monorepo**:
   * Repositori Dokumentasi & Spesifikasi (`niskava-docs`) berdiri sendiri sebagai Single Source of Truth (SSoT).
-  * Repositori Implementasi Kode (`niskava-codebase`) dikelola dalam repositori terpisah berbentuk *configurable polyglot monorepo*.
-* **Go Core Daemon (`cmd/niskava` & `internal/`)**:
-  * Berperan sebagai pintu masuk utama (*gateway*), CLI router (`spf13/cobra`), dan TUI runner (`charmbracelet/bubbletea`).
-  * Menyediakan server lokal HTTP dan SSE (`net/http`) yang menyajikan REST API dan meng-embed seluruh aset frontend statis (`//go:embed web/dist`) pada mode rilis, atau membaca direktori eksternal pada mode development.
-  * Mengelola database SQLite lokal menggunakan driver murni Go tanpa ketergantungan CGO (`modernc.org/sqlite`).
-* **Python Agent Engine (`engine/`)**:
-  * Dijalankan sebagai stateless child process on-demand via Subprocess IPC (JSON Lines).
-  * Menangani komputasi matematika kuantitatif anomali, pemanggilan Sectors API v2, Local Graph Memory (`NetworkX`), dan sintesis LLM.
-  * Lokasi biner Python dan modul dapat dikonfigurasi secara dinamis (via flag `--python-bin`, `--engine-path`, env var, atau config file).
-* **React Web Workspace (`web/`)**:
-  * Dibangun dengan Vite + React 18 + Tailwind CSS + shadcn/ui.
-  * Dikompilasi menjadi aset statis dan di-embed ke dalam biner Go atau di-serve terpisah selama proses perancangan UI.
+  * Repositori Implementasi Kode (`niskava-codebase`) dikelola dalam repositori polyglot monorepo dengan segregasi bersih antara antarmuka klien (`clients/`) dan layanan backend (`backend/`).
+* **Clients Surface (`clients/`)**:
+  * **Interactive CLI & TUI (`clients/cli/`)**: Menangani antarmuka terminal interaktif berbasis Bubbletea & Glamour, perintah Cobra (`investigate`, `serve`, `sessions`), dan wizard setup.
+  * **Web Workspace (`clients/web/`)**: Dibangun dengan Vite + React 18 + Tailwind CSS + shadcn/ui. Dikompilasi menjadi aset statis dan di-embed ke dalam biner Go (`//go:embed clients/web/dist`) atau di-serve terpisah selama perancangan UI.
+* **Backend Architecture (`backend/`)**:
+  * **Go Core Daemon (`backend/core/` & `cmd/niskava/`)**: Berperan sebagai pintu masuk utama (*gateway*), server REST & SSE (`/api/chat/*`), persistensi SQLite murni Go (`modernc.org/sqlite` zero CGO), dan manajemen subprocess IPC.
+  * **Python Agent Engine (`backend/engine/`)**: Dijalankan sebagai stateless child process on-demand via Subprocess IPC (JSON Lines). Menangani Universal Model-Agnostic ReAct loop, komputasi deterministik anomali kuantitatif (NumPy), Sectors v2 API client, Dual-Engine OSINT, dan Local Graph Memory (`NetworkX`). Lokasi biner dan modul dapat dikonfigurasi dinamis via flag, env var, atau config file.
 
 ---
 

@@ -70,61 +70,73 @@ Niskava Agent dibangun di atas arsitektur tripartit hybrid yang memadukan keanda
 
 ## 2. Pembagian Peran & Tanggung Jawab Komponen
 
-### A. Go Core Daemon (`/cmd/niskava` & `/internal/`)
-* **Single Executable Distributor**: Mengompilasi seluruh aplikasi menjadi 1 file biner mandiri. Seluruh file frontend statis di-embed langsung ke dalam biner menggunakan `//go:embed web/dist`.
-* **Conversational REPL & CLI Engine**: Menggunakan `spf13/cobra`, `charmbracelet/bubbletea`, dan `charmbracelet/glamour` untuk menghadirkan terminal REPL percakapan interaktif (Hermes-style) dengan rendering Markdown ala Bloomberg Terminal.
-* **Interactive Setup Wizard (`niskava setup`)**: Menuntun pengguna dalam konfigurasi kredensial `.env` (9router local proxy `http://localhost:20128/v1`, Google Gemini, Sectors API) dengan validasi ping koneksi live.
-* **Local Web Server**: Menyediakan REST API untuk manajemen sesi dan percakapan (`/api/chat`), serta Server-Sent Events (SSE) untuk streaming log real-time ke web dashboard.
-* **Session Persistence Manager**: Berkomunikasi dengan database SQLite lokal (`sessions`, `anomalies`, `chat_messages`) menggunakan driver murni Go (`modernc.org/sqlite`) tanpa kebutuhan compiler CGO.
+### A. Clients Surface (`clients/`)
+* **Interactive CLI & TUI (`clients/cli/`)**:
+  * Menggunakan `spf13/cobra`, `charmbracelet/bubbletea`, dan `charmbracelet/glamour` untuk menghadirkan terminal REPL percakapan interaktif (Hermes-style) dengan rendering Markdown ala Bloomberg Terminal.
+  * Menyediakan interactive setup wizard (`niskava setup`) untuk konfigurasi kredensial (LLM API key/proxy base, Sectors API) dengan validasi ping koneksi live.
+  * Mendukung mode investigasi langsung (`niskava investigate <TICKER> --days 30`) dan manajemen sesi (`niskava sessions`).
+* **Local Web Workspace (`clients/web/`)**:
+  * **Framework**: React 18 + Vite + TypeScript + Tailwind CSS + shadcn/ui.
+  * **Financial Charting**: Visualisasi candlestick dan bar volume dengan penanda khusus titik anomali kuantitatif.
+  * **Reactive Real-time Canvas**: Menerima streaming token, thought steps, tool calls, dan temuan investigasi secara langsung melalui SSE tanpa refresh halaman.
 
-### B. Python Agent Engine (`/engine/`)
-* **Stateless Subprocess Runner**: Dijalankan oleh Go Core sebagai child process on-demand melalui `engine/runner.py`.
-* **Autonomous ReAct Agent Loop (`engine/agent/react_agent.py`)**: Mengelola dialog percakapan multi-turn, pemanggilan tool deterministik secara otonom, dan sintesis bukti.
-* **Deterministic Quant Anomaly (`engine/quant/`)**: Menghitung $Z$-score volume, abnormal return, dan divergensi sektor menggunakan library matematika Python murni (NumPy) sesuai Hukum 1. LLM dilarang berhitung secara mandiri.
-* **Sectors v2 API Client & Dual OSINT Engine**: Melakukan request terstruktur ke API Sectors untuk data candle, broker flow, mining extension, dan harvesting berita RSS BEI terkurasi.
-* **Streaming JSONL Emitter**: Mengirimkan update berkala (`agent_event`, `agent_message_chunk`, `agent_message_complete`) dalam format JSON Lines ke STDOUT untuk ditangkap secara streaming oleh Go daemon.
-
-### C. Local Web Workspace (`/web/`)
-* **Framework**: React 18 + Vite + TypeScript + Tailwind CSS + shadcn/ui.
-* **Financial Charting**: Visualisasi candlestick dan bar volume dengan penanda khusus titik anomali.
-* **Reactive Updates**: Menerima streaming status dan temuan investigasi secara langsung melalui SSE tanpa refresh halaman.
+### B. Backend Architecture (`backend/`)
+* **Go Core Daemon (`backend/core/` & `cmd/niskava/`)**:
+  * **Single Executable Distributor**: Mengompilasi seluruh aplikasi menjadi 1 file biner mandiri. Seluruh file frontend statis di-embed langsung ke dalam biner menggunakan `//go:embed clients/web/dist`.
+  * **Local Web Server (`backend/core/server/`)**: Menyediakan REST API manajemen sesi multi-turn (`/api/chat/sessions`), forking, export, abort, serta Server-Sent Events (SSE) streaming (`/api/chat`).
+  * **Session Persistence Manager (`backend/core/db/`)**: Berkomunikasi dengan database SQLite lokal (`chat_sessions`, `chat_messages`, `investigations`, `anomalies`, dll.) menggunakan driver murni Go (`modernc.org/sqlite`) tanpa kebutuhan compiler CGO. Dilengkapi *self-healing zombie recovery* saat inisialisasi.
+  * **Subprocess IPC Runner (`backend/core/ipc/`)**: Mengelola eksekusi child process Python secara aman dengan scanning streaming JSON Lines.
+* **Python Agent Engine (`backend/engine/`)**:
+  * **Universal Model-Agnostic ReAct Loop (`backend/engine/agent/`)**: Mengelola dialog multi-turn, pemanggilan tool deterministik otonom, dan sintesis bukti menggunakan antarmuka standar OpenAI-compatible (`/chat/completions`) tanpa vendor lock-in (mendukung 9router local proxy `http://localhost:20128/v1`, Ollama, OpenRouter, vLLM, maupun Gemini).
+  * **Deterministic Quant Anomaly (`backend/engine/quant/`)**: Menghitung $Z$-score volume ($V_z$), abnormal return ($R_t$), divergensi sektor ($D_t$), dan foreign flow $Z$-score ($F_z$) menggunakan library NumPy murni sesuai Hukum 1. LLM dilarang berhitung mandiri.
+  * **Sectors v2 API Client & Dual OSINT Engine (`backend/engine/sectors/` & `backend/engine/osint/`)**: Melakukan request terstruktur ke API Sectors untuk data candle, broker flow, mining extension, dan harvesting berita RSS BEI terkurasi dengan cache lokal disk.
+  * **Local Graph Memory (`backend/engine/memory/`)**: In-memory NetworkX DiGraph yang disinkronkan ke tabel SQLite `memory_nodes` & `memory_edges` dengan decay temporal.
+  * **Streaming JSONL Emitter**: Mengirimkan update berkala (`agent_thought`, `agent_tool_call`, `agent_observation`, `agent_message_chunk`, `agent_message_complete`) dalam format JSON Lines ke STDOUT.
 
 ---
 
-## 3. Pola Struktur Folder Repositori Proyek (Configurable Monorepo)
+## 3. Pola Struktur Folder Repositori Proyek (Polyglot Monorepo)
 
-Repositori kode implementasi (*codebase repo*) disusun dengan pola **Polyglot Monorepo** yang modular, namun dengan jalur direktori dan nama modul yang **dinamis dan dapat dikonfigurasi (*customizable & adaptable*)**:
+Repositori kode implementasi disusun dengan pola **Polyglot Monorepo** standar industri dengan pemisahan tegas antara antarmuka klien (*clients*) dan layanan backend (*backend*):
 
 ```text
-niskava-codebase/                # Root direktori repositori implementasi
+niskava/                         # Root direktori repositori implementasi
 ├── cmd/
 │   └── niskava/                 # Entrypoint Go utama (CLI & daemon runner)
 │       └── main.go
-├── internal/                    # Modul privat Go Core (dapat diubah/direfaktor secara bebas)
-│   ├── cli/                     # Handler perintah CLI (spf13/cobra: investigate, serve, sessions)
-│   ├── config/                  # Pengaturan dinamis & parser (~/.niskava/config.yaml / env)
-│   ├── db/                      # SQLite persistence (modernc.org/sqlite, zero CGO)
-│   ├── ipc/                     # Subprocess IPC runner & scanner streaming JSONL
-│   ├── server/                  # HTTP REST & SSE streaming server
-│   └── tui/                     # Interactive Terminal UI (charmbracelet/bubbletea)
 │
-├── engine/                      # Python Agent Engine (nama direktori/package dapat disesuaikan)
-│   ├── agent/                   # 7-Stage Pipeline orchestrator & prompt templates
-│   ├── quant/                   # Anomali kuantitatif deterministik (NumPy/Pandas Z-Scores)
-│   ├── sectors/                 # Sectors v2 API client & disk cache lokal
-│   ├── osint/                   # Harvester berita RSS & keterbukaan IDX (trafilatura)
-│   ├── memory/                  # Local Graph Memory Engine (NetworkX DiGraph)
-│   ├── runner.py                # Entrypoint IPC modul yang dipanggil oleh Go Core
-│   ├── pyproject.toml           # Konfigurasi dependensi Python modern
-│   └── requirements.txt         # Fallback dependensi standar pip
+├── clients/                     # Segregated Client Surfaces
+│   ├── cli/                     # CLI commands & Bubble Tea TUI
+│   │   ├── cmd/                 # Cobra subcommands (root, investigate, serve, sessions, setup)
+│   │   ├── tui/                 # Bubbletea interactive terminal app & Glamour renderer
+│   │   └── setup.go             # Interactive Setup Wizard
+│   └── web/                     # React 18 + Vite + Tailwind CSS Workspace
+│       ├── src/                 # Komponen UI (Cyber-OSINT aesthetic, Recharts/Lightweight)
+│       ├── package.json         # Dependensi frontend npm/vite
+│       ├── vite.config.ts       # Konfigurasi bundler (output dist/)
+│       └── tsconfig.json
 │
-├── web/                         # React SPA Frontend Workspace (dapat dipindah/di-repoint)
-│   ├── src/                     # Komponen antarmuka (Cyber-OSINT aesthetic, Recharts/TradingView)
-│   ├── package.json             # Dependensi frontend npm/vite
-│   ├── vite.config.ts           # Konfigurasi bundler (output dist/)
-│   └── tsconfig.json
+├── backend/                     # Segregated Backend Architecture
+│   ├── core/                    # Go Core Daemon
+│   │   ├── config/              # Pengaturan dinamis & parser (~/.niskava/config.yaml / env)
+│   │   ├── db/                  # SQLite persistence (modernc.org/sqlite, zero CGO, WAL)
+│   │   ├── ipc/                 # Subprocess IPC runner & scanner streaming JSONL
+│   │   ├── security/            # Sanitasi input, credential masking & path validation
+│   │   └── server/              # HTTP REST (/api/chat/*) & SSE streaming server
+│   │
+│   └── engine/                  # Python Agent Engine (3.11+)
+│       ├── agent/               # ReAct Agent loop, prompt templates, tools registry
+│       ├── quant/               # Anomali kuantitatif deterministik (NumPy/Pandas Z-Scores)
+│       ├── sectors/             # Sectors v2 API client & disk cache lokal
+│       ├── osint/               # Harvester berita RSS & keterbukaan IDX (trafilatura)
+│       ├── memory/              # Local Graph Memory Engine (NetworkX DiGraph)
+│       ├── tests/               # 74 unit tests komprehensif engine Python
+│       ├── runner.py            # Entrypoint IPC headless investigation pipeline
+│       └── pyproject.toml       # Dependensi modern Python (uv / pip)
 │
-├── Makefile                     # Root build orchestrator & task runner (opsional/fleksibel)
+├── docs/                        # SSoT Documentation Hub
+├── scripts/                     # Operational scripts (database seed, health check)
+├── Makefile                     # Root build orchestrator & multi-language task runner
 ├── go.mod                       # Modul Go root
 ├── go.sum
 ├── .gitignore                   # Mengabaikan *.db, venv/, node_modules/, dist/, .env
@@ -149,10 +161,12 @@ CLI Flags (Override Tertinggi)
 | Komponen Sistem | Default Path | Environment Variable | CLI Flag / Config Key | Keterangan & Fleksibilitas |
 |---|---|---|---|---|
 | **Python Binary** | `python3` (dari `$PATH`) | `NISKAVA_PYTHON_BIN` | `--python-bin` / `engine.python_bin` | Mendukung venv kustom, pyenv, conda, atau path absolut biner Python. |
-| **Python Engine Path** | `./engine` (atau module `engine.runner`) | `NISKAVA_ENGINE_PATH` | `--engine-path` / `engine.entrypoint` | Jika direktori diubah (misal menjadi `niskava/` atau paket terinstal `pip install -e .`), runner tetap menemukan entrypoint. |
-| **Web UI Assets** | `//go:embed web/dist` | `NISKAVA_WEB_DIR` | `--web-dir` / `web.dist_path` | Mode produksi memakai embedded binary. Mode development dapat mengarahkan ke folder dist lokal atau reverse proxy Vite dev server. |
+| **Python Engine Path** | `./backend/engine` (atau `backend.engine.runner`) | `NISKAVA_ENGINE_PATH` | `--engine-path` / `engine.entrypoint` | Runner menemukan entrypoint baik dalam root repo maupun lingkungan terpasang. |
+| **Web UI Assets** | `//go:embed clients/web/dist` | `NISKAVA_WEB_DIR` | `--web-dir` / `web.dist_path` | Mode produksi memakai embedded binary. Mode development dapat mengarahkan ke `clients/web/dist` lokal. |
 | **SQLite DB Path** | `~/.niskava/niskava.db` | `NISKAVA_DB_PATH` | `--db-path` / `storage.db_path` | Memungkinkan database diletakkan di lokasi kustom atau memori (`:memory:`) untuk testing isolasi. |
 | **HTTP Port** | `8080` | `NISKAVA_PORT` | `--port` / `server.port` | Port lokal REST/SSE dapat dipindah jika 8080 sedang digunakan. |
+| **LLM API Base** | `http://localhost:20128/v1` | `NISKAVA_LLM_API_BASE` | `--llm-api-base` / `llm.api_base` | Endpoint OpenAI-compatible (9router local proxy, Ollama, OpenRouter, vLLM). |
+| **LLM Model** | `hermes` | `NISKAVA_LLM_MODEL` | `--llm-model` / `llm.model` | Model id universal tanpa vendor lock-in. |
 
 ---
 

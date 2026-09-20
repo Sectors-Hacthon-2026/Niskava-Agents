@@ -88,29 +88,26 @@ Untuk memaksimalkan performa, *developer experience*, kapabilitas AI, dan esteti
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Komponen 1: Go Core (CLI, Daemon & Server)
-* **Peran**: Gateway utama, CLI, server lokal, dan penyaji web dashboard.
+### Komponen 1: Clients Surface (`clients/cli/` & `clients/web/`)
+* **Peran**: Antarmuka pengguna visual dan terminal interaktif.
 * **Fitur Utama**:
-  * **Single Executable**: Binary tunggal `niskava` yang meng-embed seluruh frontend statis menggunakan Go `//go:embed`.
-  * **CLI Interaktif**: Menggunakan `spf13/cobra` dan `charmbracelet/bubbletea` untuk streaming log investigasi yang estetik di terminal.
-  * **Local HTTP & SSE Server**: Menyediakan REST API untuk session management dan Server-Sent Events (SSE) untuk streaming *real-time thinking steps* agent.
-  * **Local Persistence**: SQLite (`modernc.org/sqlite` murni Go tanpa CGO) untuk menyimpan investigation session, findings, dan evidence graph.
+  * **Interactive Terminal UI (`clients/cli/`)**: Menggunakan `spf13/cobra`, `charmbracelet/bubbletea`, dan `glamour` untuk menghadirkan pengalaman REPL percakapan interaktif bernuansa Bloomberg Terminal dan setup wizard terpandu.
+  * **Web Workspace (`clients/web/`)**: React 18 + Vite + Tailwind CSS + shadcn/ui. Menyajikan visual charting anomali candlestick, timeline kejadian kronologis, kartu temuan bukti terverifikasi, serta live SSE streaming.
 
-### Komponen 2: Python Agent Engine (AI, Modular Skills & Quantitative Core)
-* **Peran**: Otak analisis otonom (Hermes/OpenCode style), eksekutor SOP skills, dan integrasi data bursa.
+### Komponen 2: Go Core Daemon (`backend/core/` & `cmd/niskava/`)
+* **Peran**: Gateway utama, CLI entrypoint, server lokal, dan penyaji web dashboard mandiri.
+* **Fitur Utama**:
+  * **Single Executable**: Binary tunggal `niskava` yang meng-embed seluruh aset frontend statis menggunakan Go `//go:embed clients/web/dist`.
+  * **Local HTTP & SSE Server**: Menyediakan REST API untuk session management (`/api/chat/sessions`), branching forking, transcript export, serta Server-Sent Events (SSE) untuk streaming *real-time ReAct thinking steps* agent.
+  * **Local Persistence**: SQLite (`modernc.org/sqlite` murni Go tanpa CGO) dengan WAL mode, foreign keys, dan *self-healing zombie recovery* saat startup.
+
+### Komponen 3: Python Agent Engine (`backend/engine/`)
+* **Peran**: Otak analisis otonom ReAct universal, eksekutor SOP skills, dan integrasi data bursa.
 * **Fitur Utama (Arsitektur 4-Layer)**:
-  * **Layer 4: Cognitive ReAct Loop**: Mengelola alur penalaran bertahap (*Thought* $\to$ *Tool Call* $\to$ *Observation* $\to$ *Synthesis*), pemetaan Ego-Graph memory, dan penyusunan temuan bukti.
+  * **Layer 4: Cognitive ReAct Loop**: Mengelola alur penalaran bertahap (*Thought* $\to$ *Tool Call* $\to$ *Observation* $\to$ *Synthesis*) menggunakan Universal Model-Agnostic LLM endpoint (`NISKAVA_LLM_API_BASE`, kompatibel dengan 9router local proxy `http://localhost:20128/v1`, Ollama, OpenRouter, Gemini), pemetaan Ego-Graph memory, dan penyusunan temuan bukti.
   * **Layer 3: Modular Skills Registry**: Menyediakan SOP analisis terstandarisasi (`market-anomaly-recon`, `event-causality-audit`, `insider-bandarmology-forensic`, `financial-health-stress-test`).
   * **Layer 2: Deterministic Compute Gate**: Menghitung anomali teknikal & fundamental secara pasti via NumPy (Volume Z-Score, Abnormal Return, Foreign Flow Z-Score) sebelum LLM diaktifkan, memutus halusinasi angka secara total.
-  * **Layer 1: Sectors MCP & Dual-Engine OSINT**: Adapter data bursa terstandarisasi via Sectors MCP dan panen berita/keterbukaan informasi resmi BEI secara terarah pada jendela $T_{\text{anomaly}} \pm 2\text{ hari}$.
-
-### Komponen 3: Web Dashboard (Vite + React + Tailwind + shadcn/ui)
-* **Peran**: Investigation Workspace visual bergaya *Cyber-OSINT / Bloomberg Terminal*.
-* **Fitur Utama**:
-  * **Dark Mode Terminal Aesthetic**: UI bersih bernuansa analis intelijen finansial.
-  * **Financial Charts**: Integrasi `TradingView Lightweight Charts` atau `Recharts` untuk menandai titik anomali harga/volume.
-  * **Event Timeline**: Visualisasi urutan kejadian dari anomali data hingga berita yang muncul.
-  * **Evidence Graph & Audit Cards**: Kartu temuan dengan status verifikasi bukti yang transparan.
+  * **Layer 1: Sectors MCP & Dual-Engine OSINT**: Adapter data bursa terstandarisasi via Sectors MCP dan panen berita/keterbukaan informasi resmi BEI secara terarah pada jendela $T_{\text{anomaly}} \pm 2\text{ hari}$ dengan disk cache lokal.
 
 ---
 
