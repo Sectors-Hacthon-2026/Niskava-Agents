@@ -141,6 +141,46 @@ CREATE INDEX IF NOT EXISTS idx_memory_edges_target ON memory_edges(target_id);
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_parent ON chat_sessions(parent_session_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
+
+CREATE TABLE IF NOT EXISTS suspension_records (
+    id TEXT PRIMARY KEY,
+    symbol TEXT NOT NULL,
+    suspension_date TEXT NOT NULL,
+    unsuspension_date TEXT,
+    session TEXT,
+    market_type TEXT,
+    reason TEXT NOT NULL,
+    pdf_url TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS insider_filings (
+    id TEXT PRIMARY KEY,
+    symbol TEXT NOT NULL,
+    holder_name TEXT NOT NULL,
+    holder_type TEXT NOT NULL,
+    transaction_type TEXT NOT NULL,
+    transaction_date TEXT NOT NULL,
+    shares_transacted REAL NOT NULL,
+    price_per_share REAL,
+    percentage_after_transaction REAL,
+    purpose TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS osint_cache (
+    cache_key TEXT PRIMARY KEY,
+    source_type TEXT NOT NULL,
+    query_or_url TEXT NOT NULL,
+    content_text TEXT NOT NULL,
+    metadata_json TEXT,
+    expires_at TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_suspensions_symbol ON suspension_records(symbol, suspension_date DESC);
+CREATE INDEX IF NOT EXISTS idx_insider_filings_symbol ON insider_filings(symbol, transaction_date DESC);
+CREATE INDEX IF NOT EXISTS idx_osint_cache_type ON osint_cache(source_type);
 `
 
 // DB wraps the SQL database pool and provides high-level domain operations.
@@ -399,7 +439,69 @@ func (d *DB) ListFindingsByInvestigation(invID string) ([]Finding, error) {
 		}
 		results = append(results, f)
 	}
+	if results == nil {
+		results = []Finding{}
+	}
 	return results, nil
+}
+
+// GetAnomaliesByInvestigation returns all quantitative anomalies for a specific investigation.
+func (d *DB) GetAnomaliesByInvestigation(invID string) ([]Anomaly, error) {
+	query := `
+		SELECT id, investigation_id, anomaly_date, metric_type, metric_value, baseline_value, z_score, description
+		FROM anomalies
+		WHERE investigation_id = ?
+		ORDER BY anomaly_date ASC
+	`
+	rows, err := d.conn.Query(query, invID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get anomalies for %s: %w", invID, err)
+	}
+	defer rows.Close()
+
+	var results []Anomaly
+	for rows.Next() {
+		var a Anomaly
+		if err := rows.Scan(&a.ID, &a.InvestigationID, &a.AnomalyDate, &a.MetricType, &a.MetricValue, &a.BaselineValue, &a.ZScore, &a.Description); err != nil {
+			return nil, fmt.Errorf("failed to scan anomaly: %w", err)
+		}
+		results = append(results, a)
+	}
+	if results == nil {
+		results = []Anomaly{}
+	}
+	return results, nil
+}
+
+// CreateAnomaly records a quantitative anomaly in the database.
+func (d *DB) CreateAnomaly(a *Anomaly) error {
+	query := `
+		INSERT INTO anomalies (id, investigation_id, anomaly_date, metric_type, metric_value, baseline_value, z_score, description)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	_, err := d.conn.Exec(query, a.ID, a.InvestigationID, a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore, a.Description)
+	if err != nil {
+		return fmt.Errorf("failed to insert anomaly: %w", err)
+	}
+	return nil
+}
+
+// CreateFinding records an investigation finding in the database.
+func (d *DB) CreateFinding(f *Finding) error {
+	query := `
+		INSERT INTO findings (id, investigation_id, title, claim_text, verification_status, confidence_score, causality_status)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`
+	_, err := d.conn.Exec(query, f.ID, f.InvestigationID, f.Title, f.ClaimText, f.VerificationStatus, f.ConfidenceScore, f.CausalityStatus)
+	if err != nil {
+		return fmt.Errorf("failed to insert finding: %w", err)
+	}
+	return nil
+}
+
+// Conn returns the underlying database connection pool.
+func (d *DB) Conn() *sql.DB {
+	return d.conn
 }
 
 // ChatSession represents an explicit conversational research session (Hermes/OpenCode pattern).
