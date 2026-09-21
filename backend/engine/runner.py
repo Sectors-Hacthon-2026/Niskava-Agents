@@ -58,6 +58,7 @@ def main() -> None:
     parser.add_argument("--db-path", default="~/.niskava/niskava.db", help="Path to local SQLite DB")
     parser.add_argument("--offline", action="store_true", help="Force offline mock mode")
     parser.add_argument("--export-graph-html", default=None, help="Export graph HTML to specified path")
+    parser.add_argument("--language", "--lang", default=os.environ.get("NISKAVA_LANG", "id"), help="Interface and persona language ('id' or 'en')")
 
     args = parser.parse_args()
 
@@ -66,6 +67,8 @@ def main() -> None:
         or os.environ.get("MOCK_SECTORS", "0") in ("1", "true", "True")
         or os.environ.get("NISKAVA_OFFLINE", "0") in ("1", "true", "True")
     )
+    language = (args.language or "id").lower()
+    os.environ["NISKAVA_LANG"] = language
 
     try:
         registry = NiskavaToolRegistry(
@@ -87,6 +90,7 @@ def main() -> None:
             tool_registry=registry,
             emitter=emit_jsonl,
             mock_mode=mock_mode,
+            language=language,
         )
         if args.prompt:
             agent.chat(
@@ -94,14 +98,25 @@ def main() -> None:
                 session_id=args.session,
             )
         elif args.ticker:
-            agent.investigate(
+            from engine.agent.pipeline import InvestigationPipeline
+            pipeline = InvestigationPipeline(
+                db_path=args.db_path,
+                emitter=emit_jsonl,
+                mock_mode=mock_mode,
+            )
+            pipeline.run(
                 ticker=args.ticker,
-                days=args.days,
+                timeframe_days=args.days,
                 session_id=args.session,
             )
         else:
+            default_prompt = (
+                "Conduct a comprehensive analysis of IDX stock movements today."
+                if language == "en"
+                else "Lakukan analisis menyeluruh terhadap pergerakan saham IDX hari ini."
+            )
             agent.chat(
-                user_prompt="Lakukan analisis menyeluruh terhadap pergerakan saham IDX hari ini.",
+                user_prompt=default_prompt,
                 session_id=args.session,
             )
     except Exception as exc:

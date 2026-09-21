@@ -79,34 +79,43 @@ and qualitative market disclosures/news.`,
 			selected := m.(tui.LauncherModel).Selected
 			switch selected {
 			case "web":
-				fmt.Printf("\n[●] Membuka Web Workspace di browser: %s\n", srv.URL)
+				fmt.Printf(tui.T("menu_open_web"), srv.URL)
 				_ = server.OpenBrowser(srv.URL)
-				fmt.Println("Tekan Enter untuk kembali ke Menu...")
+				fmt.Println(tui.T("menu_press_enter"))
 				_, _ = fmt.Scanln()
 
 			case "terminal":
-				// Launch persistent live interactive CLI REPL
+				// RunLiveREPL returns replBackSentinel if user pressed /back,
+				// or "" if user pressed /exit. In both cases, loop continues
+				// back to the launcher — no special branching needed here.
 				tui.RunLiveREPL(cfg, appDB, srv.URL)
 
 			case "sessions":
 				// Show saved sessions with interactive resume option
 				selectedSessionID := runSessionsInteractive(cmd, appDB)
 				if selectedSessionID != "" {
+					// Result ignored: both /back and /exit return user to launcher loop.
 					tui.RunLiveREPL(cfg, appDB, srv.URL, selectedSessionID)
 				}
 
 			case "help":
 				tui.PrintFullHelpGuide()
-				fmt.Println("\nTekan Enter untuk kembali ke Menu...")
+				fmt.Println("\n" + tui.T("menu_press_enter"))
 				_, _ = fmt.Scanln()
 
 			case "health":
-				fmt.Println("\nSTATUS KESEHATAN SISTEM:")
+				fmt.Println(tui.T("health_header"))
 				fmt.Println("─────────────────────────────────────────────────────────────────────────────")
 				fmt.Printf("• Local Daemon URL: %s [ALIVE]\n", srv.URL)
 				fmt.Printf("• Database Path   : %s\n", cfg.Storage.DBPath)
 				fmt.Printf("• Python Engine   : %s\n", cfg.Engine.PythonBin)
-				fmt.Printf("• Sectors API Key : %t (Terpasang)\n", cfg.Auth.SectorsAPIKey != "")
+
+				secKeyText := tui.T("health_status_installed")
+				if cfg.Auth.SectorsAPIKey == "" {
+					secKeyText = tui.T("health_status_missing")
+				}
+				fmt.Printf("• Sectors API Key : %s\n", secKeyText)
+
 				activeModel := cfg.Auth.OpenAIModel
 				if activeModel == "" {
 					if cfg.Auth.GeminiModel != "" {
@@ -120,11 +129,15 @@ and qualitative market disclosures/news.`,
 					baseURL = "OpenAI-Compatible Standard"
 				}
 				hasModelKey := cfg.Auth.OpenAIAPIKey != "" || cfg.Auth.GeminiAPIKey != ""
+				modelKeyText := tui.T("health_status_installed")
+				if !hasModelKey {
+					modelKeyText = tui.T("health_status_missing")
+				}
 				fmt.Printf("• Inference Engine: Universal ReAct (%s) [ALIVE]\n", baseURL)
 				fmt.Printf("• Active Model    : %s\n", activeModel)
-				fmt.Printf("• Model API Key   : %t (Terpasang)\n", hasModelKey)
+				fmt.Printf("• Model API Key   : %s\n", modelKeyText)
 				fmt.Println("─────────────────────────────────────────────────────────────────────────────")
-				fmt.Println("Tekan Enter untuk kembali ke Menu...")
+				fmt.Println(tui.T("menu_press_enter"))
 				_, _ = fmt.Scanln()
 
 			case "lang":
@@ -141,11 +154,11 @@ and qualitative market disclosures/news.`,
 
 			case "setup":
 				_ = RunInteractiveSetup()
-				fmt.Println("Tekan Enter untuk kembali ke Menu...")
+				fmt.Println(tui.T("menu_press_enter"))
 				_, _ = fmt.Scanln()
 
 			case "exit", "":
-				fmt.Println("Menghentikan server daemon dan keluar dari Niskava Agent.")
+				fmt.Println(tui.T("menu_exit_msg"))
 				return nil
 			}
 		}

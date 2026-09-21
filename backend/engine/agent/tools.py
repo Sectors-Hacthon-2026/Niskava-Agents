@@ -186,7 +186,7 @@ class NiskavaToolRegistry:
 
     def get_tool_definitions(self) -> List[Dict[str, Any]]:
         """Return JSON-schema compatible tool definitions for LLM function calling."""
-        return [
+        definitions: List[Dict[str, Any]] = [
             {
                 "name": "get_daily_candles",
                 "description": "Ambil data deret waktu harga dan volume perdagangan harian saham IDX dari Sectors API v2.",

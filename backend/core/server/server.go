@@ -503,6 +503,112 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		})
 	})
 
+	// 4b. Investigation Details, Anomalies, and Findings API (/api/investigations/{id} and subpaths)
+	mux.HandleFunc("/api/investigations/", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+
+		subPath := strings.TrimPrefix(r.URL.Path, "/api/investigations/")
+		subPath = strings.Trim(subPath, "/")
+		parts := strings.Split(subPath, "/")
+		if len(parts) == 0 || parts[0] == "" {
+			http.Error(w, `{"error": "investigation ID required"}`, http.StatusBadRequest)
+			return
+		}
+
+		sessionID := parts[0]
+
+		if len(parts) == 1 {
+			if r.Method != http.MethodGet {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			inv, err := database.GetInvestigation(sessionID)
+			if err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+				return
+			}
+			if inv == nil {
+				http.Error(w, `{"error": "investigation not found"}`, http.StatusNotFound)
+				return
+			}
+			sendJSON(w, http.StatusOK, map[string]interface{}{
+				"investigation": inv,
+			})
+			return
+		}
+
+		if len(parts) == 2 {
+			action := parts[1]
+			switch action {
+			case "anomalies":
+				if r.Method != http.MethodGet {
+					http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+					return
+				}
+				anomalies, err := database.GetAnomaliesByInvestigation(sessionID)
+				if err != nil {
+					http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+					return
+				}
+				sendJSON(w, http.StatusOK, map[string]interface{}{
+					"investigation_id": sessionID,
+					"total":            len(anomalies),
+					"anomalies":        anomalies,
+				})
+				return
+			case "findings":
+				if r.Method != http.MethodGet {
+					http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+					return
+				}
+				findings, err := database.ListFindingsByInvestigation(sessionID)
+				if err != nil {
+					http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+					return
+				}
+				sendJSON(w, http.StatusOK, map[string]interface{}{
+					"investigation_id": sessionID,
+					"total":            len(findings),
+					"findings":         findings,
+				})
+				return
+			default:
+				http.Error(w, `{"error": "unknown investigation sub-resource"}`, http.StatusNotFound)
+				return
+			}
+		}
+
+		http.Error(w, `{"error": "unknown investigation sub-resource"}`, http.StatusNotFound)
+	})
+
+	// Also allow /api/investigations to list investigations (alias to /api/sessions)
+	mux.HandleFunc("/api/investigations", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+
+		sessions, err := database.ListInvestigations(50)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+			return
+		}
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"total": len(sessions),
+			"data":  sessions,
+		})
+	})
+
 	// 5. Chat History endpoint (backward compatible)
 	mux.HandleFunc("/api/chat/history", func(w http.ResponseWriter, r *http.Request) {
 		if enableCORS(w, r) {
@@ -639,6 +745,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 
 		wd, _ := os.Getwd()
 
+		chatLang := os.Getenv("NISKAVA_LANG")
+		if chatLang == "" {
+			chatLang = "id"
+		}
+
 		runnerParams := ipc.RunnerParams{
 			PythonBin: pythonBin,
 			WorkDir:   wd,
@@ -646,6 +757,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			Prompt:    req.Prompt,
 			SessionID: sessionID,
 			Offline:   os.Getenv("NISKAVA_OFFLINE") == "1",
+			Language:  chatLang,
 		}
 
 		eventsChan, errChan := ipc.RunSubprocess(chatCtx, runnerParams)
@@ -714,8 +826,8 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		}
 	})
 
-	// 5. Memory Graph JSON endpoint
-	mux.HandleFunc("/api/graph", func(w http.ResponseWriter, r *http.Request) {
+	// 5. Memory Graph JSON endpoint (registered on both /api/graph and /api/graph/data for web workspace compatibility)
+	graphHandler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if database == nil {
 			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
@@ -736,7 +848,9 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			"nodes":       nodes,
 			"edges":       edges,
 		})
-	})
+	}
+	mux.HandleFunc("/api/graph", graphHandler)
+	mux.HandleFunc("/api/graph/data", graphHandler)
 
 	// 6. Interactive Memory Graph View endpoint (serves full Cyber-OSINT visualizer)
 	mux.HandleFunc("/graph", func(w http.ResponseWriter, r *http.Request) {

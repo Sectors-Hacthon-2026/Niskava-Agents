@@ -390,3 +390,114 @@ func TestDB_Path_SelfHealing_And_SearchMessages(t *testing.T) {
 		t.Errorf("expected 0 results for empty query, got %d", len(blankResults))
 	}
 }
+
+func TestAnomaliesAndFindingsByInvestigation(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_anom_find.db")
+
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	invID := "INV-DB-TEST-001"
+	err = database.CreateInvestigation(&Investigation{
+		ID:            invID,
+		Ticker:        "BBCA",
+		Market:        "IDX",
+		TimeframeDays: 30,
+		Status:        "COMPLETED",
+	})
+	if err != nil {
+		t.Fatalf("failed to create investigation: %v", err)
+	}
+
+	// Verify empty queries return non-nil empty slices
+	anoms, err := database.GetAnomaliesByInvestigation(invID)
+	if err != nil {
+		t.Fatalf("GetAnomaliesByInvestigation failed: %v", err)
+	}
+	if anoms == nil || len(anoms) != 0 {
+		t.Errorf("expected empty non-nil slice, got %+v", anoms)
+	}
+
+	findings, err := database.ListFindingsByInvestigation(invID)
+	if err != nil {
+		t.Fatalf("ListFindingsByInvestigation failed: %v", err)
+	}
+	if findings == nil || len(findings) != 0 {
+		t.Errorf("expected empty non-nil slice, got %+v", findings)
+	}
+
+	// Insert anomaly
+	anom := &Anomaly{
+		ID:              "A1",
+		InvestigationID: invID,
+		AnomalyDate:     "2026-09-15",
+		MetricType:      "volume_z_score",
+		MetricValue:     20000000,
+		BaselineValue:   5000000,
+		ZScore:          3.8,
+		Description:     "Huge volume spike",
+	}
+	if err := database.CreateAnomaly(anom); err != nil {
+		t.Fatalf("CreateAnomaly failed: %v", err)
+	}
+
+	// Insert finding
+	finding := &Finding{
+		ID:                 "F1",
+		InvestigationID:    invID,
+		Title:              "Akumulasi Asing BBCA",
+		ClaimText:          "Inflow asing masif terdeteksi",
+		VerificationStatus: "SUPPORTED",
+		ConfidenceScore:    1.00,
+		CausalityStatus:    "LIKELY_CATALYST",
+	}
+	if err := database.CreateFinding(finding); err != nil {
+		t.Fatalf("CreateFinding failed: %v", err)
+	}
+
+	// Fetch again
+	anomsAfter, err := database.GetAnomaliesByInvestigation(invID)
+	if err != nil || len(anomsAfter) != 1 {
+		t.Fatalf("expected 1 anomaly, got %d (err: %v)", len(anomsAfter), err)
+	}
+	if anomsAfter[0].MetricType != "volume_z_score" || anomsAfter[0].ZScore != 3.8 {
+		t.Errorf("unexpected anomaly content: %+v", anomsAfter[0])
+	}
+
+	findingsAfter, err := database.ListFindingsByInvestigation(invID)
+	if err != nil || len(findingsAfter) != 1 {
+		t.Fatalf("expected 1 finding, got %d (err: %v)", len(findingsAfter), err)
+	}
+	if findingsAfter[0].Title != "Akumulasi Asing BBCA" || findingsAfter[0].ConfidenceScore != 1.00 {
+		t.Errorf("unexpected finding content: %+v", findingsAfter[0])
+	}
+}
+
+func TestAllSpecificationTablesCreated(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	expectedTables := []string{
+		"investigations", "anomalies", "findings", "evidence_items",
+		"timeline_events", "sectors_cache", "memory_nodes", "memory_edges",
+		"chat_sessions", "chat_messages", "suspension_records", "insider_filings",
+		"osint_cache",
+	}
+
+	for _, tbl := range expectedTables {
+		var count int
+		err := database.conn.QueryRow("SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?", tbl).Scan(&count)
+		if err != nil || count == 0 {
+			t.Errorf("expected table '%s' to exist in database schema", tbl)
+		}
+	}
+}

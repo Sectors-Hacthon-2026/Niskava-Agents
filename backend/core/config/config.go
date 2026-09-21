@@ -95,7 +95,7 @@ func DefaultConfig() *Config {
 			EnginePath: "./backend/engine",
 		},
 		Server: ServerConfig{
-			Port: 8080,
+			Port: 20128,
 		},
 		Preferences: PreferencesConfig{
 			DefaultMarket: "IDX",

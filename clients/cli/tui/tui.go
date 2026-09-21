@@ -119,17 +119,23 @@ type finishMsg struct{}
 
 func waitForEvent(eventsChan <-chan ipc.Event, errChan <-chan error) tea.Cmd {
 	return func() tea.Msg {
-		select {
-		case ev, ok := <-eventsChan:
-			if !ok {
-				return finishMsg{}
+		activeErr := errChan
+		for {
+			select {
+			case ev, ok := <-eventsChan:
+				if !ok {
+					return finishMsg{}
+				}
+				return eventMsg(ev)
+			case err, ok := <-activeErr:
+				if !ok {
+					activeErr = nil
+					continue
+				}
+				if err != nil {
+					return errMsg(err)
+				}
 			}
-			return eventMsg(ev)
-		case err, ok := <-errChan:
-			if ok && err != nil {
-				return errMsg(err)
-			}
-			return finishMsg{}
 		}
 	}
 }

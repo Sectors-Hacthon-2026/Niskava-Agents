@@ -80,6 +80,7 @@ type RunnerParams struct {
 	SessionID  string
 	Offline    bool
 	Prompt     string
+	Language   string
 }
 
 // RunSubprocess spawns the Python runner and returns a channel of streaming events.
@@ -121,6 +122,9 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 		if params.Offline {
 			args = append(args, "--offline")
 		}
+		if params.Language != "" {
+			args = append(args, "--language", params.Language)
+		}
 
 		cmd := exec.CommandContext(ctx, pythonBin, args...)
 		if params.WorkDir != "" {
@@ -138,6 +142,9 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
 		}
 		cmd.Env = append(cmd.Environ(), "PYTHONPATH="+pythonPath)
+		if params.Language != "" {
+			cmd.Env = append(cmd.Env, "NISKAVA_LANG="+params.Language)
+		}
 
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {

@@ -74,11 +74,11 @@ func GetDatabaseAge(dbPath string) string {
 	}
 	info, err := os.Stat(dbPath)
 	if err != nil {
-		return "1 day  since " + time.Now().Format("2006-01-02")
+		return TF("hud_age_one_day", time.Now().Format("2006-01-02"))
 	}
 	modTime := info.ModTime()
 	days := int(time.Since(modTime).Hours()/24) + 1
-	return fmt.Sprintf("%d days  since %s", days, modTime.Format("2006-01-02"))
+	return TF("hud_age_days", days, modTime.Format("2006-01-02"))
 }
 
 // RenderConstellationLine generates a horizontal divider with scattered nodes (◆, ●, ●●).
@@ -165,14 +165,14 @@ func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 		Val   string
 		IsHL  bool
 	}{
-		{Label: "DESIGNATION", Val: "NISKAVA (" + sessionID + ")", IsHL: false},
-		{Label: "SUBSTRATE", Val: "sectors-v2 / " + modelLabel, IsHL: false},
-		{Label: "RUNTIME", Val: T("hud_runtime_val"), IsHL: false},
-		{Label: "LANGUAGE", Val: T("hud_language_val"), IsHL: true},
-		{Label: "CONSCIOUS", Val: dbAge, IsHL: false},
-		{Label: "BRAIN SIZE", Val: dbSize, IsHL: false},
-		{Label: "INTERFACES", Val: "cli, web-workspace (" + serverURL + ")", IsHL: false},
-		{Label: "PURPOSE", Val: T("hud_purpose_val"), IsHL: false},
+		{Label: T("hud_lbl_designation"), Val: "NISKAVA (" + sessionID + ")", IsHL: false},
+		{Label: T("hud_lbl_substrate"), Val: "sectors-v2 / " + modelLabel, IsHL: false},
+		{Label: T("hud_lbl_runtime"), Val: T("hud_runtime_val"), IsHL: false},
+		{Label: T("hud_lbl_language"), Val: T("hud_language_val"), IsHL: true},
+		{Label: T("hud_lbl_conscious"), Val: dbAge, IsHL: false},
+		{Label: T("hud_lbl_brain_size"), Val: dbSize, IsHL: false},
+		{Label: T("hud_lbl_interfaces"), Val: "cli, web-workspace (" + serverURL + ")", IsHL: false},
+		{Label: T("hud_lbl_purpose"), Val: T("hud_purpose_val"), IsHL: false},
 	}
 
 	for _, spec := range specs {

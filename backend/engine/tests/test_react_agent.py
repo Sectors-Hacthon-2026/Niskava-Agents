@@ -30,3 +30,17 @@ def test_react_agent_investigation_cycle(tmp_path):
     assert "agent_observation" in event_types
     assert "finding_emitted" in event_types
     assert "session_complete" in event_types
+
+
+def test_system_prompt_includes_comprehensive_tool_catalog():
+    from engine.agent.react_agent import get_system_prompt
+    tools_summary = [
+        {"name": "get_broker_summary", "description": "Fetch top broker accumulation"},
+        {"name": "get_filings", "description": "Fetch insider filings"},
+        {"name": "skill_market_anomaly_recon", "description": "Recon quantitative anomalies"},
+    ]
+    prompt = get_system_prompt("id", available_tools=tools_summary)
+    assert "get_broker_summary" in prompt
+    assert "get_filings" in prompt
+    assert "skill_market_anomaly_recon" in prompt
+
