@@ -476,6 +476,12 @@ class LocalGraphMemory:
         H = G.subgraph(subgraph_nodes)
         now = datetime.now(timezone.utc)
 
+        # Identify superseded entity nodes across the graph
+        superseded_target_ids = set()
+        for u, v, data in G.edges(data=True):
+            if data.get("relation") == "SUPERSEDES":
+                superseded_target_ids.add(v)
+
         edges_out = []
         for u, v, data in H.edges(data=True):
             observed_str = data.get("last_observed_at", "")
@@ -491,6 +497,11 @@ class LocalGraphMemory:
             base_weight = float(data.get("weight", 1.0))
             decay_factor = math.exp(-self.lambda_decay * delta_days)
             effective_weight = round(base_weight * decay_factor, 4)
+
+            is_superseded = False
+            if (u in superseded_target_ids or v in superseded_target_ids) and data.get("relation") != "SUPERSEDES":
+                is_superseded = True
+                effective_weight = 0.0
 
             u_data = G.nodes[u]
             v_data = G.nodes[v]
@@ -510,10 +521,11 @@ class LocalGraphMemory:
                 "decay_factor": round(decay_factor, 4),
                 "days_ago": round(delta_days, 1),
                 "confidence_score": data.get("confidence_score", 1.0),
+                "is_superseded": is_superseded,
             })
 
-        # Sort edges by effective_weight descending
-        edges_out.sort(key=lambda e: e["effective_weight"], reverse=True)
+        # Sort edges by effective_weight descending (active facts first)
+        edges_out.sort(key=lambda e: (not e["is_superseded"], e["effective_weight"]), reverse=True)
 
         nodes_out = []
         for n in H.nodes():
@@ -546,7 +558,9 @@ class LocalGraphMemory:
             return ""
 
         lines = []
-        for e in edges[:max_edges]:
+        for e in edges:
+            if e.get("is_superseded") or e.get("relation") == "SUPERSEDES":
+                continue
             src = e["source_label"]
             tgt = e["target_label"]
             rel = e["relation"]
@@ -555,6 +569,8 @@ class LocalGraphMemory:
             days = e.get("days_ago", 0.0)
             recency = f" [{days:.0f}h lalu]" if days > 0 else " [hari ini]"
             lines.append(f"- ({src}) --[{rel}]--> ({tgt}){ctx_part}{recency}")
+            if len(lines) >= max_edges:
+                break
 
         if not lines:
             return ""

@@ -258,3 +258,26 @@ def test_graph_centrality_pagerank_and_bridges(temp_memory):
     assert "MIND ID" in labels[:2]
 
 
+def test_supersedes_relation_invalidates_prior_fact(temp_memory):
+    """Test SUPERSEDES relationship invalidating prior facts during retrieval."""
+    # Sesi 1: Buy ANTM 1450
+    temp_memory.store_observation("User", "HOLDS_AT", "Price: 1450", source_type="USER", target_type="PRICE_LEVEL", session_id="S1")
+    # Sesi 2: Take Profit ANTM 1620 superseding 1450
+    temp_memory.store_observation("User", "HOLDS_AT", "Price: 1620", source_type="USER", target_type="PRICE_LEVEL", session_id="S2")
+    temp_memory.store_observation("Price: 1620", "SUPERSEDES", "Price: 1450", source_type="PRICE_LEVEL", target_type="PRICE_LEVEL", session_id="S2")
+
+    ego = temp_memory.retrieve_ego_subgraph("User", radius=2)
+    active_edges = [e for e in ego["edges"] if not e.get("is_superseded")]
+    superseded_edges = [e for e in ego["edges"] if e.get("is_superseded")]
+
+    assert len(superseded_edges) >= 1
+    assert any(e["target_label"] == "Price: 1450" for e in superseded_edges)
+    assert any(e["target_label"] == "Price: 1620" for e in active_edges)
+
+    # In formatted prompt, superseded edges must be excluded from active facts
+    prompt = temp_memory.format_investigative_prompt("User")
+    assert "Price: 1620" in prompt
+    assert "Price: 1450" not in prompt
+
+
+
