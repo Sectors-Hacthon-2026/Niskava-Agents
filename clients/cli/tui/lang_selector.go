@@ -121,13 +121,13 @@ func (m LangSelectorModel) View() string {
 		}
 
 		if i == m.Cursor {
-			b.WriteString(langCursorStyle.Render("▶ ") + lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF")).Render(lineStr) + "\n")
+			b.WriteString(langCursorStyle.Render("▶ ") + lipgloss.NewStyle().Bold(true).Foreground(ColorFg).Render(lineStr) + "\n")
 		} else {
-			b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color("#94A3B8")).Render(lineStr) + "\n")
+			b.WriteString("  " + lipgloss.NewStyle().Foreground(ColorMuted).Render(lineStr) + "\n")
 		}
 	}
 
-	b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(T("lang_selector_hint")))
+	b.WriteString("\n" + lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(T("lang_selector_hint")))
 
 	return "\n" + langBoxStyle.Render(b.String()) + "\n"
 }

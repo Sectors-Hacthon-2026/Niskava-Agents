@@ -30,7 +30,7 @@ func PrintFullHelpGuide() {
 		Foreground(ColorFg)
 
 	mutedStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#94A3B8"))
+		Foreground(ColorMuted)
 
 	fmt.Println()
 	fmt.Println(RenderConstellationLine(85))

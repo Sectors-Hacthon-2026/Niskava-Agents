@@ -93,7 +93,7 @@ func (m SessionSelectorModel) View() string {
 	b.WriteString(sessionTitleStyle.Render(title) + "\n\n")
 
 	if len(m.Sessions) == 0 {
-		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#94A3B8")).Render(T("session_selector_empty")) + "\n")
+		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("session_selector_empty")) + "\n")
 		return "\n" + sessionBoxStyle.Render(b.String()) + "\n"
 	}
 
@@ -121,14 +121,14 @@ func (m SessionSelectorModel) View() string {
 
 		if i == m.Cursor {
 			b.WriteString(sessionCursorStyle.Render("▶ ") + sessionActiveStyle.Render(lineTitle) + "\n")
-			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#A7F3D0")).Render(previewLine) + "\n")
+			b.WriteString(lipgloss.NewStyle().Foreground(ColorAccent).Render(previewLine) + "\n")
 		} else {
-			b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color("#E2E8F0")).Render(lineTitle) + "\n")
+			b.WriteString("  " + lipgloss.NewStyle().Foreground(ColorFg).Render(lineTitle) + "\n")
 			b.WriteString(sessionMetaStyle.Render(previewLine) + "\n")
 		}
 	}
 
-	b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(T("session_selector_hint")))
+	b.WriteString("\n" + lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(T("session_selector_hint")))
 
 	return "\n" + sessionBoxStyle.Render(b.String()) + "\n"
 }

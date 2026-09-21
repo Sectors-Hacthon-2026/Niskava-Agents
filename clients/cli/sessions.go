@@ -58,7 +58,7 @@ func printFormattedSessions(database *db.DB, sType string, limit int, w io.Write
 			}
 		}
 		fmt.Fprintln(w, "─────────────────────────────────────────────────────────────────────────────")
-		fmt.Fprintln(w, lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render("Tip: Gunakan 'niskava -s <SESSION_ID>' atau '/resume <ID>' di REPL untuk melanjutkan sesi."))
+		fmt.Fprintln(w, lipgloss.NewStyle().Foreground(lipgloss.Color("#848E9C")).Italic(true).Render("Tip: Gunakan 'niskava -s <SESSION_ID>' atau '/resume <ID>' di REPL untuk melanjutkan sesi."))
 	}
 
 	if sType == "all" || sType == "investigation" || sType == "investigations" || sType == "inv" {
@@ -67,7 +67,7 @@ func printFormattedSessions(database *db.DB, sType string, limit int, w io.Write
 			return fmt.Errorf("failed to retrieve investigations: %w", err)
 		}
 
-		fmt.Fprintln(w, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00E5FF")).Render("\n📊 RIWAYAT INVESTIGASI AUDIT PASAR (PIPELINE SESSIONS)"))
+		fmt.Fprintln(w, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FCD535")).Render("\n📊 RIWAYAT INVESTIGASI AUDIT PASAR (PIPELINE SESSIONS)"))
 		fmt.Fprintln(w, "─────────────────────────────────────────────────────────────────────────────")
 		fmt.Fprintf(w, "%-22s %-8s %-12s %-16s %s\n", "SESSION ID", "TICKER", "STATUS", "STARTED AT", "SUMMARY")
 		fmt.Fprintln(w, "─────────────────────────────────────────────────────────────────────────────")
@@ -86,11 +86,11 @@ func printFormattedSessions(database *db.DB, sType string, limit int, w io.Write
 				statusStyled := inv.Status
 				switch inv.Status {
 				case "COMPLETED":
-					statusStyled = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E676")).Render("COMPLETED")
+					statusStyled = lipgloss.NewStyle().Foreground(lipgloss.Color("#0ECB81")).Render("COMPLETED")
 				case "RUNNING":
-					statusStyled = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Render("RUNNING")
+					statusStyled = lipgloss.NewStyle().Foreground(lipgloss.Color("#FCD535")).Render("RUNNING")
 				case "FAILED":
-					statusStyled = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF1744")).Render("FAILED")
+					statusStyled = lipgloss.NewStyle().Foreground(lipgloss.Color("#F6465D")).Render("FAILED")
 				}
 				dateStr := inv.StartedAt
 				if len(dateStr) > 16 {
