@@ -639,6 +639,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 
 		wd, _ := os.Getwd()
 
+		chatLang := os.Getenv("NISKAVA_LANG")
+		if chatLang == "" {
+			chatLang = "id"
+		}
+
 		runnerParams := ipc.RunnerParams{
 			PythonBin: pythonBin,
 			WorkDir:   wd,
@@ -646,6 +651,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			Prompt:    req.Prompt,
 			SessionID: sessionID,
 			Offline:   os.Getenv("NISKAVA_OFFLINE") == "1",
+			Language:  chatLang,
 		}
 
 		eventsChan, errChan := ipc.RunSubprocess(chatCtx, runnerParams)
