@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/server"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/clients/cli/tui"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
@@ -53,21 +54,18 @@ for the Web Workspace and external clients on http://localhost:20128.`,
 			dbPath = cfg.Storage.DBPath
 		}
 
-		serverInfo := fmt.Sprintf(
-			"NISKAVA DAEMON ONLINE\n• Local URL : %s\n• Market    : IDX\n• Database  : %s\n• Status    : REST API & SSE Ready\n(Tekan Ctrl+C untuk menghentikan server)",
-			srv.URL, dbPath,
-		)
+		serverInfo := tui.TF("serve_online_box", srv.URL, dbPath)
 		fmt.Println("\n" + box.Render(serverInfo) + "\n")
 
 		if openFlag {
-			fmt.Printf("Membuka browser otomatis: %s\n", srv.URL)
+			fmt.Printf(tui.T("serve_opening_browser"), srv.URL)
 			_ = server.OpenBrowser(srv.URL)
 		}
 
 		<-sigChan
-		fmt.Println("\nMenghentikan server daemon...")
+		fmt.Println(tui.T("serve_stopping"))
 		cancel()
-		fmt.Println("[✓] Server berhenti dengan aman.")
+		fmt.Println(tui.T("serve_stopped_gracefully"))
 		return nil
 	},
 }

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/server"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/clients/cli/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -66,7 +67,7 @@ Example:
 			execArgs = append(execArgs, "--session", graphSessionFlag)
 		}
 
-		fmt.Printf("Mengekspor Market Intelligence Knowledge Graph ke %s...\n", expandedOutput)
+		fmt.Printf(tui.T("graph_exporting"), expandedOutput)
 
 		proc := exec.Command(pythonBin, execArgs...)
 		proc.Dir = wd
@@ -80,14 +81,14 @@ Example:
 			return fmt.Errorf("gagal mengekspor visualisasi graf: %w\nOutput: %s", err, string(out))
 		}
 
-		fmt.Printf("[✓] File visualisasi graf berhasil dibuat: %s\n", expandedOutput)
+		fmt.Printf(tui.T("graph_exported_success"), expandedOutput)
 
 		if graphOpenFlag {
 			fileURL := fmt.Sprintf("file://%s", expandedOutput)
-			fmt.Printf("Membuka di peramban web: %s\n", fileURL)
+			fmt.Printf(tui.T("graph_opening_browser"), fileURL)
 			_ = server.OpenBrowser(fileURL)
 		} else {
-			fmt.Printf("Tip: Jalankan dengan flag --open atau buka langsung di browser Anda:\n  file://%s\n", expandedOutput)
+			fmt.Printf(tui.T("graph_tip"), expandedOutput)
 		}
 
 		return nil
