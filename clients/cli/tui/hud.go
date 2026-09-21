@@ -11,46 +11,36 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Lipgloss Color Palette for NISKAVA-HUD (Light Green / Matrix OSINT Aesthetic)
+// Lipgloss Color Palette for NISKAVA-HUD (Binance Dark Financial OSINT Aesthetic)
 var (
-	// Light Green Theme Palette
-	colorPrimaryGreen = lipgloss.Color("#22C55E") // Bright Emerald Green
-	colorLightGreen   = lipgloss.Color("#4ADE80") // Light Lime Green
-	colorMintGreen    = lipgloss.Color("#86EFAC") // Soft Mint Accent
-	colorDarkGreenBg  = lipgloss.Color("#052E16") // Deep Green Midnight Slate
-	colorGoldAccent   = lipgloss.Color("#FACC15") // Cyber Gold / Amber
-	colorMutedSlate   = lipgloss.Color("#64748B") // Subdued Slate
-	colorSoftWhite    = lipgloss.Color("#F8FAFC") // Text White
-	colorCyanDot      = lipgloss.Color("#38BDF8") // Subtle Cyan Node Accent
-
-	// Text & Box Styles
+	// Palette Aliases for HUD
 	hudTitleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(colorLightGreen)
+			Foreground(ColorAccent)
 
 	hudSubtitleStyle = lipgloss.NewStyle().
 				Italic(true).
-				Foreground(colorMintGreen)
+				Foreground(ColorMuted)
 
 	labelStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(colorLightGreen)
+			Foreground(ColorAccent)
 
 	valueStyle = lipgloss.NewStyle().
-			Foreground(colorSoftWhite)
+			Foreground(ColorFg)
 
 	valueHighlightStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(colorGoldAccent)
+				Foreground(ColorAccent)
 
 	statusDotStyle = lipgloss.NewStyle().
-			Foreground(colorGoldAccent)
+			Foreground(ColorAccent)
 
 	matrixDotStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#166534")) // Subdued matrix green
+			Foreground(ColorMuted) // Subdued slate node
 
 	constellationLineStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#15803D")) // Line green
+				Foreground(ColorMuted) // Slate divider
 )
 
 // GetDatabaseSizeMB returns formatted size of the SQLite database file.
@@ -90,14 +80,14 @@ func RenderConstellationLine(width int) string {
 	// Create pattern line
 	var sb strings.Builder
 	nodes := map[int]string{
-		12: lipgloss.NewStyle().Foreground(colorCyanDot).Render("◆"),
-		24: lipgloss.NewStyle().Foreground(colorLightGreen).Render("◆"),
-		30: lipgloss.NewStyle().Foreground(colorLightGreen).Render("◆"),
-		36: lipgloss.NewStyle().Foreground(colorGoldAccent).Render("●●"),
-		48: lipgloss.NewStyle().Foreground(colorCyanDot).Render("◆"),
-		60: lipgloss.NewStyle().Foreground(colorGoldAccent).Render("●"),
-		68: lipgloss.NewStyle().Foreground(colorGoldAccent).Render("●"),
-		72: lipgloss.NewStyle().Foreground(colorCyanDot).Render("◆"),
+		12: lipgloss.NewStyle().Foreground(ColorThought).Render("◆"),
+		24: lipgloss.NewStyle().Foreground(ColorAccent).Render("◆"),
+		30: lipgloss.NewStyle().Foreground(ColorAccent).Render("◆"),
+		36: lipgloss.NewStyle().Foreground(ColorAccent).Render("●●"),
+		48: lipgloss.NewStyle().Foreground(ColorThought).Render("◆"),
+		60: lipgloss.NewStyle().Foreground(ColorAccent).Render("●"),
+		68: lipgloss.NewStyle().Foreground(ColorAccent).Render("●"),
+		72: lipgloss.NewStyle().Foreground(ColorThought).Render("◆"),
 	}
 
 	for i := 0; i < width; i++ {
@@ -140,7 +130,7 @@ func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 
 	// 3. Status Dots Indicator
 	b.WriteString("\n")
-	b.WriteString(statusDotStyle.Render("● ● ● ●") + "  " + lipgloss.NewStyle().Foreground(colorMutedSlate).Render(T("hud_system_online")))
+	b.WriteString(statusDotStyle.Render("● ● ● ●") + "  " + lipgloss.NewStyle().Foreground(ColorMuted).Render(T("hud_system_online")))
 	b.WriteString("\n\n")
 
 	// 4. Motto Tagline

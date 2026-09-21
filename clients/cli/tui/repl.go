@@ -21,52 +21,52 @@ import (
 )
 
 var (
-	// Terminal Color Styles (Light Green / Matrix OSINT Aesthetic)
+	// Terminal Color Styles (Binance Dark Financial OSINT Aesthetic)
 	promptBoxStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#4ADE80"))
+			Foreground(ColorAccent)
 
 	userBubbleStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#22C55E")).
-			Foreground(lipgloss.Color("#F8FAFC")).
+			BorderForeground(ColorAccent).
+			Foreground(ColorFg).
 			Padding(0, 1).
 			MarginTop(1)
 
 	thoughtStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#86EFAC")).
+			Foreground(ColorThought).
 			Italic(true)
 
 	toolCallStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FACC15")).
+			Foreground(ColorAccent).
 			Bold(true)
 
 	observationStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#4ADE80"))
+				Foreground(ColorSuccess)
 
 	replAnomalyBoxStyle = lipgloss.NewStyle().
 				Border(lipgloss.NormalBorder()).
-				BorderForeground(lipgloss.Color("#EF4444")).
-				Foreground(lipgloss.Color("#FCA5A5")).
+				BorderForeground(ColorDanger).
+				Foreground(ColorFg).
 				Padding(0, 1).
 				MarginTop(1)
 
 	supportedBadgeStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#052E16")).
-				Background(lipgloss.Color("#22C55E")).
+				Foreground(ColorBg).
+				Background(ColorSuccess).
 				Padding(0, 1)
 
 	uncertainBadgeStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#0F172A")).
-				Background(lipgloss.Color("#FACC15")).
+				Foreground(ColorBg).
+				Background(ColorWarning).
 				Padding(0, 1)
 
 	contradictedBadgeStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#FFFFFF")).
-				Background(lipgloss.Color("#EF4444")).
+				Foreground(ColorFg).
+				Background(ColorDanger).
 				Padding(0, 1)
 )
 
@@ -203,14 +203,14 @@ func (m ReplInputModel) View() string {
 	if m.SlashActive && len(m.FilteredCommands) > 0 {
 		popupHeader := lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#052E16")).
-			Background(lipgloss.Color("#22C55E")).
+			Foreground(ColorBg).
+			Background(ColorAccent).
 			Padding(0, 1).
 			Render(T("slash_popup_header"))
 
 		boxStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#22C55E")).
+			BorderForeground(ColorAccent).
 			Padding(0, 1)
 
 		var popupLines []string
@@ -219,19 +219,19 @@ func (m ReplInputModel) View() string {
 		for i, sc := range m.FilteredCommands {
 			cursor := "  "
 			if i == m.SlashCursor {
-				cursor = "▶ "
+				cursor = "> "
 			}
 
 			cmdStr := fmt.Sprintf("%-12s", sc.Command)
 			descStr := sc.Description
 
 			if i == m.SlashCursor {
-				cmdR := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00FF87")).Render(cmdStr)
-				descR := lipgloss.NewStyle().Foreground(lipgloss.Color("#F8FAFC")).Render(descStr)
-				popupLines = append(popupLines, fmt.Sprintf("%s%s %s", lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF87")).Render(cursor), cmdR, descR))
+				cmdR := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(cmdStr)
+				descR := lipgloss.NewStyle().Foreground(ColorFg).Render(descStr)
+				popupLines = append(popupLines, fmt.Sprintf("%s%s %s", lipgloss.NewStyle().Foreground(ColorAccent).Render(cursor), cmdR, descR))
 			} else {
-				cmdR := lipgloss.NewStyle().Foreground(lipgloss.Color("#4ADE80")).Render(cmdStr)
-				descR := lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Render(descStr)
+				cmdR := lipgloss.NewStyle().Foreground(ColorAccent).Render(cmdStr)
+				descR := lipgloss.NewStyle().Foreground(ColorMuted).Render(descStr)
 				popupLines = append(popupLines, fmt.Sprintf("  %s %s", cmdR, descR))
 			}
 		}

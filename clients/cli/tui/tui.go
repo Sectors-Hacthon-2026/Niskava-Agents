@@ -13,61 +13,72 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Aesthetic styles using lipgloss (Light Green / Matrix OSINT Theme)
+// Aesthetic styles using lipgloss (Binance Dark Financial OSINT Theme)
 var (
+	// Base Palette Definitions
+	ColorBg        = lipgloss.Color("#1E2329") // Dark Slate
+	ColorFg        = lipgloss.Color("#FFFFFF") // Pure White
+	ColorAccent    = lipgloss.Color("#FCD535") // Financial Gold Accent
+	ColorMuted     = lipgloss.Color("#848E9C") // Slate Gray
+	ColorSuccess   = lipgloss.Color("#0ECB81") // Financial Green
+	ColorWarning   = lipgloss.Color("#F69C00") // Amber Orange
+	ColorDanger    = lipgloss.Color("#F6465D") // Financial Red
+	ColorThought   = lipgloss.Color("#00F0FF") // Electric Cyan
+
+	// Feature Styles
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#22C55E")).
-			Background(lipgloss.Color("#052E16")).
+			Foreground(ColorBg).
+			Background(ColorAccent).
 			Padding(0, 1)
 
 	tickerBadgeStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#052E16")).
-				Background(lipgloss.Color("#4ADE80")).
+				Foreground(ColorBg).
+				Background(ColorFg).
 				Padding(0, 1)
 
 	thoughtBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#22C55E")).
+			BorderForeground(ColorThought).
 			Padding(0, 1).
-			Foreground(lipgloss.Color("#86EFAC")).
+			Foreground(ColorFg).
 			Italic(true)
 
 	toolCallingStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#FACC15"))
+				Foreground(ColorAccent)
 
 	toolDoneStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#22C55E"))
+			Foreground(ColorSuccess)
 
 	anomalyBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("#EF4444")).
+			BorderForeground(ColorDanger).
 			Padding(0, 1).
-			Foreground(lipgloss.Color("#FCA5A5"))
+			Foreground(ColorFg)
 
 	supportedStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#22C55E")).
+			Foreground(ColorSuccess).
 			SetString("[SUPPORTED]")
 
 	uncertainStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#FACC15")).
+			Foreground(ColorWarning).
 			SetString("[UNCERTAIN]")
 
 	contradictedStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#EF4444")).
+				Foreground(ColorDanger).
 				SetString("[CONTRADICTED]")
 
 	disclaimerBoxStyle = lipgloss.NewStyle().
 				Border(lipgloss.NormalBorder()).
-				BorderForeground(lipgloss.Color("#475569")).
+				BorderForeground(ColorMuted).
 				Padding(0, 1).
-				Foreground(lipgloss.Color("#94A3B8"))
+				Foreground(ColorMuted)
 )
 
 // ToolActivity tracks a single tool invocation step.
@@ -100,7 +111,7 @@ type Model struct {
 func NewModel(ticker string, days int, dbPath string, eventsChan <-chan ipc.Event, errChan <-chan error) Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#4ADE80"))
+	s.Style = lipgloss.NewStyle().Foreground(ColorAccent)
 
 	return Model{
 		Ticker:     ticker,
@@ -222,19 +233,19 @@ func (m Model) View() string {
 
 	// 2. Live Thought Stream (ReAct Inner Monologue)
 	if m.CurrentThought != "" {
-		thoughtHeader := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#38BDF8")).Render(T("agent_reasoning"))
+		thoughtHeader := lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(T("agent_reasoning"))
 		b.WriteString(fmt.Sprintf("%s\n", thoughtHeader))
 		b.WriteString(thoughtBoxStyle.Render(m.CurrentThought) + "\n\n")
 	}
 
 	// 3. Dynamic Tool Invocations
 	if len(m.ToolActivities) > 0 {
-		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#F8FAFC")).Render(T("tool_activity")) + "\n")
+		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(ColorFg).Render(T("tool_activity")) + "\n")
 		for _, act := range m.ToolActivities {
 			if act.Done {
 				b.WriteString(fmt.Sprintf("  %s %s\n", toolDoneStyle.Render("✔"), lipgloss.NewStyle().Bold(true).Render(act.ToolName)))
 				if act.Observation != "" {
-					b.WriteString(fmt.Sprintf("    %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("#94A3B8")).Render(act.Observation)))
+					b.WriteString(fmt.Sprintf("    %s\n", lipgloss.NewStyle().Foreground(ColorMuted).Render(act.Observation)))
 				}
 			} else {
 				b.WriteString(fmt.Sprintf("  %s %s %s...\n", toolCallingStyle.Render("⚡"), m.Spinner.View(), act.ToolName))
@@ -256,7 +267,7 @@ func (m Model) View() string {
 	// 5. Findings Section (Audit Trail 3-Tier Taxonomy)
 	if len(m.Findings) > 0 {
 		b.WriteString("─────────────────────────────────────────────────────────────────────────────\n")
-		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF")).Render(T("audit_trail_summary")) + "\n")
+		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(ColorFg).Render(T("audit_trail_summary")) + "\n")
 
 		for _, f := range m.Findings {
 			var badge string
@@ -280,7 +291,7 @@ func (m Model) View() string {
 	// 6. Final Summary
 	if m.Summary != "" {
 		b.WriteString("\n─────────────────────────────────────────────────────────────────────────────\n")
-		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00E5FF")).Render(m.Summary) + "\n")
+		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(m.Summary) + "\n")
 	}
 
 	// 7. Non-Advisory Disclaimer Footer (Law 2 / Hackathon Rule 12)
@@ -294,7 +305,7 @@ func (m Model) View() string {
 	}
 
 	if m.Err != nil {
-		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(fmt.Sprintf("\n[ERROR] %v\n", m.Err)))
+		b.WriteString(lipgloss.NewStyle().Foreground(ColorDanger).Render(fmt.Sprintf("\n[ERROR] %v\n", m.Err)))
 	}
 
 	return b.String()
