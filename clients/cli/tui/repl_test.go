@@ -368,3 +368,98 @@ func TestI18nRepl_SessionKeys(t *testing.T) {
 	}
 	SetLanguage("en")
 }
+
+func TestI18nAllNewKeysExistInBothLanguages(t *testing.T) {
+	newKeys := []string{
+		"slash_back_desc",
+		"repl_back_msg",
+		"repl_chats_saved_notice",
+		"slash_chats_desc",
+		"slash_resume_desc",
+		"session_selector_title",
+		"session_selector_hint",
+		"session_selector_empty",
+	}
+
+	for _, key := range newKeys {
+		// Test English
+		SetLanguage("en")
+		val := T(key)
+		if val == key {
+			t.Errorf("missing English translation for i18n key '%s'", key)
+		}
+		if val == "" {
+			t.Errorf("empty English translation for i18n key '%s'", key)
+		}
+
+		// Test Indonesian
+		SetLanguage("id")
+		val = T(key)
+		if val == key {
+			t.Errorf("missing Indonesian translation for i18n key '%s'", key)
+		}
+		if val == "" {
+			t.Errorf("empty Indonesian translation for i18n key '%s'", key)
+		}
+	}
+
+	// Reset
+	SetLanguage("en")
+}
+
+func TestBannerHintContainsChatsAndBack(t *testing.T) {
+	SetLanguage("en")
+	hint := T("banner_hint")
+	if !strings.Contains(hint, "/chats") {
+		t.Error("banner_hint should mention /chats command")
+	}
+	if !strings.Contains(hint, "/back") {
+		t.Error("banner_hint should mention /back command")
+	}
+
+	SetLanguage("id")
+	hintID := T("banner_hint")
+	if !strings.Contains(hintID, "/chats") {
+		t.Error("banner_hint (id) should mention /chats command")
+	}
+	if !strings.Contains(hintID, "/back") {
+		t.Error("banner_hint (id) should mention /back command")
+	}
+
+	SetLanguage("en")
+}
+
+func TestSlashCommandsListContainsBack(t *testing.T) {
+	SetLanguage("en")
+	cmds := GetLocalizedSlashCommands()
+	found := false
+	for _, c := range cmds {
+		if c.Command == "/back" {
+			found = true
+			if c.Description == "" {
+				t.Error("/back command should have a non-empty description")
+			}
+		}
+	}
+	if !found {
+		t.Error("expected '/back' to be present in GetLocalizedSlashCommands()")
+	}
+
+	SetLanguage("id")
+	cmdsID := GetLocalizedSlashCommands()
+	foundID := false
+	for _, c := range cmdsID {
+		if c.Command == "/back" {
+			foundID = true
+			if c.Description == "" {
+				t.Error("/back command should have a non-empty description in Indonesian")
+			}
+		}
+	}
+	if !foundID {
+		t.Error("expected '/back' to be present in GetLocalizedSlashCommands() (id)")
+	}
+
+	SetLanguage("en")
+}
+
