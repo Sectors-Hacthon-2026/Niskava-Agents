@@ -67,3 +67,21 @@ def test_skill_tool_execution(tmp_path):
     assert isinstance(res, dict)
     assert res["skill_id"] == "market-anomaly-recon"
     assert "metrics" in res
+
+
+def test_all_tool_and_skill_definitions_exposed(tmp_path):
+    registry = NiskavaToolRegistry(db_path=str(tmp_path / "test.db"), mock_mode=True)
+    defs = registry.get_tool_definitions()
+    names = [d["name"] for d in defs]
+    assert len(defs) == 20, f"Expected 20 definitions, got {len(defs)}: {names}"
+    expected_skills = [
+        "skill_mining_commodity_divergence",
+        "skill_event_causality_audit",
+        "skill_insider_bandarmology_forensic",
+        "skill_financial_health_stress_test",
+        "skill_market_anomaly_recon",
+        "skill_peer_valuation_benchmark",
+    ]
+    for skill_name in expected_skills:
+        assert skill_name in names, f"Missing skill definition: {skill_name}"
+

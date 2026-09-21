@@ -173,6 +173,31 @@ class TestAgentMultiTurnAndSessions(unittest.TestCase):
             # Validate final response
             self.assertIn("Analisis selesai. Ditemukan anomali volume ANTM.", res["response"])
 
+    def test_history_deduplication_of_current_prompt(self) -> None:
+        session_id = "TEST-DEDUP-001"
+        prompt = "Berapa rasio PE dan PBV saham BBRI?"
+        # Simulate server saving user prompt before agent execution
+        with sqlite3.connect(self.tmp_db) as conn:
+            conn.execute(
+                "INSERT INTO chat_messages (id, session_id, role, content) VALUES (?, ?, ?, ?)",
+                ("MSG-1", session_id, "user", prompt),
+            )
+
+        history = self.agent._get_compacted_history(session_id, max_turns=8)
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["content"], prompt)
+
+        # Inspect prepared messages inside agent
+        prepared = self.agent._prepare_chat_messages(
+            dynamic_system_prompt="SYSTEM PROMPT",
+            user_prompt=prompt,
+            history=history,
+        )
+        # Ensure user prompt only appears once at the end
+        user_msgs = [m for m in prepared if m["role"] == "user"]
+        self.assertEqual(len(user_msgs), 1, "User prompt must not be duplicated in LLM payload")
+        self.assertEqual(user_msgs[0]["content"], prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

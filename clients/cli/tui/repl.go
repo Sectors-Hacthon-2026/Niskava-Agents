@@ -242,8 +242,36 @@ func (m ReplInputModel) View() string {
 	return b.String()
 }
 
+// renderResumedHistory displays past user and assistant turns when resuming an earlier session.
+func renderResumedHistory(appDB *db.DB, sessionID string) {
+	if appDB == nil {
+		return
+	}
+	history, err := appDB.GetChatHistory(sessionID, 50)
+	if err != nil || len(history) == 0 {
+		return
+	}
+
+	fmt.Println()
+	divider := lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Render(fmt.Sprintf("━━━ Riwayat Sesi Sebelumnya (%d Pesan) ━━━", len(history)))
+	fmt.Println(divider)
+
+	for _, msg := range history {
+		if msg.Role == "user" {
+			userBox := userBubbleStyle.Render(fmt.Sprintf("👤 Anda: %s", msg.Content))
+			fmt.Println(userBox)
+		} else if msg.Role == "assistant" {
+			fmt.Println("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#22C55E")).Bold(true).Render("⚡ Niskava Agent:"))
+			renderFinalMarkdown(msg.Content)
+		}
+	}
+
+	fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Render("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━") + "\n")
+}
+
 // RunLiveREPL starts an interactive, conversational research assistant session.
-func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
+// If initialSessionID is provided and non-empty, it resumes that session directly.
+func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSessionID ...string) {
 	// Determine active model display
 	modelLabel := cfg.Auth.OpenAIModel
 	if modelLabel == "" {
@@ -255,8 +283,15 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 	}
 
 	sessionID := fmt.Sprintf("CHAT-%s-%04d", time.Now().Format("20060102"), time.Now().Unix()%10000)
+	if len(initialSessionID) > 0 && strings.TrimSpace(initialSessionID[0]) != "" {
+		sessionID = strings.TrimSpace(initialSessionID[0])
+	}
 
 	renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
+
+	if len(initialSessionID) > 0 && strings.TrimSpace(initialSessionID[0]) != "" {
+		renderResumedHistory(appDB, sessionID)
+	}
 
 	promptPrefix := fmt.Sprintf("niskava [%s] >", modelLabel)
 
@@ -347,6 +382,54 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 
 		if lower == "/sessions" {
 			printSessions(appDB)
+			continue
+		}
+
+		if lower == "/chats" {
+			if appDB == nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render("  [!] Database SQLite tidak tersedia."))
+				continue
+			}
+			chatList, _, errList := appDB.ListChatSessions(30, 0, "")
+			if errList != nil {
+				fmt.Printf("  [!] Gagal mengambil riwayat sesi: %v\n", errList)
+				continue
+			}
+			selector := NewSessionSelectorModel(chatList)
+			pSel := tea.NewProgram(selector)
+			mSel, errRun := pSel.Run()
+			if errRun == nil {
+				res := mSel.(SessionSelectorModel)
+				if !res.Canceled && res.SelectedSession != nil {
+					sessionID = res.SelectedSession.ID
+					fmt.Print("\033[H\033[2J")
+					renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
+					fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(fmt.Sprintf("  [✓] Beralih ke sesi: %s (%s)", sessionID, res.SelectedSession.Title)))
+					renderResumedHistory(appDB, sessionID)
+				}
+			}
+			continue
+		}
+
+		if strings.HasPrefix(lower, "/resume") {
+			parts := strings.Fields(input)
+			if len(parts) < 2 {
+				fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#FACC15")).Render("  [!] Format penggunaan: /resume <SESSION_ID> (atau ketik /chats untuk memilih)"))
+				continue
+			}
+			targetID := strings.TrimSpace(parts[1])
+			if appDB != nil {
+				sess, errGet := appDB.GetChatSession(targetID)
+				if errGet != nil || sess == nil {
+					fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(fmt.Sprintf("  [!] Sesi '%s' tidak ditemukan di database lokal.", targetID)))
+					continue
+				}
+				sessionID = sess.ID
+				fmt.Print("\033[H\033[2J")
+				renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
+				fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(fmt.Sprintf("  [✓] Melanjutkan sesi: %s (%s)", sessionID, sess.Title)))
+				renderResumedHistory(appDB, sessionID)
+			}
 			continue
 		}
 
@@ -602,6 +685,8 @@ func printHelp() {
 	fmt.Println(T("help_ticker_desc"))
 	fmt.Println(T("help_graph_desc"))
 	fmt.Println(T("help_reset_desc"))
+	fmt.Println("  • /chats        : " + T("slash_chats_desc"))
+	fmt.Println("  • /resume <id>  : " + T("slash_resume_desc"))
 	fmt.Println(T("help_sessions_desc"))
 	fmt.Println(T("help_web_desc"))
 	fmt.Println(T("help_health_desc"))

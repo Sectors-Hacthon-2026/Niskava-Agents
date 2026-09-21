@@ -20,7 +20,10 @@ from engine.sectors.tickers import extract_valid_tickers, is_valid_idx_ticker
 from engine.utils.resilience import RetryConfig, execute_with_retry
 
 
-def get_system_prompt(language: str = "id") -> str:
+def get_system_prompt(
+    language: str = "id",
+    available_tools: Optional[List[Dict[str, Any]]] = None,
+) -> str:
     lang = (language or "id").lower()
     if lang == "en":
         persona_lang = "- Communicate naturally in professional, clear, and engaging English."
@@ -32,6 +35,14 @@ def get_system_prompt(language: str = "id") -> str:
         market_news_hint = "When the user asks about general market news (\"cek berita hari ini\", \"sentimen pasar\"), use 'harvest_market_news' with no ticker to provide a structured overview of market headlines."
         thought_hint = "<thought>Internal reasoning in Indonesian about user intent and what data (if any) is needed</thought>"
         resp_hint = "[Your comprehensive, natural response in Indonesian]"
+
+    tools_section = ""
+    if available_tools:
+        tools_section = "\n=== AVAILABLE DETERMINISTIC TOOLS & DOMAIN SKILLS ===\n"
+        for t in available_tools:
+            props = t.get("parameters", {}).get("properties", {})
+            args_str = ", ".join(props.keys()) if props else "none"
+            tools_section += f"- `{t['name']}`: {t.get('description', '')} [args: {args_str}]\n"
 
     return f"""You are Niskava Agent, an intelligent financial research assistant and market intelligence specialist for the Indonesia Stock Exchange (IDX). You assist equity analysts, financial journalists, and retail traders with market analysis, fundamental research, news, regulatory insights, and quantitative investigations.
 
@@ -53,7 +64,7 @@ def get_system_prompt(language: str = "id") -> str:
      * [UNCERTAIN]: Correlation observed, but causality unverified (rumors, social media).
      * [CONTRADICTED]: Claims refuted by official disclosures or financial facts.
    - Always conclude formal stock investigations with the standard non-advisory disclaimer.
-
+{tools_section}
 === INTERACTION PROTOCOL (ReAct XML) ===
 Think step-by-step:
 {thought_hint}
@@ -443,6 +454,31 @@ class NiskavaReActAgent:
 
         return res
 
+    def _prepare_chat_messages(
+        self,
+        dynamic_system_prompt: str,
+        user_prompt: str,
+        history: Optional[List[Dict[str, str]]],
+    ) -> List[Dict[str, str]]:
+        """Construct sanitized LLM message array without trailing user prompt duplication."""
+        messages: List[Dict[str, str]] = [
+            {"role": "system", "content": dynamic_system_prompt},
+        ]
+        if history:
+            clean_history = list(history)
+            if (
+                clean_history
+                and clean_history[-1].get("role") == "user"
+                and clean_history[-1].get("content", "").strip() == user_prompt.strip()
+            ):
+                clean_history.pop()
+
+            for h in clean_history:
+                messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+
+        messages.append({"role": "user", "content": user_prompt})
+        return messages
+
     def _run_universal_chat_cycle(
         self,
         session_id: str,
@@ -464,7 +500,12 @@ class NiskavaReActAgent:
 
         now = datetime.now()
         current_date_str = now.strftime("%Y-%m-%d (%A)")
-        system_prompt_base = get_system_prompt(self.language)
+        tool_defs = (
+            self.tools.get_tool_definitions()
+            if self.tools and hasattr(self.tools, "get_tool_definitions")
+            else []
+        )
+        system_prompt_base = get_system_prompt(self.language, available_tools=tool_defs)
         dynamic_system_prompt = (
             f"{system_prompt_base}\n\n"
             f"=== REAL-WORLD TEMPORAL CONTEXT ===\n"
@@ -475,13 +516,11 @@ class NiskavaReActAgent:
             f"- Provenance Rule: If the user asks where data came from ('itu data darimana?'), explicitly and transparently explain the real data pipelines used (Sectors Financial API v2 for official IDX candlestick & fundamental data, and Google News RSS / IDX disclosures for news).\n"
         )
 
-        messages: List[Dict[str, str]] = [
-            {"role": "system", "content": dynamic_system_prompt},
-        ]
-        if history:
-            for h in history:
-                messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
-        messages.append({"role": "user", "content": user_prompt})
+        messages = self._prepare_chat_messages(
+            dynamic_system_prompt=dynamic_system_prompt,
+            user_prompt=user_prompt,
+            history=history,
+        )
 
         findings: List[Dict[str, Any]] = []
         anomalies: List[Dict[str, Any]] = []
@@ -519,6 +558,8 @@ class NiskavaReActAgent:
                 "max_tokens": 1500,
                 "stream": False,
             }
+            if tool_defs:
+                payload["tools"] = [{"type": "function", "function": t} for t in tool_defs]
             try:
                 resp = execute_with_retry(
                     lambda: requests.post(url, headers=headers, json=payload, timeout=45.0),

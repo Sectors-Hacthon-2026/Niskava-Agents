@@ -2,10 +2,12 @@ package tui
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/db"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -154,4 +156,50 @@ func TestCompletionBadgeFormatting(t *testing.T) {
 	if !strings.Contains(badgeEn, "2 Anomalies, 1 Findings") {
 		t.Errorf("expected badge to contain '2 Anomalies, 1 Findings', got: %s", badgeEn)
 	}
+}
+
+func TestReplInputModelSlashChatsAndResume(t *testing.T) {
+	model := NewReplInputModel("niskava [hermes] >")
+	model.TextInput.SetValue("/ch")
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
+	m := updated.(ReplInputModel)
+
+	foundChats := false
+	for _, cmd := range m.FilteredCommands {
+		if cmd.Command == "/chats" {
+			foundChats = true
+		}
+	}
+	if !foundChats {
+		t.Errorf("expected '/chats' to be in filtered commands for '/ch'")
+	}
+}
+
+func TestRenderResumedHistory(t *testing.T) {
+	// 1. Should not panic on nil db or empty session
+	renderResumedHistory(nil, "NON-EXISTENT")
+
+	// 2. Test with populated database
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	tmpDB, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open test db: %v", err)
+	}
+	defer tmpDB.Close()
+
+	sessionID := "TEST-RESUME-001"
+	_ = tmpDB.SaveChatMessage(&db.ChatMessage{
+		ID:        "M1",
+		SessionID: sessionID,
+		Role:      "user",
+		Content:   "Cek saham BBRI",
+	})
+	_ = tmpDB.SaveChatMessage(&db.ChatMessage{
+		ID:        "M2",
+		SessionID: sessionID,
+		Role:      "assistant",
+		Content:   "Berikut ringkasan analisis saham BBRI.",
+	})
+
+	renderResumedHistory(tmpDB, sessionID)
 }

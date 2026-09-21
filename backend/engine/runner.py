@@ -98,9 +98,15 @@ def main() -> None:
                 session_id=args.session,
             )
         elif args.ticker:
-            agent.investigate(
+            from engine.agent.pipeline import InvestigationPipeline
+            pipeline = InvestigationPipeline(
+                db_path=args.db_path,
+                emitter=emit_jsonl,
+                mock_mode=mock_mode,
+            )
+            pipeline.run(
                 ticker=args.ticker,
-                days=args.days,
+                timeframe_days=args.days,
                 session_id=args.session,
             )
         else:
