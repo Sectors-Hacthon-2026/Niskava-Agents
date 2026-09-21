@@ -17,6 +17,7 @@ Complies with:
 - Law 6: Local Conversational Graph Memory Engine
 """
 
+import concurrent.futures
 import json
 import os
 import sys
@@ -33,6 +34,8 @@ from engine.mcp.tools.sectors import (
 )
 from engine.osint.harvester import DualEngineOSINTHarvester
 from engine.sectors.client import SectorsAPIClient
+
+MCP_TOOL_TIMEOUT_SECONDS: int = int(os.environ.get("MCP_TOOL_TIMEOUT_SECONDS", "30"))
 
 
 class UnifiedMCPServer:
@@ -73,21 +76,26 @@ class UnifiedMCPServer:
 
     def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Any:
         """Dispatch tool execution to the appropriate domain module."""
-        if name.startswith("sectors_"):
-            return execute_sectors_tool(self.client, name, arguments)
+        def _dispatch() -> Any:
+            if name.startswith("sectors_"):
+                return execute_sectors_tool(self.client, name, arguments)
+            if name.startswith("osint_"):
+                return execute_osint_tool(self.harvester, self.client, name, arguments)
+            if name.startswith("quant_"):
+                return execute_quant_tool(self.client, name, arguments)
+            if name.startswith("memory_"):
+                return execute_memory_tool(self.db_path, name, arguments)
+            raise ValueError(f"Unknown MCP tool: {name}")
 
-        if name.startswith("osint_"):
-            return execute_osint_tool(
-                self.harvester, self.client, name, arguments
-            )
-
-        if name.startswith("quant_"):
-            return execute_quant_tool(self.client, name, arguments)
-
-        if name.startswith("memory_"):
-            return execute_memory_tool(self.db_path, name, arguments)
-
-        raise ValueError(f"Unknown MCP tool: {name}")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_dispatch)
+            try:
+                return future.result(timeout=MCP_TOOL_TIMEOUT_SECONDS)
+            except concurrent.futures.TimeoutError:
+                raise TimeoutError(
+                    f"MCP tool '{name}' melebihi batas waktu {MCP_TOOL_TIMEOUT_SECONDS}s. "
+                    "Periksa koneksi jaringan atau naikkan MCP_TOOL_TIMEOUT_SECONDS."
+                )
 
     def get_resource_definitions(self) -> List[Dict[str, Any]]:
         """Return all MCP resource schemas."""
