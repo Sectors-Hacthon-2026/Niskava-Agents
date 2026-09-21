@@ -112,3 +112,4 @@ docs/internal/
 *.internal.md
 docs/superpowers/
 superpowers/
+.superpowers/
