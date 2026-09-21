@@ -253,37 +253,53 @@ class NiskavaReActAgent:
         # Augment prompt with local conversational graph memory (Law 6)
         effective_prompt = user_prompt
         if self.memory:
-            # 1. Detect portfolio/position mentions (e.g. 'beli ANTM di 1450')
-            pos_match = re.search(
-                r"(?:beli|entry|posisi|pegang|holds?)\s+([A-Za-z]{4})\b.*?(\d{3,6})",
-                user_prompt,
-                re.IGNORECASE,
-            )
-            if pos_match:
-                raw_tkr = pos_match.group(1).upper()
-                if is_valid_idx_ticker(raw_tkr):
-                    tkr = raw_tkr
-                    price = pos_match.group(2)
-                    try:
+            # 1. Automatically extract dialogue observations (buy, exit, watchlist)
+            try:
+                from engine.memory.extractor import extract_dialogue_observations
+                dialogue_obs = extract_dialogue_observations(user_prompt)
+                for obs in dialogue_obs:
+                    tkr = obs.get("ticker", "")
+                    rel = obs.get("relation", "")
+                    src = obs.get("source_label", "User")
+                    src_type = obs.get("source_type", "USER")
+                    tgt = obs.get("target_label", "")
+                    tgt_type = obs.get("target_type", "ENTITY")
+                    ctx = obs.get("context_snippet", "")
+
+                    self.memory.store_observation(
+                        source_label=src,
+                        source_type=src_type,
+                        relation=rel,
+                        target_label=tgt,
+                        target_type=tgt_type,
+                        context_snippet=ctx,
+                        session_id=session_id,
+                    )
+                    if tgt_type == "PRICE_LEVEL" and tkr:
                         self.memory.store_observation(
-                            source_label="User",
-                            source_type="USER",
-                            relation="HOLDS_AT",
-                            target_label=f"Price: {price}",
-                            target_type="PRICE_LEVEL",
-                            context_snippet=f"Posisi modal di {tkr} pada level {price}",
-                            session_id=session_id,
-                        )
-                        self.memory.store_observation(
-                            source_label=f"Price: {price}",
+                            source_label=tgt,
                             source_type="PRICE_LEVEL",
                             relation="TICKER_REF",
                             target_label=tkr,
                             target_type="TICKER",
                             session_id=session_id,
                         )
-                    except Exception:
-                        pass
+                        # If EXITED_AT, link supersedes to prior HOLDS_AT prices for this ticker
+                        if rel == "EXITED_AT":
+                            prior_ego = self.memory.retrieve_ego_subgraph(tkr, radius=2)
+                            for edge in prior_ego.get("edges", []):
+                                if edge.get("relation") == "TICKER_REF" and edge.get("source_id", "").startswith("price_level:") and edge.get("source_label") != tgt:
+                                    self.memory.store_observation(
+                                        source_label=tgt,
+                                        source_type="PRICE_LEVEL",
+                                        relation="SUPERSEDES",
+                                        target_label=edge.get("source_label", ""),
+                                        target_type="PRICE_LEVEL",
+                                        context_snippet=f"Realisasi keluar posisi menganulir level masuk {edge.get('source_label')}",
+                                        session_id=session_id,
+                                    )
+            except Exception:
+                pass
 
             # 2. Extract potential entities in prompt to recall past graph context
             memory_blocks = []
