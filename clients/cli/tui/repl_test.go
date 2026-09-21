@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/db"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -82,7 +83,30 @@ func TestReplInputModelSlashChatsAndResume(t *testing.T) {
 }
 
 func TestRenderResumedHistory(t *testing.T) {
-	// Should not panic on nil db or empty session
+	// 1. Should not panic on nil db or empty session
 	renderResumedHistory(nil, "NON-EXISTENT")
+
+	// 2. Test with populated database
+	tmpDB, err := db.Open(":memory:")
+	if err != nil {
+		t.Fatalf("failed to open memory db: %v", err)
+	}
+	defer tmpDB.Close()
+
+	sessionID := "TEST-RESUME-001"
+	_ = tmpDB.SaveChatMessage(&db.ChatMessage{
+		ID:        "M1",
+		SessionID: sessionID,
+		Role:      "user",
+		Content:   "Cek saham BBRI",
+	})
+	_ = tmpDB.SaveChatMessage(&db.ChatMessage{
+		ID:        "M2",
+		SessionID: sessionID,
+		Role:      "assistant",
+		Content:   "Berikut ringkasan analisis saham BBRI.",
+	})
+
+	renderResumedHistory(tmpDB, sessionID)
 }
 
