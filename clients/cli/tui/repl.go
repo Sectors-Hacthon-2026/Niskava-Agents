@@ -90,6 +90,8 @@ type ReplInputModel struct {
 	SlashActive      bool
 	SubmittedValue   string
 	Quitting         bool
+	LastExitTime     time.Time
+	ExitWarning      bool
 }
 
 // NewReplInputModel initializes the interactive REPL prompt input.
@@ -121,11 +123,28 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			if m.SlashActive && msg.Type == tea.KeyEsc {
 				m.SlashActive = false
+				m.ExitWarning = false
+				m.LastExitTime = time.Time{}
 				return m, nil
 			}
-			m.Quitting = true
-			m.SubmittedValue = "/exit"
-			return m, tea.Quit
+			if msg.Type == tea.KeyEsc && strings.TrimSpace(m.TextInput.Value()) != "" {
+				m.TextInput.SetValue("")
+				m.TextInput.SetCursor(0)
+				m.ExitWarning = false
+				m.LastExitTime = time.Time{}
+				return m, nil
+			}
+
+			// 3-Layer Double Press Esc / Ctrl+C Safety Protection
+			now := time.Now()
+			if !m.LastExitTime.IsZero() && now.Sub(m.LastExitTime) <= 2*time.Second {
+				m.Quitting = true
+				m.SubmittedValue = "/exit"
+				return m, tea.Quit
+			}
+			m.LastExitTime = now
+			m.ExitWarning = true
+			return m, nil
 
 		case tea.KeyUp:
 			if m.SlashActive && len(m.FilteredCommands) > 0 {
@@ -198,6 +217,12 @@ func (m ReplInputModel) View() string {
 
 	// Render input prompt box
 	b.WriteString("\n" + m.TextInput.View() + "\n")
+
+	// Render double-press exit warning hint if active
+	if m.ExitWarning && !m.LastExitTime.IsZero() && time.Since(m.LastExitTime) <= 2*time.Second {
+		warningStr := lipgloss.NewStyle().Bold(true).Foreground(ColorWarning).Render(T("repl_exit_confirm"))
+		b.WriteString(warningStr + "\n")
+	}
 
 	// Render OpenCode-style Slash Autocomplete Popup Box when slash active
 	if m.SlashActive && len(m.FilteredCommands) > 0 {
@@ -470,13 +495,23 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 	defer signal.Stop(sigChan)
 
 	interrupted := false
+	lastSignalTime := time.Time{}
 	go func() {
-		select {
-		case <-sigChan:
-			interrupted = true
-			fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorWarning).Bold(true).Render("[!] Eksekusi dibatalkan oleh pengguna."))
-			cancel()
-		case <-ctx.Done():
+		for {
+			select {
+			case <-sigChan:
+				now := time.Now()
+				if !lastSignalTime.IsZero() && now.Sub(lastSignalTime) <= 2*time.Second {
+					interrupted = true
+					fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorDanger).Bold(true).Render("[!] Eksekusi dibatalkan oleh pengguna (Confirm Signal)."))
+					cancel()
+					return
+				}
+				lastSignalTime = now
+				fmt.Print("\r\033[K" + lipgloss.NewStyle().Foreground(ColorWarning).Bold(true).Render("[!] Tekan Ctrl+C sekali lagi dalam 2 detik untuk membatalkan investigasi...") + "\r")
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
 

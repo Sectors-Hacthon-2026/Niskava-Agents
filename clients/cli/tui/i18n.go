@@ -361,6 +361,10 @@ var TUIStrings = map[string]map[string]string{
 		"en": "Exiting Live REPL session.",
 		"id": "Keluar dari sesi Live REPL.",
 	},
+	"repl_exit_confirm": {
+		"en": "  [!] Press Esc or Ctrl+C once more within 2 seconds to exit to menu...",
+		"id": "  [!] Tekan Esc atau Ctrl+C sekali lagi dalam 2 detik untuk kembali ke menu...",
+	},
 	"repl_session_reset": {
 		"en": "\n[✓] Session reset and memory graph cleared. New conversation session: %s\n",
 		"id": "\n[✓] Sesi direset dan memory graph dibersihkan. Sesi percakapan baru: %s\n",
