@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -461,4 +462,20 @@ func TestSlashCommandsListContainsBack(t *testing.T) {
 	}
 
 	SetLanguage("en")
+}
+
+func TestInterruptedFlagNoRace(t *testing.T) {
+	var interrupted atomic.Bool
+
+	done := make(chan struct{})
+	go func() {
+		interrupted.Store(true)
+		close(done)
+	}()
+
+	<-done
+	val := interrupted.Load()
+	if !val {
+		t.Error("expected interrupted to be true")
+	}
 }

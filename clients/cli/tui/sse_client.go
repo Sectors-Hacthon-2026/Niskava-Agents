@@ -93,6 +93,8 @@ func StreamChatViaSSE(ctx context.Context, serverURL, sessionID, prompt string) 
 						ev.Event = ipc.EventAnomalyDetected
 					case "session_complete", "done":
 						ev.Event = ipc.EventSessionComplete
+					case "session_error", "error":
+						ev.Event = ipc.EventSessionError
 					}
 					eventsChan <- ev
 				}

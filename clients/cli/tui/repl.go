@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -506,11 +507,11 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGINT)
 	defer signal.Stop(sigChan)
 
-	interrupted := false
+	var interrupted atomic.Bool
 	go func() {
 		select {
 		case <-sigChan:
-			interrupted = true
+			interrupted.Store(true)
 			fmt.Println("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#FACC15")).Bold(true).Render(strings.TrimSpace(T("repl_execution_cancelled"))))
 			cancel()
 		case <-ctx.Done():
@@ -567,7 +568,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 	for {
 		select {
 		case <-ctx.Done():
-			if interrupted {
+			if interrupted.Load() {
 				fmt.Print("\r\033[K")
 				fmt.Print(T("repl_execution_cancelled"))
 				return

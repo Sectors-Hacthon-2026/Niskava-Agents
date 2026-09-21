@@ -15,6 +15,10 @@ from engine.quant.anomaly import AnomalyResult, detect_historical_anomalies
 from engine.sectors.client import SectorsAPIClient
 from engine.skills.registry import SkillsRegistry
 
+# Ticker-ticker yang merepresentasikan indeks pasar, bukan emiten perusahaan individual.
+# Jika digunakan di harvest_market_news, harus di-route ke general market news.
+_INDEX_TICKERS: frozenset[str] = frozenset({"IHSG", "JCI", "IDX", "COMPOSITE"})
+
 
 class NiskavaToolRegistry:
     """Provides structured, callable tools for the ReAct Agent."""
@@ -444,7 +448,7 @@ class NiskavaToolRegistry:
                 slug=args.get("slug", ""),
             ),
             "harvest_market_news": lambda args: self.harvest_market_news(
-                ticker=ticker,
+                ticker=ticker if ticker and ticker not in _INDEX_TICKERS else None,
                 company_name=args.get("company_name"),
             ),
             "memory_recall_context": lambda args: self.memory_recall_context(

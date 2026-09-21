@@ -539,3 +539,37 @@ func TestInvestigationEndpoints(t *testing.T) {
 		t.Errorf("expected total 1 investigation, got %v", listData["total"])
 	}
 }
+
+func TestSSEErrorIsValidJSON(t *testing.T) {
+	testCases := []struct {
+		name   string
+		errMsg string
+	}{
+		{"simple error", "engine subprocess exited with error: exit status 1"},
+		{"error with quotes", `connection refused to "localhost:8080"`},
+		{"error with newline", "line1\nline2"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			errJSON, jsonErr := json.Marshal(map[string]interface{}{
+				"event":      "session_error",
+				"session_id": "TEST-123",
+				"error":      tc.errMsg,
+			})
+			if jsonErr != nil {
+				t.Fatalf("json.Marshal failed: %v", jsonErr)
+			}
+			var parsed map[string]interface{}
+			if err := json.Unmarshal(errJSON, &parsed); err != nil {
+				t.Fatalf("could not unmarshal marshaled error JSON: %v", err)
+			}
+			if parsed["error"] != tc.errMsg {
+				t.Errorf("expected error=%q, got %q", tc.errMsg, parsed["error"])
+			}
+			if parsed["event"] != "session_error" {
+				t.Errorf("expected event='session_error', got %v", parsed["event"])
+			}
+		})
+	}
+}

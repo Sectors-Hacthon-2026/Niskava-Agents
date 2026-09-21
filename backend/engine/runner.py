@@ -125,7 +125,9 @@ def main() -> None:
             "session_id": args.session or "UNKNOWN",
             "error": str(exc),
         })
-        sys.exit(1)
+        # Exit 0 agar Go (cmd.Wait) tidak mengirim error kedua ke errChan.
+        # Error sudah dilaporkan melalui event session_error di atas.
+        sys.exit(0)
 
 
 if __name__ == "__main__":

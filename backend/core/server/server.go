@@ -789,7 +789,12 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 					continue
 				}
 				if err != nil && !wasAborted {
-					fmt.Fprintf(w, "event: error\ndata: %s\n\n", err.Error())
+					errPayload, _ := json.Marshal(map[string]interface{}{
+						"event":      "session_error",
+						"session_id": sessionID,
+						"error":      err.Error(),
+					})
+					fmt.Fprintf(w, "event: session_error\ndata: %s\n\n", errPayload)
 					flusher.Flush()
 					return
 				}
