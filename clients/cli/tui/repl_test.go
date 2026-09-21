@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -87,9 +88,10 @@ func TestRenderResumedHistory(t *testing.T) {
 	renderResumedHistory(nil, "NON-EXISTENT")
 
 	// 2. Test with populated database
-	tmpDB, err := db.Open(":memory:")
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	tmpDB, err := db.Open(dbPath)
 	if err != nil {
-		t.Fatalf("failed to open memory db: %v", err)
+		t.Fatalf("failed to open test db: %v", err)
 	}
 	defer tmpDB.Close()
 

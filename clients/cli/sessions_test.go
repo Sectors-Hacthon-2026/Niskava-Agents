@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -9,9 +10,10 @@ import (
 )
 
 func TestSessionsCmd_Types(t *testing.T) {
-	tmpDB, err := db.Open(":memory:")
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	tmpDB, err := db.Open(dbPath)
 	if err != nil {
-		t.Fatalf("failed to open memory db: %v", err)
+		t.Fatalf("failed to open test db: %v", err)
 	}
 	defer tmpDB.Close()
 
@@ -45,9 +47,10 @@ func TestSessionsCmd_Types(t *testing.T) {
 }
 
 func TestSessionsCmd_InvestigationType(t *testing.T) {
-	tmpDB, err := db.Open(":memory:")
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	tmpDB, err := db.Open(dbPath)
 	if err != nil {
-		t.Fatalf("failed to open memory db: %v", err)
+		t.Fatalf("failed to open test db: %v", err)
 	}
 	defer tmpDB.Close()
 
