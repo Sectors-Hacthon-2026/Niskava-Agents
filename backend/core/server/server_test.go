@@ -344,3 +344,34 @@ func TestChatSession_Export_And_Search(t *testing.T) {
 		t.Errorf("expected 0 search results for nonexistent, got %v", emptySearch["total"])
 	}
 }
+
+func TestGraphDataEndpointAlias(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_graph.db")
+
+	database, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	srv, err := Start(ctx, 0, database)
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(srv.URL + "/api/graph/data")
+	if err != nil {
+		t.Fatalf("failed to call /api/graph/data: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected 200 OK from /api/graph/data alias, got %d", resp.StatusCode)
+	}
+}
+

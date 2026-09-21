@@ -714,8 +714,8 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		}
 	})
 
-	// 5. Memory Graph JSON endpoint
-	mux.HandleFunc("/api/graph", func(w http.ResponseWriter, r *http.Request) {
+	// 5. Memory Graph JSON endpoint (registered on both /api/graph and /api/graph/data for web workspace compatibility)
+	graphHandler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if database == nil {
 			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
@@ -736,7 +736,9 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			"nodes":       nodes,
 			"edges":       edges,
 		})
-	})
+	}
+	mux.HandleFunc("/api/graph", graphHandler)
+	mux.HandleFunc("/api/graph/data", graphHandler)
 
 	// 6. Interactive Memory Graph View endpoint (serves full Cyber-OSINT visualizer)
 	mux.HandleFunc("/graph", func(w http.ResponseWriter, r *http.Request) {
