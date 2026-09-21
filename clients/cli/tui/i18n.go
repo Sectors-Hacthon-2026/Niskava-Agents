@@ -442,8 +442,8 @@ var TUIStrings = map[string]map[string]string{
 		"id": " niskava %s  ·  %s Server: %s  ·  %s API Key: %s  ·  ↑/↓ navigasi  ·  [W/T/S/H/C/L/Q/E] pilih ",
 	},
 	"menu_press_enter": {
-		"en": "Press Enter to return to Menu...",
-		"id": "Tekan Enter untuk kembali ke Menu...",
+		"en": "Press ESC to return to Menu...",
+		"id": "Tekan ESC untuk kembali ke Menu...",
 	},
 	"menu_open_web": {
 		"en": "\n[●] Opening Web Workspace in browser: %s\n",

@@ -112,8 +112,7 @@ func runSessionsInteractive(cmd *cobra.Command, database *db.DB) string {
 	chats, _, err := database.ListChatSessions(30, 0, "")
 	if err != nil || len(chats) == 0 {
 		_ = printFormattedSessions(database, "all", 20, os.Stdout)
-		fmt.Println("Tekan Enter untuk kembali ke Menu...")
-		_, _ = fmt.Scanln()
+		tui.PromptPressEscToReturn()
 		return ""
 	}
 

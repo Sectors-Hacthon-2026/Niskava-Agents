@@ -300,3 +300,31 @@ func (m LauncherModel) View() string {
 
 	return b.String()
 }
+
+// PromptEscReturnModel is a Bubbletea sub-model that prompts the user to press ESC or Enter to return to main menu.
+type PromptEscReturnModel struct{}
+
+func (m PromptEscReturnModel) Init() tea.Cmd {
+	return nil
+}
+
+func (m PromptEscReturnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc", "enter", "q", "space", "ctrl+c":
+			return m, tea.Quit
+		}
+	}
+	return m, nil
+}
+
+func (m PromptEscReturnModel) View() string {
+	return "\n" + lipgloss.NewStyle().Foreground(ColorMuted).Render(T("menu_press_enter")) + "\n"
+}
+
+// PromptPressEscToReturn renders "Press ESC to return to Menu..." and waits for keypress.
+func PromptPressEscToReturn() {
+	p := tea.NewProgram(PromptEscReturnModel{})
+	_, _ = p.Run()
+}

@@ -81,8 +81,7 @@ and qualitative market disclosures/news.`,
 			case "web":
 				tui.PrintWebWorkspaceLaunchScreen(srv.URL)
 				_ = server.OpenBrowser(srv.URL)
-				fmt.Println(tui.T("menu_press_enter"))
-				_, _ = fmt.Scanln()
+				tui.PromptPressEscToReturn()
 
 			case "terminal":
 				// Launch persistent live interactive CLI REPL
@@ -97,13 +96,11 @@ and qualitative market disclosures/news.`,
 
 			case "help":
 				tui.PrintFullHelpGuide()
-				fmt.Println("\n" + tui.T("menu_press_enter"))
-				_, _ = fmt.Scanln()
+				tui.PromptPressEscToReturn()
 
 			case "health":
 				tui.PrintHealthDiagnostics(cfg, srv.URL)
-				fmt.Println("\n" + tui.T("menu_press_enter"))
-				_, _ = fmt.Scanln()
+				tui.PromptPressEscToReturn()
 
 			case "lang":
 				langModel := tui.NewLangSelectorModel()
@@ -119,8 +116,7 @@ and qualitative market disclosures/news.`,
 
 			case "setup":
 				_ = RunInteractiveSetup()
-				fmt.Println(tui.T("menu_press_enter"))
-				_, _ = fmt.Scanln()
+				tui.PromptPressEscToReturn()
 
 			case "exit", "":
 				fmt.Println(tui.T("menu_exit_msg"))
