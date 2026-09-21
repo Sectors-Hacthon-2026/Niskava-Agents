@@ -424,6 +424,31 @@ class NiskavaReActAgent:
 
         return res
 
+    def _prepare_chat_messages(
+        self,
+        dynamic_system_prompt: str,
+        user_prompt: str,
+        history: Optional[List[Dict[str, str]]],
+    ) -> List[Dict[str, str]]:
+        """Construct sanitized LLM message array without trailing user prompt duplication."""
+        messages: List[Dict[str, str]] = [
+            {"role": "system", "content": dynamic_system_prompt},
+        ]
+        if history:
+            clean_history = list(history)
+            if (
+                clean_history
+                and clean_history[-1].get("role") == "user"
+                and clean_history[-1].get("content", "").strip() == user_prompt.strip()
+            ):
+                clean_history.pop()
+
+            for h in clean_history:
+                messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+
+        messages.append({"role": "user", "content": user_prompt})
+        return messages
+
     def _run_universal_chat_cycle(
         self,
         session_id: str,
@@ -455,13 +480,11 @@ class NiskavaReActAgent:
             f"- Provenance Rule: If the user asks where data came from ('itu data darimana?'), explicitly and transparently explain the real data pipelines used (Sectors Financial API v2 for official IDX candlestick & fundamental data, and Google News RSS / IDX disclosures for news).\n"
         )
 
-        messages: List[Dict[str, str]] = [
-            {"role": "system", "content": dynamic_system_prompt},
-        ]
-        if history:
-            for h in history:
-                messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
-        messages.append({"role": "user", "content": user_prompt})
+        messages = self._prepare_chat_messages(
+            dynamic_system_prompt=dynamic_system_prompt,
+            user_prompt=user_prompt,
+            history=history,
+        )
 
         findings: List[Dict[str, Any]] = []
         anomalies: List[Dict[str, Any]] = []
