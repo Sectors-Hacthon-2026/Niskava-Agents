@@ -128,11 +128,30 @@ func TestChatTurnCancellation(t *testing.T) {
 
 func TestCompletionBadgeFormatting(t *testing.T) {
 	duration := 1500 * time.Millisecond
-	badge := renderCompletionBadge(duration, "CHAT-TEST-001", "hermes", 0, 0)
-	if !strings.Contains(badge, "SELESAI") {
-		t.Errorf("expected badge to contain 'SELESAI', got: %s", badge)
+
+	// 1. Indonesian test
+	SetLanguage("id")
+	badgeId := renderCompletionBadge(duration, "CHAT-TEST-001", "hermes", 2, 1)
+	if !strings.Contains(badgeId, "SELESAI") {
+		t.Errorf("expected Indonesian badge to contain 'SELESAI', got: %s", badgeId)
 	}
-	if !strings.Contains(badge, "1.5s") {
-		t.Errorf("expected badge to contain duration '1.5s', got: %s", badge)
+	if !strings.Contains(badgeId, "1.5s") {
+		t.Errorf("expected badge to contain duration '1.5s', got: %s", badgeId)
+	}
+	if !strings.Contains(badgeId, "2 Anomali, 1 Temuan") {
+		t.Errorf("expected badge to contain '2 Anomali, 1 Temuan', got: %s", badgeId)
+	}
+
+	// 2. English test
+	SetLanguage("en")
+	badgeEn := renderCompletionBadge(duration, "CHAT-TEST-001", "hermes", 2, 1)
+	if !strings.Contains(badgeEn, "COMPLETED") {
+		t.Errorf("expected English badge to contain 'COMPLETED', got: %s", badgeEn)
+	}
+	if !strings.Contains(badgeEn, "1.5s") {
+		t.Errorf("expected badge to contain duration '1.5s', got: %s", badgeEn)
+	}
+	if !strings.Contains(badgeEn, "2 Anomalies, 1 Findings") {
+		t.Errorf("expected badge to contain '2 Anomalies, 1 Findings', got: %s", badgeEn)
 	}
 }

@@ -206,7 +206,7 @@ func (m ReplInputModel) View() string {
 			Foreground(lipgloss.Color("#052E16")).
 			Background(lipgloss.Color("#22C55E")).
 			Padding(0, 1).
-			Render("SLASH COMMANDS (Gunakan ↑/↓ untuk memilih, Tab/Enter untuk melengkapi)")
+			Render(T("slash_popup_header"))
 
 		boxStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -266,7 +266,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 		p := tea.NewProgram(inputModel)
 		m, err := p.Run()
 		if err != nil {
-			fmt.Println("\nKeluar dari sesi Live Assistant.")
+			fmt.Printf("\n%s\n", T("repl_exit_msg"))
 			break
 		}
 
@@ -278,7 +278,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 		// Handle Slash Commands
 		lower := strings.ToLower(input)
 		if lower == "/exit" || lower == "exit" || lower == "quit" || lower == ":q" {
-			fmt.Println("Keluar dari sesi Live REPL.")
+			fmt.Println(T("repl_exit_msg"))
 			break
 		}
 
@@ -298,19 +298,19 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 				_ = appDB.ClearMemoryGraph()
 			}
 			sessionID = fmt.Sprintf("CHAT-%s-%04d", time.Now().Format("20060102"), time.Now().Unix()%10000)
-			fmt.Printf("\n[✓] Sesi direset dan memory graph dibersihkan. Sesi percakapan baru: %s\n", sessionID)
+			fmt.Printf(T("repl_session_reset"), sessionID)
 			continue
 		}
 
 		if lower == "/graph" {
 			graphURL := fmt.Sprintf("%s/graph", serverURL)
-			fmt.Printf("Membuka visualisasi Memory Knowledge Graph di browser (%s)...\n", graphURL)
+			fmt.Printf(T("repl_open_graph"), graphURL)
 			_ = server.OpenBrowser(graphURL)
 			continue
 		}
 
 		if lower == "/web" {
-			fmt.Printf("Membuka web workspace di browser (%s)...\n", serverURL)
+			fmt.Printf(T("repl_open_web"), serverURL)
 			_ = server.OpenBrowser(serverURL)
 			continue
 		}
@@ -341,11 +341,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 			fmt.Print("\033[H\033[2J")
 			renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
 			activeInfo := GetActiveLanguageInfo()
-			if ActiveLanguage == "en" {
-				fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(fmt.Sprintf("  [✓] Language preference switched to %s %s (%s).", activeInfo.FlagSymbol, activeInfo.NativeName, activeInfo.Code)))
-			} else {
-				fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(fmt.Sprintf("  [✓] Preferensi bahasa berhasil diubah ke %s %s (%s).", activeInfo.FlagSymbol, activeInfo.NativeName, activeInfo.Code)))
-			}
+			fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(TF("repl_lang_switched", activeInfo.FlagSymbol, activeInfo.NativeName, activeInfo.Code)))
 			continue
 		}
 
@@ -423,6 +419,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 			Prompt:    prompt,
 			SessionID: sessionID,
 			Offline:   cfg.Preferences.OfflineMode,
+			Language:  cfg.Preferences.Language,
 		}
 		eventsChan, errChan = ipc.RunSubprocess(ctx, runnerParams)
 	}
@@ -444,7 +441,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 		}
 	}
 
-	fmt.Print("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(fmt.Sprintf("  ⠋ [%s] Menginisialisasi analisis & merencanakan investigasi...", modelLabel)) + "\r")
+	fmt.Print("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(TF("thinking_init", modelLabel)) + "\r")
 
 	activeErrChan := errChan
 	for {
@@ -452,6 +449,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 		case <-ctx.Done():
 			if interrupted {
 				fmt.Print("\r\033[K")
+				fmt.Print(T("repl_execution_cancelled"))
 				return
 			}
 
@@ -495,7 +493,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				lastThought = ev.Thought
 				fmt.Print("\r\033[K")
 				fmt.Printf("💭 %s\n", thoughtStyle.Render(ev.Thought))
-				fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(fmt.Sprintf("  ⠋ [%s] Menjalankan verifikasi alat & analisis kuantitatif...", modelLabel)) + "\r")
+				fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(TF("thinking_verify", modelLabel)) + "\r")
 
 			case ipc.EventAgentToolCall:
 				fmt.Print("\r\033[K")
@@ -504,18 +502,18 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 					argsJSON = fmt.Sprintf(" %v", ev.Args)
 				}
 				fmt.Printf("⚡ %s%s\n", toolCallStyle.Render("[TOOL CALL: "+ev.Tool+"]"), argsJSON)
-				fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("#FACC15")).Italic(true).Render("  ⠋ Mengeksekusi alat "+ev.Tool+"...") + "\r")
+				fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("#FACC15")).Italic(true).Render(TF("tool_executing", ev.Tool)) + "\r")
 
 			case ipc.EventAgentObservation:
 				fmt.Print("\r\033[K")
 				fmt.Printf("🔎 %s\n", observationStyle.Render(ev.Summary))
-				fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(fmt.Sprintf("  ⠋ [%s] Menyintesis temuan & menyusun respons...", modelLabel)) + "\r")
+				fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(TF("thinking_synthesize", modelLabel)) + "\r")
 
 			case ipc.EventAnomalyDetected:
 				fmt.Print("\r\033[K")
 				totalAnomalies++
-				anomalyText := fmt.Sprintf(
-					"🚨 [ANOMALI TERDETEKSI] %s | Ticker: %s | Z-Score: %.2fσ | Metric: %.2f (Baseline: %.2f)",
+				anomalyText := TF(
+					"repl_anomaly_alert",
 					ev.MetricType, ev.Ticker, ev.ZScore, ev.MetricValue, ev.BaselineValue,
 				)
 				fmt.Println(replAnomalyBoxStyle.Render(anomalyText))
@@ -535,7 +533,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 			case ipc.EventAgentMessageChunk:
 				assistantResponse.WriteString(ev.Chunk)
 				words := len(strings.Fields(assistantResponse.String()))
-				fmt.Print("\r\033[K" + lipgloss.NewStyle().Foreground(lipgloss.Color("#4ADE80")).Italic(true).Render(fmt.Sprintf("  ⠋ [%s] Menyusun sintesis respons (%d kata)...", modelLabel, words)) + "\r")
+				fmt.Print("\r\033[K" + lipgloss.NewStyle().Foreground(lipgloss.Color("#4ADE80")).Italic(true).Render(TF("thinking_drafting", modelLabel, words)) + "\r")
 
 			case ipc.EventAgentMessageComplete:
 				if assistantResponse.Len() == 0 {
@@ -568,10 +566,10 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 
 func renderCompletionBadge(duration time.Duration, sessionID, model string, anomalies, findings int) string {
 	sep := lipgloss.NewStyle().Foreground(lipgloss.Color("#1F5C3F")).Render("─────────────────────────────────────────────────────────────────────────────")
-	badge := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render("✔ [SELESAI]")
-	detail := fmt.Sprintf("Analisis tuntas dalam %.1fs • Model: %s • Sesi: %s", duration.Seconds(), model, sessionID)
+	badge := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(T("badge_completed"))
+	detail := TF("badge_completed_detail", duration.Seconds(), model, sessionID)
 	if anomalies > 0 || findings > 0 {
-		detail += fmt.Sprintf(" • (%d Anomali, %d Temuan)", anomalies, findings)
+		detail += TF("badge_completed_counts", anomalies, findings)
 	}
 	return fmt.Sprintf("\n%s\n%s %s\n%s\n", sep, badge, detail, sep)
 }
