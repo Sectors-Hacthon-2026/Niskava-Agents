@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
 	tea "github.com/charmbracelet/bubbletea"
@@ -125,3 +126,13 @@ func TestChatTurnCancellation(t *testing.T) {
 	}
 }
 
+func TestCompletionBadgeFormatting(t *testing.T) {
+	duration := 1500 * time.Millisecond
+	badge := renderCompletionBadge(duration, "CHAT-TEST-001", "hermes", 0, 0)
+	if !strings.Contains(badge, "SELESAI") {
+		t.Errorf("expected badge to contain 'SELESAI', got: %s", badge)
+	}
+	if !strings.Contains(badge, "1.5s") {
+		t.Errorf("expected badge to contain duration '1.5s', got: %s", badge)
+	}
+}

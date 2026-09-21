@@ -430,15 +430,28 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 	var (
 		assistantResponse strings.Builder
 		lastThought       string
+		totalAnomalies    int
+		totalFindings     int
 	)
 
-	fmt.Println()
+	turnStart := time.Now()
+	modelLabel := cfg.Auth.OpenAIModel
+	if modelLabel == "" {
+		if cfg.Auth.GeminiModel != "" {
+			modelLabel = cfg.Auth.GeminiModel
+		} else {
+			modelLabel = "hermes"
+		}
+	}
+
+	fmt.Print("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(fmt.Sprintf("  ⠋ [%s] Menginisialisasi analisis & merencanakan investigasi...", modelLabel)) + "\r")
 
 	activeErrChan := errChan
 	for {
 		select {
 		case <-ctx.Done():
 			if interrupted {
+				fmt.Print("\r\033[K")
 				return
 			}
 
@@ -448,13 +461,15 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				continue
 			}
 			if err != nil {
+				fmt.Print("\r\033[K")
 				fmt.Printf("\n[Error Subprocess]: %v\n", err)
 				return
 			}
 
 		case ev, ok := <-eventsChan:
 			if !ok {
-				// Process finished
+				// Process finished: clear spinner and render final markdown
+				fmt.Print("\r\033[K")
 				renderFinalMarkdown(assistantResponse.String())
 
 				// Save assistant response in SQLite if running standalone subprocess
@@ -469,25 +484,36 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 					}
 					_ = appDB.SaveChatMessage(asstMsg)
 				}
+
+				// Render official completion badge with timing & statistics
+				fmt.Print(renderCompletionBadge(time.Since(turnStart), sessionID, modelLabel, totalAnomalies, totalFindings))
 				return
 			}
 
 			switch ev.Event {
 			case ipc.EventAgentThought:
 				lastThought = ev.Thought
+				fmt.Print("\r\033[K")
 				fmt.Printf("💭 %s\n", thoughtStyle.Render(ev.Thought))
+				fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(fmt.Sprintf("  ⠋ [%s] Menjalankan verifikasi alat & analisis kuantitatif...", modelLabel)) + "\r")
 
 			case ipc.EventAgentToolCall:
+				fmt.Print("\r\033[K")
 				argsJSON := ""
 				if ev.Args != nil {
 					argsJSON = fmt.Sprintf(" %v", ev.Args)
 				}
 				fmt.Printf("⚡ %s%s\n", toolCallStyle.Render("[TOOL CALL: "+ev.Tool+"]"), argsJSON)
+				fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("#FACC15")).Italic(true).Render("  ⠋ Mengeksekusi alat "+ev.Tool+"...") + "\r")
 
 			case ipc.EventAgentObservation:
+				fmt.Print("\r\033[K")
 				fmt.Printf("🔎 %s\n", observationStyle.Render(ev.Summary))
+				fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(fmt.Sprintf("  ⠋ [%s] Menyintesis temuan & menyusun respons...", modelLabel)) + "\r")
 
 			case ipc.EventAnomalyDetected:
+				fmt.Print("\r\033[K")
+				totalAnomalies++
 				anomalyText := fmt.Sprintf(
 					"🚨 [ANOMALI TERDETEKSI] %s | Ticker: %s | Z-Score: %.2fσ | Metric: %.2f (Baseline: %.2f)",
 					ev.MetricType, ev.Ticker, ev.ZScore, ev.MetricValue, ev.BaselineValue,
@@ -495,6 +521,8 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				fmt.Println(replAnomalyBoxStyle.Render(anomalyText))
 
 			case ipc.EventFindingEmitted:
+				fmt.Print("\r\033[K")
+				totalFindings++
 				badge := supportedBadgeStyle.Render("[SUPPORTED]")
 				if ev.VerificationStat == "UNCERTAIN" {
 					badge = uncertainBadgeStyle.Render("[UNCERTAIN]")
@@ -506,13 +534,24 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 
 			case ipc.EventAgentMessageChunk:
 				assistantResponse.WriteString(ev.Chunk)
+				words := len(strings.Fields(assistantResponse.String()))
+				fmt.Print("\r\033[K" + lipgloss.NewStyle().Foreground(lipgloss.Color("#4ADE80")).Italic(true).Render(fmt.Sprintf("  ⠋ [%s] Menyusun sintesis respons (%d kata)...", modelLabel, words)) + "\r")
 
 			case ipc.EventAgentMessageComplete:
 				if assistantResponse.Len() == 0 {
 					assistantResponse.WriteString(ev.Content)
 				}
 
+			case ipc.EventSessionComplete:
+				if ev.TotalAnomalies > 0 {
+					totalAnomalies = ev.TotalAnomalies
+				}
+				if ev.TotalFindings > 0 {
+					totalFindings = ev.TotalFindings
+				}
+
 			case ipc.EventSessionError:
+				fmt.Print("\r\033[K")
 				if assistantResponse.Len() == 0 {
 					errBox := lipgloss.NewStyle().
 						Border(lipgloss.RoundedBorder()).
@@ -525,6 +564,16 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 			}
 		}
 	}
+}
+
+func renderCompletionBadge(duration time.Duration, sessionID, model string, anomalies, findings int) string {
+	sep := lipgloss.NewStyle().Foreground(lipgloss.Color("#1F5C3F")).Render("─────────────────────────────────────────────────────────────────────────────")
+	badge := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render("✔ [SELESAI]")
+	detail := fmt.Sprintf("Analisis tuntas dalam %.1fs • Model: %s • Sesi: %s", duration.Seconds(), model, sessionID)
+	if anomalies > 0 || findings > 0 {
+		detail += fmt.Sprintf(" • (%d Anomali, %d Temuan)", anomalies, findings)
+	}
+	return fmt.Sprintf("\n%s\n%s %s\n%s\n", sep, badge, detail, sep)
 }
 
 func renderFinalMarkdown(markdownContent string) {

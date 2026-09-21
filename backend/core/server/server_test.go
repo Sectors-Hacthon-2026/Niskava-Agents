@@ -374,4 +374,3 @@ func TestGraphDataEndpointAlias(t *testing.T) {
 		t.Errorf("expected 200 OK from /api/graph/data alias, got %d", resp.StatusCode)
 	}
 }
-
