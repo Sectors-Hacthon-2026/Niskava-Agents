@@ -17,11 +17,11 @@ var (
 	graphOpenFlag    bool
 )
 
-// graphCmd represents the command to render or view the Cyber-OSINT knowledge graph.
+// graphCmd represents the command to render or view the Market Intelligence knowledge graph.
 var graphCmd = &cobra.Command{
 	Use:   "graph",
-	Short: "Export and view interactive Cyber-OSINT knowledge graph in your browser",
-	Long: `Renders an interactive Cyber-OSINT knowledge graph visualization of market entities,
+	Short: "Export and view interactive Market Intelligence knowledge graph in your browser",
+	Long: `Renders an interactive Market Intelligence knowledge graph visualization of market entities,
 anomalies, catalysts, and conversational memories into a standalone HTML file.
 
 Example:
@@ -66,7 +66,7 @@ Example:
 			execArgs = append(execArgs, "--session", graphSessionFlag)
 		}
 
-		fmt.Printf("⚡ Mengekspor Cyber-OSINT Knowledge Graph ke %s...\n", expandedOutput)
+		fmt.Printf("Mengekspor Market Intelligence Knowledge Graph ke %s...\n", expandedOutput)
 
 		proc := exec.Command(pythonBin, execArgs...)
 		proc.Dir = wd
