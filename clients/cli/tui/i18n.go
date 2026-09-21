@@ -185,6 +185,10 @@ var TUIStrings = map[string]map[string]string{
 		"en": "Complete guide to commands & system instructions",
 		"id": "Panduan lengkap perintah & instruksi sistem",
 	},
+	"slash_back_desc": {
+		"en": "Return to main launcher menu (session is saved)",
+		"id": "Kembali ke menu launcher utama (sesi tersimpan)",
+	},
 	"slash_reset_desc": {
 		"en": "Start new chat session & clear memory graph",
 		"id": "Mulai sesi obrolan baru & bersihkan memory graph",
@@ -298,8 +302,8 @@ var TUIStrings = map[string]map[string]string{
 		"id": "intelijen pasar & osint keuangan",
 	},
 	"banner_hint": {
-		"en": "  [HINT: Type /help for guide, /lang to switch language, /reset to clear chat, /exit to quit]",
-		"id": "  [PETUNJUK: Ketik /help untuk panduan, /lang untuk ganti bahasa, /reset untuk reset chat, /exit untuk keluar]",
+		"en": "  [HINT: /help guide · /chats resume session · /back to menu · /reset new chat · /exit quit]",
+		"id": "  [PETUNJUK: /help panduan · /chats lanjut sesi · /back ke menu · /reset chat baru · /exit keluar]",
 	},
 	"lang_selector_title": {
 		"en": "🌐 SELECT INTERFACE LANGUAGE / PILIH BAHASA ANTARMUKA",
@@ -360,6 +364,14 @@ var TUIStrings = map[string]map[string]string{
 	"repl_exit_msg": {
 		"en": "Exiting Live REPL session.",
 		"id": "Keluar dari sesi Live REPL.",
+	},
+	"repl_back_msg": {
+		"en": "\n[✓] Returning to main menu. Your session is saved in local SQLite.\n",
+		"id": "\n[✓] Kembali ke menu utama. Sesi Anda tersimpan di SQLite lokal.\n",
+	},
+	"repl_chats_saved_notice": {
+		"en": "  [✓] Active session [%s] is saved. Switching to: %s (%s)\n",
+		"id": "  [✓] Sesi aktif [%s] tersimpan. Beralih ke: %s (%s)\n",
 	},
 	"repl_session_reset": {
 		"en": "\n[✓] Session reset and memory graph cleared. New conversation session: %s\n",
@@ -680,6 +692,7 @@ func GetLocalizedLauncherItems() []LauncherItem {
 func GetLocalizedSlashCommands() []SlashCommand {
 	return []SlashCommand{
 		{Command: "/help", Description: T("slash_help_desc")},
+		{Command: "/back", Description: T("slash_back_desc")},
 		{Command: "/chats", Description: T("slash_chats_desc")},
 		{Command: "/resume", Description: T("slash_resume_desc")},
 		{Command: "/reset", Description: T("slash_reset_desc")},

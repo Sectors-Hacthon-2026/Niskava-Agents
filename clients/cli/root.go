@@ -85,13 +85,16 @@ and qualitative market disclosures/news.`,
 				_, _ = fmt.Scanln()
 
 			case "terminal":
-				// Launch persistent live interactive CLI REPL
+				// RunLiveREPL returns replBackSentinel if user pressed /back,
+				// or "" if user pressed /exit. In both cases, loop continues
+				// back to the launcher — no special branching needed here.
 				tui.RunLiveREPL(cfg, appDB, srv.URL)
 
 			case "sessions":
 				// Show saved sessions with interactive resume option
 				selectedSessionID := runSessionsInteractive(cmd, appDB)
 				if selectedSessionID != "" {
+					// Result ignored: both /back and /exit return user to launcher loop.
 					tui.RunLiveREPL(cfg, appDB, srv.URL, selectedSessionID)
 				}
 

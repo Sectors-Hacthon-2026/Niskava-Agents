@@ -262,3 +262,47 @@ func TestReplInputModelCtrlCAlwaysExits(t *testing.T) {
 	}
 }
 
+func TestReplInputModelBackCommandInSlashPopup(t *testing.T) {
+	model := NewReplInputModel("niskava [hermes] >")
+	model.TextInput.SetValue("/ba")
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	m := updated.(ReplInputModel)
+
+	foundBack := false
+	for _, cmd := range m.FilteredCommands {
+		if cmd.Command == "/back" {
+			foundBack = true
+		}
+	}
+	if !foundBack {
+		t.Error("expected '/back' to appear in slash popup when typing '/ba'")
+	}
+}
+
+func TestReplInputModelBackCommandSubmit(t *testing.T) {
+	model := NewReplInputModel("niskava [hermes] >")
+	model.TextInput.SetValue("/back")
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	m := updated.(ReplInputModel)
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	result := updated.(ReplInputModel)
+
+	if cmd == nil {
+		t.Error("expected tea.Quit command after submitting /back")
+	}
+	if result.SubmittedValue != "/back" {
+		t.Errorf("expected SubmittedValue '/back', got '%s'", result.SubmittedValue)
+	}
+}
+
+func TestReplBackSentinel(t *testing.T) {
+	if ReplBackSentinel != "__back__" {
+		t.Errorf("expected ReplBackSentinel to be '__back__', got '%s'", ReplBackSentinel)
+	}
+	if replBackSentinel != "__back__" {
+		t.Errorf("expected replBackSentinel to be '__back__', got '%s'", replBackSentinel)
+	}
+}
+
+

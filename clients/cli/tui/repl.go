@@ -20,6 +20,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// ReplBackSentinel is the sentinel return value from RunLiveREPL when the user requests returning to launcher.
+const ReplBackSentinel = "__back__"
+const replBackSentinel = ReplBackSentinel
+
 var (
 	// Terminal Color Styles (Light Green / Matrix OSINT Aesthetic)
 	promptBoxStyle = lipgloss.NewStyle().
@@ -187,11 +191,11 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Live filter slash commands when input starts with '/'
 	val := strings.TrimSpace(m.TextInput.Value())
-	if strings.HasPrefix(val, "/") {
+	if strings.HasPrefix(val, "/") && !strings.Contains(val, " ") {
 		m.SlashActive = true
 		m.FilteredCommands = nil
 		for _, sc := range m.SlashCommands {
-			if strings.HasPrefix(sc.Command, val) || strings.Contains(sc.Command, strings.ToLower(val)) {
+			if strings.HasPrefix(sc.Command, val) || strings.HasPrefix(val, sc.Command) || strings.Contains(sc.Command, strings.ToLower(val)) {
 				m.FilteredCommands = append(m.FilteredCommands, sc)
 			}
 		}
@@ -288,7 +292,8 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 
 // RunLiveREPL starts an interactive, conversational research assistant session.
 // If initialSessionID is provided and non-empty, it resumes that session directly.
-func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSessionID ...string) {
+// Returns replBackSentinel ("__back__") if user typed /back to return to launcher, or "" if user exited.
+func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSessionID ...string) string {
 	// Determine active model display
 	modelLabel := cfg.Auth.OpenAIModel
 	if modelLabel == "" {
@@ -319,7 +324,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 		m, err := p.Run()
 		if err != nil {
 			fmt.Printf("\n%s\n", T("repl_exit_msg"))
-			break
+			return ""
 		}
 
 		input := strings.TrimSpace(m.(ReplInputModel).SubmittedValue)
@@ -331,7 +336,12 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 		lower := strings.ToLower(input)
 		if lower == "/exit" || lower == "exit" || lower == "quit" || lower == ":q" {
 			fmt.Println(T("repl_exit_msg"))
-			break
+			return ""
+		}
+
+		if lower == "/back" || lower == "back" {
+			fmt.Print(T("repl_back_msg"))
+			return replBackSentinel
 		}
 
 		if lower == "/help" {
@@ -418,10 +428,11 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 			if errRun == nil {
 				res := mSel.(SessionSelectorModel)
 				if !res.Canceled && res.SelectedSession != nil {
+					prevSessionID := sessionID
 					sessionID = res.SelectedSession.ID
 					fmt.Print("\033[H\033[2J")
 					renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
-					fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(fmt.Sprintf("  [✓] Beralih ke sesi: %s (%s)", sessionID, res.SelectedSession.Title)))
+					fmt.Print(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, res.SelectedSession.Title)))
 					renderResumedHistory(appDB, sessionID)
 				}
 			}
@@ -441,10 +452,11 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 					fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(fmt.Sprintf("  [!] Sesi '%s' tidak ditemukan di database lokal.", targetID)))
 					continue
 				}
+				prevSessionID := sessionID
 				sessionID = sess.ID
 				fmt.Print("\033[H\033[2J")
 				renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
-				fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(fmt.Sprintf("  [✓] Melanjutkan sesi: %s (%s)", sessionID, sess.Title)))
+				fmt.Print(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, sess.Title)))
 				renderResumedHistory(appDB, sessionID)
 			}
 			continue
@@ -453,6 +465,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 		// Execute conversational research turn with verbatim user prompt
 		executeChatTurn(input, sessionID, serverURL, cfg, appDB)
 	}
+	return ""
 }
 
 func renderBanner(modelLabel, serverURL, sessionID, dbPath string) {
