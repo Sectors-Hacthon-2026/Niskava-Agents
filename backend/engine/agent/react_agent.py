@@ -19,6 +19,10 @@ from engine.agent.tools import NiskavaToolRegistry
 from engine.sectors.tickers import extract_valid_tickers, is_valid_idx_ticker
 from engine.utils.resilience import RetryConfig, execute_with_retry
 
+# Configurable ReAct loop depth — override via NISKAVA_MAX_REACT_ITERATIONS env var.
+# Default 10: cukup untuk multi-tool workflows (news + quant + memory + synthesis).
+MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_MAX_REACT_ITERATIONS", "10"))
+
 
 def get_system_prompt(
     language: str = "id",
@@ -550,7 +554,7 @@ class NiskavaReActAgent:
         )
 
         last_error = ""
-        for _ in range(4):
+        for _ in range(MAX_REACT_ITERATIONS):
             payload = {
                 "model": model,
                 "messages": messages,
@@ -662,6 +666,24 @@ class NiskavaReActAgent:
                                     "sector_change_pct": a.get("sector_change_pct", 0.0),
                                     "description": a.get("description", ""),
                                 })
+
+                            if tool_res:
+                                top_anomaly = tool_res[0]
+                                auto_finding: Dict[str, Any] = {
+                                    "event": "finding_emitted",
+                                    "session_id": session_id,
+                                    "id": f"FND-AUTO-{len(findings) + 1:02d}",
+                                    "title": f"Anomali Volume {tool_args.get('ticker', '')}: {top_anomaly.get('metric_type', 'VOLUME_SPIKE')}",
+                                    "claim_text": (
+                                        f"Z-Score {top_anomaly.get('z_score', 0):.2f}σ pada "
+                                        f"{top_anomaly.get('date') or top_anomaly.get('anomaly_date', 'N/A')}."
+                                    ),
+                                    "verification_status": "SUPPORTED",
+                                    "confidence_score": 1.0,
+                                    "causality_status": "DETECTED",
+                                }
+                                findings.append(auto_finding)
+                                self._emit(auto_finding)
 
                         obs_str = f"Observation for {tool_name}: {json.dumps(tool_res)[:450]}"
                         obs_summary = (
@@ -829,7 +851,7 @@ class NiskavaReActAgent:
                     "tool": "harvest_market_news",
                     "args": {},
                 })
-                news_items = self.tools.harvest_market_news(None)
+                news_items = self.tools.execute_tool("harvest_market_news", {})
                 self._emit({
                     "event": "agent_observation",
                     "session_id": session_id,
