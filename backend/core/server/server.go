@@ -672,11 +672,15 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 				return
 
 			case err, ok := <-errChan:
-				if ok && err != nil && !wasAborted {
+				if !ok {
+					errChan = nil
+					continue
+				}
+				if err != nil && !wasAborted {
 					fmt.Fprintf(w, "event: error\ndata: %s\n\n", err.Error())
 					flusher.Flush()
+					return
 				}
-				return
 
 			case ev, ok := <-eventsChan:
 				if !ok {

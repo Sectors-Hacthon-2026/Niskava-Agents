@@ -356,8 +356,16 @@ class NiskavaToolRegistry:
 
     def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
         """Dynamically dispatch and execute a registered tool (supporting direct & MCP names)."""
-        ticker = arguments.get("ticker", "")
-        days = arguments.get("days", 30)
+        ticker = str(arguments.get("ticker") or arguments.get("symbol") or "").upper()
+        raw_days = arguments.get("days")
+        if raw_days is None:
+            raw_days = arguments.get("lookback_days", 30)
+        try:
+            days = int(raw_days)
+            if days <= 0:
+                days = 30
+        except (ValueError, TypeError):
+            days = 30
 
         # Check for Layer 3 Domain Skill execution
         if tool_name == "execute_skill":

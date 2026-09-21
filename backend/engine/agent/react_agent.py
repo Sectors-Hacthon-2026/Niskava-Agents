@@ -427,8 +427,20 @@ class NiskavaReActAgent:
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
+        now = datetime.now()
+        current_date_str = now.strftime("%Y-%m-%d (%A)")
+        dynamic_system_prompt = (
+            f"{SYSTEM_PROMPT}\n\n"
+            f"=== REAL-WORLD TEMPORAL CONTEXT ===\n"
+            f"- Today's Real-World Date: {current_date_str}\n"
+            f"- Current Year: {now.year}\n"
+            f"- Strict Temporal Rule: NEVER guess or refer to past years (like 2024 or early 2025) as 'hari ini' or 'recent'. Today is {current_date_str}.\n"
+            f"- Anti-Hallucination Rule: NEVER fabricate stock prices, indices, or trading dates from your memory. Always call tools (e.g. 'get_daily_candles', 'compute_quant_anomalies', 'harvest_market_news') to obtain authentic data before citing numbers.\n"
+            f"- Provenance Rule: If the user asks where data came from ('itu data darimana?'), explicitly and transparently explain the real data pipelines used (Sectors Financial API v2 for official IDX candlestick & fundamental data, and Google News RSS / IDX disclosures for news).\n"
+        )
+
         messages: List[Dict[str, str]] = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": dynamic_system_prompt},
         ]
         if history:
             for h in history:
@@ -462,11 +474,12 @@ class NiskavaReActAgent:
                 "model": model,
                 "messages": messages,
                 "temperature": 0.2,
-                "max_tokens": 700,
+                "max_tokens": 1500,
+                "stream": False,
             }
             try:
                 resp = execute_with_retry(
-                    lambda: requests.post(url, headers=headers, json=payload, timeout=18.0),
+                    lambda: requests.post(url, headers=headers, json=payload, timeout=45.0),
                     config=retry_cfg,
                     on_retry_callback=on_llm_retry,
                 )
@@ -488,12 +501,28 @@ class NiskavaReActAgent:
                     last_error = f"Format respons tidak valid (tidak ada item 'choices'): {raw[:200]}"
                     break
                 msg = choices[0].get("message", {})
-                content = msg.get("content") or msg.get("reasoning") or ""
+                content = (
+                    msg.get("content")
+                    or msg.get("reasoning_content")
+                    or msg.get("reasoning")
+                    or ""
+                )
+                # If content is empty but model emitted native OpenAI tool_calls, synthesize XML
+                if not content and msg.get("tool_calls"):
+                    for tc in msg.get("tool_calls", []):
+                        fn = tc.get("function", {})
+                        fn_name = fn.get("name", "")
+                        fn_raw_args = fn.get("arguments", "{}")
+                        if isinstance(fn_raw_args, dict):
+                            fn_args_json = json.dumps(fn_raw_args)
+                        else:
+                            fn_args_json = str(fn_raw_args).strip() or "{}"
+                        content += f'<tool_call>{{"name": "{fn_name}", "arguments": {fn_args_json}}}</tool_call>\n'
                 if not content:
                     last_error = "Model AI mengembalikan konten respons kosong."
                     break
             except requests.exceptions.Timeout:
-                last_error = f"Koneksi timeout setelah 18 detik ke {url}"
+                last_error = f"Koneksi timeout setelah 45 detik ke {url}"
                 break
             except requests.exceptions.ConnectionError:
                 last_error = f"Gagal terhubung ke {url} (Koneksi jaringan ditolak atau server tidak aktif)"
