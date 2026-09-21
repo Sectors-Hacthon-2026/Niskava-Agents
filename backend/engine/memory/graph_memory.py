@@ -17,6 +17,30 @@ from typing import Any, Dict, List, Optional
 import networkx as nx
 
 
+KNOWN_TICKER_ALIASES: Dict[str, str] = {
+    "antam": "ANTM",
+    "aneka tambang": "ANTM",
+    "bca": "BBCA",
+    "bank central asia": "BBCA",
+    "bri": "BBRI",
+    "bank rakyat indonesia": "BBRI",
+    "mandiri": "BMRI",
+    "bank mandiri": "BMRI",
+    "bni": "BBNI",
+    "bank negara indonesia": "BBNI",
+    "telkom": "TLKM",
+    "telkom indonesia": "TLKM",
+    "adaro": "ADRO",
+    "adaro energy": "ADRO",
+    "vale": "INCO",
+    "vale indonesia": "INCO",
+    "bukit asam": "PTBA",
+    "timah": "TINS",
+    "medco": "MEDC",
+    "bumi resources": "BUMI",
+}
+
+
 class LocalGraphMemory:
     """In-memory NetworkX graph backed by local SQLite persistence."""
 
@@ -348,25 +372,73 @@ class LocalGraphMemory:
             "status": "RECORDED",
         }
 
+    @staticmethod
+    def clean_corporate_tokens(text: str) -> str:
+        """Strip common corporate suffixes, prefixes, and punctuation."""
+        cleaned = re.sub(r"\b(pt|tbk|persero|corp|corporation|inc)\b", "", text.lower())
+        cleaned = re.sub(r"[^a-z0-9\s]", " ", cleaned)
+        return re.sub(r"\s+", " ", cleaned).strip()
+
     def _resolve_target_nodes(self, G: nx.DiGraph, query: str) -> List[str]:
-        """Find matching node IDs in the graph using case-insensitive partial match."""
-        q = query.strip().lower()
-        if not q:
+        """Find matching node IDs in the graph using alias resolution and multi-strategy match."""
+        q_raw = query.strip().lower()
+        if not q_raw:
             return []
 
+        q_clean = self.clean_corporate_tokens(q_raw)
+        alias_ticker = KNOWN_TICKER_ALIASES.get(q_clean) or KNOWN_TICKER_ALIASES.get(q_raw)
+
         exact_matches = []
+        alias_matches = []
         partial_matches = []
+
+        # Check known alias first
+        if alias_ticker:
+            candidate_id = f"ticker:{alias_ticker.lower()}"
+            if candidate_id in G:
+                alias_matches.append(candidate_id)
 
         for node_id, data in G.nodes(data=True):
             label = str(data.get("label", "")).lower()
             clean_id = node_id.lower()
-            if label == q or clean_id == f"ticker:{q}" or clean_id == q:
+            label_clean = self.clean_corporate_tokens(label)
+
+            # Direct exact match on label or node_id
+            if label == q_raw or clean_id == f"ticker:{q_raw}" or clean_id == q_raw:
                 exact_matches.append(node_id)
-            elif q in label or q in clean_id:
+                continue
+
+            if q_clean and (label_clean == q_clean or clean_id == f"ticker:{q_clean}"):
+                exact_matches.append(node_id)
+                continue
+
+            # Check metadata fields (company_name, aliases)
+            meta = data.get("metadata", {})
+            if isinstance(meta, dict):
+                company_name = str(meta.get("company_name", "")).lower()
+                company_clean = self.clean_corporate_tokens(company_name)
+                if q_clean and (q_clean == company_clean or (company_clean and (q_clean in company_clean or company_clean in q_clean))):
+                    alias_matches.append(node_id)
+                    continue
+
+                for alias in meta.get("aliases", []):
+                    alias_clean = self.clean_corporate_tokens(str(alias))
+                    if q_clean and (q_clean == alias_clean or (alias_clean and (q_clean in alias_clean or alias_clean in q_clean))):
+                        alias_matches.append(node_id)
+                        break
+
+            # Fallback partial matching
+            if (q_raw and (q_raw in label or q_raw in clean_id)) or (q_clean and label_clean and q_clean in label_clean):
                 partial_matches.append(node_id)
 
-        # Prioritize exact matches
-        results = exact_matches + [m for m in partial_matches if m not in exact_matches]
+        # Prioritize exact matches > alias/metadata matches > partial matches
+        seen = set()
+        results = []
+        for match in exact_matches + alias_matches + partial_matches:
+            if match not in seen:
+                seen.add(match)
+                results.append(match)
+
         return results[:5]
 
     def retrieve_ego_subgraph(

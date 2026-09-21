@@ -216,3 +216,23 @@ def test_clear_memory(temp_memory):
     assert del2 == 1
     G2 = temp_memory.load_graph()
     assert G2.number_of_nodes() == 0
+
+
+def test_resolve_target_nodes_with_company_aliases(temp_memory):
+    """Test resolving graph nodes via company name aliases and normalized tokens."""
+    temp_memory.store_observation(
+        source_label="User",
+        source_type="USER",
+        relation="INVESTIGATED",
+        target_label="ANTM",
+        target_type="TICKER",
+        target_metadata={"company_name": "Aneka Tambang", "sector": "Basic Materials"},
+    )
+    # Search by Indonesian common name and lowercase company name
+    nodes_common = temp_memory.retrieve_ego_subgraph("Aneka Tambang")
+    assert len(nodes_common["root_nodes"]) > 0
+    assert "ticker:antm" in nodes_common["root_nodes"]
+
+    nodes_fuzzy = temp_memory.retrieve_ego_subgraph("PT Antam")
+    assert "ticker:antm" in nodes_fuzzy["root_nodes"]
+
