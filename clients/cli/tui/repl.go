@@ -473,7 +473,6 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 		// Execute conversational research turn with verbatim user prompt
 		executeChatTurn(input, sessionID, serverURL, cfg, appDB)
 	}
-	return ""
 }
 
 func renderBanner(modelLabel, serverURL, sessionID, dbPath string) {

@@ -462,4 +462,3 @@ func TestSlashCommandsListContainsBack(t *testing.T) {
 
 	SetLanguage("en")
 }
-
