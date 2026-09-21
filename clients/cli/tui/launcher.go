@@ -105,7 +105,7 @@ func NewLauncherModelWithHealth(serverURL string, version string, apiKeyOK bool)
 		Version:   version,
 		APIKeyOK:  apiKeyOK,
 		Items:     items,
-		Cursor:    1, // Default cursor on Terminal UI
+		Cursor:    0, // Default cursor on Web UI [W]
 	}
 }
 
