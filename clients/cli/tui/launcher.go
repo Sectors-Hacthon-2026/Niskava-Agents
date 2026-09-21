@@ -30,16 +30,16 @@ type LauncherModel struct {
 	Quitting  bool
 }
 
-// Styles adhering to PRD Color Palette Specification (#00FF87 Bright Green Theme)
+// Styles adhering to Binance Dark Financial OSINT Palette Specification (#FCD535 Gold / #1E2329 Dark Slate)
 var (
-	colorPrdBrightGreen = lipgloss.Color("#00FF87")
-	colorPrdMutedGreen  = lipgloss.Color("#1F5C3F")
-	colorPrdDarkGreen   = lipgloss.Color("#052E16")
-	colorPrdWhite       = lipgloss.Color("#FFFFFF")
-	colorPrdLightGray   = lipgloss.Color("#B0B0B0")
-	colorPrdDimGray     = lipgloss.Color("#6E6E6E")
-	colorPrdStatusOK    = lipgloss.Color("#3DDC97")
-	colorPrdStatusErr   = lipgloss.Color("#FF5555")
+	colorPrdBrightGreen = lipgloss.Color("#FCD535") // Financial Gold Accent
+	colorPrdMutedGreen  = lipgloss.Color("#848E9C") // Slate Gray
+	colorPrdDarkGreen   = lipgloss.Color("#1E2329") // Dark Slate
+	colorPrdWhite       = lipgloss.Color("#FFFFFF") // Pure White
+	colorPrdLightGray   = lipgloss.Color("#848E9C") // Muted Slate Gray
+	colorPrdDimGray     = lipgloss.Color("#848E9C") // Dimmed Slate Gray
+	colorPrdStatusOK    = lipgloss.Color("#0ECB81") // Financial Green OK
+	colorPrdStatusErr   = lipgloss.Color("#F6465D") // Financial Red Error
 
 	bannerStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -57,8 +57,8 @@ var (
 
 	shortcutKeyActiveStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(colorPrdBrightGreen).
-				Background(colorPrdDarkGreen)
+				Foreground(colorPrdDarkGreen).
+				Background(colorPrdBrightGreen)
 
 	shortcutKeyInactiveStyle = lipgloss.NewStyle().
 					Bold(true).
@@ -66,14 +66,14 @@ var (
 
 	itemTitleActiveStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(colorPrdWhite).
-				Background(colorPrdDarkGreen)
+				Foreground(colorPrdDarkGreen).
+				Background(colorPrdBrightGreen)
 
 	itemTitleInactiveStyle = lipgloss.NewStyle().
-				Foreground(colorPrdLightGray)
+				Foreground(colorPrdWhite)
 
 	itemDescStyle = lipgloss.NewStyle().
-			Foreground(colorPrdDimGray)
+			Foreground(colorPrdLightGray)
 
 	cursorIndicatorStyle = lipgloss.NewStyle().
 				Bold(true).

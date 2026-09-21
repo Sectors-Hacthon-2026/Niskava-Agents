@@ -10,24 +10,24 @@ import (
 func PrintFullHelpGuide() {
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#00FF87")).
-		Background(lipgloss.Color("#052E16")).
+		Foreground(ColorBg).
+		Background(ColorAccent).
 		Padding(0, 1)
 
 	sectionStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#4ADE80"))
+		Foreground(ColorAccent)
 
 	keyStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#FACC15"))
+		Foreground(ColorAccent)
 
 	cmdStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#38BDF8"))
+		Foreground(ColorThought)
 
 	descStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#F8FAFC"))
+		Foreground(ColorFg)
 
 	mutedStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#94A3B8"))

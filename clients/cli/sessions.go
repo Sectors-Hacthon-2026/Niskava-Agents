@@ -30,7 +30,7 @@ func printFormattedSessions(database *db.DB, sType string, limit int, w io.Write
 			return fmt.Errorf("failed to retrieve chat sessions: %w", err)
 		}
 
-		fmt.Fprintln(w, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00FF87")).Render("\n💬 RIWAYAT SESI CHAT AI (CONVERSATIONAL SESSIONS)"))
+		fmt.Fprintln(w, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FCD535")).Render("\n💬 RIWAYAT SESI CHAT AI (CONVERSATIONAL SESSIONS)"))
 		fmt.Fprintln(w, "─────────────────────────────────────────────────────────────────────────────")
 		fmt.Fprintf(w, "%-22s %-24s %-8s %-16s %s\n", "SESSION ID", "TITLE", "MSGS", "UPDATED AT", "PREVIEW")
 		fmt.Fprintln(w, "─────────────────────────────────────────────────────────────────────────────")

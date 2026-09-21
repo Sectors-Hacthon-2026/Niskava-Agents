@@ -616,7 +616,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 			case ipc.EventAgentMessageChunk:
 				assistantResponse.WriteString(ev.Chunk)
 				words := len(strings.Fields(assistantResponse.String()))
-				fmt.Print("\r\033[K" + lipgloss.NewStyle().Foreground(lipgloss.Color("#4ADE80")).Italic(true).Render(TF("thinking_drafting", modelLabel, words)) + "\r")
+				fmt.Print("\r\033[K" + lipgloss.NewStyle().Foreground(ColorAccent).Italic(true).Render(TF("thinking_drafting", modelLabel, words)) + "\r")
 
 			case ipc.EventAgentMessageComplete:
 				if assistantResponse.Len() == 0 {
@@ -636,9 +636,9 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				if assistantResponse.Len() == 0 {
 					errBox := lipgloss.NewStyle().
 						Border(lipgloss.RoundedBorder()).
-						BorderForeground(lipgloss.Color("#EF4444")).
+						BorderForeground(ColorDanger).
 						Padding(0, 1).
-						Foreground(lipgloss.Color("#FCA5A5")).
+						Foreground(ColorFg).
 						Render(fmt.Sprintf("❌ [ERROR SESSION]: %s", ev.Error))
 					assistantResponse.WriteString(errBox)
 				}
@@ -648,8 +648,8 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 }
 
 func renderCompletionBadge(duration time.Duration, sessionID, model string, anomalies, findings int) string {
-	sep := lipgloss.NewStyle().Foreground(lipgloss.Color("#1F5C3F")).Render("─────────────────────────────────────────────────────────────────────────────")
-	badge := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(T("badge_completed"))
+	sep := lipgloss.NewStyle().Foreground(ColorMuted).Render("─────────────────────────────────────────────────────────────────────────────")
+	badge := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(T("badge_completed"))
 	detail := TF("badge_completed_detail", duration.Seconds(), model, sessionID)
 	if anomalies > 0 || findings > 0 {
 		detail += TF("badge_completed_counts", anomalies, findings)

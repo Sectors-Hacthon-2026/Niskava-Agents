@@ -20,23 +20,23 @@ type LangSelectorModel struct {
 var (
 	langBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#22C55E")).
+			BorderForeground(ColorAccent).
 			Padding(1, 2).
-			Foreground(lipgloss.Color("#F8FAFC"))
+			Foreground(ColorFg)
 
 	langTitleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#00FF87"))
+			Foreground(ColorAccent)
 
 	activeBadgeStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#052E16")).
-				Background(lipgloss.Color("#4ADE80")).
+				Foreground(ColorBg).
+				Background(ColorAccent).
 				Padding(0, 1)
 
 	langCursorStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#4ADE80"))
+			Foreground(ColorAccent)
 )
 
 // NewLangSelectorModel creates a new language selection sub-menu model.

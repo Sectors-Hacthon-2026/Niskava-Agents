@@ -21,24 +21,24 @@ type SessionSelectorModel struct {
 var (
 	sessionBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#22C55E")).
+			BorderForeground(ColorAccent).
 			Padding(1, 2).
-			Foreground(lipgloss.Color("#F8FAFC"))
+			Foreground(ColorFg)
 
 	sessionTitleStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#00FF87"))
+				Foreground(ColorAccent)
 
 	sessionActiveStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#00FF87"))
+				Foreground(ColorAccent)
 
 	sessionCursorStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#4ADE80"))
+				Foreground(ColorAccent)
 
 	sessionMetaStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#64748B"))
+				Foreground(ColorMuted)
 )
 
 // NewSessionSelectorModel creates an interactive selector model for chat sessions.
