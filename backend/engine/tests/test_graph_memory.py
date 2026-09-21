@@ -216,3 +216,68 @@ def test_clear_memory(temp_memory):
     assert del2 == 1
     G2 = temp_memory.load_graph()
     assert G2.number_of_nodes() == 0
+
+
+def test_resolve_target_nodes_with_company_aliases(temp_memory):
+    """Test resolving graph nodes via company name aliases and normalized tokens."""
+    temp_memory.store_observation(
+        source_label="User",
+        source_type="USER",
+        relation="INVESTIGATED",
+        target_label="ANTM",
+        target_type="TICKER",
+        target_metadata={"company_name": "Aneka Tambang", "sector": "Basic Materials"},
+    )
+    # Search by Indonesian common name and lowercase company name
+    nodes_common = temp_memory.retrieve_ego_subgraph("Aneka Tambang")
+    assert len(nodes_common["root_nodes"]) > 0
+    assert "ticker:antm" in nodes_common["root_nodes"]
+
+    nodes_fuzzy = temp_memory.retrieve_ego_subgraph("PT Antam")
+    assert "ticker:antm" in nodes_fuzzy["root_nodes"]
+
+
+def test_graph_centrality_pagerank_and_bridges(temp_memory):
+    """Test PageRank and betweenness centrality to detect true market bridges."""
+    # Topology: User -> ANTM, INCO -> MIND ID -> PTBA -> Coal Fleet
+    temp_memory.store_observation("User", "INVESTIGATED", "ANTM", source_type="USER", target_type="TICKER")
+    temp_memory.store_observation("User", "INVESTIGATED", "INCO", source_type="USER", target_type="TICKER")
+    temp_memory.store_observation("ANTM", "SUBSIDIARY_OF", "MIND ID", source_type="TICKER", target_type="ENTITY")
+    temp_memory.store_observation("INCO", "ASSOCIATE_OF", "MIND ID", source_type="TICKER", target_type="ENTITY")
+    temp_memory.store_observation("MIND ID", "CONTROLS", "PTBA", source_type="ENTITY", target_type="TICKER")
+    temp_memory.store_observation("PTBA", "OPERATES", "Coal Fleet", source_type="TICKER", target_type="FACILITY")
+
+    stats = temp_memory.get_graph_stats()
+    assert "top_central_entities" in stats
+    top_entity = stats["top_central_entities"][0]
+    assert "pagerank" in top_entity
+    assert "betweenness" in top_entity
+    assert "composite_score" in top_entity
+    assert top_entity["pagerank"] > 0.0
+    labels = [e["label"] for e in stats["top_central_entities"]]
+    assert "MIND ID" in labels[:2]
+
+
+def test_supersedes_relation_invalidates_prior_fact(temp_memory):
+    """Test SUPERSEDES relationship invalidating prior facts during retrieval."""
+    # Sesi 1: Buy ANTM 1450
+    temp_memory.store_observation("User", "HOLDS_AT", "Price: 1450", source_type="USER", target_type="PRICE_LEVEL", session_id="S1")
+    # Sesi 2: Take Profit ANTM 1620 superseding 1450
+    temp_memory.store_observation("User", "HOLDS_AT", "Price: 1620", source_type="USER", target_type="PRICE_LEVEL", session_id="S2")
+    temp_memory.store_observation("Price: 1620", "SUPERSEDES", "Price: 1450", source_type="PRICE_LEVEL", target_type="PRICE_LEVEL", session_id="S2")
+
+    ego = temp_memory.retrieve_ego_subgraph("User", radius=2)
+    active_edges = [e for e in ego["edges"] if not e.get("is_superseded")]
+    superseded_edges = [e for e in ego["edges"] if e.get("is_superseded")]
+
+    assert len(superseded_edges) >= 1
+    assert any(e["target_label"] == "Price: 1450" for e in superseded_edges)
+    assert any(e["target_label"] == "Price: 1620" for e in active_edges)
+
+    # In formatted prompt, superseded edges must be excluded from active facts
+    prompt = temp_memory.format_investigative_prompt("User")
+    assert "Price: 1620" in prompt
+    assert "Price: 1450" not in prompt
+
+
+

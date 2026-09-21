@@ -17,6 +17,30 @@ from typing import Any, Dict, List, Optional
 import networkx as nx
 
 
+KNOWN_TICKER_ALIASES: Dict[str, str] = {
+    "antam": "ANTM",
+    "aneka tambang": "ANTM",
+    "bca": "BBCA",
+    "bank central asia": "BBCA",
+    "bri": "BBRI",
+    "bank rakyat indonesia": "BBRI",
+    "mandiri": "BMRI",
+    "bank mandiri": "BMRI",
+    "bni": "BBNI",
+    "bank negara indonesia": "BBNI",
+    "telkom": "TLKM",
+    "telkom indonesia": "TLKM",
+    "adaro": "ADRO",
+    "adaro energy": "ADRO",
+    "vale": "INCO",
+    "vale indonesia": "INCO",
+    "bukit asam": "PTBA",
+    "timah": "TINS",
+    "medco": "MEDC",
+    "bumi resources": "BUMI",
+}
+
+
 class LocalGraphMemory:
     """In-memory NetworkX graph backed by local SQLite persistence."""
 
@@ -348,25 +372,73 @@ class LocalGraphMemory:
             "status": "RECORDED",
         }
 
+    @staticmethod
+    def clean_corporate_tokens(text: str) -> str:
+        """Strip common corporate suffixes, prefixes, and punctuation."""
+        cleaned = re.sub(r"\b(pt|tbk|persero|corp|corporation|inc)\b", "", text.lower())
+        cleaned = re.sub(r"[^a-z0-9\s]", " ", cleaned)
+        return re.sub(r"\s+", " ", cleaned).strip()
+
     def _resolve_target_nodes(self, G: nx.DiGraph, query: str) -> List[str]:
-        """Find matching node IDs in the graph using case-insensitive partial match."""
-        q = query.strip().lower()
-        if not q:
+        """Find matching node IDs in the graph using alias resolution and multi-strategy match."""
+        q_raw = query.strip().lower()
+        if not q_raw:
             return []
 
+        q_clean = self.clean_corporate_tokens(q_raw)
+        alias_ticker = KNOWN_TICKER_ALIASES.get(q_clean) or KNOWN_TICKER_ALIASES.get(q_raw)
+
         exact_matches = []
+        alias_matches = []
         partial_matches = []
+
+        # Check known alias first
+        if alias_ticker:
+            candidate_id = f"ticker:{alias_ticker.lower()}"
+            if candidate_id in G:
+                alias_matches.append(candidate_id)
 
         for node_id, data in G.nodes(data=True):
             label = str(data.get("label", "")).lower()
             clean_id = node_id.lower()
-            if label == q or clean_id == f"ticker:{q}" or clean_id == q:
+            label_clean = self.clean_corporate_tokens(label)
+
+            # Direct exact match on label or node_id
+            if label == q_raw or clean_id == f"ticker:{q_raw}" or clean_id == q_raw:
                 exact_matches.append(node_id)
-            elif q in label or q in clean_id:
+                continue
+
+            if q_clean and (label_clean == q_clean or clean_id == f"ticker:{q_clean}"):
+                exact_matches.append(node_id)
+                continue
+
+            # Check metadata fields (company_name, aliases)
+            meta = data.get("metadata", {})
+            if isinstance(meta, dict):
+                company_name = str(meta.get("company_name", "")).lower()
+                company_clean = self.clean_corporate_tokens(company_name)
+                if q_clean and (q_clean == company_clean or (company_clean and (q_clean in company_clean or company_clean in q_clean))):
+                    alias_matches.append(node_id)
+                    continue
+
+                for alias in meta.get("aliases", []):
+                    alias_clean = self.clean_corporate_tokens(str(alias))
+                    if q_clean and (q_clean == alias_clean or (alias_clean and (q_clean in alias_clean or alias_clean in q_clean))):
+                        alias_matches.append(node_id)
+                        break
+
+            # Fallback partial matching
+            if (q_raw and (q_raw in label or q_raw in clean_id)) or (q_clean and label_clean and q_clean in label_clean):
                 partial_matches.append(node_id)
 
-        # Prioritize exact matches
-        results = exact_matches + [m for m in partial_matches if m not in exact_matches]
+        # Prioritize exact matches > alias/metadata matches > partial matches
+        seen = set()
+        results = []
+        for match in exact_matches + alias_matches + partial_matches:
+            if match not in seen:
+                seen.add(match)
+                results.append(match)
+
         return results[:5]
 
     def retrieve_ego_subgraph(
@@ -404,6 +476,12 @@ class LocalGraphMemory:
         H = G.subgraph(subgraph_nodes)
         now = datetime.now(timezone.utc)
 
+        # Identify superseded entity nodes across the graph
+        superseded_target_ids = set()
+        for u, v, data in G.edges(data=True):
+            if data.get("relation") == "SUPERSEDES":
+                superseded_target_ids.add(v)
+
         edges_out = []
         for u, v, data in H.edges(data=True):
             observed_str = data.get("last_observed_at", "")
@@ -419,6 +497,11 @@ class LocalGraphMemory:
             base_weight = float(data.get("weight", 1.0))
             decay_factor = math.exp(-self.lambda_decay * delta_days)
             effective_weight = round(base_weight * decay_factor, 4)
+
+            is_superseded = False
+            if (u in superseded_target_ids or v in superseded_target_ids) and data.get("relation") != "SUPERSEDES":
+                is_superseded = True
+                effective_weight = 0.0
 
             u_data = G.nodes[u]
             v_data = G.nodes[v]
@@ -438,10 +521,11 @@ class LocalGraphMemory:
                 "decay_factor": round(decay_factor, 4),
                 "days_ago": round(delta_days, 1),
                 "confidence_score": data.get("confidence_score", 1.0),
+                "is_superseded": is_superseded,
             })
 
-        # Sort edges by effective_weight descending
-        edges_out.sort(key=lambda e: e["effective_weight"], reverse=True)
+        # Sort edges by effective_weight descending (active facts first)
+        edges_out.sort(key=lambda e: (not e["is_superseded"], e["effective_weight"]), reverse=True)
 
         nodes_out = []
         for n in H.nodes():
@@ -474,7 +558,9 @@ class LocalGraphMemory:
             return ""
 
         lines = []
-        for e in edges[:max_edges]:
+        for e in edges:
+            if e.get("is_superseded") or e.get("relation") == "SUPERSEDES":
+                continue
             src = e["source_label"]
             tgt = e["target_label"]
             rel = e["relation"]
@@ -483,6 +569,8 @@ class LocalGraphMemory:
             days = e.get("days_ago", 0.0)
             recency = f" [{days:.0f}h lalu]" if days > 0 else " [hari ini]"
             lines.append(f"- ({src}) --[{rel}]--> ({tgt}){ctx_part}{recency}")
+            if len(lines) >= max_edges:
+                break
 
         if not lines:
             return ""
@@ -567,17 +655,40 @@ class LocalGraphMemory:
             nt = d.get("node_type", "ENTITY")
             node_types[nt] = node_types.get(nt, 0) + 1
 
-        # Centrality (in-degree + out-degree)
+        # Centrality metrics: Degree, PageRank, and Betweenness Centrality
         degrees = dict(G.degree())
-        sorted_nodes = sorted(degrees.items(), key=lambda x: x[1], reverse=True)[:5]
+        try:
+            pageranks = nx.pagerank(G, alpha=0.85, weight="weight") if num_nodes > 1 else {n: 1.0 for n in G.nodes()}
+        except Exception:
+            pageranks = {n: (degrees.get(n, 0) / max(1, num_nodes)) for n in G.nodes()}
+
+        try:
+            U = G.to_undirected()
+            betweenness = nx.betweenness_centrality(U, normalized=True) if num_nodes > 2 else {n: 0.0 for n in G.nodes()}
+        except Exception:
+            betweenness = {n: 0.0 for n in G.nodes()}
+
+        # Composite score combines authority (PageRank), bridge connectivity (Betweenness), and degree
+        composite_scores: Dict[str, float] = {}
+        max_deg = max(degrees.values()) if degrees else 1
+        for n_id in G.nodes():
+            pr = pageranks.get(n_id, 0.0)
+            bet = betweenness.get(n_id, 0.0)
+            deg_norm = degrees.get(n_id, 0) / max(1, max_deg)
+            composite_scores[n_id] = round(0.4 * pr + 0.4 * bet + 0.2 * deg_norm, 4)
+
+        sorted_nodes = sorted(G.nodes(), key=lambda x: composite_scores.get(x, 0.0), reverse=True)[:5]
         top_central = []
-        for n_id, deg in sorted_nodes:
+        for n_id in sorted_nodes:
             n_data = G.nodes[n_id]
             top_central.append({
                 "id": n_id,
                 "label": n_data.get("label", n_id),
                 "type": n_data.get("node_type", "ENTITY"),
-                "connections": deg,
+                "connections": degrees.get(n_id, 0),
+                "pagerank": round(pageranks.get(n_id, 0.0), 4),
+                "betweenness": round(betweenness.get(n_id, 0.0), 4),
+                "composite_score": composite_scores.get(n_id, 0.0),
             })
 
         return {

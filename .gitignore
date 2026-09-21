@@ -110,3 +110,5 @@ Thumbs.db
 # --- Internal Documentation & Private Notes ---
 docs/internal/
 *.internal.md
+docs/superpowers/
+superpowers/

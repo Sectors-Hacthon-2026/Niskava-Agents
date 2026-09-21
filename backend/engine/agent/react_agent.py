@@ -253,37 +253,53 @@ class NiskavaReActAgent:
         # Augment prompt with local conversational graph memory (Law 6)
         effective_prompt = user_prompt
         if self.memory:
-            # 1. Detect portfolio/position mentions (e.g. 'beli ANTM di 1450')
-            pos_match = re.search(
-                r"(?:beli|entry|posisi|pegang|holds?)\s+([A-Za-z]{4})\b.*?(\d{3,6})",
-                user_prompt,
-                re.IGNORECASE,
-            )
-            if pos_match:
-                raw_tkr = pos_match.group(1).upper()
-                if is_valid_idx_ticker(raw_tkr):
-                    tkr = raw_tkr
-                    price = pos_match.group(2)
-                    try:
+            # 1. Automatically extract dialogue observations (buy, exit, watchlist)
+            try:
+                from engine.memory.extractor import extract_dialogue_observations
+                dialogue_obs = extract_dialogue_observations(user_prompt)
+                for obs in dialogue_obs:
+                    tkr = obs.get("ticker", "")
+                    rel = obs.get("relation", "")
+                    src = obs.get("source_label", "User")
+                    src_type = obs.get("source_type", "USER")
+                    tgt = obs.get("target_label", "")
+                    tgt_type = obs.get("target_type", "ENTITY")
+                    ctx = obs.get("context_snippet", "")
+
+                    self.memory.store_observation(
+                        source_label=src,
+                        source_type=src_type,
+                        relation=rel,
+                        target_label=tgt,
+                        target_type=tgt_type,
+                        context_snippet=ctx,
+                        session_id=session_id,
+                    )
+                    if tgt_type == "PRICE_LEVEL" and tkr:
                         self.memory.store_observation(
-                            source_label="User",
-                            source_type="USER",
-                            relation="HOLDS_AT",
-                            target_label=f"Price: {price}",
-                            target_type="PRICE_LEVEL",
-                            context_snippet=f"Posisi modal di {tkr} pada level {price}",
-                            session_id=session_id,
-                        )
-                        self.memory.store_observation(
-                            source_label=f"Price: {price}",
+                            source_label=tgt,
                             source_type="PRICE_LEVEL",
                             relation="TICKER_REF",
                             target_label=tkr,
                             target_type="TICKER",
                             session_id=session_id,
                         )
-                    except Exception:
-                        pass
+                        # If EXITED_AT, link supersedes to prior HOLDS_AT prices for this ticker
+                        if rel == "EXITED_AT":
+                            prior_ego = self.memory.retrieve_ego_subgraph(tkr, radius=2)
+                            for edge in prior_ego.get("edges", []):
+                                if edge.get("relation") == "TICKER_REF" and edge.get("source_id", "").startswith("price_level:") and edge.get("source_label") != tgt:
+                                    self.memory.store_observation(
+                                        source_label=tgt,
+                                        source_type="PRICE_LEVEL",
+                                        relation="SUPERSEDES",
+                                        target_label=edge.get("source_label", ""),
+                                        target_type="PRICE_LEVEL",
+                                        context_snippet=f"Realisasi keluar posisi menganulir level masuk {edge.get('source_label')}",
+                                        session_id=session_id,
+                                    )
+            except Exception:
+                pass
 
             # 2. Extract potential entities in prompt to recall past graph context
             memory_blocks = []
@@ -427,8 +443,20 @@ class NiskavaReActAgent:
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
+        now = datetime.now()
+        current_date_str = now.strftime("%Y-%m-%d (%A)")
+        dynamic_system_prompt = (
+            f"{SYSTEM_PROMPT}\n\n"
+            f"=== REAL-WORLD TEMPORAL CONTEXT ===\n"
+            f"- Today's Real-World Date: {current_date_str}\n"
+            f"- Current Year: {now.year}\n"
+            f"- Strict Temporal Rule: NEVER guess or refer to past years (like 2024 or early 2025) as 'hari ini' or 'recent'. Today is {current_date_str}.\n"
+            f"- Anti-Hallucination Rule: NEVER fabricate stock prices, indices, or trading dates from your memory. Always call tools (e.g. 'get_daily_candles', 'compute_quant_anomalies', 'harvest_market_news') to obtain authentic data before citing numbers.\n"
+            f"- Provenance Rule: If the user asks where data came from ('itu data darimana?'), explicitly and transparently explain the real data pipelines used (Sectors Financial API v2 for official IDX candlestick & fundamental data, and Google News RSS / IDX disclosures for news).\n"
+        )
+
         messages: List[Dict[str, str]] = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": dynamic_system_prompt},
         ]
         if history:
             for h in history:
@@ -462,11 +490,12 @@ class NiskavaReActAgent:
                 "model": model,
                 "messages": messages,
                 "temperature": 0.2,
-                "max_tokens": 700,
+                "max_tokens": 1500,
+                "stream": False,
             }
             try:
                 resp = execute_with_retry(
-                    lambda: requests.post(url, headers=headers, json=payload, timeout=18.0),
+                    lambda: requests.post(url, headers=headers, json=payload, timeout=45.0),
                     config=retry_cfg,
                     on_retry_callback=on_llm_retry,
                 )
@@ -488,12 +517,28 @@ class NiskavaReActAgent:
                     last_error = f"Format respons tidak valid (tidak ada item 'choices'): {raw[:200]}"
                     break
                 msg = choices[0].get("message", {})
-                content = msg.get("content") or msg.get("reasoning") or ""
+                content = (
+                    msg.get("content")
+                    or msg.get("reasoning_content")
+                    or msg.get("reasoning")
+                    or ""
+                )
+                # If content is empty but model emitted native OpenAI tool_calls, synthesize XML
+                if not content and msg.get("tool_calls"):
+                    for tc in msg.get("tool_calls", []):
+                        fn = tc.get("function", {})
+                        fn_name = fn.get("name", "")
+                        fn_raw_args = fn.get("arguments", "{}")
+                        if isinstance(fn_raw_args, dict):
+                            fn_args_json = json.dumps(fn_raw_args)
+                        else:
+                            fn_args_json = str(fn_raw_args).strip() or "{}"
+                        content += f'<tool_call>{{"name": "{fn_name}", "arguments": {fn_args_json}}}</tool_call>\n'
                 if not content:
                     last_error = "Model AI mengembalikan konten respons kosong."
                     break
             except requests.exceptions.Timeout:
-                last_error = f"Koneksi timeout setelah 18 detik ke {url}"
+                last_error = f"Koneksi timeout setelah 45 detik ke {url}"
                 break
             except requests.exceptions.ConnectionError:
                 last_error = f"Gagal terhubung ke {url} (Koneksi jaringan ditolak atau server tidak aktif)"

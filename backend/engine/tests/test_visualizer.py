@@ -52,8 +52,8 @@ def test_export_graph_data(populated_memory):
     # Check node properties
     antm_node = next(n for n in data["nodes"] if n["label"] == "ANTM")
     assert antm_node["group"] == "TICKER"
-    assert antm_node["shape"] == "dot"
-    assert antm_node["color"]["background"] == "#00D2FF"
+    assert antm_node["shape"] == "box"
+    assert antm_node["color"]["background"] == "#1E3A8A"
 
     # Check edge properties
     edge = data["edges"][0]
@@ -70,7 +70,8 @@ def test_generate_html_content(populated_memory):
     assert "vis-network" in html
     assert "ANTM" in html
     assert "Smelter Haltim" in html
-    assert "NISKAVA GRAPH" in html
+    assert "NISKAVA AGENT" in html
+    assert "Market Intelligence" in html
 
 
 def test_export_to_file(populated_memory, tmp_path):
@@ -83,3 +84,21 @@ def test_export_to_file(populated_memory, tmp_path):
     with open(saved_path, "r", encoding="utf-8") as f:
         content = f.read()
         assert "Smelter Haltim" in content
+
+
+def test_institutional_theme_no_cyber_slop(populated_memory):
+    """Verify that visualizer generates clean institutional financial research UI without cyber/neon slop."""
+    viz = GraphVisualizer(memory=populated_memory)
+    html = viz.generate_html(title="Niskava Market Intelligence")
+
+    # Assert absence of neon cyber tropes
+    assert "⚡" not in html
+    assert "CYBER" not in html.upper()
+    assert "#00D2FF" not in html  # Neon cyan removed
+    assert "#FF0055" not in html  # Neon hot pink removed
+
+    # Assert presence of institutional financial palette & layout
+    assert "Market Intelligence" in html
+    assert "tnum" in html or "tabular-nums" in html
+    assert "Dossier" in html
+
