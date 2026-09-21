@@ -22,6 +22,7 @@ var (
 	sessionBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(ColorAccent).
+			Width(76).
 			Padding(1, 2).
 			Foreground(ColorFg)
 
@@ -122,8 +123,8 @@ func (m SessionSelectorModel) View() string {
 		}
 
 		preview := s.LastMessagePreview
-		if len(preview) > 35 {
-			preview = preview[:32] + "..."
+		if len(preview) > 58 {
+			preview = preview[:55] + "..."
 		}
 		if preview == "" {
 			preview = "-"
@@ -134,7 +135,12 @@ func (m SessionSelectorModel) View() string {
 			pinBadge = " [PINNED]"
 		}
 
-		lineTitle := fmt.Sprintf("%-26s %s (%d msgs) [%s]", s.ID, s.Title+pinBadge, s.MessageCount, dateStr)
+		title := s.Title + pinBadge
+		if len(title) > 18 {
+			title = title[:15] + "..."
+		}
+
+		lineTitle := fmt.Sprintf("%-19s %-18s (%d msgs) [%s]", s.ID, title, s.MessageCount, dateStr)
 		previewLine := fmt.Sprintf("    ↳ %s", preview)
 
 		if i == m.Cursor {
