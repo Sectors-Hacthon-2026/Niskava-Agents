@@ -236,3 +236,25 @@ def test_resolve_target_nodes_with_company_aliases(temp_memory):
     nodes_fuzzy = temp_memory.retrieve_ego_subgraph("PT Antam")
     assert "ticker:antm" in nodes_fuzzy["root_nodes"]
 
+
+def test_graph_centrality_pagerank_and_bridges(temp_memory):
+    """Test PageRank and betweenness centrality to detect true market bridges."""
+    # Topology: User -> ANTM, INCO -> MIND ID -> PTBA -> Coal Fleet
+    temp_memory.store_observation("User", "INVESTIGATED", "ANTM", source_type="USER", target_type="TICKER")
+    temp_memory.store_observation("User", "INVESTIGATED", "INCO", source_type="USER", target_type="TICKER")
+    temp_memory.store_observation("ANTM", "SUBSIDIARY_OF", "MIND ID", source_type="TICKER", target_type="ENTITY")
+    temp_memory.store_observation("INCO", "ASSOCIATE_OF", "MIND ID", source_type="TICKER", target_type="ENTITY")
+    temp_memory.store_observation("MIND ID", "CONTROLS", "PTBA", source_type="ENTITY", target_type="TICKER")
+    temp_memory.store_observation("PTBA", "OPERATES", "Coal Fleet", source_type="TICKER", target_type="FACILITY")
+
+    stats = temp_memory.get_graph_stats()
+    assert "top_central_entities" in stats
+    top_entity = stats["top_central_entities"][0]
+    assert "pagerank" in top_entity
+    assert "betweenness" in top_entity
+    assert "composite_score" in top_entity
+    assert top_entity["pagerank"] > 0.0
+    labels = [e["label"] for e in stats["top_central_entities"]]
+    assert "MIND ID" in labels[:2]
+
+

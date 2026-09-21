@@ -639,17 +639,40 @@ class LocalGraphMemory:
             nt = d.get("node_type", "ENTITY")
             node_types[nt] = node_types.get(nt, 0) + 1
 
-        # Centrality (in-degree + out-degree)
+        # Centrality metrics: Degree, PageRank, and Betweenness Centrality
         degrees = dict(G.degree())
-        sorted_nodes = sorted(degrees.items(), key=lambda x: x[1], reverse=True)[:5]
+        try:
+            pageranks = nx.pagerank(G, alpha=0.85, weight="weight") if num_nodes > 1 else {n: 1.0 for n in G.nodes()}
+        except Exception:
+            pageranks = {n: (degrees.get(n, 0) / max(1, num_nodes)) for n in G.nodes()}
+
+        try:
+            U = G.to_undirected()
+            betweenness = nx.betweenness_centrality(U, normalized=True) if num_nodes > 2 else {n: 0.0 for n in G.nodes()}
+        except Exception:
+            betweenness = {n: 0.0 for n in G.nodes()}
+
+        # Composite score combines authority (PageRank), bridge connectivity (Betweenness), and degree
+        composite_scores: Dict[str, float] = {}
+        max_deg = max(degrees.values()) if degrees else 1
+        for n_id in G.nodes():
+            pr = pageranks.get(n_id, 0.0)
+            bet = betweenness.get(n_id, 0.0)
+            deg_norm = degrees.get(n_id, 0) / max(1, max_deg)
+            composite_scores[n_id] = round(0.4 * pr + 0.4 * bet + 0.2 * deg_norm, 4)
+
+        sorted_nodes = sorted(G.nodes(), key=lambda x: composite_scores.get(x, 0.0), reverse=True)[:5]
         top_central = []
-        for n_id, deg in sorted_nodes:
+        for n_id in sorted_nodes:
             n_data = G.nodes[n_id]
             top_central.append({
                 "id": n_id,
                 "label": n_data.get("label", n_id),
                 "type": n_data.get("node_type", "ENTITY"),
-                "connections": deg,
+                "connections": degrees.get(n_id, 0),
+                "pagerank": round(pageranks.get(n_id, 0.0), 4),
+                "betweenness": round(betweenness.get(n_id, 0.0), 4),
+                "composite_score": composite_scores.get(n_id, 0.0),
             })
 
         return {
