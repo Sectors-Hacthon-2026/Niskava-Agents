@@ -1,10 +1,13 @@
 package ipc
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -86,5 +89,38 @@ func TestRunSubprocessMock(t *testing.T) {
 
 	if !hasStart || !hasComplete {
 		t.Errorf("missing start or complete events. Got: %+v", receivedEvents)
+	}
+}
+
+func TestScannerHandlesLargeJSONLine(t *testing.T) {
+	// Create a large JSON event line (>64KB, e.g., 70KB)
+	largeContent := strings.Repeat("x", 70*1024)
+	ev := Event{
+		Event:   EventAgentMessageChunk,
+		Content: largeContent,
+	}
+	data, err := json.Marshal(ev)
+	if err != nil {
+		t.Fatalf("failed to marshal large event: %v", err)
+	}
+	if len(data) <= 64*1024 {
+		t.Fatalf("expected marshaled json to be > 64KB, got %d bytes", len(data))
+	}
+
+	reader := strings.NewReader(string(data) + "\n")
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, ipcScannerBufferBytes), ipcScannerBufferBytes)
+
+	if !scanner.Scan() {
+		t.Fatalf("scanner failed to scan large line: %v", scanner.Err())
+	}
+
+	var parsed Event
+	if err := json.Unmarshal(scanner.Bytes(), &parsed); err != nil {
+		t.Fatalf("failed to unmarshal scanned event: %v", err)
+	}
+
+	if parsed.Content != largeContent {
+		t.Errorf("content mismatch: got length %d, want %d", len(parsed.Content), len(largeContent))
 	}
 }

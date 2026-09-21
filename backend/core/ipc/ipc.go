@@ -14,6 +14,11 @@ import (
 	"strings"
 )
 
+const (
+	ipcScannerBufferBytes = 1024 * 1024 // 1MB
+	ipcStderrMaxBytes     = 32 * 1024   // 32KB
+)
+
 // EventType defines valid IPC event names.
 type EventType string
 
@@ -166,11 +171,13 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 		// Read stderr in background for error reporting
 		var stderrBuf strings.Builder
 		go func() {
-			_, _ = io.Copy(&stderrBuf, stderr)
+			limitedStderr := io.LimitReader(stderr, ipcStderrMaxBytes)
+			_, _ = io.Copy(&stderrBuf, limitedStderr)
 		}()
 
 		// Read stdout JSONL line-by-line
 		scanner := bufio.NewScanner(stdout)
+		scanner.Buffer(make([]byte, ipcScannerBufferBytes), ipcScannerBufferBytes)
 		for scanner.Scan() {
 			line := scanner.Bytes()
 			if len(line) == 0 {
