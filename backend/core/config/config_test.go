@@ -8,8 +8,8 @@ import (
 
 func TestConfigDefaults(t *testing.T) {
 	cfg := DefaultConfig()
-	if cfg.Server.Port != 8080 {
-		t.Fatalf("expected default port 8080, got %d", cfg.Server.Port)
+	if cfg.Server.Port != 20128 {
+		t.Fatalf("expected default port 20128, got %d", cfg.Server.Port)
 	}
 	if cfg.Preferences.DefaultMarket != "IDX" {
 		t.Fatalf("expected default market IDX, got %s", cfg.Preferences.DefaultMarket)
