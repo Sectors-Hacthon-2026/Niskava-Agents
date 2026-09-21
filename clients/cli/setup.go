@@ -22,8 +22,8 @@ var (
 				Padding(0, 1)
 
 	wizardStepStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(tui.ColorAccent)
+			Bold(true).
+			Foreground(tui.ColorAccent)
 
 	wizardItemBadgeStyle = lipgloss.NewStyle().
 				Bold(true).

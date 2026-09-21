@@ -16,14 +16,14 @@ import (
 // Aesthetic styles using lipgloss (Binance Dark Financial OSINT Theme)
 var (
 	// Base Palette Definitions
-	ColorBg        = lipgloss.Color("#1E2329") // Dark Slate
-	ColorFg        = lipgloss.Color("#FFFFFF") // Pure White
-	ColorAccent    = lipgloss.Color("#FCD535") // Financial Gold Accent
-	ColorMuted     = lipgloss.Color("#848E9C") // Slate Gray
-	ColorSuccess   = lipgloss.Color("#0ECB81") // Financial Green
-	ColorWarning   = lipgloss.Color("#F69C00") // Amber Orange
-	ColorDanger    = lipgloss.Color("#F6465D") // Financial Red
-	ColorThought   = lipgloss.Color("#00F0FF") // Electric Cyan
+	ColorBg      = lipgloss.Color("#1E2329") // Dark Slate
+	ColorFg      = lipgloss.Color("#FFFFFF") // Pure White
+	ColorAccent  = lipgloss.Color("#FCD535") // Financial Gold Accent
+	ColorMuted   = lipgloss.Color("#848E9C") // Slate Gray
+	ColorSuccess = lipgloss.Color("#0ECB81") // Financial Green
+	ColorWarning = lipgloss.Color("#F69C00") // Amber Orange
+	ColorDanger  = lipgloss.Color("#F6465D") // Financial Red
+	ColorThought = lipgloss.Color("#00F0FF") // Electric Cyan
 
 	// Feature Styles
 	titleStyle = lipgloss.NewStyle().
