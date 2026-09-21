@@ -274,15 +274,15 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 	}
 
 	fmt.Println()
-	divider := lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Render(fmt.Sprintf("━━━ Riwayat Sesi Sebelumnya (%d Pesan) ━━━", len(history)))
+	divider := lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Render(TF("repl_resumed_history_divider", len(history)))
 	fmt.Println(divider)
 
 	for _, msg := range history {
 		if msg.Role == "user" {
-			userBox := userBubbleStyle.Render(fmt.Sprintf("👤 Anda: %s", msg.Content))
+			userBox := userBubbleStyle.Render(TF("repl_user_label", msg.Content))
 			fmt.Println(userBox)
 		} else if msg.Role == "assistant" {
-			fmt.Println("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#22C55E")).Bold(true).Render("⚡ Niskava Agent:"))
+			fmt.Println("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#22C55E")).Bold(true).Render(T("repl_agent_label")))
 			renderFinalMarkdown(msg.Content)
 		}
 	}
@@ -414,12 +414,12 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 
 		if lower == "/chats" {
 			if appDB == nil {
-				fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render("  [!] Database SQLite tidak tersedia."))
+				fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(T("repl_db_unavailable")))
 				continue
 			}
 			chatList, _, errList := appDB.ListChatSessions(30, 0, "")
 			if errList != nil {
-				fmt.Printf("  [!] Gagal mengambil riwayat sesi: %v\n", errList)
+				fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(TF("repl_chats_fetch_err", errList)))
 				continue
 			}
 			selector := NewSessionSelectorModel(chatList)
@@ -432,7 +432,11 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 					sessionID = res.SelectedSession.ID
 					fmt.Print("\033[H\033[2J")
 					renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
-					fmt.Print(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, res.SelectedSession.Title)))
+					title := res.SelectedSession.Title
+					if title == "" {
+						title = res.SelectedSession.ID
+					}
+					fmt.Print(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
 					renderResumedHistory(appDB, sessionID)
 				}
 			}
@@ -442,21 +446,25 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 		if strings.HasPrefix(lower, "/resume") {
 			parts := strings.Fields(input)
 			if len(parts) < 2 {
-				fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#FACC15")).Render("  [!] Format penggunaan: /resume <SESSION_ID> (atau ketik /chats untuk memilih)"))
+				fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#FACC15")).Render(T("repl_resume_usage")))
 				continue
 			}
 			targetID := strings.TrimSpace(parts[1])
 			if appDB != nil {
 				sess, errGet := appDB.GetChatSession(targetID)
 				if errGet != nil || sess == nil {
-					fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(fmt.Sprintf("  [!] Sesi '%s' tidak ditemukan di database lokal.", targetID)))
+					fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(TF("repl_resume_not_found", targetID)))
 					continue
 				}
 				prevSessionID := sessionID
 				sessionID = sess.ID
 				fmt.Print("\033[H\033[2J")
 				renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
-				fmt.Print(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, sess.Title)))
+				title := sess.Title
+				if title == "" {
+					title = sess.ID
+				}
+				fmt.Print(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
 				renderResumedHistory(appDB, sessionID)
 			}
 			continue
@@ -490,7 +498,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 	}
 
 	// Sleek session divider (avoids redundant duplicate user input box)
-	fmt.Printf("\n%s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("#22C55E")).Render("─── Sesi Investigasi Aktif: "+sessionID+" ─────────────────────────────"))
+	fmt.Printf("\n%s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("#22C55E")).Render(TF("repl_session_banner", sessionID)))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -504,7 +512,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 		select {
 		case <-sigChan:
 			interrupted = true
-			fmt.Println("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#FACC15")).Bold(true).Render("[!] Eksekusi dibatalkan oleh pengguna."))
+			fmt.Println("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#FACC15")).Bold(true).Render(strings.TrimSpace(T("repl_execution_cancelled"))))
 			cancel()
 		case <-ctx.Done():
 		}

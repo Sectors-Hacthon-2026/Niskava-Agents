@@ -373,6 +373,34 @@ var TUIStrings = map[string]map[string]string{
 		"en": "  [✓] Active session [%s] is saved. Switching to: %s (%s)\n",
 		"id": "  [✓] Sesi aktif [%s] tersimpan. Beralih ke: %s (%s)\n",
 	},
+	"repl_db_unavailable": {
+		"en": "  [!] SQLite database is not available.",
+		"id": "  [!] Database SQLite tidak tersedia.",
+	},
+	"repl_chats_fetch_err": {
+		"en": "  [!] Failed to retrieve session history: %v",
+		"id": "  [!] Gagal mengambil riwayat sesi: %v",
+	},
+	"repl_resume_usage": {
+		"en": "  [!] Usage format: /resume <SESSION_ID> (or type /chats to select)",
+		"id": "  [!] Format penggunaan: /resume <SESSION_ID> (atau ketik /chats untuk memilih)",
+	},
+	"repl_resume_not_found": {
+		"en": "  [!] Session '%s' not found in local database.",
+		"id": "  [!] Sesi '%s' tidak ditemukan di database lokal.",
+	},
+	"repl_resumed_history_divider": {
+		"en": "━━━ Previous Session History (%d Messages) ━━━",
+		"id": "━━━ Riwayat Sesi Sebelumnya (%d Pesan) ━━━",
+	},
+	"repl_user_label": {
+		"en": "👤 You: %s",
+		"id": "👤 Anda: %s",
+	},
+	"repl_agent_label": {
+		"en": "⚡ Niskava Agent:",
+		"id": "⚡ Niskava Agent:",
+	},
 	"repl_session_reset": {
 		"en": "\n[✓] Session reset and memory graph cleared. New conversation session: %s\n",
 		"id": "\n[✓] Sesi direset dan memory graph dibersihkan. Sesi percakapan baru: %s\n",

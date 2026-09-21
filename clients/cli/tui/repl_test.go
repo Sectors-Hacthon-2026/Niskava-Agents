@@ -305,4 +305,66 @@ func TestReplBackSentinel(t *testing.T) {
 	}
 }
 
+func TestI18nRepl_ChatsSavedNoticeKey(t *testing.T) {
+	SetLanguage("en")
+	en := T("repl_chats_saved_notice")
+	if en == "repl_chats_saved_notice" {
+		t.Error("expected English translation for 'repl_chats_saved_notice', got the key itself")
+	}
+	if !strings.Contains(en, "%s") {
+		t.Errorf("expected 'repl_chats_saved_notice' to contain format verbs '%%s'")
+	}
 
+	SetLanguage("id")
+	id := T("repl_chats_saved_notice")
+	if id == "repl_chats_saved_notice" {
+		t.Error("expected Indonesian translation for 'repl_chats_saved_notice', got the key itself")
+	}
+
+	SetLanguage("en")
+}
+
+func TestTF_ChatsSavedNoticeFormatting(t *testing.T) {
+	SetLanguage("en")
+	en := TF("repl_chats_saved_notice", "CHAT-001", "CHAT-002", "Valuasi BBCA")
+	if !strings.Contains(en, "CHAT-001") || !strings.Contains(en, "CHAT-002") || !strings.Contains(en, "Valuasi BBCA") {
+		t.Errorf("expected formatted English notice with IDs and title, got %q", en)
+	}
+	if !strings.Contains(en, "Active session") || !strings.Contains(en, "saved") {
+		t.Errorf("expected English text in notice, got %q", en)
+	}
+
+	SetLanguage("id")
+	id := TF("repl_chats_saved_notice", "CHAT-001", "CHAT-002", "Valuasi BBCA")
+	if !strings.Contains(id, "CHAT-001") || !strings.Contains(id, "CHAT-002") || !strings.Contains(id, "Valuasi BBCA") {
+		t.Errorf("expected formatted Indonesian notice with IDs and title, got %q", id)
+	}
+	if !strings.Contains(id, "Sesi aktif") || !strings.Contains(id, "tersimpan") {
+		t.Errorf("expected Indonesian text in notice, got %q", id)
+	}
+
+	SetLanguage("en")
+}
+
+func TestI18nRepl_SessionKeys(t *testing.T) {
+	keys := []string{
+		"repl_db_unavailable",
+		"repl_chats_fetch_err",
+		"repl_resume_usage",
+		"repl_resume_not_found",
+		"repl_resumed_history_divider",
+		"repl_user_label",
+		"repl_agent_label",
+	}
+
+	for _, lang := range []string{"en", "id"} {
+		SetLanguage(lang)
+		for _, key := range keys {
+			val := T(key)
+			if val == key {
+				t.Errorf("expected translation for key %q in lang %q, got key name", key, lang)
+			}
+		}
+	}
+	SetLanguage("en")
+}
