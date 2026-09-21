@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
@@ -353,7 +355,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 		}
 
 		// Execute conversational research turn with verbatim user prompt
-		executeChatTurn(input, sessionID, cfg, appDB)
+		executeChatTurn(input, sessionID, serverURL, cfg, appDB)
 	}
 }
 
@@ -363,43 +365,67 @@ func renderBanner(modelLabel, serverURL, sessionID, dbPath string) {
 	fmt.Printf("\n%s\n", helpHint)
 }
 
-func executeChatTurn(prompt, sessionID string, cfg *config.Config, appDB *db.DB) {
-	// 1. Record User Message in SQLite
-	userMsg := &db.ChatMessage{
-		ID:        fmt.Sprintf("MSG-%d", time.Now().UnixNano()),
-		SessionID: sessionID,
-		Role:      "user",
-		Content:   prompt,
-		CreatedAt: time.Now().UTC().Format(time.RFC3339),
-	}
-	_ = appDB.SaveChatMessage(userMsg)
+func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, appDB *db.DB) {
+	usingDaemon := IsDaemonAlive(serverURL)
 
-	// Display User Card (Pure Text, No Emoji Icon)
-	fmt.Printf("\n%s\n", userBubbleStyle.Render("USER > "+prompt))
-
-	pythonBin := cfg.Engine.PythonBin
-	if pythonBin == "python3" {
-		localVenv := filepath.Join(".venv", "bin", "python3")
-		if _, err := os.Stat(localVenv); err == nil {
-			pythonBin = localVenv
+	// Record User Message in SQLite if running standalone subprocess mode
+	if !usingDaemon && appDB != nil {
+		userMsg := &db.ChatMessage{
+			ID:        fmt.Sprintf("MSG-%d", time.Now().UnixNano()),
+			SessionID: sessionID,
+			Role:      "user",
+			Content:   prompt,
+			CreatedAt: time.Now().UTC().Format(time.RFC3339),
 		}
+		_ = appDB.SaveChatMessage(userMsg)
 	}
+
+	// Sleek session divider (avoids redundant duplicate user input box)
+	fmt.Printf("\n%s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("#22C55E")).Render("─── Sesi Investigasi Aktif: "+sessionID+" ─────────────────────────────"))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	wd, _ := os.Getwd()
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGINT)
+	defer signal.Stop(sigChan)
 
-	runnerParams := ipc.RunnerParams{
-		PythonBin: pythonBin,
-		WorkDir:   wd,
-		DBPath:    cfg.Storage.DBPath,
-		Prompt:    prompt,
-		SessionID: sessionID,
-		Offline:   cfg.Preferences.OfflineMode,
+	interrupted := false
+	go func() {
+		select {
+		case <-sigChan:
+			interrupted = true
+			fmt.Println("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#FACC15")).Bold(true).Render("[!] Eksekusi dibatalkan oleh pengguna."))
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
+	var eventsChan <-chan ipc.Event
+	var errChan <-chan error
+
+	if usingDaemon {
+		eventsChan, errChan = StreamChatViaSSE(ctx, serverURL, sessionID, prompt)
+	} else {
+		pythonBin := cfg.Engine.PythonBin
+		if pythonBin == "python3" {
+			localVenv := filepath.Join(".venv", "bin", "python3")
+			if _, err := os.Stat(localVenv); err == nil {
+				pythonBin = localVenv
+			}
+		}
+
+		wd, _ := os.Getwd()
+		runnerParams := ipc.RunnerParams{
+			PythonBin: pythonBin,
+			WorkDir:   wd,
+			DBPath:    cfg.Storage.DBPath,
+			Prompt:    prompt,
+			SessionID: sessionID,
+			Offline:   cfg.Preferences.OfflineMode,
+		}
+		eventsChan, errChan = ipc.RunSubprocess(ctx, runnerParams)
 	}
-
-	eventsChan, errChan := ipc.RunSubprocess(ctx, runnerParams)
 
 	var (
 		assistantResponse strings.Builder
@@ -408,21 +434,31 @@ func executeChatTurn(prompt, sessionID string, cfg *config.Config, appDB *db.DB)
 
 	fmt.Println()
 
+	activeErrChan := errChan
 	for {
 		select {
-		case err, ok := <-errChan:
-			if ok && err != nil {
-				fmt.Printf("\n[Error Subprocess]: %v\n", err)
+		case <-ctx.Done():
+			if interrupted {
+				return
 			}
-			return
+
+		case err, ok := <-activeErrChan:
+			if !ok {
+				activeErrChan = nil
+				continue
+			}
+			if err != nil {
+				fmt.Printf("\n[Error Subprocess]: %v\n", err)
+				return
+			}
 
 		case ev, ok := <-eventsChan:
 			if !ok {
 				// Process finished
 				renderFinalMarkdown(assistantResponse.String())
 
-				// Save assistant response in SQLite
-				if assistantResponse.Len() > 0 {
+				// Save assistant response in SQLite if running standalone subprocess
+				if !usingDaemon && appDB != nil && assistantResponse.Len() > 0 {
 					asstMsg := &db.ChatMessage{
 						ID:        fmt.Sprintf("MSG-%d", time.Now().UnixNano()),
 						SessionID: sessionID,

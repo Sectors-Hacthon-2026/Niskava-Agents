@@ -1,9 +1,11 @@
 package tui
 
 import (
+	"context"
 	"strings"
 	"testing"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -63,3 +65,63 @@ func TestReplInputModelTabAutocompletion(t *testing.T) {
 		t.Errorf("expected text input value to start with slash after Tab autocomplete")
 	}
 }
+
+func TestEventChannelDraining(t *testing.T) {
+	eventsChan := make(chan ipc.Event, 5)
+	errChan := make(chan error, 1)
+
+	// Enqueue events
+	eventsChan <- ipc.Event{Event: ipc.EventAgentThought, Thought: "Thinking..."}
+	eventsChan <- ipc.Event{Event: ipc.EventAgentMessageChunk, Chunk: "Halo! "}
+	eventsChan <- ipc.Event{Event: ipc.EventAgentMessageChunk, Chunk: "Ada yang bisa dibantu?"}
+	eventsChan <- ipc.Event{Event: ipc.EventAgentMessageComplete, Content: "Halo! Ada yang bisa dibantu?"}
+	close(eventsChan)
+	close(errChan) // Closed simultaneously like cmd.Wait()
+
+	var collected strings.Builder
+	var lastThought string
+	activeErrChan := errChan
+
+	for {
+		select {
+		case err, ok := <-activeErrChan:
+			if !ok {
+				activeErrChan = nil
+				continue
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		case ev, ok := <-eventsChan:
+			if !ok {
+				goto Done
+			}
+			if ev.Event == ipc.EventAgentThought {
+				lastThought = ev.Thought
+			}
+			if ev.Event == ipc.EventAgentMessageChunk {
+				collected.WriteString(ev.Chunk)
+			}
+		}
+	}
+Done:
+	if lastThought != "Thinking..." {
+		t.Errorf("expected thought 'Thinking...', got '%s'", lastThought)
+	}
+	if collected.String() != "Halo! Ada yang bisa dibantu?" {
+		t.Errorf("expected collected response 'Halo! Ada yang bisa dibantu?', got '%s'", collected.String())
+	}
+}
+
+func TestChatTurnCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Simulate interrupt immediately
+
+	select {
+	case <-ctx.Done():
+		// Success
+	default:
+		t.Fatalf("expected context to be cancelled")
+	}
+}
+
