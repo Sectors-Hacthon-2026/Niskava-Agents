@@ -62,6 +62,6 @@ var sessionsCmd = &cobra.Command{
 }
 
 func init() {
-	sessionsCmd.Flags().IntVarP(&limitFlag, "limit", "l", 20, "maximum number of sessions to display")
+	sessionsCmd.Flags().IntVarP(&limitFlag, "limit", "n", 20, "maximum number of sessions to display")
 	RootCmd.AddCommand(sessionsCmd)
 }
