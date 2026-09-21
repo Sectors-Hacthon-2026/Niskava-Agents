@@ -581,6 +581,26 @@ var TUIStrings = map[string]map[string]string{
 		"en": "4. DIRECT COMMAND LINE CLI COMMANDS:",
 		"id": "4. PERINTAH BARIS PERINTAH LANGSUNG (CLI):",
 	},
+	"session_selector_title": {
+		"en": "💬 SELECT CHAT SESSION TO RESUME",
+		"id": "💬 PILIH SESI CHAT UNTUK DILANJUTKAN",
+	},
+	"session_selector_hint": {
+		"en": "[↑/↓/j/k Navigate  •  Enter Select  •  Esc Cancel]",
+		"id": "[↑/↓/j/k Navigasi  •  Enter Pilih  •  Esc Batal]",
+	},
+	"session_selector_empty": {
+		"en": "No previous chat sessions found in local SQLite database.",
+		"id": "Belum ada riwayat sesi chat tersimpan di database SQLite lokal.",
+	},
+	"slash_chats_desc": {
+		"en": "Browse and resume previous conversational chat sessions",
+		"id": "Jelajahi dan lanjutkan sesi obrolan chat sebelumnya",
+	},
+	"slash_resume_desc": {
+		"en": "Resume a specific chat session by ID (/resume <SESSION_ID>)",
+		"id": "Lanjutkan sesi obrolan tertentu berdasarkan ID (/resume <ID_SESI>)",
+	},
 }
 
 // T retrieves localized string for ActiveLanguage, falling back to "en".
@@ -660,6 +680,8 @@ func GetLocalizedLauncherItems() []LauncherItem {
 func GetLocalizedSlashCommands() []SlashCommand {
 	return []SlashCommand{
 		{Command: "/help", Description: T("slash_help_desc")},
+		{Command: "/chats", Description: T("slash_chats_desc")},
+		{Command: "/resume", Description: T("slash_resume_desc")},
 		{Command: "/reset", Description: T("slash_reset_desc")},
 		{Command: "/graph", Description: T("slash_graph_desc")},
 		{Command: "/clear", Description: T("slash_clear_desc")},
