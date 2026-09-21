@@ -374,3 +374,168 @@ func TestGraphDataEndpointAlias(t *testing.T) {
 		t.Errorf("expected 200 OK from /api/graph/data alias, got %d", resp.StatusCode)
 	}
 }
+
+func TestInvestigationEndpoints(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_srv_inv.db")
+
+	database, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	// 1. Seed test investigation, anomaly, and finding
+	invID := "INV-TEST-REST-01"
+	err = database.CreateInvestigation(&db.Investigation{
+		ID:            invID,
+		Ticker:        "ANTM",
+		Market:        "IDX",
+		TimeframeDays: 30,
+		Status:        "COMPLETED",
+		StartedAt:     "2026-09-20T10:00:00Z",
+	})
+	if err != nil {
+		t.Fatalf("failed to seed investigation: %v", err)
+	}
+
+	err = database.CreateAnomaly(&db.Anomaly{
+		ID:              "ANOM-01",
+		InvestigationID: invID,
+		AnomalyDate:     "2026-09-18",
+		MetricType:      "volume_z_score",
+		MetricValue:     15000000,
+		BaselineValue:   5000000,
+		ZScore:          3.45,
+		Description:     "Volume spike detected",
+	})
+	if err != nil {
+		t.Fatalf("failed to seed anomaly: %v", err)
+	}
+
+	err = database.CreateFinding(&db.Finding{
+		ID:                 "FIND-01",
+		InvestigationID:    invID,
+		Title:              "Lonjakan Volume ANTM",
+		ClaimText:          "Volume transaksi meningkat tajam mendahului rilis eksplorasi",
+		VerificationStatus: "SUPPORTED",
+		ConfidenceScore:    0.95,
+		CausalityStatus:    "PRECEDED_ANNOUNCEMENT",
+	})
+	if err != nil {
+		t.Fatalf("failed to seed finding: %v", err)
+	}
+
+	// 2. Start test server
+	srv, err := Start(ctx, 0, database)
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	// 3. Test GET /api/investigations/{id} -> 200 OK
+	resp, err := client.Get(srv.URL + "/api/investigations/" + invID)
+	if err != nil {
+		t.Fatalf("GET /api/investigations/%s failed: %v", invID, err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+	var invData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&invData); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	resp.Body.Close()
+
+	invObj, ok := invData["investigation"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected 'investigation' key in response, got %+v", invData)
+	}
+	if invObj["ticker"] != "ANTM" || invObj["status"] != "COMPLETED" {
+		t.Errorf("unexpected investigation payload: %+v", invObj)
+	}
+
+	// 4. Test GET /api/investigations/{id}/anomalies -> 200 OK
+	respAnom, err := client.Get(srv.URL + "/api/investigations/" + invID + "/anomalies")
+	if err != nil {
+		t.Fatalf("GET /api/investigations/%s/anomalies failed: %v", invID, err)
+	}
+	if respAnom.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", respAnom.StatusCode)
+	}
+	var anomData map[string]interface{}
+	if err := json.NewDecoder(respAnom.Body).Decode(&anomData); err != nil {
+		t.Fatalf("failed to decode anomalies response: %v", err)
+	}
+	respAnom.Body.Close()
+
+	if int(anomData["total"].(float64)) != 1 {
+		t.Errorf("expected 1 anomaly, got %v", anomData["total"])
+	}
+	anomList, ok := anomData["anomalies"].([]interface{})
+	if !ok || len(anomList) != 1 {
+		t.Fatalf("expected 1 anomaly item, got %+v", anomData["anomalies"])
+	}
+
+	// 5. Test GET /api/investigations/{id}/findings -> 200 OK
+	respFind, err := client.Get(srv.URL + "/api/investigations/" + invID + "/findings")
+	if err != nil {
+		t.Fatalf("GET /api/investigations/%s/findings failed: %v", invID, err)
+	}
+	if respFind.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", respFind.StatusCode)
+	}
+	var findData map[string]interface{}
+	if err := json.NewDecoder(respFind.Body).Decode(&findData); err != nil {
+		t.Fatalf("failed to decode findings response: %v", err)
+	}
+	respFind.Body.Close()
+
+	if int(findData["total"].(float64)) != 1 {
+		t.Errorf("expected 1 finding, got %v", findData["total"])
+	}
+	findList, ok := findData["findings"].([]interface{})
+	if !ok || len(findList) != 1 {
+		t.Fatalf("expected 1 finding item, got %+v", findData["findings"])
+	}
+
+	// 6. Test GET /api/investigations/NON_EXISTENT -> 404
+	respMissing, err := client.Get(srv.URL + "/api/investigations/NON_EXISTENT")
+	if err != nil {
+		t.Fatalf("GET missing investigation failed: %v", err)
+	}
+	respMissing.Body.Close()
+	if respMissing.StatusCode != http.StatusNotFound {
+		t.Errorf("expected 404 Not Found, got %d", respMissing.StatusCode)
+	}
+
+	// 7. Test GET /api/investigations/{id}/unknown_sub_resource -> 404
+	respUnknown, err := client.Get(srv.URL + "/api/investigations/" + invID + "/unknown")
+	if err != nil {
+		t.Fatalf("GET unknown sub-resource failed: %v", err)
+	}
+	respUnknown.Body.Close()
+	if respUnknown.StatusCode != http.StatusNotFound {
+		t.Errorf("expected 404 Not Found for unknown sub-resource, got %d", respUnknown.StatusCode)
+	}
+
+	// 8. Test GET /api/investigations -> 200 OK (list investigations)
+	respList, err := client.Get(srv.URL + "/api/investigations")
+	if err != nil {
+		t.Fatalf("GET /api/investigations list failed: %v", err)
+	}
+	if respList.StatusCode != http.StatusOK {
+		t.Errorf("expected 200 OK from /api/investigations list, got %d", respList.StatusCode)
+	}
+	var listData map[string]interface{}
+	_ = json.NewDecoder(respList.Body).Decode(&listData)
+	respList.Body.Close()
+	if int(listData["total"].(float64)) != 1 {
+		t.Errorf("expected total 1 investigation, got %v", listData["total"])
+	}
+}
