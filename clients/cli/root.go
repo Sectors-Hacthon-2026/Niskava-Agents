@@ -15,11 +15,12 @@ import (
 )
 
 var (
-	cfgFile  string
-	langFlag string
-	verbose  bool
-	cfg      *config.Config
-	appDB    *db.DB
+	cfgFile     string
+	langFlag    string
+	sessionFlag string
+	verbose     bool
+	cfg         *config.Config
+	appDB       *db.DB
 )
 
 // RootCmd represents the base command when called without any subcommands.
@@ -57,6 +58,12 @@ and qualitative market disclosures/news.`,
 		srv, err := server.Start(ctx, cfg.Server.Port, appDB)
 		if err != nil {
 			return fmt.Errorf("failed to start background daemon: %w", err)
+		}
+
+		// If explicit --session flag provided, bypass launcher and jump directly into REPL
+		if sessionFlag != "" {
+			tui.RunLiveREPL(cfg, appDB, srv.URL, sessionFlag)
+			return nil
 		}
 
 		hasAPIKey := cfg.Auth.SectorsAPIKey != "" || cfg.Auth.GeminiAPIKey != "" || cfg.Auth.OpenAIAPIKey != ""
@@ -161,5 +168,6 @@ func Execute() {
 func init() {
 	RootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is ~/.niskava/config.yaml)")
 	RootCmd.PersistentFlags().StringVarP(&langFlag, "lang", "l", "", "language preference: 'en' for English (default) or 'id' for Indonesian")
+	RootCmd.PersistentFlags().StringVarP(&sessionFlag, "session", "s", "", "chat session ID to resume directly (e.g. CHAT-20260921-0001)")
 	RootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose logging")
 }
