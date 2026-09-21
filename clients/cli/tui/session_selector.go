@@ -92,12 +92,30 @@ func (m SessionSelectorModel) View() string {
 	title := T("session_selector_title")
 	b.WriteString(sessionTitleStyle.Render(title) + "\n\n")
 
-	if len(m.Sessions) == 0 {
+	total := len(m.Sessions)
+	if total == 0 {
 		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("session_selector_empty")) + "\n")
 		return "\n" + sessionBoxStyle.Render(b.String()) + "\n"
 	}
 
-	for i, s := range m.Sessions {
+	// Sliding Viewport Window (max 5 sessions visible simultaneously)
+	maxVisible := 5
+	windowStart := 0
+	if m.Cursor >= maxVisible {
+		windowStart = m.Cursor - maxVisible + 1
+	}
+	windowEnd := windowStart + maxVisible
+	if windowEnd > total {
+		windowEnd = total
+		windowStart = max(0, windowEnd-maxVisible)
+	}
+
+	if total > maxVisible {
+		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(fmt.Sprintf("--- Showing %d-%d of %d sessions ---", windowStart+1, windowEnd, total)) + "\n\n")
+	}
+
+	for i := windowStart; i < windowEnd; i++ {
+		s := m.Sessions[i]
 		dateStr := s.UpdatedAt
 		if len(dateStr) > 16 {
 			dateStr = strings.Replace(dateStr[:16], "T", " ", 1)
@@ -113,14 +131,14 @@ func (m SessionSelectorModel) View() string {
 
 		pinBadge := ""
 		if s.IsPinned {
-			pinBadge = " 📌"
+			pinBadge = " [PINNED]"
 		}
 
 		lineTitle := fmt.Sprintf("%-26s %s (%d msgs) [%s]", s.ID, s.Title+pinBadge, s.MessageCount, dateStr)
 		previewLine := fmt.Sprintf("    ↳ %s", preview)
 
 		if i == m.Cursor {
-			b.WriteString(sessionCursorStyle.Render("▶ ") + sessionActiveStyle.Render(lineTitle) + "\n")
+			b.WriteString(sessionCursorStyle.Render("> ") + sessionActiveStyle.Render(lineTitle) + "\n")
 			b.WriteString(lipgloss.NewStyle().Foreground(ColorAccent).Render(previewLine) + "\n")
 		} else {
 			b.WriteString("  " + lipgloss.NewStyle().Foreground(ColorFg).Render(lineTitle) + "\n")
