@@ -89,10 +89,11 @@ and qualitative market disclosures/news.`,
 				tui.RunLiveREPL(cfg, appDB, srv.URL)
 
 			case "sessions":
-				// Show saved sessions
-				_ = sessionsCmd.RunE(cmd, []string{})
-				fmt.Println("Tekan Enter untuk kembali ke Menu...")
-				_, _ = fmt.Scanln()
+				// Show saved sessions with interactive resume option
+				selectedSessionID := runSessionsInteractive(cmd, appDB)
+				if selectedSessionID != "" {
+					tui.RunLiveREPL(cfg, appDB, srv.URL, selectedSessionID)
+				}
 
 			case "help":
 				tui.PrintFullHelpGuide()
