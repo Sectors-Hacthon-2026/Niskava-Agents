@@ -101,40 +101,8 @@ and qualitative market disclosures/news.`,
 				_, _ = fmt.Scanln()
 
 			case "health":
-				fmt.Println(tui.T("health_header"))
-				fmt.Println("─────────────────────────────────────────────────────────────────────────────")
-				fmt.Printf("• Local Daemon URL: %s [ALIVE]\n", srv.URL)
-				fmt.Printf("• Database Path   : %s\n", cfg.Storage.DBPath)
-				fmt.Printf("• Python Engine   : %s\n", cfg.Engine.PythonBin)
-
-				secKeyText := tui.T("health_status_installed")
-				if cfg.Auth.SectorsAPIKey == "" {
-					secKeyText = tui.T("health_status_missing")
-				}
-				fmt.Printf("• Sectors API Key : %s\n", secKeyText)
-
-				activeModel := cfg.Auth.OpenAIModel
-				if activeModel == "" {
-					if cfg.Auth.GeminiModel != "" {
-						activeModel = cfg.Auth.GeminiModel
-					} else {
-						activeModel = "hermes"
-					}
-				}
-				baseURL := cfg.Auth.OpenAIBaseURL
-				if baseURL == "" {
-					baseURL = "OpenAI-Compatible Standard"
-				}
-				hasModelKey := cfg.Auth.OpenAIAPIKey != "" || cfg.Auth.GeminiAPIKey != ""
-				modelKeyText := tui.T("health_status_installed")
-				if !hasModelKey {
-					modelKeyText = tui.T("health_status_missing")
-				}
-				fmt.Printf("• Inference Engine: Universal ReAct (%s) [ALIVE]\n", baseURL)
-				fmt.Printf("• Active Model    : %s\n", activeModel)
-				fmt.Printf("• Model API Key   : %s\n", modelKeyText)
-				fmt.Println("─────────────────────────────────────────────────────────────────────────────")
-				fmt.Println(tui.T("menu_press_enter"))
+				tui.PrintHealthDiagnostics(cfg, srv.URL)
+				fmt.Println("\n" + tui.T("menu_press_enter"))
 				_, _ = fmt.Scanln()
 
 			case "lang":

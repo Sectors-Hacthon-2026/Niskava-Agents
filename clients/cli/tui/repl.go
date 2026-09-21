@@ -696,40 +696,7 @@ func printHelp() {
 }
 
 func printHealth(cfg *config.Config) {
-	fmt.Println(T("health_header"))
-	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
-	fmt.Printf("• Database Path  : %s\n", cfg.Storage.DBPath)
-	fmt.Printf("• Python Runtime : %s\n", cfg.Engine.PythonBin)
-
-	secKeyStatus := T("health_installed")
-	if cfg.Auth.SectorsAPIKey == "" {
-		secKeyStatus = T("health_not_installed")
-	}
-	fmt.Printf("• Sectors API Key: %s\n", secKeyStatus)
-
-	activeModel := cfg.Auth.OpenAIModel
-	if activeModel == "" {
-		if cfg.Auth.GeminiModel != "" {
-			activeModel = cfg.Auth.GeminiModel
-		} else {
-			activeModel = "hermes"
-		}
-	}
-
-	baseURL := cfg.Auth.OpenAIBaseURL
-	if baseURL == "" {
-		baseURL = "OpenAI-Compatible Standard"
-	}
-
-	keyStatus := T("health_installed")
-	if cfg.Auth.OpenAIAPIKey == "" && cfg.Auth.GeminiAPIKey == "" {
-		keyStatus = T("health_not_installed")
-	}
-
-	fmt.Printf("• Inference Engine: Universal ReAct (%s)\n", baseURL)
-	fmt.Printf("• Active Model   : %s\n", activeModel)
-	fmt.Printf("• Model API Key  : %s\n", keyStatus)
-	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
+	PrintHealthDiagnostics(cfg, "")
 }
 
 func printSessions(appDB *db.DB) {

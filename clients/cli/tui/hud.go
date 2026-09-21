@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -179,4 +180,97 @@ func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 	b.WriteString("\n" + RenderConstellationLine(85) + "\n")
 
 	return b.String()
+}
+
+// PrintHealthDiagnostics renders the system health check screen with the Binance Dark OSINT palette and HUD ASCII header.
+func PrintHealthDiagnostics(cfg *config.Config, serverURL string) {
+	if cfg == nil {
+		return
+	}
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorBg).
+		Background(ColorAccent).
+		Padding(0, 1)
+
+	lblStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorAccent)
+
+	valStyle := lipgloss.NewStyle().
+		Foreground(ColorFg)
+
+	statusAliveStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorSuccess)
+
+	statusErrStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorDanger)
+
+	dividerStyle := lipgloss.NewStyle().
+		Foreground(ColorMuted)
+
+	fmt.Println()
+	fmt.Println(headerStyle.Render(strings.TrimSpace(T("health_header"))))
+	fmt.Println(dividerStyle.Render("─────────────────────────────────────────────────────────────────────────────"))
+
+	daemonURL := serverURL
+	if daemonURL == "" {
+		daemonURL = "http://localhost:8080"
+	}
+	fmt.Printf("• %s: %s %s\n",
+		lblStyle.Render("Local Daemon URL"),
+		valStyle.Render(daemonURL),
+		statusAliveStyle.Render("[ALIVE]"))
+
+	fmt.Printf("• %s: %s\n",
+		lblStyle.Render("Database Path   "),
+		valStyle.Render(cfg.Storage.DBPath))
+
+	fmt.Printf("• %s: %s\n",
+		lblStyle.Render("Python Engine   "),
+		valStyle.Render(cfg.Engine.PythonBin))
+
+	secKeyText := statusAliveStyle.Render(T("health_installed"))
+	if cfg.Auth.SectorsAPIKey == "" {
+		secKeyText = statusErrStyle.Render(T("health_not_installed"))
+	}
+	fmt.Printf("• %s: %s\n",
+		lblStyle.Render("Sectors API Key "),
+		secKeyText)
+
+	activeModel := cfg.Auth.OpenAIModel
+	if activeModel == "" {
+		if cfg.Auth.GeminiModel != "" {
+			activeModel = cfg.Auth.GeminiModel
+		} else {
+			activeModel = "hermes"
+		}
+	}
+	baseURL := cfg.Auth.OpenAIBaseURL
+	if baseURL == "" {
+		baseURL = "Universal ReAct Standard"
+	}
+	hasModelKey := cfg.Auth.OpenAIAPIKey != "" || cfg.Auth.GeminiAPIKey != ""
+	modelKeyText := statusAliveStyle.Render(T("health_installed"))
+	if !hasModelKey {
+		modelKeyText = statusErrStyle.Render(T("health_not_installed"))
+	}
+
+	fmt.Printf("• %s: %s %s\n",
+		lblStyle.Render("Inference Engine"),
+		valStyle.Render(fmt.Sprintf("Universal ReAct (%s)", baseURL)),
+		statusAliveStyle.Render("[ALIVE]"))
+
+	fmt.Printf("• %s: %s\n",
+		lblStyle.Render("Active Model    "),
+		lblStyle.Render(activeModel))
+
+	fmt.Printf("• %s: %s\n",
+		lblStyle.Render("Model API Key   "),
+		modelKeyText)
+
+	fmt.Println(dividerStyle.Render("─────────────────────────────────────────────────────────────────────────────"))
 }
