@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
@@ -204,7 +206,7 @@ func (m ReplInputModel) View() string {
 			Foreground(lipgloss.Color("#052E16")).
 			Background(lipgloss.Color("#22C55E")).
 			Padding(0, 1).
-			Render("SLASH COMMANDS (Gunakan ↑/↓ untuk memilih, Tab/Enter untuk melengkapi)")
+			Render(T("slash_popup_header"))
 
 		boxStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -264,7 +266,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 		p := tea.NewProgram(inputModel)
 		m, err := p.Run()
 		if err != nil {
-			fmt.Println("\nKeluar dari sesi Live Assistant.")
+			fmt.Printf("\n%s\n", T("repl_exit_msg"))
 			break
 		}
 
@@ -276,7 +278,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 		// Handle Slash Commands
 		lower := strings.ToLower(input)
 		if lower == "/exit" || lower == "exit" || lower == "quit" || lower == ":q" {
-			fmt.Println("Keluar dari sesi Live REPL.")
+			fmt.Println(T("repl_exit_msg"))
 			break
 		}
 
@@ -296,19 +298,19 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 				_ = appDB.ClearMemoryGraph()
 			}
 			sessionID = fmt.Sprintf("CHAT-%s-%04d", time.Now().Format("20060102"), time.Now().Unix()%10000)
-			fmt.Printf("\n[✓] Sesi direset dan memory graph dibersihkan. Sesi percakapan baru: %s\n", sessionID)
+			fmt.Printf(T("repl_session_reset"), sessionID)
 			continue
 		}
 
 		if lower == "/graph" {
 			graphURL := fmt.Sprintf("%s/graph", serverURL)
-			fmt.Printf("Membuka visualisasi Memory Knowledge Graph di browser (%s)...\n", graphURL)
+			fmt.Printf(T("repl_open_graph"), graphURL)
 			_ = server.OpenBrowser(graphURL)
 			continue
 		}
 
 		if lower == "/web" {
-			fmt.Printf("Membuka web workspace di browser (%s)...\n", serverURL)
+			fmt.Printf(T("repl_open_web"), serverURL)
 			_ = server.OpenBrowser(serverURL)
 			continue
 		}
@@ -339,11 +341,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 			fmt.Print("\033[H\033[2J")
 			renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
 			activeInfo := GetActiveLanguageInfo()
-			if ActiveLanguage == "en" {
-				fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(fmt.Sprintf("  [✓] Language preference switched to %s %s (%s).", activeInfo.FlagSymbol, activeInfo.NativeName, activeInfo.Code)))
-			} else {
-				fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(fmt.Sprintf("  [✓] Preferensi bahasa berhasil diubah ke %s %s (%s).", activeInfo.FlagSymbol, activeInfo.NativeName, activeInfo.Code)))
-			}
+			fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(TF("repl_lang_switched", activeInfo.FlagSymbol, activeInfo.NativeName, activeInfo.Code)))
 			continue
 		}
 
@@ -353,7 +351,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string) {
 		}
 
 		// Execute conversational research turn with verbatim user prompt
-		executeChatTurn(input, sessionID, cfg, appDB)
+		executeChatTurn(input, sessionID, serverURL, cfg, appDB)
 	}
 }
 
@@ -363,66 +361,117 @@ func renderBanner(modelLabel, serverURL, sessionID, dbPath string) {
 	fmt.Printf("\n%s\n", helpHint)
 }
 
-func executeChatTurn(prompt, sessionID string, cfg *config.Config, appDB *db.DB) {
-	// 1. Record User Message in SQLite
-	userMsg := &db.ChatMessage{
-		ID:        fmt.Sprintf("MSG-%d", time.Now().UnixNano()),
-		SessionID: sessionID,
-		Role:      "user",
-		Content:   prompt,
-		CreatedAt: time.Now().UTC().Format(time.RFC3339),
-	}
-	_ = appDB.SaveChatMessage(userMsg)
+func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, appDB *db.DB) {
+	usingDaemon := IsDaemonAlive(serverURL)
 
-	// Display User Card (Pure Text, No Emoji Icon)
-	fmt.Printf("\n%s\n", userBubbleStyle.Render("USER > "+prompt))
-
-	pythonBin := cfg.Engine.PythonBin
-	if pythonBin == "python3" {
-		localVenv := filepath.Join(".venv", "bin", "python3")
-		if _, err := os.Stat(localVenv); err == nil {
-			pythonBin = localVenv
+	// Record User Message in SQLite if running standalone subprocess mode
+	if !usingDaemon && appDB != nil {
+		userMsg := &db.ChatMessage{
+			ID:        fmt.Sprintf("MSG-%d", time.Now().UnixNano()),
+			SessionID: sessionID,
+			Role:      "user",
+			Content:   prompt,
+			CreatedAt: time.Now().UTC().Format(time.RFC3339),
 		}
+		_ = appDB.SaveChatMessage(userMsg)
 	}
+
+	// Sleek session divider (avoids redundant duplicate user input box)
+	fmt.Printf("\n%s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("#22C55E")).Render("─── Sesi Investigasi Aktif: "+sessionID+" ─────────────────────────────"))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	wd, _ := os.Getwd()
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGINT)
+	defer signal.Stop(sigChan)
 
-	runnerParams := ipc.RunnerParams{
-		PythonBin: pythonBin,
-		WorkDir:   wd,
-		DBPath:    cfg.Storage.DBPath,
-		Prompt:    prompt,
-		SessionID: sessionID,
-		Offline:   cfg.Preferences.OfflineMode,
+	interrupted := false
+	go func() {
+		select {
+		case <-sigChan:
+			interrupted = true
+			fmt.Println("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#FACC15")).Bold(true).Render("[!] Eksekusi dibatalkan oleh pengguna."))
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
+	var eventsChan <-chan ipc.Event
+	var errChan <-chan error
+
+	if usingDaemon {
+		eventsChan, errChan = StreamChatViaSSE(ctx, serverURL, sessionID, prompt)
+	} else {
+		pythonBin := cfg.Engine.PythonBin
+		if pythonBin == "python3" {
+			localVenv := filepath.Join(".venv", "bin", "python3")
+			if _, err := os.Stat(localVenv); err == nil {
+				pythonBin = localVenv
+			}
+		}
+
+		wd, _ := os.Getwd()
+		runnerParams := ipc.RunnerParams{
+			PythonBin: pythonBin,
+			WorkDir:   wd,
+			DBPath:    cfg.Storage.DBPath,
+			Prompt:    prompt,
+			SessionID: sessionID,
+			Offline:   cfg.Preferences.OfflineMode,
+			Language:  cfg.Preferences.Language,
+		}
+		eventsChan, errChan = ipc.RunSubprocess(ctx, runnerParams)
 	}
-
-	eventsChan, errChan := ipc.RunSubprocess(ctx, runnerParams)
 
 	var (
 		assistantResponse strings.Builder
 		lastThought       string
+		totalAnomalies    int
+		totalFindings     int
 	)
 
-	fmt.Println()
+	turnStart := time.Now()
+	modelLabel := cfg.Auth.OpenAIModel
+	if modelLabel == "" {
+		if cfg.Auth.GeminiModel != "" {
+			modelLabel = cfg.Auth.GeminiModel
+		} else {
+			modelLabel = "hermes"
+		}
+	}
 
+	fmt.Print("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(TF("thinking_init", modelLabel)) + "\r")
+
+	activeErrChan := errChan
 	for {
 		select {
-		case err, ok := <-errChan:
-			if ok && err != nil {
-				fmt.Printf("\n[Error Subprocess]: %v\n", err)
+		case <-ctx.Done():
+			if interrupted {
+				fmt.Print("\r\033[K")
+				fmt.Print(T("repl_execution_cancelled"))
+				return
 			}
-			return
+
+		case err, ok := <-activeErrChan:
+			if !ok {
+				activeErrChan = nil
+				continue
+			}
+			if err != nil {
+				fmt.Print("\r\033[K")
+				fmt.Printf("\n[Error Subprocess]: %v\n", err)
+				return
+			}
 
 		case ev, ok := <-eventsChan:
 			if !ok {
-				// Process finished
+				// Process finished: clear spinner and render final markdown
+				fmt.Print("\r\033[K")
 				renderFinalMarkdown(assistantResponse.String())
 
-				// Save assistant response in SQLite
-				if assistantResponse.Len() > 0 {
+				// Save assistant response in SQLite if running standalone subprocess
+				if !usingDaemon && appDB != nil && assistantResponse.Len() > 0 {
 					asstMsg := &db.ChatMessage{
 						ID:        fmt.Sprintf("MSG-%d", time.Now().UnixNano()),
 						SessionID: sessionID,
@@ -433,32 +482,45 @@ func executeChatTurn(prompt, sessionID string, cfg *config.Config, appDB *db.DB)
 					}
 					_ = appDB.SaveChatMessage(asstMsg)
 				}
+
+				// Render official completion badge with timing & statistics
+				fmt.Print(renderCompletionBadge(time.Since(turnStart), sessionID, modelLabel, totalAnomalies, totalFindings))
 				return
 			}
 
 			switch ev.Event {
 			case ipc.EventAgentThought:
 				lastThought = ev.Thought
+				fmt.Print("\r\033[K")
 				fmt.Printf("💭 %s\n", thoughtStyle.Render(ev.Thought))
+				fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(TF("thinking_verify", modelLabel)) + "\r")
 
 			case ipc.EventAgentToolCall:
+				fmt.Print("\r\033[K")
 				argsJSON := ""
 				if ev.Args != nil {
 					argsJSON = fmt.Sprintf(" %v", ev.Args)
 				}
 				fmt.Printf("⚡ %s%s\n", toolCallStyle.Render("[TOOL CALL: "+ev.Tool+"]"), argsJSON)
+				fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("#FACC15")).Italic(true).Render(TF("tool_executing", ev.Tool)) + "\r")
 
 			case ipc.EventAgentObservation:
+				fmt.Print("\r\033[K")
 				fmt.Printf("🔎 %s\n", observationStyle.Render(ev.Summary))
+				fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(TF("thinking_synthesize", modelLabel)) + "\r")
 
 			case ipc.EventAnomalyDetected:
-				anomalyText := fmt.Sprintf(
-					"🚨 [ANOMALI TERDETEKSI] %s | Ticker: %s | Z-Score: %.2fσ | Metric: %.2f (Baseline: %.2f)",
+				fmt.Print("\r\033[K")
+				totalAnomalies++
+				anomalyText := TF(
+					"repl_anomaly_alert",
 					ev.MetricType, ev.Ticker, ev.ZScore, ev.MetricValue, ev.BaselineValue,
 				)
 				fmt.Println(replAnomalyBoxStyle.Render(anomalyText))
 
 			case ipc.EventFindingEmitted:
+				fmt.Print("\r\033[K")
+				totalFindings++
 				badge := supportedBadgeStyle.Render("[SUPPORTED]")
 				if ev.VerificationStat == "UNCERTAIN" {
 					badge = uncertainBadgeStyle.Render("[UNCERTAIN]")
@@ -470,13 +532,24 @@ func executeChatTurn(prompt, sessionID string, cfg *config.Config, appDB *db.DB)
 
 			case ipc.EventAgentMessageChunk:
 				assistantResponse.WriteString(ev.Chunk)
+				words := len(strings.Fields(assistantResponse.String()))
+				fmt.Print("\r\033[K" + lipgloss.NewStyle().Foreground(lipgloss.Color("#4ADE80")).Italic(true).Render(TF("thinking_drafting", modelLabel, words)) + "\r")
 
 			case ipc.EventAgentMessageComplete:
 				if assistantResponse.Len() == 0 {
 					assistantResponse.WriteString(ev.Content)
 				}
 
+			case ipc.EventSessionComplete:
+				if ev.TotalAnomalies > 0 {
+					totalAnomalies = ev.TotalAnomalies
+				}
+				if ev.TotalFindings > 0 {
+					totalFindings = ev.TotalFindings
+				}
+
 			case ipc.EventSessionError:
+				fmt.Print("\r\033[K")
 				if assistantResponse.Len() == 0 {
 					errBox := lipgloss.NewStyle().
 						Border(lipgloss.RoundedBorder()).
@@ -489,6 +562,16 @@ func executeChatTurn(prompt, sessionID string, cfg *config.Config, appDB *db.DB)
 			}
 		}
 	}
+}
+
+func renderCompletionBadge(duration time.Duration, sessionID, model string, anomalies, findings int) string {
+	sep := lipgloss.NewStyle().Foreground(lipgloss.Color("#1F5C3F")).Render("─────────────────────────────────────────────────────────────────────────────")
+	badge := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(T("badge_completed"))
+	detail := TF("badge_completed_detail", duration.Seconds(), model, sessionID)
+	if anomalies > 0 || findings > 0 {
+		detail += TF("badge_completed_counts", anomalies, findings)
+	}
+	return fmt.Sprintf("\n%s\n%s %s\n%s\n", sep, badge, detail, sep)
 }
 
 func renderFinalMarkdown(markdownContent string) {

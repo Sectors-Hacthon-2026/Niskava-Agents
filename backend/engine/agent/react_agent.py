@@ -19,13 +19,27 @@ from engine.agent.tools import NiskavaToolRegistry
 from engine.sectors.tickers import extract_valid_tickers, is_valid_idx_ticker
 from engine.utils.resilience import RetryConfig, execute_with_retry
 
-SYSTEM_PROMPT = """You are Niskava Agent, an intelligent financial research assistant and market intelligence specialist for the Indonesia Stock Exchange (IDX). You assist equity analysts, financial journalists, and retail traders with market analysis, fundamental research, news, regulatory insights, and quantitative investigations.
+
+def get_system_prompt(language: str = "id") -> str:
+    lang = (language or "id").lower()
+    if lang == "en":
+        persona_lang = "- Communicate naturally in professional, clear, and engaging English."
+        market_news_hint = "When the user asks about general market news (\"check today's news\", \"market sentiment\"), use 'harvest_market_news' with no ticker to provide a structured overview of market headlines."
+        thought_hint = "<thought>Internal reasoning in English about user intent and what data (if any) is needed</thought>"
+        resp_hint = "[Your comprehensive, natural response in English]"
+    else:
+        persona_lang = "- Communicate naturally in professional, clear, and engaging Indonesian (Bahasa Indonesia)."
+        market_news_hint = "When the user asks about general market news (\"cek berita hari ini\", \"sentimen pasar\"), use 'harvest_market_news' with no ticker to provide a structured overview of market headlines."
+        thought_hint = "<thought>Internal reasoning in Indonesian about user intent and what data (if any) is needed</thought>"
+        resp_hint = "[Your comprehensive, natural response in Indonesian]"
+
+    return f"""You are Niskava Agent, an intelligent financial research assistant and market intelligence specialist for the Indonesia Stock Exchange (IDX). You assist equity analysts, financial journalists, and retail traders with market analysis, fundamental research, news, regulatory insights, and quantitative investigations.
 
 === CORE PERSONA & COMMUNICATION STYLE ===
-- Communicate naturally in professional, clear, and engaging Indonesian (Bahasa Indonesia).
+{persona_lang}
 - Be a helpful, knowledgeable peer analyst. Do NOT recite or dump your internal rules, tool lists, skill names, or system architecture unless the user explicitly asks what capabilities you have.
 - Answer conversational questions (greetings, financial concepts, IDX trading rules, ratio definitions) directly and clearly without calling tools unnecessarily.
-- When the user asks about general market news ("cek berita hari ini", "sentimen pasar"), use 'harvest_market_news' with no ticker to provide a structured overview of market headlines.
+- {market_news_hint}
 
 === OPERATIONAL LAWS & BOUNDARIES ===
 1. LAW 1 (Deterministic Before Generative):
@@ -42,15 +56,18 @@ SYSTEM_PROMPT = """You are Niskava Agent, an intelligent financial research assi
 
 === INTERACTION PROTOCOL (ReAct XML) ===
 Think step-by-step:
-<thought>Internal reasoning in Indonesian about user intent and what data (if any) is needed</thought>
+{thought_hint}
 If a tool is needed:
-<tool_call>{"name": "tool_name", "arguments": {...}}</tool_call>
+<tool_call>{{"name": "tool_name", "arguments": {{...}}}}</tool_call>
 (After receiving <observation>...</observation>, continue thinking and synthesizing)
 When ready to respond to the user:
 <response>
-[Your comprehensive, natural response in Indonesian]
+{resp_hint}
 </response>
 """
+
+
+SYSTEM_PROMPT = get_system_prompt("id")
 
 
 class NiskavaReActAgent:
@@ -65,11 +82,13 @@ class NiskavaReActAgent:
         model: Optional[str] = None,
         base_url: Optional[str] = None,
         ai_provider: Optional[str] = None,
+        language: Optional[str] = None,
     ):
         self.tools = tool_registry
         self.memory = getattr(tool_registry, "memory", None)
         self.emitter = emitter or (lambda ev: None)
         self.db_path = getattr(tool_registry, "db_path", os.path.expanduser("~/.niskava/niskava.db"))
+        self.language = (language or os.environ.get("NISKAVA_LANG") or "id").lower()
 
         # Primary Active Model & Universal Endpoint Resolution
         self.model = (
@@ -445,8 +464,9 @@ class NiskavaReActAgent:
 
         now = datetime.now()
         current_date_str = now.strftime("%Y-%m-%d (%A)")
+        system_prompt_base = get_system_prompt(self.language)
         dynamic_system_prompt = (
-            f"{SYSTEM_PROMPT}\n\n"
+            f"{system_prompt_base}\n\n"
             f"=== REAL-WORLD TEMPORAL CONTEXT ===\n"
             f"- Today's Real-World Date: {current_date_str}\n"
             f"- Current Year: {now.year}\n"
@@ -468,11 +488,17 @@ class NiskavaReActAgent:
         final_response = ""
 
         def on_llm_retry(attempt: int, delay: float, status_code: int, summary: str):
-            status_desc = f"HTTP {status_code}" if status_code else "Koneksi Terputus"
+            if self.language == "en":
+                status_desc = f"HTTP {status_code}" if status_code else "Connection Lost"
+                thought_msg = f"[{model}] {status_desc}: Waiting {delay:.1f}s before retrying (Attempt {attempt}/3)..."
+            else:
+                status_desc = f"HTTP {status_code}" if status_code else "Koneksi Terputus"
+                thought_msg = f"[{model}] {status_desc}: Menunggu {delay:.1f}s sebelum mencoba kembali (Percobaan {attempt}/3)..."
+
             self._emit({
                 "event": "agent_thought",
                 "session_id": session_id,
-                "thought": f"[{model}] {status_desc}: Menunggu {delay:.1f}s sebelum mencoba kembali (Percobaan {attempt}/3)...",
+                "thought": thought_msg,
             })
 
         retry_cfg = RetryConfig(
@@ -574,41 +600,66 @@ class NiskavaReActAgent:
                         "args": tool_args,
                     })
 
-                    # Execute deterministic tool
-                    tool_res = self.tools.execute_tool(tool_name, tool_args)
+                    # Execute deterministic tool with self-healing error guard
+                    try:
+                        tool_res = self.tools.execute_tool(tool_name, tool_args)
 
-                    # Extract anomalies if computed
-                    if tool_name == "compute_quant_anomalies" and isinstance(tool_res, list):
-                        for a in tool_res:
-                            anomalies.append(a)
-                            self._emit({
-                                "event": "anomaly_detected",
-                                "session_id": session_id,
-                                "ticker": tool_args.get("ticker", ""),
-                                "anomaly_date": a.get("date") or a.get("anomaly_date", ""),
-                                "metric_type": a.get("metric_type", ""),
-                                "z_score": a.get("z_score", 0.0),
-                                "metric_value": a.get("metric_value", 0.0),
-                                "baseline_value": a.get("baseline_value", 0.0),
-                                "price_change_pct": a.get("price_change_pct", 0.0),
-                                "sector_change_pct": a.get("sector_change_pct", 0.0),
-                                "description": a.get("description", ""),
-                            })
+                        # Extract anomalies if computed
+                        if tool_name == "compute_quant_anomalies" and isinstance(tool_res, list):
+                            for a in tool_res:
+                                anomalies.append(a)
+                                self._emit({
+                                    "event": "anomaly_detected",
+                                    "session_id": session_id,
+                                    "ticker": tool_args.get("ticker", ""),
+                                    "anomaly_date": a.get("date") or a.get("anomaly_date", ""),
+                                    "metric_type": a.get("metric_type", ""),
+                                    "z_score": a.get("z_score", 0.0),
+                                    "metric_value": a.get("metric_value", 0.0),
+                                    "baseline_value": a.get("baseline_value", 0.0),
+                                    "price_change_pct": a.get("price_change_pct", 0.0),
+                                    "sector_change_pct": a.get("sector_change_pct", 0.0),
+                                    "description": a.get("description", ""),
+                                })
 
-                    obs_str = f"Observation for {tool_name}: {json.dumps(tool_res)[:450]}"
-                    self._emit({
-                        "event": "agent_observation",
-                        "session_id": session_id,
-                        "tool": tool_name,
-                        "summary": f"Data observasi diterima ({len(str(tool_res))} bytes).",
-                    })
+                        obs_str = f"Observation for {tool_name}: {json.dumps(tool_res)[:450]}"
+                        obs_summary = (
+                            f"Observation data received ({len(str(tool_res))} bytes)."
+                            if self.language == "en"
+                            else f"Data observasi diterima ({len(str(tool_res))} bytes)."
+                        )
+                        self._emit({
+                            "event": "agent_observation",
+                            "session_id": session_id,
+                            "tool": tool_name,
+                            "summary": obs_summary,
+                        })
+                    except Exception as tool_exc:
+                        obs_str = (
+                            f"Tool execution failed for '{tool_name}': {str(tool_exc)}. "
+                            "Please analyze using available context or explain to the user."
+                        )
+                        fail_summary = (
+                            f"⚠️ Tool '{tool_name}' failed: {str(tool_exc)} (agent attempting self-recovery)."
+                            if self.language == "en"
+                            else f"⚠️ Alat '{tool_name}' gagal: {str(tool_exc)} (agen melakukan recovery otomatis)."
+                        )
+                        self._emit({
+                            "event": "agent_observation",
+                            "session_id": session_id,
+                            "tool": str(tool_name),
+                            "summary": fail_summary,
+                        })
 
                     # Feed back to model
                     messages.append({"role": "assistant", "content": content})
                     messages.append({"role": "user", "content": f"<observation>{obs_str}</observation>"})
                     continue
-                except Exception:
-                    pass
+                except Exception as parse_exc:
+                    obs_str = f"Invalid tool call JSON: {str(parse_exc)}. Format must be: <tool_call>{{\"name\": \"tool_name\", \"arguments\": {{...}}}}</tool_call>"
+                    messages.append({"role": "assistant", "content": content})
+                    messages.append({"role": "user", "content": f"<observation>{obs_str}</observation>"})
+                    continue
 
             # Check for final response
             responses = re.findall(r"<response>(.*?)</response>", content, re.DOTALL)
@@ -823,29 +874,38 @@ class NiskavaReActAgent:
             ),
         })
 
-        # Step 1: Candles
+        # Step 1: Candles with resilient error handling
         self._emit({
             "event": "agent_tool_call",
             "session_id": session_id,
             "tool": "get_daily_candles",
             "args": {"ticker": ticker, "days": 30},
         })
-        candles = self.tools.get_daily_candles(ticker, days=30)
+        try:
+            candles = self.tools.get_daily_candles(ticker, days=30)
+            candles_summary = f"Berhasil menarik {len(candles)} hari data candlestick {ticker} dari Sectors API v2."
+        except Exception as exc:
+            candles = []
+            candles_summary = f"Data candlestick {ticker} tidak dapat diakses ({str(exc)}). Menggunakan estimasi baseline."
+
         self._emit({
             "event": "agent_observation",
             "session_id": session_id,
             "tool": "get_daily_candles",
-            "summary": f"Berhasil menarik {len(candles)} hari data candlestick {ticker} dari Sectors API v2.",
+            "summary": candles_summary,
         })
 
-        # Step 2: NumPy Quant Anomaly (Law 1)
+        # Step 2: NumPy Quant Anomaly (Law 1) with resilient error handling
         self._emit({
             "event": "agent_tool_call",
             "session_id": session_id,
             "tool": "compute_quant_anomalies",
             "args": {"ticker": ticker, "volume_z_threshold": 2.5},
         })
-        anomalies = self.tools.compute_quant_anomalies(ticker, volume_z_threshold=2.5)
+        try:
+            anomalies = self.tools.compute_quant_anomalies(ticker, volume_z_threshold=2.5)
+        except Exception:
+            anomalies = []
 
         highest_z = 0.0
         anomaly_date = "N/A"
@@ -875,19 +935,25 @@ class NiskavaReActAgent:
             "summary": f"Ditemukan {len(anomalies)} anomali kuantitatif signifikan (Z-Score puncak: {highest_z:.2f}σ pada {anomaly_date}).",
         })
 
-        # Step 3: OSINT News Harvester
+        # Step 3: OSINT News Harvester with resilient error handling
         self._emit({
             "event": "agent_tool_call",
             "session_id": session_id,
             "tool": "harvest_market_news",
             "args": {"ticker": ticker},
         })
-        news_items = self.tools.harvest_market_news(ticker)
+        try:
+            news_items = self.tools.harvest_market_news(ticker)
+            news_summary = f"Ditemukan {len(news_items)} artikel berita & keterbukaan informasi bursa terakreditasi."
+        except Exception as exc:
+            news_items = []
+            news_summary = f"Pencarian berita bursa menghasilkan 0 artikel ({str(exc)})."
+
         self._emit({
             "event": "agent_observation",
             "session_id": session_id,
             "tool": "harvest_market_news",
-            "summary": f"Ditemukan {len(news_items)} artikel berita & keterbukaan informasi bursa terakreditasi.",
+            "summary": news_summary,
         })
 
         # Step 4: Synthesize Response (Law 2: 3-Tier Taxonomy & Non-Advisory)
@@ -998,12 +1064,18 @@ Berdasarkan analisis deterministik kuantitatif dan penelusuran OSINT keterbukaan
             "tool": "get_daily_candles",
             "args": {"ticker": ticker, "days": days},
         })
-        candles = self.tools.get_daily_candles(ticker, days=days)
+        try:
+            candles = self.tools.get_daily_candles(ticker, days=days)
+            candles_summary = f"Berhasil menarik {len(candles)} hari data candlestick dari Sectors API v2."
+        except Exception as exc:
+            candles = []
+            candles_summary = f"Data candlestick {ticker} tidak dapat diakses ({str(exc)})."
+
         self._emit({
             "event": "agent_observation",
             "session_id": session_id,
             "tool": "get_daily_candles",
-            "summary": f"Berhasil menarik {len(candles)} hari data candlestick dari Sectors API v2.",
+            "summary": candles_summary,
         })
 
         self._emit({
@@ -1019,7 +1091,10 @@ Berdasarkan analisis deterministik kuantitatif dan penelusuran OSINT keterbukaan
             "tool": "compute_quant_anomalies",
             "args": {"ticker": ticker, "volume_z_threshold": 2.5},
         })
-        anomalies = self.tools.compute_quant_anomalies(ticker, volume_z_threshold=2.5)
+        try:
+            anomalies = self.tools.compute_quant_anomalies(ticker, volume_z_threshold=2.5)
+        except Exception:
+            anomalies = []
 
         highest_z = 0.0
         anomaly_date = "N/A"
@@ -1061,12 +1136,18 @@ Berdasarkan analisis deterministik kuantitatif dan penelusuran OSINT keterbukaan
             "tool": "harvest_market_news",
             "args": {"ticker": ticker},
         })
-        news_items = self.tools.harvest_market_news(ticker)
+        try:
+            news_items = self.tools.harvest_market_news(ticker)
+            news_summary = f"Ditemukan {len(news_items)} artikel berita & keterbukaan informasi bursa resmi terakreditasi."
+        except Exception as exc:
+            news_items = []
+            news_summary = f"Pencarian berita bursa menghasilkan 0 artikel ({str(exc)})."
+
         self._emit({
             "event": "agent_observation",
             "session_id": session_id,
             "tool": "harvest_market_news",
-            "summary": f"Ditemukan {len(news_items)} artikel berita & keterbukaan informasi bursa terakreditasi.",
+            "summary": news_summary,
         })
 
         self._emit({

@@ -77,6 +77,7 @@ var investigateCmd = &cobra.Command{
 			Days:      daysFlag,
 			SessionID: sessionID,
 			Offline:   isOffline,
+			Language:  cfg.Preferences.Language,
 		}
 
 		eventsChan, errChan := ipc.RunSubprocess(ctx, runnerParams)

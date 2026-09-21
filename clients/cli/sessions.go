@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/clients/cli/tui"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
@@ -20,12 +21,11 @@ var sessionsCmd = &cobra.Command{
 		}
 
 		if len(investigations) == 0 {
-			fmt.Println("Belum ada sesi investigasi yang tersimpan di ~/.niskava/niskava.db.")
-			fmt.Println("Jalankan 'niskava investigate <TICKER>' untuk memulai investigasi baru.")
+			fmt.Println(tui.T("sessions_empty_cli"))
 			return nil
 		}
 
-		fmt.Println("\nRIWAYAT SESI INVESTIGASI (AUDIT TRAIL):")
+		fmt.Println(tui.T("sessions_table_header"))
 		fmt.Println("─────────────────────────────────────────────────────────────────────────────")
 		fmt.Printf("%-20s %-8s %-12s %-20s %s\n", "SESSION ID", "TICKER", "STATUS", "STARTED AT", "SUMMARY")
 		fmt.Println("─────────────────────────────────────────────────────────────────────────────")

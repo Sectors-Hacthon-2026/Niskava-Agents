@@ -202,7 +202,7 @@ func (m LauncherModel) View() string {
 		}
 	}
 
-	tagline := "Multi-Interface AI Agent Runtime"
+	tagline := T("launcher_tagline")
 	if noColor {
 		b.WriteString("  " + tagline + "\n")
 	} else {
@@ -258,7 +258,7 @@ func (m LauncherModel) View() string {
 	serverHost := strings.TrimPrefix(m.ServerURL, "http://")
 	serverHost = strings.TrimPrefix(serverHost, "https://")
 	if serverHost == "" {
-		serverHost = "localhost:8080"
+		serverHost = "localhost:20128"
 	}
 
 	var (
@@ -278,13 +278,13 @@ func (m LauncherModel) View() string {
 		}
 	}
 
-	apiKeyStatusStr := "OK"
+	apiKeyStatusStr := T("launcher_status_api_ok")
 	if !m.APIKeyOK {
-		apiKeyStatusStr = "Missing/Offline"
+		apiKeyStatusStr = T("launcher_status_api_missing")
 	}
 
-	statusContent := fmt.Sprintf(
-		" niskava %s  ·  %s Server: %s  ·  %s API Key: %s  ·  ↑/↓ nav  ·  [W/T/S/H/C/Q/E] select ",
+	statusContent := TF(
+		"launcher_status_bar",
 		m.Version,
 		serverDot,
 		serverHost,

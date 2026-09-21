@@ -1,7 +1,10 @@
 // Package tui provides interactive terminal interfaces for Niskava Agent.
 package tui
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // LanguageInfo defines metadata for a supported interface language.
 type LanguageInfo struct {
@@ -310,6 +313,274 @@ var TUIStrings = map[string]map[string]string{
 		"en": "[Press 1/2, Arrow Keys + Enter to Select, Esc to Cancel]",
 		"id": "[Tekan 1/2, Tombol Panah + Enter untuk Memilih, Esc untuk Batal]",
 	},
+	"thinking_init": {
+		"en": "  ⠋ [%s] Initializing analysis & planning investigation...",
+		"id": "  ⠋ [%s] Menginisialisasi analisis & merencanakan investigasi...",
+	},
+	"thinking_verify": {
+		"en": "  ⠋ [%s] Running tool verification & quantitative analysis...",
+		"id": "  ⠋ [%s] Menjalankan verifikasi alat & analisis kuantitatif...",
+	},
+	"tool_executing": {
+		"en": "  ⠋ Executing tool %s...",
+		"id": "  ⠋ Mengeksekusi alat %s...",
+	},
+	"thinking_synthesize": {
+		"en": "  ⠋ [%s] Synthesizing findings & drafting response...",
+		"id": "  ⠋ [%s] Menyintesis temuan & menyusun respons...",
+	},
+	"thinking_drafting": {
+		"en": "  ⠋ [%s] Synthesizing response (%d words)...",
+		"id": "  ⠋ [%s] Menyusun sintesis respons (%d kata)...",
+	},
+	"badge_completed": {
+		"en": "✔ [COMPLETED]",
+		"id": "✔ [SELESAI]",
+	},
+	"badge_completed_detail": {
+		"en": "Analysis completed in %.1fs • Model: %s • Session: %s",
+		"id": "Analisis tuntas dalam %.1fs • Model: %s • Sesi: %s",
+	},
+	"badge_completed_counts": {
+		"en": " • (%d Anomalies, %d Findings)",
+		"id": " • (%d Anomali, %d Temuan)",
+	},
+	"repl_anomaly_alert": {
+		"en": "🚨 [QUANTITATIVE ANOMALY DETECTED] %s | Ticker: %s | Z-Score: %.2fσ | Metric: %.2f (Baseline: %.2f)",
+		"id": "🚨 [ANOMALI KUANTITATIF TERDETEKSI] %s | Ticker: %s | Z-Score: %.2fσ | Metric: %.2f (Baseline: %.2f)",
+	},
+	"repl_execution_cancelled": {
+		"en": "\n[!] Execution cancelled by user.\n",
+		"id": "\n[!] Eksekusi dibatalkan oleh pengguna.\n",
+	},
+	"slash_popup_header": {
+		"en": "SLASH COMMANDS (Use ↑/↓ to navigate, Tab/Enter to complete)",
+		"id": "SLASH COMMANDS (Gunakan ↑/↓ untuk memilih, Tab/Enter untuk melengkapi)",
+	},
+	"repl_exit_msg": {
+		"en": "Exiting Live REPL session.",
+		"id": "Keluar dari sesi Live REPL.",
+	},
+	"repl_session_reset": {
+		"en": "\n[✓] Session reset and memory graph cleared. New conversation session: %s\n",
+		"id": "\n[✓] Sesi direset dan memory graph dibersihkan. Sesi percakapan baru: %s\n",
+	},
+	"repl_open_graph": {
+		"en": "Opening Memory Knowledge Graph visualization in browser (%s)...\n",
+		"id": "Membuka visualisasi Memory Knowledge Graph di browser (%s)...\n",
+	},
+	"repl_open_web": {
+		"en": "Opening web workspace in browser (%s)...\n",
+		"id": "Membuka web workspace di browser (%s)...\n",
+	},
+	"repl_lang_switched": {
+		"en": "  [✓] Language preference switched to %s %s (%s).",
+		"id": "  [✓] Preferensi bahasa berhasil diubah ke %s %s (%s).",
+	},
+	"repl_session_banner": {
+		"en": "─── Active Investigation Session: %s ─────────────────────────────",
+		"id": "─── Sesi Investigasi Aktif: %s ─────────────────────────────",
+	},
+	"hud_lbl_designation": {
+		"en": "DESIGNATION",
+		"id": "SEBUTAN",
+	},
+	"hud_lbl_substrate": {
+		"en": "SUBSTRATE",
+		"id": "SUBSTRAT",
+	},
+	"hud_lbl_runtime": {
+		"en": "RUNTIME",
+		"id": "RUNTIME",
+	},
+	"hud_lbl_language": {
+		"en": "LANGUAGE",
+		"id": "BAHASA",
+	},
+	"hud_lbl_conscious": {
+		"en": "CONSCIOUS",
+		"id": "MASA AKTIF",
+	},
+	"hud_lbl_brain_size": {
+		"en": "BRAIN SIZE",
+		"id": "UKURAN DB",
+	},
+	"hud_lbl_interfaces": {
+		"en": "INTERFACES",
+		"id": "ANTARMUKA",
+	},
+	"hud_lbl_purpose": {
+		"en": "PURPOSE",
+		"id": "TUJUAN",
+	},
+	"hud_age_days": {
+		"en": "%d days  since %s",
+		"id": "%d hari  sejak %s",
+	},
+	"hud_age_one_day": {
+		"en": "1 day  since %s",
+		"id": "1 hari  sejak %s",
+	},
+	"launcher_tagline": {
+		"en": "Multi-Interface AI Agent Runtime",
+		"id": "Runtime Agen AI Multi-Antarmuka",
+	},
+	"launcher_status_api_ok": {
+		"en": "OK",
+		"id": "Terpasang",
+	},
+	"launcher_status_api_missing": {
+		"en": "Missing/Offline",
+		"id": "Belum Terpasang",
+	},
+	"launcher_status_bar": {
+		"en": " niskava %s  ·  %s Server: %s  ·  %s API Key: %s  ·  ↑/↓ nav  ·  [W/T/S/H/C/L/Q/E] select ",
+		"id": " niskava %s  ·  %s Server: %s  ·  %s API Key: %s  ·  ↑/↓ navigasi  ·  [W/T/S/H/C/L/Q/E] pilih ",
+	},
+	"menu_press_enter": {
+		"en": "Press Enter to return to Menu...",
+		"id": "Tekan Enter untuk kembali ke Menu...",
+	},
+	"menu_open_web": {
+		"en": "\n[●] Opening Web Workspace in browser: %s\n",
+		"id": "\n[●] Membuka Web Workspace di browser: %s\n",
+	},
+	"menu_exit_msg": {
+		"en": "Stopping daemon server and exiting Niskava Agent.",
+		"id": "Menghentikan server daemon dan keluar dari Niskava Agent.",
+	},
+	"health_status_installed": {
+		"en": "Configured",
+		"id": "Terpasang",
+	},
+	"health_status_missing": {
+		"en": "Not Configured",
+		"id": "Belum Terpasang",
+	},
+	"sessions_empty_cli": {
+		"en": "No saved investigation sessions found in ~/.niskava/niskava.db.\nRun 'niskava investigate <TICKER>' to start a new investigation.",
+		"id": "Belum ada sesi investigasi yang tersimpan di ~/.niskava/niskava.db.\nJalankan 'niskava investigate <TICKER>' untuk memulai investigasi baru.",
+	},
+	"sessions_table_header": {
+		"en": "\nINVESTIGATION SESSION HISTORY (AUDIT TRAIL):",
+		"id": "\nRIWAYAT SESI INVESTIGASI (AUDIT TRAIL):",
+	},
+	"serve_online_box": {
+		"en": "NISKAVA DAEMON ONLINE\n• Local URL : %s\n• Market    : IDX\n• Database  : %s\n• Status    : REST API & SSE Ready\n(Press Ctrl+C to stop server)",
+		"id": "NISKAVA DAEMON ONLINE\n• Local URL : %s\n• Market    : IDX\n• Database  : %s\n• Status    : REST API & SSE Ready\n(Tekan Ctrl+C untuk menghentikan server)",
+	},
+	"serve_opening_browser": {
+		"en": "Opening browser automatically: %s\n",
+		"id": "Membuka browser otomatis: %s\n",
+	},
+	"serve_stopping": {
+		"en": "\nStopping daemon server...",
+		"id": "\nMenghentikan server daemon...",
+	},
+	"serve_stopped_gracefully": {
+		"en": "[✓] Server stopped gracefully.",
+		"id": "[✓] Server berhenti dengan aman.",
+	},
+	"graph_exporting": {
+		"en": "Exporting Market Intelligence Knowledge Graph to %s...\n",
+		"id": "Mengekspor Market Intelligence Knowledge Graph ke %s...\n",
+	},
+	"graph_exported_success": {
+		"en": "[✓] Graph visualization file created successfully: %s\n",
+		"id": "[✓] File visualisasi graf berhasil dibuat: %s\n",
+	},
+	"graph_opening_browser": {
+		"en": "Opening in web browser: %s\n",
+		"id": "Membuka di peramban web: %s\n",
+	},
+	"graph_tip": {
+		"en": "Tip: Run with --open flag or open directly in your browser:\n  file://%s\n",
+		"id": "Tip: Jalankan dengan flag --open atau buka langsung di browser Anda:\n  file://%s\n",
+	},
+	"help_full_title": {
+		"en": "NISKAVA AGENT — SYSTEM INSTRUCTION & USAGE GUIDE",
+		"id": "NISKAVA AGENT — PANDUAN PENGGUNAAN & INSTRUKSI SISTEM",
+	},
+	"help_sec1_title": {
+		"en": "1. MAIN MENU NAVIGATION GUIDE (LAUNCHER):",
+		"id": "1. PANDUAN NAVIGASI MENU UTAMA (LAUNCHER):",
+	},
+	"help_sec1_updown": {
+		"en": "Move cursor up/down between menu choices.",
+		"id": "Pindahkan kursor ke atas/bawah antar pilihan menu.",
+	},
+	"help_sec1_enter": {
+		"en": "Execute selected menu option.",
+		"id": "Jalankan opsi menu yang dipilih.",
+	},
+	"help_sec1_hotkeys": {
+		"en": "Press direct shortcut keys for fast execution:",
+		"id": "Tekan tombol pintas langsung untuk eksekusi cepat:",
+	},
+	"help_sec1_key_w": {
+		"en": "Open Web Workspace in default browser (REST & SSE Visual Stream)",
+		"id": "Buka Web Workspace di browser default (Stream Visual REST & SSE)",
+	},
+	"help_sec1_key_t": {
+		"en": "Launch Interactive Live Terminal UI (REPL & Anomaly Reasoning)",
+		"id": "Buka Terminal UI Live Interaktif (REPL & Penalaran Anomali)",
+	},
+	"help_sec1_key_s": {
+		"en": "View Investigation Session History & Audit Trail (SQLite)",
+		"id": "Lihat Riwayat Sesi Investigasi & Jejak Audit (SQLite)",
+	},
+	"help_sec1_key_h": {
+		"en": "Display this System Guide & Instruction Manual",
+		"id": "Tampilkan Panduan Sistem & Manual Instruksi ini",
+	},
+	"help_sec1_key_c": {
+		"en": "Check Daemon Server, DB Connection & AI Provider Health",
+		"id": "Periksa Kesehatan Server Daemon, Koneksi DB & Provider AI",
+	},
+	"help_sec1_key_l": {
+		"en": "Toggle Active Interface Language (English / Bahasa Indonesia)",
+		"id": "Ubah Preferensi Bahasa Antarmuka (Bahasa Inggris / Indonesia)",
+	},
+	"help_sec1_key_q": {
+		"en": "Launch Quick Setup Wizard (.env configuration)",
+		"id": "Jalankan Wizard Konfigurasi Cepat (Pengaturan .env)",
+	},
+	"help_sec1_key_e": {
+		"en": "Stop daemon server & exit Niskava Agent",
+		"id": "Hentikan server daemon & keluar dari Niskava Agent",
+	},
+	"help_sec2_title": {
+		"en": "2. OPERATIONAL SURFACES & FEATURE INSTRUCTIONS:",
+		"id": "2. ANTARMUKA & PETUNJUK FITUR OPERASIONAL:",
+	},
+	"help_sec2_web_desc": {
+		"en": "Visual research dashboard based on React SPA in browser. Displays TradingView/Recharts candlesticks, quantitative anomaly markers (MA20/Z-score), 3-tier evidence matrix, and local memory graph visualizer.",
+		"id": "Dashboard riset visual berbasis React SPA di browser. Menampilkan candlestick TradingView/Recharts, penanda anomali kuantitatif (MA20/Z-score), matriks bukti 3-tier, dan visualisasi memory graph lokal.",
+	},
+	"help_sec2_term_desc": {
+		"en": "Interactive terminal ReAct inner-monologue.\n     - Type a 4-5 letter stock ticker (e.g. ANTM, BBCA, BUMI) for auto 30-day investigation.\n     - Ask free-form market research questions (e.g. 'Why did ANTM surge sharply yesterday?').",
+		"id": "Monolog penalaran ReAct interaktif di terminal.\n     - Ketik 4-5 huruf kode saham (misal ANTM, BBCA, BUMI) untuk investigasi 30 hari otomatis.\n     - Ajukan pertanyaan riset pasar bebas (misal 'Kenapa saham ANTM melonjak kemarin?').",
+	},
+	"help_sec2_sessions_desc": {
+		"en": "Reads local SQLite tables (~/.niskava/niskava.db) to inspect past audit trails & evidence.",
+		"id": "Membaca tabel SQLite lokal (~/.niskava/niskava.db) untuk memeriksa jejak audit & bukti lampau.",
+	},
+	"help_sec2_health_desc": {
+		"en": "Displays status of background daemon, Sectors v2 API key, and LLM providers (Gemini/OpenAI).",
+		"id": "Menampilkan status daemon background, API key Sectors v2, dan penyedia LLM (Gemini/OpenAI).",
+	},
+	"help_sec2_setup_desc": {
+		"en": "Interactive setup wizard to automatically configure your .env file.",
+		"id": "Wizard pengaturan interaktif untuk mengonfigurasi file .env secara otomatis.",
+	},
+	"help_sec3_title": {
+		"en": "3. SLASH COMMANDS IN REPL SESSIONS:",
+		"id": "3. PERINTAH SLASH DALAM SESI REPL:",
+	},
+	"help_sec4_title": {
+		"en": "4. DIRECT COMMAND LINE CLI COMMANDS:",
+		"id": "4. PERINTAH BARIS PERINTAH LANGSUNG (CLI):",
+	},
 }
 
 // T retrieves localized string for ActiveLanguage, falling back to "en".
@@ -323,6 +594,12 @@ func T(key string) string {
 		}
 	}
 	return key
+}
+
+// TF retrieves a localized string for ActiveLanguage and formats it with fmt.Sprintf.
+func TF(key string, args ...any) string {
+	format := T(key)
+	return fmt.Sprintf(format, args...)
 }
 
 // GetLocalizedLauncherItems returns menu items localized according to ActiveLanguage.
