@@ -63,3 +63,26 @@ func TestReplInputModelTabAutocompletion(t *testing.T) {
 		t.Errorf("expected text input value to start with slash after Tab autocomplete")
 	}
 }
+
+func TestReplInputModelSlashChatsAndResume(t *testing.T) {
+	model := NewReplInputModel("niskava [hermes] >")
+	model.TextInput.SetValue("/ch")
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
+	m := updated.(ReplInputModel)
+
+	foundChats := false
+	for _, cmd := range m.FilteredCommands {
+		if cmd.Command == "/chats" {
+			foundChats = true
+		}
+	}
+	if !foundChats {
+		t.Errorf("expected '/chats' to be in filtered commands for '/ch'")
+	}
+}
+
+func TestRenderResumedHistory(t *testing.T) {
+	// Should not panic on nil db or empty session
+	renderResumedHistory(nil, "NON-EXISTENT")
+}
+
