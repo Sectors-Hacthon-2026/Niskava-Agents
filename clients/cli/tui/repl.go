@@ -119,10 +119,27 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
+			// Priority 1: Esc menutup slash popup jika aktif
 			if m.SlashActive && msg.Type == tea.KeyEsc {
 				m.SlashActive = false
 				return m, nil
 			}
+			// Priority 2: Esc dengan Ctrl+C selalu exit
+			if msg.Type == tea.KeyCtrlC {
+				m.Quitting = true
+				m.SubmittedValue = "/exit"
+				return m, tea.Quit
+			}
+			// Priority 3: Esc dengan input tidak kosong → clear input saja
+			if strings.TrimSpace(m.TextInput.Value()) != "" {
+				m.TextInput.SetValue("")
+				m.TextInput.SetCursor(0)
+				m.SlashActive = false
+				m.FilteredCommands = m.SlashCommands
+				m.SlashCursor = 0
+				return m, nil
+			}
+			// Priority 4: Esc dengan input kosong → keluar REPL
 			m.Quitting = true
 			m.SubmittedValue = "/exit"
 			return m, tea.Quit
