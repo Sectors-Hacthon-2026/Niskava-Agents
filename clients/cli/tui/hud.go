@@ -274,3 +274,53 @@ func PrintHealthDiagnostics(cfg *config.Config, serverURL string) {
 
 	fmt.Println(dividerStyle.Render("─────────────────────────────────────────────────────────────────────────────"))
 }
+
+// PrintWebWorkspaceLaunchScreen renders a styled, rich Web Workspace launcher card using the Binance Dark OSINT palette.
+func PrintWebWorkspaceLaunchScreen(serverURL string) {
+	if serverURL == "" {
+		serverURL = "http://localhost:8080"
+	}
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorBg).
+		Background(ColorAccent).
+		Padding(0, 1)
+
+	cardStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(ColorAccent).
+		Padding(1, 2).
+		MarginTop(1).
+		MarginBottom(1)
+
+	lblStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorAccent)
+
+	valStyle := lipgloss.NewStyle().
+		Foreground(ColorFg)
+
+	urlStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorThought)
+
+	statusStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorSuccess)
+
+	mutedStyle := lipgloss.NewStyle().
+		Italic(true).
+		Foreground(ColorMuted)
+
+	var b strings.Builder
+	b.WriteString(headerStyle.Render("🌐 NISKAVA WEB WORKSPACE (VISUAL CYBER-OSINT CANVAS)") + "\n\n")
+	b.WriteString(fmt.Sprintf("• %s : %s %s\n", lblStyle.Render("Local Server Status"), statusStyle.Render("[ONLINE]"), mutedStyle.Render("(Go SSE Gateway + React SPA)")))
+	b.WriteString(fmt.Sprintf("• %s : %s\n", lblStyle.Render("Browser Access URL "), urlStyle.Render(serverURL)))
+	b.WriteString(fmt.Sprintf("• %s : %s\n", lblStyle.Render("Canvas Features    "), valStyle.Render("TradingView Anomaly Markers, ReAct SSE Stream, Evidence Matrix")))
+	b.WriteString(fmt.Sprintf("• %s : %s\n\n", lblStyle.Render("Data Sovereignty   "), valStyle.Render("100% Local-First SQLite Persistence (~/.niskava/niskava.db)")))
+	b.WriteString(mutedStyle.Render("⚡ Opening default web browser automatically..."))
+
+	fmt.Println()
+	fmt.Println(cardStyle.Render(b.String()))
+}

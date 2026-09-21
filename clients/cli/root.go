@@ -79,7 +79,7 @@ and qualitative market disclosures/news.`,
 			selected := m.(tui.LauncherModel).Selected
 			switch selected {
 			case "web":
-				fmt.Printf(tui.T("menu_open_web"), srv.URL)
+				tui.PrintWebWorkspaceLaunchScreen(srv.URL)
 				_ = server.OpenBrowser(srv.URL)
 				fmt.Println(tui.T("menu_press_enter"))
 				_, _ = fmt.Scanln()
