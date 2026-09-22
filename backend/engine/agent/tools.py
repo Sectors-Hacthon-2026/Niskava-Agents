@@ -20,6 +20,20 @@ from engine.skills.registry import SkillsRegistry
 # Jika digunakan di harvest_market_news, harus di-route ke general market news.
 _INDEX_TICKERS: frozenset[str] = frozenset({"IHSG", "JCI", "IDX", "COMPOSITE"})
 
+# Domain key → SectorsAPIClient method name mapping for query_sectors gateway.
+_SECTORS_DOMAIN_MAP: dict[str, str] = {
+    "candles": "get_daily_candles",
+    "fundamentals": "get_company_report",
+    "foreign_flow": "get_foreign_flow",
+    "suspensions": "get_suspensions",
+    "filings": "get_filings",
+    "broker_summary": "get_broker_summary",
+    "corporate_actions": "get_corporate_actions",
+    "subsector_peers": "get_subsector_peers",
+    "mining_detail": "get_mining_detail",
+    "news": "get_news",
+}
+
 
 class NiskavaToolRegistry:
     """Provides structured, callable tools for the ReAct Agent."""
@@ -54,6 +68,108 @@ class NiskavaToolRegistry:
         }
         res = self.skills_registry.execute_skill(skill_id, arguments, context)
         return res.to_dict()
+
+    # ---------------------------------------------------------------------------
+    # Gateway Primitive Methods — Progressive Skill Disclosure (ADR-11)
+    # ---------------------------------------------------------------------------
+
+    def query_sectors(self, domain: str, ticker: str, params: Dict[str, Any] = {}) -> Any:
+        """Universal gateway to Sectors Financial API v2.
+
+        Routes to the appropriate SectorsAPIClient method based on `domain`.
+        Always checks SQLite sectors_cache first via the client (Law 5).
+
+        Args:
+            domain: One of the keys in _SECTORS_DOMAIN_MAP
+                    ('candles', 'fundamentals', 'foreign_flow', 'suspensions',
+                    'filings', 'broker_summary', 'corporate_actions',
+                    'subsector_peers', 'mining_detail', 'news').
+            ticker: IDX 4-letter ticker (case-insensitive, auto-uppercased).
+            params: Optional domain-specific extra parameters
+                    (e.g. {'slug': '...'} for mining_detail).
+
+        Returns:
+            Raw API response as returned by the underlying SectorsAPIClient method.
+
+        Raises:
+            ValueError: If `domain` is not in _SECTORS_DOMAIN_MAP.
+        """
+        method_name = _SECTORS_DOMAIN_MAP.get(domain)
+        if not method_name:
+            supported = ", ".join(sorted(_SECTORS_DOMAIN_MAP.keys()))
+            raise ValueError(
+                f"Domain tidak dikenal: '{domain}'. Domain yang didukung: {supported}"
+            )
+
+        clean_ticker = ticker.upper() if ticker else ticker
+        client_method = getattr(self.sectors_client, method_name)
+
+        # Domains with a non-ticker primary key
+        if domain == "subsector_peers":
+            slug = params.get("subsector", clean_ticker.lower())
+            return client_method(slug)
+        if domain == "mining_detail":
+            slug = params.get("slug", clean_ticker.lower())
+            return client_method(slug)
+
+        return client_method(clean_ticker)
+
+    def search_osint(self, ticker: str, query: str = "") -> List[Dict[str, Any]]:
+        """Universal gateway to the Dual-Engine OSINT harvester.
+
+        Fetches curated Sectors news and targeted Google News RSS results for
+        the given ticker. Returns a list of OSINTItem dicts (sanitised, no raw HTML).
+
+        Args:
+            ticker: IDX 4-letter ticker. Pass empty string for general market news.
+            query: Optional extra keyword to narrow Google News RSS dorking.
+
+        Returns:
+            List of dicts, each with keys: title, url, published_at, source, snippet.
+        """
+        clean_ticker = ticker.upper() if ticker else ""
+
+        if not clean_ticker or clean_ticker in _INDEX_TICKERS:
+            sectors_news = self.sectors_client.get_news(None)
+            items: List[OSINTItem] = self.osint_harvester.harvest(
+                ticker="IHSG",
+                company_name="Pasar Modal Indonesia",
+                sectors_news_items=sectors_news,
+            )
+            return [item.model_dump() for item in items]
+
+        report = self.get_company_fundamentals(clean_ticker)
+        company_name = report.get("company_name", clean_ticker)
+        sectors_news = self.sectors_client.get_news(clean_ticker)
+        items = self.osint_harvester.harvest(
+            ticker=clean_ticker,
+            company_name=company_name,
+            sectors_news_items=sectors_news,
+        )
+        return [item.model_dump() for item in items]
+
+    def query_memory(self, concept_or_ticker: str, radius: int = 2) -> Dict[str, Any]:
+        """Universal gateway to the local conversational graph memory engine.
+
+        Performs ego-graph traversal (≤ radius hops) with exponential recency
+        decay from SQLite memory_nodes/memory_edges via NetworkX.
+
+        Args:
+            concept_or_ticker: Entity label to query (e.g. 'ANTM', 'Hari Darmawan').
+            radius: Ego-graph hop radius (default 2, max recommended 3).
+
+        Returns:
+            Dict with keys: query, nodes_found (int), nodes (list), edges (list).
+        """
+        res = self.memory.retrieve_ego_subgraph(
+            entity_query=concept_or_ticker, radius=radius
+        )
+        return {
+            "query": res["query"],
+            "nodes_found": len(res["nodes"]),
+            "nodes": res["nodes"],
+            "edges": res["edges"],
+        }
 
     def get_daily_candles(self, ticker: str, days: int = 30) -> List[Dict[str, Any]]:
         """Retrieve daily OHLCV candlesticks for the specified ticker."""
@@ -190,174 +306,146 @@ class NiskavaToolRegistry:
         return self.memory.get_graph_stats()
 
     def get_tool_definitions(self) -> List[Dict[str, Any]]:
-        """Return JSON-schema compatible tool definitions for LLM function calling."""
-        definitions: List[Dict[str, Any]] = [
+        """Return the 4 lean gateway tool definitions for LLM function calling.
+
+        Progressive Skill Disclosure Architecture (ADR-11): the LLM sees only
+        4 universal gateway primitives. Each gateway routes internally to the full
+        set of atomic Sectors API methods and domain skills via execute_tool() —
+        preserving full backward compatibility.
+        """
+        return [
             {
-                "name": "get_daily_candles",
-                "description": "Ambil data deret waktu harga dan volume perdagangan harian saham IDX dari Sectors API v2.",
+                "name": "execute_skill",
+                "description": (
+                    "Jalankan Standard Operating Procedure (SOP) analis ekuitas domain. "
+                    "Gunakan ini untuk investigasi mendalam terstruktur. "
+                    "skill_id tersedia: "
+                    "market_anomaly_recon (scan lonjakan volume MA20/Z-score & abnormal return via NumPy), "
+                    "event_causality_audit (audit kausalitas berita vs lonjakan volume: LIKELY_CATALYST/PRECEDED_ANNOUNCEMENT), "
+                    "insider_bandarmology_forensic (audit akumulasi top broker C3>=65% & transaksi direksi/komisaris), "
+                    "financial_health_stress_test (audit likuiditas Current/Quick, solvabilitas DER, sanggahan rumor gagal bayar), "
+                    "mining_commodity_divergence (uji korelasi emiten tambang vs harga spot komoditas: Nikel, Batubara), "
+                    "peer_valuation_benchmark (benchmark valuasi PER/PBV vs median rekan subsektor IDX)."
+                ),
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker 4 huruf IDX (contoh: ANTM, BBCA)"},
-                        "days": {"type": "integer", "description": "Jendela waktu observasi (default 30 hari)", "default": 30},
+                        "skill_id": {
+                            "type": "string",
+                            "description": (
+                                "ID skill yang akan dijalankan. Pilih salah satu: "
+                                "market_anomaly_recon, event_causality_audit, "
+                                "insider_bandarmology_forensic, financial_health_stress_test, "
+                                "mining_commodity_divergence, peer_valuation_benchmark."
+                            ),
+                        },
+                        "arguments": {
+                            "type": "object",
+                            "description": (
+                                "Parameter skill. Minimal wajib: {'ticker': 'ANTM'}. "
+                                "Opsional: 'days' (int), 'subsector' (str untuk peer_valuation_benchmark)."
+                            ),
+                        },
+                    },
+                    "required": ["skill_id", "arguments"],
+                },
+            },
+            {
+                "name": "query_sectors",
+                "description": (
+                    "Router universal ke Sectors Financial API v2. "
+                    "Gunakan `domain` untuk memilih jenis data: "
+                    "candles (OHLCV harian), "
+                    "fundamentals (profil & rasio keuangan emiten), "
+                    "foreign_flow (akumulasi/distribusi dana asing), "
+                    "suspensions (suspensi & pengumuman UMA resmi BEI), "
+                    "filings (kepemilikan orang dalam/insider trading), "
+                    "broker_summary (top buyer/seller broker), "
+                    "corporate_actions (dividen, split, rights issue), "
+                    "subsector_peers (komparasi rekan subsektor), "
+                    "mining_detail (detail operasional tambang & smelter), "
+                    "news (berita terkurasi Sectors API)."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "domain": {
+                            "type": "string",
+                            "description": (
+                                "Jenis data Sectors API. Wajib diisi. Pilih: "
+                                "candles | fundamentals | foreign_flow | suspensions | "
+                                "filings | broker_summary | corporate_actions | "
+                                "subsector_peers | mining_detail | news."
+                            ),
+                        },
+                        "ticker": {
+                            "type": "string",
+                            "description": "Kode ticker IDX 4 huruf (contoh: ANTM, BBCA). Tidak case-sensitive.",
+                        },
+                        "params": {
+                            "type": "object",
+                            "description": (
+                                "Parameter tambahan opsional, misalnya: "
+                                "{'subsector': 'metals-mining'} untuk subsector_peers, "
+                                "{'slug': 'antm'} untuk mining_detail."
+                            ),
+                        },
+                    },
+                    "required": ["domain", "ticker"],
+                },
+            },
+            {
+                "name": "search_osint",
+                "description": (
+                    "Router universal ke mesin Dual-Engine OSINT. "
+                    "Memanen berita terkurasi dari Sectors v2 API dan melakukan "
+                    "targeted boolean dorking ke Google News RSS untuk menemukan "
+                    "keterbukaan informasi IDXnet, Kontan, Bisnis, dan CNBC Indonesia. "
+                    "Kosongkan ticker untuk berita pasar modal umum terkini."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "ticker": {
+                            "type": "string",
+                            "description": (
+                                "Kode ticker IDX (contoh: ANTM). "
+                                "Kosongkan ('') untuk mengambil berita pasar modal umum."
+                            ),
+                        },
+                        "query": {
+                            "type": "string",
+                            "description": "Kata kunci tambahan untuk mempersempit pencarian berita (opsional).",
+                        },
                     },
                     "required": ["ticker"],
                 },
             },
             {
-                "name": "compute_quant_anomalies",
-                "description": "Hitung anomali statistik volume (MA20 Z-Score) dan lonjakan harga abnormal secara deterministik menggunakan NumPy (Law 1).",
+                "name": "query_memory",
+                "description": (
+                    "Router universal ke mesin memori graf percakapan lokal (SQLite + NetworkX). "
+                    "Ambil konteks riwayat, relasi entitas, dan observasi masa lalu "
+                    "terkait suatu ticker atau entitas pasar modal lintas sesi percakapan. "
+                    "Gunakan sebelum memulai investigasi baru untuk mengecek riwayat temuan."
+                ),
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker IDX (contoh: ANTM)"},
-                        "volume_z_threshold": {"type": "number", "description": "Ambang batas Z-Score lonjakan volume (default: 2.5)", "default": 2.5},
+                        "concept_or_ticker": {
+                            "type": "string",
+                            "description": "Entitas atau ticker yang dicari dalam memori lokal (contoh: ANTM, Hari Darmawan).",
+                        },
+                        "radius": {
+                            "type": "integer",
+                            "description": "Kedalaman hop ego-graph (default 2, maks 3).",
+                            "default": 2,
+                        },
                     },
-                    "required": ["ticker"],
-                },
-            },
-            {
-                "name": "get_company_fundamentals",
-                "description": "Ambil profil fundamental, nama resmi perseroan, kapitalisasi pasar, dan sektor industri emiten.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker IDX"},
-                    },
-                    "required": ["ticker"],
-                },
-            },
-            {
-                "name": "get_foreign_flow",
-                "description": "Ambil data akumulasi atau distribusi dana investor asing (Net Foreign Flow).",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker IDX"},
-                    },
-                    "required": ["ticker"],
-                },
-            },
-            {
-                "name": "get_suspensions",
-                "description": "Ambil riwayat suspensi bursa, pengumuman UMA, dan tautan surat pengumuman PDF resmi BEI.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker IDX"},
-                    },
-                    "required": ["ticker"],
-                },
-            },
-            {
-                "name": "get_corporate_actions",
-                "description": "Ambil jadwal aksi korporasi emiten (dividen, stock split, rights issue).",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker IDX"},
-                    },
-                    "required": ["ticker"],
-                },
-            },
-            {
-                "name": "get_filings",
-                "description": "Ambil pelaporan transaksi kepemilikan orang dalam (insider trading) direksi dan komisaris.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker IDX"},
-                    },
-                    "required": ["ticker"],
-                },
-            },
-            {
-                "name": "get_broker_summary",
-                "description": "Ambil daftar broker pembeli bersih (top buyers) dan penjual bersih (top sellers) teratas.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker IDX"},
-                    },
-                    "required": ["ticker"],
-                },
-            },
-            {
-                "name": "get_subsector_peers",
-                "description": "Ambil data komparasi emiten dan rata-rata industri subsektor untuk analisis divergensi.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "subsector": {"type": "string", "description": "Slug subsektor industri"},
-                    },
-                    "required": ["subsector"],
-                },
-            },
-            {
-                "name": "get_mining_detail",
-                "description": "Ambil detail operasional konsesi tambang dan fasilitas smelter emiten.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "slug": {"type": "string", "description": "Slug emiten tambang"},
-                    },
-                    "required": ["slug"],
-                },
-            },
-            {
-                "name": "harvest_market_news",
-                "description": "Panen berita pasar modal terkurasi dan keterbukaan informasi bursa resmi menggunakan arsitektur Dual-Engine OSINT. Jika ticker tidak diisi, mengambil berita pasar modal umum terkini.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "ticker": {"type": "string", "description": "Kode ticker IDX (opsional, kosongkan jika mencari berita pasar umum)"},
-                        "company_name": {"type": "string", "description": "Nama resmi perseroan (opsional)"},
-                    },
-                    "required": [],
-                },
-            },
-            {
-                "name": "memory_recall_context",
-                "description": "Ambil konteks masa lalu dan relasi graf memori lokal untuk suatu entitas/ticker pasar modal.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query_entity": {"type": "string", "description": "Nama entitas atau ticker saham yang dicari (contoh: ANTM)"},
-                        "radius": {"type": "integer", "description": "Kedalaman hop penelusuran Ego-Graph (default 2)", "default": 2},
-                    },
-                    "required": ["query_entity"],
-                },
-            },
-            {
-                "name": "memory_store_observation",
-                "description": "Simpan observasi relasi baru ke dalam basis data graf memori lokal.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "source_label": {"type": "string", "description": "Label entitas asal"},
-                        "relation": {"type": "string", "description": "Relasi/predikat penghubung (misal: HOLDS_AT, OPERATES)"},
-                        "target_label": {"type": "string", "description": "Label entitas tujuan"},
-                        "context_snippet": {"type": "string", "description": "Kutipan atau konteks bukti"},
-                    },
-                    "required": ["source_label", "relation", "target_label"],
-                },
-            },
-            {
-                "name": "memory_find_connection",
-                "description": "Lacak rute hubungan terpendek (shortest path) antara dua entitas pasar untuk menemukan keterkaitan tersembunyi.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "source_entity": {"type": "string", "description": "Entitas pertama (contoh: ANTM)"},
-                        "target_entity": {"type": "string", "description": "Entitas kedua (contoh: BBCA)"},
-                    },
-                    "required": ["source_entity", "target_entity"],
+                    "required": ["concept_or_ticker"],
                 },
             },
         ]
-        # Append Layer 3 Domain Skills tool definitions
-        definitions.extend(self.skills_registry.get_all_tool_definitions())
-        return definitions
 
     def execute_tool(self, tool_name: str, arguments: Any) -> Any:
         """Dynamically dispatch and execute a registered tool (supporting direct & MCP names)."""
@@ -485,6 +573,19 @@ class NiskavaToolRegistry:
                 target_entity=args.get("target_entity", ""),
             ),
             "memory_get_graph_stats": lambda args: self.memory_get_graph_stats(),
+            "query_sectors": lambda args: self.query_sectors(
+                domain=args.get("domain", ""),
+                ticker=args.get("ticker", ""),
+                params={k: v for k, v in args.items() if k not in ("domain", "ticker")},
+            ),
+            "search_osint": lambda args: self.search_osint(
+                ticker=args.get("ticker", ""),
+                query=args.get("query", ""),
+            ),
+            "query_memory": lambda args: self.query_memory(
+                concept_or_ticker=args.get("concept_or_ticker", args.get("ticker", "")),
+                radius=int(args.get("radius", 2)),
+            ),
         }
 
         handler = handlers.get(tool_name)
