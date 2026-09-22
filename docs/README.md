@@ -73,7 +73,7 @@ Untuk katalog lengkap setiap file beserta ringkasannya, buka **[`index.md`](inde
 | **Produk** | [`10-product/`](10-product/) | Lanskap masalah, target persona, antarmuka pengguna, strategi hackathon, naskah video demo. |
 | **Arsitektur** | [`20-architecture/`](20-architecture/) | Desain sistem hybrid, skema SQLite, Sectors v2, IPC contract, NFR, keamanan. |
 | **Logika Agen** | [`30-agent/`](30-agent/) | 7-stage pipeline, katalog skills, taksonomi bukti, evaluasi & benchmark, engine memori graf lokal. |
-| **Keputusan** | [`90-decisions/`](90-decisions/) | Architecture Decision Records (`01` s/d `10`). |
+| **Keputusan** | [`90-decisions/`](90-decisions/) | Architecture Decision Records (`01` s/d `11`). |
 | **Konstitusi Agen** | [Root `AGENTS.md`](../AGENTS.md) | Konstitusi operasional agen AI, 6 hukum arsitektur, dan standar kode (Full English). |
 | **Integrasi Klien** | [`TEAM_CLIENTS_INTEGRATION_GUIDE.md`](TEAM_CLIENTS_INTEGRATION_GUIDE.md) | Single Source of Truth teknis untuk pengembang Web Workspace & CLI TUI. |
 | **Dinamika** | [`open-questions.md`](open-questions.md) | Daftar isu teknis terbuka yang sedang dievaluasi. |

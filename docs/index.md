@@ -73,6 +73,7 @@ Katalog lengkap seluruh dokumen arsitektur, produk, logika agen, dan keputusan t
 | [`90-decisions/08-modular-skills-and-mcp-architecture.md`](90-decisions/08-modular-skills-and-mcp-architecture.md) | Mengadopsi arsitektur 4-layer pemisahan MCP primitives, compute gate, domain skills, dan cognitive ReAct loop. | `ACCEPTED` |
 | [`90-decisions/09-internationalization-and-dual-language-ux.md`](90-decisions/09-internationalization-and-dual-language-ux.md) | Mengadopsi standardisasi i18n dwibahasa (Bahasa Indonesia & English) pada TUI dan prompt synthesis. | `ACCEPTED` |
 | [`90-decisions/10-dual-surface-web-delivery-strategy.md`](90-decisions/10-dual-surface-web-delivery-strategy.md) | Mengadopsi strategi web delivery ganda: Embedded Go HTML Single-Binary Fallback + Vite React SPA. | `ACCEPTED` |
+| [`90-decisions/11-progressive-skill-disclosure-and-lean-agent-architecture.md`](90-decisions/11-progressive-skill-disclosure-and-lean-agent-architecture.md) | Mengadopsi pola Progressive Skill Disclosure & Gateway Primitives (Antigravity/OpenCode) untuk memangkas prompt bloat. | `PROPOSED` |
 
 ---
 
