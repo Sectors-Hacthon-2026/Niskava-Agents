@@ -610,7 +610,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 			}
 			if err != nil {
 				fmt.Print("\r\033[K")
-				fmt.Printf("\n[Error Subprocess]: %v\n", err)
+				fmt.Printf("\n[Subprocess Error]: %v\n", err)
 				return
 			}
 
@@ -706,7 +706,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 						BorderForeground(ColorDanger).
 						Padding(0, 1).
 						Foreground(ColorFg).
-						Render(fmt.Sprintf("❌ [ERROR SESSION]: %s", ev.Error))
+						Render(fmt.Sprintf("❌ [SESSION ERROR]: %s", ev.Error))
 					assistantResponse.WriteString(errBox)
 				}
 			}

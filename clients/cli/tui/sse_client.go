@@ -103,11 +103,22 @@ func StreamChatViaSSE(ctx context.Context, serverURL, sessionID, prompt string) 
 		}
 
 		if err := scanner.Err(); err != nil && ctx.Err() == nil {
-			errChan <- fmt.Errorf("error reading SSE stream: %w", err)
+			errChan <- formatSSEStreamError(err)
 		}
 	}()
 
 	return eventsChan, errChan
+}
+
+// formatSSEStreamError translates lower-level transport errors (such as unexpected EOF) into clear English messages.
+func formatSSEStreamError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(err.Error(), "unexpected EOF") {
+		return fmt.Errorf("stream disconnected unexpectedly (server closed connection prematurely)")
+	}
+	return fmt.Errorf("error reading SSE stream: %w", err)
 }
 
 func parseSSEReader(r io.Reader) []ipc.Event {
