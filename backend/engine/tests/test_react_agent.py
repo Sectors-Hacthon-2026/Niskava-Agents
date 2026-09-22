@@ -282,4 +282,64 @@ class TestFollowupChips:
         assert "💡 Rekomendasi Penelusuran Lanjutan" in complete_events[-1]["content"]
 
 
+def test_memory_records_session_even_without_anomalies(tmp_path, monkeypatch):
+    """Regression: record_investigation must be called even if no anomalies or findings
+    are returned. Bug #1A — guard 'if target_ticker and (anomalies or findings)' was
+    silently skipping graph recording for conversational-only sessions.
+    """
+    from engine.agent.react_agent import NiskavaReActAgent
+    from engine.agent.tools import NiskavaToolRegistry
+    from engine.memory.graph_memory import LocalGraphMemory
 
+    db_file = str(tmp_path / "test_no_anomaly.db")
+    registry = NiskavaToolRegistry(db_path=db_file, mock_mode=True)
+    memory = LocalGraphMemory(db_path=db_file)
+
+    record_calls = []
+    original_record = memory.record_investigation
+
+    def recording_spy(*args, **kwargs):
+        record_calls.append(kwargs)
+        return original_record(*args, **kwargs)
+
+    memory.record_investigation = recording_spy
+
+    agent = NiskavaReActAgent(tool_registry=registry, mock_mode=True)
+    agent.memory = memory
+
+    # Ensure deterministic chat cycle returns zero anomalies and zero findings
+    # to specifically test conversational-only sessions where no quant anomalies exist.
+    monkeypatch.setattr(
+        agent,
+        "_run_deterministic_chat_cycle",
+        lambda session_id, prompt, history, start_time: {
+            "session_id": session_id,
+            "response": "BBCA fundamental overview.",
+            "anomalies": [],
+            "findings": [],
+        },
+    )
+
+    agent.chat(user_prompt="Tell me about BBCA fundamentals", session_id="CHAT-TEST-001")
+
+    assert len(record_calls) >= 1, (
+        "record_investigation was never called. "
+        "Bug #1A: guard 'anomalies or findings' is blocking graph updates."
+    )
+
+
+def test_memory_graph_no_crash_when_memory_is_none(tmp_path):
+    """Regression: Bug #1B — valid_candidates may be undefined if self.memory is None.
+    When memory is None, the post-chat block must not raise NameError.
+    """
+    from engine.agent.react_agent import NiskavaReActAgent
+    from engine.agent.tools import NiskavaToolRegistry
+
+    db_file = str(tmp_path / "test_no_memory.db")
+    registry = NiskavaToolRegistry(db_path=db_file, mock_mode=True)
+    agent = NiskavaReActAgent(tool_registry=registry, mock_mode=True)
+    agent.memory = None  # Explicitly disable
+
+    result = agent.chat(user_prompt="What is PER ratio?", session_id="CHAT-NO-MEM-001")
+    assert isinstance(result, dict)
+    assert "session_id" in result

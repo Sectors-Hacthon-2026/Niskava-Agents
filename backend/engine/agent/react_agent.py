@@ -542,7 +542,7 @@ class NiskavaReActAgent:
                                         relation="SUPERSEDES",
                                         target_label=edge.get("source_label", ""),
                                         target_type="PRICE_LEVEL",
-                                        context_snippet=f"Realisasi keluar posisi menganulir level masuk {edge.get('source_label')}",
+                                        context_snippet=f"Exit realization supersedes prior entry level {edge.get('source_label')}",
                                         session_id=session_id,
                                     )
             except Exception:
@@ -607,16 +607,24 @@ class NiskavaReActAgent:
             res = self._run_universal_chat_cycle(session_id, effective_prompt, history, start_time)
 
         if self.memory and isinstance(res, dict):
+            import logging
+            _log = logging.getLogger(__name__)
             findings = res.get("findings", [])
             anomalies = res.get("anomalies", [])
-            target_ticker = None
+            target_ticker: Optional[str] = None
+
             if anomalies:
                 target_ticker = anomalies[0].get("ticker")
+
+            # Bug #1B fix: fresh call — never rely on outer-scope variable
             if not target_ticker:
-                for c in valid_candidates:
-                    target_ticker = c.upper()
+                for cand in extract_valid_tickers(user_prompt):
+                    target_ticker = cand.upper()
                     break
-            if target_ticker and (anomalies or findings):
+
+            # Bug #1A fix: record for any session with an identified ticker,
+            # regardless of whether anomalies or findings were produced.
+            if target_ticker:
                 try:
                     self.memory.record_investigation(
                         session_id=session_id,
@@ -624,8 +632,11 @@ class NiskavaReActAgent:
                         anomalies=anomalies,
                         findings=findings,
                     )
-                except Exception:
-                    pass
+                except Exception as exc:    # Bug #1C fix: surface failures via logging
+                    _log.warning(
+                        "graph_memory: record_investigation failed session=%s ticker=%s: %s",
+                        session_id, target_ticker, exc,
+                    )
 
         return res
 
