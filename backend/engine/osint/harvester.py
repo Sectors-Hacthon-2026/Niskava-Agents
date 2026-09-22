@@ -56,22 +56,31 @@ class DualEngineOSINTHarvester:
         seen_titles = set()
 
         # 1. Ingest Engine 1 items (Sectors v2 Curated News)
-        if sectors_news_items:
-            for item in sectors_news_items:
-                title = item.get("title", "").strip()
-                if title and title not in seen_titles:
-                    seen_titles.add(title)
-                    results.append(
-                        OSINTItem(
-                            title=title,
-                            source_name=item.get("source", "Sectors News"),
-                            source_url=item.get("url", ""),
-                            publication_date=item.get("publish_date", ""),
-                            snippet=item.get("snippet", ""),
-                            is_disclosure=self._is_disclosure_headline(title),
-                            source_type="DISCLOSURE" if self._is_disclosure_headline(title) else "NEWS",
-                        )
+        raw_items: List[Any] = []
+        if isinstance(sectors_news_items, dict):
+            dict_items = sectors_news_items.get("results") or sectors_news_items.get("data") or []
+            if isinstance(dict_items, list):
+                raw_items = dict_items
+        elif isinstance(sectors_news_items, list):
+            raw_items = sectors_news_items
+
+        for item in raw_items:
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get("title", "")).strip()
+            if title and title not in seen_titles:
+                seen_titles.add(title)
+                results.append(
+                    OSINTItem(
+                        title=title,
+                        source_name=str(item.get("source", "Sectors News")),
+                        source_url=str(item.get("url", "")),
+                        publication_date=str(item.get("publish_date", "")),
+                        snippet=str(item.get("snippet", "")),
+                        is_disclosure=self._is_disclosure_headline(title),
+                        source_type="DISCLOSURE" if self._is_disclosure_headline(title) else "NEWS",
                     )
+                )
 
         # 2. Ingest Engine 2 items (Google News RSS with targeted secondary disclosure dorking)
         rss_items = self._fetch_google_news_rss(ticker, company_name)

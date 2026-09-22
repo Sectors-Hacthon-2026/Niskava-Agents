@@ -32,7 +32,14 @@ class EventCausalityAuditSkill(BaseSkill):
         }
 
     def execute(self, arguments: Dict[str, Any], context: Dict[str, Any]) -> SkillResult:
-        ticker = arguments.get("ticker", "").upper().strip()
+        ticker = str(arguments.get("ticker", "")).upper().strip()
+        if not ticker:
+            return SkillResult(
+                skill_id="event-causality-audit",
+                ticker="",
+                data={"error": "Ticker diperlukan untuk event causality audit", "evidence": []},
+            )
+
         anomaly_date = arguments.get("anomaly_date")
         days_before = int(arguments.get("window_days_before", 2))
         days_after = int(arguments.get("window_days_after", 1))
@@ -56,7 +63,7 @@ class EventCausalityAuditSkill(BaseSkill):
 
         # 3. Harvest News & Filings
         report = client.get_company_report(ticker)
-        company_name = report.get("company_name", ticker)
+        company_name = report.get("company_name", ticker) if isinstance(report, dict) else ticker
         sectors_news = client.get_news(ticker)
         osint_items = harvester.harvest(ticker=ticker, company_name=company_name, sectors_news_items=sectors_news)
 
@@ -67,7 +74,9 @@ class EventCausalityAuditSkill(BaseSkill):
 
         # Check official suspensions first (Tier 1)
         for s in suspensions:
-            s_date = s.get("suspension_date", "")
+            if not isinstance(s, dict):
+                continue
+            s_date = str(s.get("suspension_date", ""))
             evidence.append({
                 "type": "EXCHANGE_SUSPENSION_OR_UMA",
                 "title": f"IDX Notice: {s.get('reason', 'Trading Suspension')}",
@@ -83,6 +92,8 @@ class EventCausalityAuditSkill(BaseSkill):
 
         # Check corporate actions
         for ca in corp_actions:
+            if not isinstance(ca, dict):
+                continue
             evidence.append({
                 "type": "CORPORATE_ACTION",
                 "title": f"Corporate Action: {ca.get('action_type', 'ACTION')} (Cum-Date: {ca.get('cum_date', 'N/A')})",
