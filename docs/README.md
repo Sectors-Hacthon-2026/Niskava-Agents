@@ -1,8 +1,8 @@
 # Niskava Agent — Documentation Hub & Single Source of Truth
 
-**Doc set version:** `1.1.0`  
+**Doc set version:** `1.2.0`  
 **Status:** ACTIVE BASELINE  
-**Terakhir Diperbarui:** 2026-09-16  
+**Terakhir Diperbarui:** 2026-09-20  
 **Target Kompetisi:** [Sectors Hackathon Indonesia 2026](https://hackathon.sectors.app/)  
 **Lintasan:** **Track 1 · AI Agents & Assistants** (*Qualifying Test Compliant*)  
 

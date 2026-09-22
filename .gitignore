@@ -9,6 +9,7 @@ graphify-out/
 # --- Environment, Secrets & Credentials (Law 7) ---
 .env
 .env.*
+!.env.example
 *.env
 *.key
 *.pem
@@ -79,6 +80,8 @@ pnpm-debug.log*
 lerna-debug.log*
 web/dist/
 web/dist-ssr/
+clients/web/dist/
+clients/web/dist-ssr/
 *.local
 
 # --- IDEs & Editors ---
@@ -103,3 +106,10 @@ web/dist-ssr/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# --- Internal Documentation & Private Notes ---
+docs/internal/
+*.internal.md
+docs/superpowers/
+superpowers/
+.superpowers/

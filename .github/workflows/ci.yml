@@ -1,0 +1,144 @@
+name: CI/CD Quality Gate & Test Suite
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  go-ci:
+    name: Go Core Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go Environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: '>=1.24.0'
+          cache: true
+
+      - name: Verify Code Formatting
+        run: |
+          UNFORMATTED=$(gofmt -s -l cmd/ clients/ backend/)
+          if [ -n "$UNFORMATTED" ]; then
+            echo "Unformatted Go files detected:"
+            echo "$UNFORMATTED"
+            exit 1
+          fi
+
+      - name: Go Vet Analysis
+        run: go vet ./...
+
+      - name: Setup Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Python Dependencies for IPC Tests
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r backend/engine/requirements.txt
+
+      - name: Execute Go Test Suite
+        run: go test -v -race ./backend/core/... ./clients/cli/...
+
+      - name: Build Niskava CLI Binary
+        run: |
+          mkdir -p bin
+          go build -o bin/niskava ./cmd/niskava
+
+      - name: Upload Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: niskava-cli-linux-amd64
+          path: bin/niskava
+          retention-days: 7
+
+  python-ci:
+    name: Python Engine Verification
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/engine/requirements.txt pytest
+
+      - name: Check Python Syntax & Compilation
+        run: |
+          python -m compileall backend/engine/
+
+      - name: Execute Pytest Suite (Unit & MCP Tests)
+        env:
+          MOCK_SECTORS: '1'
+          NISKAVA_OFFLINE: '1'
+        run: |
+          PYTHONPATH=backend pytest backend/engine/tests/ -v --durations=10
+
+  mcp-e2e-ci:
+    name: MCP Engine End-to-End Integration
+    needs: [go-ci, python-ci]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go Environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: '>=1.24.0'
+
+      - name: Setup Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup Virtualenv & Dependencies
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r backend/engine/requirements.txt
+
+      - name: Build Binary
+        run: |
+          mkdir -p bin
+          go build -o bin/niskava ./cmd/niskava
+
+      - name: Test MCP JSON-RPC Initialize Handshake
+        run: |
+          INIT_RESP=$(echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}' | ./bin/niskava mcp)
+          echo "Response: $INIT_RESP"
+          echo "$INIT_RESP" | grep -q '"name": "niskava-mcp-engine"'
+
+      - name: Test MCP Tools List Discovery (14 Tools)
+        run: |
+          TOOLS_RESP=$(echo '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | ./bin/niskava mcp)
+          echo "$TOOLS_RESP" | grep -q 'quant_compute_anomalies'
+          echo "$TOOLS_RESP" | grep -q 'osint_harvest_market_news'
+          echo "$TOOLS_RESP" | grep -q 'sectors_get_daily_candles'
+          echo "$TOOLS_RESP" | grep -q 'memory_recall_context'
+
+      - name: Test MCP Deterministic Quant Tool Execution
+        env:
+          MOCK_SECTORS: '1'
+        run: |
+          QUANT_RESP=$(echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"quant_compute_anomalies","arguments":{"ticker":"ANTM"}}}' | ./bin/niskava mcp)
+          echo "Quant Output: $QUANT_RESP"
+          echo "$QUANT_RESP" | grep -q '"isError": false'
+          echo "$QUANT_RESP" | grep -q 'VOLUME_AND_PRICE_SURGE'

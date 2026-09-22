@@ -199,36 +199,39 @@ Niskava-Agents/
 ├── AGENTS.md                  # Single Source of Truth (SSoT) & Architectural Invariants
 ├── Makefile                   # Build & test automation scripts
 ├── README.md                  # Main repository documentation
-├── niskava_Project_Summary.md # Executive Summary document for Hackathon submission
-├── cmd/                       # Application entry points (Go Core)
+├── cmd/                       # Application binary entry points
 │   └── niskava/
 │       └── main.go            # Primary CLI binary entry point
-├── internal/                  # Go Core Internal Modules
-│   ├── cli/                   # Cobra CLI commands (investigate, serve, sessions)
-│   ├── config/                # Configuration loader & parser
-│   ├── db/                    # Local-first SQLite database driver (modernc.org/sqlite)
-│   ├── ipc/                   # Go-to-Python IPC communication bridge
-│   ├── security/              # Security bounds & data sanitization
-│   ├── server/                # REST API & Server-Sent Events (SSE) server
-│   └── tui/                   # Interactive Bubbletea Terminal UI components
-├── engine/                    # Python Agent Engine (AI, Quant Math, OSINT)
-│   ├── agent/                 # 7-Stage pipeline orchestrator (pipeline.py)
-│   ├── memory/                # Graph memory engine (graph_memory.py)
-│   ├── osint/                 # Resilient dual-engine scraper (harvester.py)
-│   ├── quant/                 # Deterministic NumPy Z-Score math (anomaly.py)
-│   ├── sectors/               # Sectors API v2 REST/MCP client (client.py)
-│   ├── runner.py              # IPC execution script
-│   └── requirements.txt       # Python dependencies
-├── web/                       # React SPA Web Workspace (Vite + Tailwind + shadcn/ui)
-│   ├── src/                   # React source code (App.tsx, components)
-│   ├── package.json           # Node.js dependencies
-│   └── vite.config.ts         # Vite bundler configuration
+├── clients/                   # User Surfaces (Presentation & Interfaces)
+│   ├── cli/                   # Terminal Client (Cobra CLI subcommands)
+│   │   └── tui/               # Interactive Bubbletea Terminal UI components
+│   └── web/                   # React SPA Web Workspace (Vite + Tailwind + shadcn/ui)
+│       ├── src/               # React source code (App.tsx, components)
+│       ├── package.json       # Node.js dependencies
+│       └── vite.config.ts     # Vite bundler configuration
+├── backend/                   # Core Backend & Cognitive Computation Subsystems
+│   ├── core/                  # Go Core Daemon & Persistence Layer
+│   │   ├── config/            # Configuration loader & parser
+│   │   ├── db/                # Local-first SQLite database driver (modernc.org/sqlite)
+│   │   ├── ipc/               # Go-to-Python IPC communication bridge
+│   │   ├── security/          # Security bounds & data sanitization
+│   │   └── server/            # REST API & Server-Sent Events (SSE) server
+│   └── engine/                # Python Agent Engine (AI, Quant Math, OSINT)
+│       ├── agent/             # Universal ReAct loop (react_agent.py) & pipeline
+│       ├── memory/            # Graph memory engine (graph_memory.py)
+│       ├── osint/             # Resilient dual-engine scraper (harvester.py)
+│       ├── quant/             # Deterministic NumPy Z-Score math (anomaly.py)
+│       ├── sectors/           # Sectors API v2 REST/MCP client (client.py)
+│       ├── skills/            # Modular SOP domain skills
+│       ├── tests/             # Consolidated Python unit test suite (74 tests)
+│       ├── runner.py          # IPC execution script
+│       └── requirements.txt   # Python dependencies
 └── docs/                      # Technical Documentation & Architecture Decision Records (ADR)
     ├── 00-foundations/        # Vision, principles, and glossary
     ├── 10-product/            # Product scope, personas, and hackathon strategy
     ├── 20-architecture/       # DB schema, Sectors API specs, OSINT, IPC, security
     ├── 30-agent/              # Agent skills catalog, graph memory, & pipeline SOP
-    └── 90-decisions/          # Architecture Decision Records (ADR 01 - 07)
+    └── 90-decisions/          # Architecture Decision Records (ADR 01 - 08)
 ```
 
 ---

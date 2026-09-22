@@ -164,18 +164,18 @@ When asked to work on specific aspects of the system, navigate directly to these
 | System Domain | Technical Documentation | Target Codebase Location (Configurable) |
 |---|---|---|
 | **Hackathon Strategy & Rules** | `docs/10-product/05-hackathon-strategy.md` | `README.md`, `AGENTS.md` |
-| **System Architecture & CLI** | `docs/20-architecture/01-system-overview.md` | `cmd/niskava/`, `internal/cli/` |
-| **Conversational REPL & TUI** | `docs/10-product/03-product-scope-and-surfaces.md` | `internal/tui/`, `engine/agent/react_agent.py` |
-| **Setup Wizard & Configuration** | `docs/20-architecture/01-system-overview.md` | `internal/cli/setup.go` |
-| **SQLite Schema & Persistence** | `docs/20-architecture/02-database-schema.md` | `internal/db/`, `engine/memory/` |
-| **Sectors v2 API Integration** | `docs/20-architecture/03-sectors-v2-api.md` | `engine/sectors/` (or `niskava/sectors/`) |
-| **Quantitative Anomaly Math** | `docs/20-architecture/05-anomaly-detection-math.md` | `engine/quant/` (or `niskava/quant/`) |
-| **OSINT Engine & Disclosures** | `docs/20-architecture/06-osint-engine.md` | `engine/osint/` (or `niskava/osint/`) |
-| **7-Stage Investigation Pipeline** | `docs/30-agent/01-investigation-pipeline.md` | `engine/agent/pipeline.py` |
-| **Conversational Graph Memory** | `docs/30-agent/05-conversational-memory-engine.md` | `engine/memory/graph_memory.py` |
-| **Web Workspace & Visual UI** | `docs/10-product/03-product-scope-and-surfaces.md` | `web/src/` |
-| **Security & Regulatory Compliance** | `docs/20-architecture/08-security-and-compliance.md` | `internal/security/` |
+| **System Architecture & CLI** | `docs/20-architecture/01-system-overview.md` | `cmd/niskava/`, `clients/cli/` |
+| **Conversational REPL & TUI** | `docs/10-product/03-product-scope-and-surfaces.md` | `clients/cli/tui/`, `backend/engine/agent/react_agent.py` |
+| **Setup Wizard & Configuration** | `docs/20-architecture/01-system-overview.md` | `clients/cli/setup.go` |
+| **SQLite Schema & Persistence** | `docs/20-architecture/02-database-schema.md` | `backend/core/db/`, `backend/engine/memory/` |
+| **Sectors v2 API Integration** | `docs/20-architecture/03-sectors-v2-api.md` | `backend/engine/sectors/` |
+| **Quantitative Anomaly Math** | `docs/20-architecture/05-anomaly-detection-math.md` | `backend/engine/quant/` |
+| **OSINT Engine & Disclosures** | `docs/20-architecture/06-osint-engine.md` | `backend/engine/osint/` |
+| **7-Stage Investigation Pipeline** | `docs/30-agent/01-investigation-pipeline.md` | `backend/engine/agent/pipeline.py` |
+| **Conversational Graph Memory** | `docs/30-agent/05-conversational-memory-engine.md` | `backend/engine/memory/graph_memory.py` |
+| **Web Workspace & Visual UI** | `docs/10-product/03-product-scope-and-surfaces.md` | `clients/web/src/` |
+| **Security & Regulatory Compliance** | `docs/20-architecture/08-security-and-compliance.md` | `backend/core/security/` |
 | **Git Workflow & Branch Protection** | `docs/20-architecture/09-git-workflow-and-branching-strategy.md` | Git topology (`dev` -> `main`) |
-| **Modular Skills & MCP Registry** | `docs/30-agent/02-skills-catalog.md`, `docs/90-decisions/08-modular-skills-and-mcp-architecture.md` | `engine/agent/tools.py` |
+| **Modular Skills & MCP Registry** | `docs/30-agent/02-skills-catalog.md`, `docs/90-decisions/08-modular-skills-and-mcp-architecture.md` | `backend/engine/agent/tools.py` |
 | **Architecture Decisions** | `docs/90-decisions/*.md` | Root and sub-packages |
 

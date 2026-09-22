@@ -91,6 +91,35 @@ Database SQLite lokal disimpan di path direktori home pengguna: `~/.niskava/nisk
                                   │ weight                  │
                                   │ last_observed_at        │
                                   └─────────────────────────┘
+
+┌─────────────────────────┐ (Conversational Sessions)
+│      chat_sessions      │◀──────┐
+├─────────────────────────┤       │ (parent_session_id self-ref / forking)
+│ id (PK)                 │───────┘
+│ title                   │
+│ model                   │
+│ status                  │ ('IDLE', 'BUSY')
+│ message_count           │
+│ last_message_preview    │
+│ is_pinned               │ (0 / 1)
+│ parent_session_id (FK)  │
+│ created_at              │
+│ updated_at              │
+└───────────┬─────────────┘
+            │ 1:N
+            ▼
+┌─────────────────────────┐
+│      chat_messages      │
+├─────────────────────────┤
+│ id (PK)                 │
+│ session_id (FK)         │───▶ chat_sessions(id)
+│ role                    │ ('user', 'assistant', 'system')
+│ content                 │
+│ thought                 │ (ReAct reasoning text)
+│ tool_calls_json         │ (Structured tool calls)
+│ status                  │ ('COMPLETED', 'STREAMING', 'INTERRUPTED', 'FAILED')
+│ created_at              │
+└─────────────────────────┘
 ```
 
 ---
@@ -213,6 +242,32 @@ CREATE TABLE IF NOT EXISTS osint_cache (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Sesi Percakapan Interaktif Multi-Turn (Hermes-Style REPL & Web Canvas)
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    id TEXT PRIMARY KEY,                       -- UUID v4
+    title TEXT NOT NULL,                      -- Judul sesi percakapan
+    model TEXT NOT NULL DEFAULT 'hermes',      -- Model ID universal
+    status TEXT NOT NULL DEFAULT 'IDLE',       -- 'IDLE', 'BUSY'
+    message_count INTEGER NOT NULL DEFAULT 0,  -- Denormalized counter untuk performa UI
+    last_message_preview TEXT,                 -- Snippet pesan terakhir
+    is_pinned INTEGER NOT NULL DEFAULT 0,      -- 1 = disematkan ke atas (pinned)
+    parent_session_id TEXT REFERENCES chat_sessions(id) ON DELETE SET NULL, -- Dukungan Branching / Forking
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Riwayat Pesan Percakapan Multi-Turn & Jejak Penalaran ReAct
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id TEXT PRIMARY KEY,                       -- UUID v4
+    session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,                        -- 'user', 'assistant', 'system'
+    content TEXT NOT NULL,                     -- Isi pesan markdown
+    thought TEXT,                              -- Jejak penalaran internal ReAct (Thought step)
+    tool_calls_json TEXT,                      -- Serialisasi JSON daftar tool calls yang dieksekusi
+    status TEXT NOT NULL DEFAULT 'COMPLETED',  -- 'COMPLETED', 'STREAMING', 'INTERRUPTED', 'FAILED'
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indeks Performa
 CREATE INDEX IF NOT EXISTS idx_investigations_ticker ON investigations(ticker);
 CREATE INDEX IF NOT EXISTS idx_investigations_created ON investigations(created_at DESC);
@@ -224,6 +279,9 @@ CREATE INDEX IF NOT EXISTS idx_suspensions_symbol ON suspension_records(symbol, 
 CREATE INDEX IF NOT EXISTS idx_insider_filings_symbol ON insider_filings(symbol, transaction_date DESC);
 CREATE INDEX IF NOT EXISTS idx_sectors_cache_endpoint ON sectors_cache(endpoint);
 CREATE INDEX IF NOT EXISTS idx_osint_cache_type ON osint_cache(source_type);
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_parent ON chat_sessions(parent_session_id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
 ```
 
 ---
@@ -263,3 +321,30 @@ CREATE INDEX IF NOT EXISTS idx_memory_edges_relation ON memory_edges(relation);
 CREATE INDEX IF NOT EXISTS idx_memory_edges_last_observed ON memory_edges(last_observed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_memory_nodes_type ON memory_nodes(node_type);
 ```
+
+---
+
+## 4. Mekanisme Self-Healing Zombie Session
+
+Dalam sesi percakapan otonom, kegagalan tak terduga seperti *power cut*, `SIGINT`/`SIGTERM` saat proses streaming berlangsung, atau crash pada runner Python dapat menyebabkan sesi tertahan pada status `BUSY` dan pesan terakhir berstatus `STREAMING`.
+
+Untuk menjamin kedaulatan data lokal dan pengalaman pengguna yang mulus tanpa intervensi manual, Go Core Daemon menerapkan **Self-Healing Zombie Recovery** otomatis setiap kali inisialisasi database (`db.New()`):
+
+```sql
+-- 1. Pulihkan seluruh sesi yang macet dalam status 'BUSY' kembali ke 'IDLE'
+UPDATE chat_sessions 
+SET status = 'IDLE', updated_at = CURRENT_TIMESTAMP 
+WHERE status = 'BUSY';
+
+-- 2. Tandai pesan yang terputus saat streaming sebagai 'INTERRUPTED'
+UPDATE chat_messages 
+SET status = 'INTERRUPTED', 
+    content = content || ' [INTERRUPTED]' 
+WHERE status = 'STREAMING';
+```
+
+Dengan mekanisme ini:
+1. Pengguna tidak akan pernah terkunci (*deadlock*) dari sesi percakapan akibat eksekusi yang terputus sebelumnya.
+2. Jejak penalaran parsial tetap tersimpan secara aman di SQLite dengan label `[INTERRUPTED]` transparan.
+3. Web Canvas dan Terminal REPL dapat langsung melanjutkan percakapan baru pada sesi tersebut secara normal.
+
