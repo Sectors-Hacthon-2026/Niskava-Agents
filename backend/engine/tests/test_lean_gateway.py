@@ -76,7 +76,7 @@ class TestQuerySectors:
         registry.sectors_client.get_daily_candles.assert_called_once_with("ANTM")
 
     def test_unknown_domain_raises_value_error(self, registry):
-        with pytest.raises(ValueError, match="Domain tidak dikenal"):
+        with pytest.raises(ValueError, match="Unknown domain"):
             registry.query_sectors(domain="nonexistent_domain", ticker="ANTM")
 
 

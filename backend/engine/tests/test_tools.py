@@ -137,3 +137,31 @@ class TestLeanToolDefinitions:
             assert skill_id in desc, f"skill_id '{skill_id}' missing from execute_skill description"
 
 
+def test_query_sectors_default_domain_fallback(tmp_path):
+    """Verify query_sectors defaults domain gracefully when omitted or empty."""
+    import pytest
+    from engine.agent.tools import NiskavaToolRegistry
+    registry = NiskavaToolRegistry(db_path=str(tmp_path / "test.db"), mock_mode=True)
+
+    # Empty domain with stock ticker defaults to 'candles'
+    res = registry.query_sectors(domain="", ticker="ANTM")
+    assert isinstance(res, list)
+    assert len(res) > 0
+
+    # Empty domain with IHSG defaults to 'news' or 'candles'
+    res_ihsg = registry.query_sectors(domain="", ticker="IHSG")
+    assert res_ihsg is not None
+
+
+def test_query_sectors_unknown_domain_raises_english_error(tmp_path):
+    """Verify invalid domain error message is in English."""
+    import pytest
+    from engine.agent.tools import NiskavaToolRegistry
+    registry = NiskavaToolRegistry(db_path=str(tmp_path / "test.db"), mock_mode=True)
+    with pytest.raises(ValueError) as exc:
+        registry.query_sectors(domain="invalid_domain_xyz", ticker="ANTM")
+    assert "Unknown domain" in str(exc.value)
+    assert "Domain tidak dikenal" not in str(exc.value)
+
+
+

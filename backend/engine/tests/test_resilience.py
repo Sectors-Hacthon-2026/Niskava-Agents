@@ -175,7 +175,7 @@ def test_react_agent_emits_rate_limit_thought(monkeypatch):
         e["thought"] for e in thought_events if "HTTP 429" in e.get("thought", "")
     ]
     assert len(rate_limit_thoughts) == 1
-    assert "Percobaan 1/3" in rate_limit_thoughts[0]
+    assert "Attempt 1/3" in rate_limit_thoughts[0]
 
 
 def test_sectors_client_retry_on_429(monkeypatch):

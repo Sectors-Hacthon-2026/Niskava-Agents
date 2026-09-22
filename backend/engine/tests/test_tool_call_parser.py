@@ -98,3 +98,25 @@ def test_sanitize_final_response_removes_dangling_tool_calls():
     assert "<tool_call>" not in res
     assert "harvest_market_news" not in res
     assert "Berikut adalah analisis awal." in res
+
+
+def test_parse_xml_key_value_pairs():
+    """Verify parsing when model emits <arg_key>ticker</arg_key><arg_value>IHSG</arg_value>."""
+    raw = "<name>query_sectors</name><arg_key>ticker</arg_key><arg_value>IHSG</arg_value>"
+    parsed = parse_single_tool_call(raw)
+    assert parsed is not None
+    name, args = parsed
+    assert name == "query_sectors"
+    assert args == {"ticker": "IHSG"}
+
+
+def test_parse_xml_attribute_format():
+    """Verify parsing when model emits <arg name="ticker">IHSG</arg>."""
+    raw = '<name>query_sectors</name><arg name="ticker">IHSG</arg><arg name="domain">candles</arg>'
+    parsed = parse_single_tool_call(raw)
+    assert parsed is not None
+    name, args = parsed
+    assert name == "query_sectors"
+    assert args.get("ticker") == "IHSG"
+    assert args.get("domain") == "candles"
+
