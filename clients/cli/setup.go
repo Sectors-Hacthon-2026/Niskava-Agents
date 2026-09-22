@@ -38,6 +38,13 @@ var (
 
 	wizardDividerStyle = lipgloss.NewStyle().
 				Foreground(tui.ColorMuted)
+
+	setupCardStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(tui.ColorAccent).
+			Width(76).
+			Padding(0, 1).
+			Foreground(tui.ColorFg)
 )
 
 var setupCmd = &cobra.Command{
@@ -56,13 +63,12 @@ func init() {
 // RunInteractiveSetup launches the step-by-step terminal setup wizard.
 func RunInteractiveSetup() error {
 	reader := bufio.NewReader(os.Stdin)
-	divider := wizardDividerStyle.Render("=============================================================================")
 
 	fmt.Println()
-	fmt.Println(divider)
-	fmt.Printf(" %s\n", wizardTitleStyle.Render("NISKAVA AGENT — QUICK SETUP WIZARD (1 MINUTE)"))
-	fmt.Println(wizardMutedStyle.Render(" Automatic setup for AI Provider connection, Sectors Financial API, & Storage."))
-	fmt.Println(divider)
+	var headerBox strings.Builder
+	headerBox.WriteString(wizardTitleStyle.Render("NISKAVA AGENT — QUICK SETUP WIZARD (1 MINUTE)") + "\n")
+	headerBox.WriteString(wizardMutedStyle.Render("Automatic setup for AI Provider connection, Sectors Financial API, & Storage."))
+	fmt.Println(setupCardStyle.Render(headerBox.String()))
 	fmt.Println()
 
 	// 1. AI Provider Selection
@@ -236,11 +242,11 @@ NEWS_TIMEOUT_SECONDS=10
 	}
 
 	fmt.Println()
-	fmt.Println(divider)
-	fmt.Println(wizardSuccessBadgeStyle.Render(" SETUP COMPLETED! Secure .env file generated successfully (0600 permissions)."))
-	fmt.Println(wizardMutedStyle.Render(" You can launch the interactive interface right away with:"))
-	fmt.Println("   " + wizardStepStyle.Render("./bin/niskava"))
-	fmt.Println(divider)
+	var completeBox strings.Builder
+	completeBox.WriteString(wizardSuccessBadgeStyle.Render("SETUP COMPLETED! Secure .env file generated successfully (0600 permissions).") + "\n")
+	completeBox.WriteString(wizardMutedStyle.Render("You can launch the interactive interface right away with:") + "\n")
+	completeBox.WriteString("  " + wizardStepStyle.Render("./bin/niskava"))
+	fmt.Println(setupCardStyle.Render(completeBox.String()))
 	fmt.Println()
 
 	return nil
