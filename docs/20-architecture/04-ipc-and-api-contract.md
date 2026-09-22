@@ -194,6 +194,11 @@ Go Core Daemon menjalankan HTTP REST & Server-Sent Events (SSE) server lokal pad
 | `GET` | `/api/chat/sessions/{id}/export` | Ekspor transkrip percakapan | `?format=markdown` atau `?format=json` | Markdown plain text / JSON payload terstruktur |
 | `GET` | `/api/chat/search` | Pencarian pesan global lintas seluruh sesi | `?q={kata_kunci}` | JSON `{query: "...", count: N, results: [...]}` |
 | `POST` | `/api/chat` | Eksekusi turn percakapan dengan streaming SSE | `{"prompt": "...", "session_id": "..."}` | `text/event-stream` (Server-Sent Events) |
+| `GET` | `/api/graph/data` | Ekspor data node & edge graf memori lokal | `?session_id={id}&radius=2` | JSON `{nodes: [...], edges: [...]}` |
+| `GET` | `/graph` | Halaman visualisasi graf interaktif Vis.js di browser | `-` | HTML interaktif Vis.js Network |
+| `GET` | `/api/sessions` | Riwayat sesi investigasi pipeline headless | `-` | JSON daftar sesi `investigations` |
+| `GET` | `/api/investigations/{id}` | Detail lengkap hasil anomali & bukti investigasi | URL Param `{id}` | JSON objek investigasi, anomalies, findings, timeline |
+| `GET` | `/` | Web Workspace AI Assistant Canvas (Cyber-OSINT) | `-` | HTML/CSS/JS Single-Page Web Dashboard |
 
 ---
 

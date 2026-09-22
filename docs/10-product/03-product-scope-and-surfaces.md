@@ -1,42 +1,52 @@
 # 03 — Cakupan Produk & Antarmuka Pengguna (Surfaces)
 
 **Status:** ACCEPTED  
-**Versi Dokumen:** 1.0.0  
-**Terakhir Diperbarui:** 2026-09-16  
+**Versi Dokumen:** 1.2.0  
+**Terakhir Diperbarui:** 2026-09-22  
 
 Niskava Agent mengusung filosofi arsitektur **"Dual Surfaces, Single Engine"**:
-1. **Terminal CLI** untuk kecepatan eksekusi, otomasi skrip, dan pengguna teknis (*power users*).
-2. **Local Web Workspace** untuk eksplorasi interaktif, visualisasi grafik candlestick, timeline kejadian, dan kartu bukti.
+1. **Terminal CLI & TUI Launcher** untuk kecepatan eksekusi, otomasi skrip, investigasi mendalam, dan pengguna teknis (*power users*).
+2. **Local Web Workspace** untuk eksplorasi interaktif visual, visualisasi grafik candlestick, timeline kejadian, kartu bukti, dan memory knowledge graph.
 
-Kedua antarmuka ditenagai oleh satu binary biner Go yang sama dan membaca database SQLite lokal yang sama.
+Kedua antarmuka ditenagai oleh satu binary biner Go yang sama dan membaca database SQLite lokal yang sama (`~/.niskava/niskava.db`).
 
 ---
 
 ## 1. Surface A: Terminal CLI & Conversational REPL (`niskava`)
 
-Dibangun menggunakan Go (`spf13/cobra`, `charmbracelet/bubbletea` untuk TUI interaktif, dan `charmbracelet/glamour` untuk rendering Markdown bergaya Bloomberg Terminal / Cyber-OSINT):
+Dibangun menggunakan Go (`spf13/cobra`, `charmbracelet/bubbletea` untuk TUI interaktif, `charmbracelet/lipgloss`, dan `charmbracelet/glamour` untuk rendering Markdown bergaya Bloomberg Terminal / Cyber-OSINT):
 
 ### Perintah Utama (CLI Commands)
 ```bash
-# 1. Mode Asisten Percakapan Finansial (Hermes-Style REPL & Launcher)
-# Menjalankan interactive launcher dan REPL tanya-jawab bahasa alami
+# 1. Mode Asisten Percakapan Finansial (Hermes-Style REPL & Interactive Launcher)
+# Menjalankan interactive launcher, HUD real-time, dan REPL tanya-jawab bahasa alami
 niskava
 
-# 2. Wizard Konfigurasi Interaktif (Setup Onboarding)
-# Menuntun pembuatan konfigurasi .env (9router, Gemini, Sectors API) dengan live connection test
+# 2. Pemilihan Bahasa Antarmuka (English default / Indonesian)
+niskava --lang id
+niskava --lang en
+
+# 3. Wizard Konfigurasi Interaktif (Setup Onboarding)
+# Menuntun konfigurasi .env (API Keys, provider AI, Sectors API) dengan live connection ping
 niskava setup
 
-# 3. Investigasi Langsung Emiten (Headless 7-Stage Pipeline)
+# 4. Investigasi Langsung Emiten (Headless 7-Stage Pipeline)
 niskava investigate ANTM --days 30
 
-# 4. Manajemen Sesi & Riwayat
+# 5. Ekspor & Visualisasi Knowledge Graph Memori Lokal di Browser
+niskava graph
+
+# 6. Menjalankan Model Context Protocol (MCP) Server via JSON-RPC Stdio
+# Siap dihubungkan ke Claude Desktop, Cursor, atau Antigravity
+niskava mcp
+
+# 7. Manajemen Sesi & Riwayat Interaktif
 niskava sessions
-niskava resume INV-2026-0042
 
-# 5. Menjalankan Server Web Dashboard & AI Assistant Canvas
-niskava serve --port 8080 --open
+# 8. Menjalankan Server Web Dashboard & AI Assistant Canvas
+niskava serve --port 20128 --open
 
-# 6. Mode Offline / Testing
+# 9. Mode Offline / Testing (Fixture JSON lokal)
 niskava investigate ANTM --offline
 ```
 
