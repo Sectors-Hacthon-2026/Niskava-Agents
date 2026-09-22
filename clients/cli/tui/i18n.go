@@ -590,8 +590,8 @@ var TUIStrings = map[string]map[string]string{
 		"id": "💬 PILIH SESI CHAT UNTUK DILANJUTKAN",
 	},
 	"session_selector_hint": {
-		"en": "[↑/↓/j/k Navigate  •  Enter Select  •  Esc Cancel]",
-		"id": "[↑/↓/j/k Navigasi  •  Enter Pilih  •  Esc Batal]",
+		"en": "[↑/↓/j/k Nav  •  Type to Filter  •  Enter Select  •  Esc Clear/Back]",
+		"id": "[↑/↓/j/k Navigasi  •  Ketik untuk Filter  •  Enter Pilih  •  Esc Batal]",
 	},
 	"session_selector_empty": {
 		"en": "No previous chat sessions found in local SQLite database.",

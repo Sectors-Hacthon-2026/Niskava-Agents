@@ -165,10 +165,21 @@ func (m SessionSelectorModel) View() string {
 	totalAll := len(m.Sessions)
 	totalFiltered := len(filtered)
 
-	if m.FilterQuery != "" {
-		filterBar := fmt.Sprintf("🔍 Filter: %s (Found %d of %d sessions)", lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render("\""+m.FilterQuery+"\""), totalFiltered, totalAll)
-		b.WriteString(filterBar + "\n\n")
+	// Always render visible search/filter bar box
+	searchPlaceholder := "Ketik kode emiten/kata kunci untuk memfilter..."
+	if ActiveLanguage == "en" {
+		searchPlaceholder = "Type ticker or keyword to filter sessions..."
 	}
+
+	searchVal := m.FilterQuery
+	if searchVal == "" {
+		searchVal = lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(searchPlaceholder)
+	} else {
+		searchVal = lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(searchVal)
+	}
+
+	searchBar := fmt.Sprintf("🔍 Cari/Filter: [ %s ] (%d/%d)", searchVal, totalFiltered, totalAll)
+	b.WriteString(searchBar + "\n\n")
 
 	if totalAll == 0 {
 		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("session_selector_empty")) + "\n")
@@ -176,7 +187,7 @@ func (m SessionSelectorModel) View() string {
 	}
 
 	if totalFiltered == 0 {
-		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render("  (No matching sessions found for query)") + "\n")
+		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render("  (Tidak ada sesi yang cocok dengan pencarian)") + "\n")
 		return "\n" + sessionBoxStyle.Render(b.String()) + "\n"
 	}
 
