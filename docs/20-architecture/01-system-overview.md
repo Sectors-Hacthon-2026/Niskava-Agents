@@ -83,11 +83,11 @@ Niskava Agent dibangun di atas arsitektur tripartit hybrid yang memadukan keanda
 ### B. Backend Architecture (`backend/`)
 * **Go Core Daemon (`backend/core/` & `cmd/niskava/`)**:
   * **Single Executable Distributor**: Mengompilasi seluruh aplikasi menjadi 1 file biner mandiri. Seluruh file frontend statis di-embed langsung ke dalam biner menggunakan `//go:embed clients/web/dist`.
-  * **Local Web Server (`backend/core/server/`)**: Menyediakan REST API manajemen sesi multi-turn (`/api/chat/sessions`), forking, export, abort, serta Server-Sent Events (SSE) streaming (`/api/chat`).
+  * **Local Web Server (`backend/core/server/`)**: Menyediakan REST API manajemen sesi multi-turn (`/api/chat/sessions`), forking, export, abort, serta Server-Sent Events (SSE) streaming (`/api/chat`) dengan ketahanan zero write timeout (`WriteTimeout: 0`) dan 15-second heartbeat keep-alive ping.
   * **Session Persistence Manager (`backend/core/db/`)**: Berkomunikasi dengan database SQLite lokal (`chat_sessions`, `chat_messages`, `investigations`, `anomalies`, dll.) menggunakan driver murni Go (`modernc.org/sqlite`) tanpa kebutuhan compiler CGO. Dilengkapi *self-healing zombie recovery* saat inisialisasi.
-  * **Subprocess IPC Runner (`backend/core/ipc/`)**: Mengelola eksekusi child process Python secara aman dengan scanning streaming JSON Lines.
+  * **Subprocess IPC Runner (`backend/core/ipc/`)**: Mengelola eksekusi child process Python secara aman dengan scanning streaming JSON Lines menggunakan buffer 1 MB.
 * **Python Agent Engine (`backend/engine/`)**:
-  * **Universal Model-Agnostic ReAct Loop (`backend/engine/agent/`)**: Mengelola dialog multi-turn, pemanggilan tool deterministik otonom, dan sintesis bukti menggunakan antarmuka standar OpenAI-compatible (`/chat/completions`) tanpa vendor lock-in (mendukung 9router local proxy `http://localhost:20128/v1`, Ollama, OpenRouter, vLLM, maupun Gemini).
+  * **Universal Model-Agnostic ReAct Loop (`backend/engine/agent/`)**: Mengelola dialog multi-turn, pemanggilan tool deterministik otonom, dan sintesis bukti menggunakan antarmuka standar OpenAI-compatible (`/chat/completions`) tanpa vendor lock-in. Dilengkapi **Progressive Skill Disclosure (ADR-11)** dengan 4 gateway primitives (`execute_skill`, `query_sectors`, `search_osint`, `query_memory`) yang memangkas ukuran prompt sistem hingga ~716 token serta menyematkan rekomendasi langkah lanjutan proaktif.
   * **Deterministic Quant Anomaly (`backend/engine/quant/`)**: Menghitung $Z$-score volume ($V_z$), abnormal return ($R_t$), divergensi sektor ($D_t$), dan foreign flow $Z$-score ($F_z$) menggunakan library NumPy murni sesuai Hukum 1. LLM dilarang berhitung mandiri.
   * **Sectors v2 API Client & Dual OSINT Engine (`backend/engine/sectors/` & `backend/engine/osint/`)**: Melakukan request terstruktur ke API Sectors untuk data candle, broker flow, mining extension, dan harvesting berita RSS BEI terkurasi dengan cache lokal disk.
   * **Local Graph Memory (`backend/engine/memory/`)**: In-memory NetworkX DiGraph yang disinkronkan ke tabel SQLite `memory_nodes` & `memory_edges` dengan decay temporal.
@@ -130,7 +130,7 @@ niskava/                         # Root direktori repositori implementasi
 │       ├── sectors/             # Sectors v2 API client & disk cache lokal
 │       ├── osint/               # Harvester berita RSS & keterbukaan IDX (trafilatura)
 │       ├── memory/              # Local Graph Memory Engine (NetworkX DiGraph)
-│       ├── tests/               # 74 unit tests komprehensif engine Python
+│       ├── tests/               # 182 unit tests komprehensif engine Python (100% green)
 │       ├── runner.py            # Entrypoint IPC headless investigation pipeline
 │       └── pyproject.toml       # Dependensi modern Python (uv / pip)
 │

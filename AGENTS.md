@@ -177,5 +177,6 @@ When asked to work on specific aspects of the system, navigate directly to these
 | **Security & Regulatory Compliance** | `docs/20-architecture/08-security-and-compliance.md` | `backend/core/security/` |
 | **Git Workflow & Branch Protection** | `docs/20-architecture/09-git-workflow-and-branching-strategy.md` | Git topology (`dev` -> `main`) |
 | **Modular Skills & MCP Registry** | `docs/30-agent/02-skills-catalog.md`, `docs/90-decisions/08-modular-skills-and-mcp-architecture.md` | `backend/engine/agent/tools.py` |
+| **Progressive Skill Disclosure** | `docs/90-decisions/11-progressive-skill-disclosure-and-lean-agent-architecture.md` | `backend/engine/agent/react_agent.py` |
 | **Architecture Decisions** | `docs/90-decisions/*.md` | Root and sub-packages |
 

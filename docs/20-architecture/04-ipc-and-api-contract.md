@@ -265,6 +265,11 @@ Access-Control-Allow-Origin: *
    data: {"error": "Timeout saat memanggil upstream LLM"}
    ```
 
+### Protokol Ketahanan Streaming SSE (SSE Streaming Resilience):
+1. **Zero Write Deadline (`WriteTimeout: 0`)**: Server Go menonaktifkan deadline penulisan global pada `http.Server` dan menggunakan `http.NewResponseController(w).SetWriteDeadline(time.Time{})` pada endpoint `/api/chat`, mencegah terputusnya koneksi streaming saat LLM melakukan investigasi multi-tool berdurasi panjang (>60 detik).
+2. **Periodic Heartbeat (`: keep-alive\n\n`)**: Server mengirim komentar SSE `: keep-alive\n\n` setiap 15 detik selama eksekusi tool atau inferensi model berlangsung. Komentar ini diabaikan oleh parser event SSE standar namun menjaga koneksi soket TCP dan proxy/gateway tetap aktif (*anti-idle*).
+3. **1 MB Scanner Buffer**: Klien TUI dan web menggunakan buffer `bufio.NewScanner` berkapasitas 1 MB (`1024 * 1024`) untuk menjamin payload observasi berita dan tabel keuangan berukuran besar dapat dibaca tanpa memicu `bufio.ErrTooLong`.
+
 ### Manajemen Pembatalan Klien (Client Abort):
 Klien web atau terminal dapat menghentikan streaming kapan saja dengan mengirimkan request `POST /api/chat/sessions/{id}/abort`. Go Core akan secara instan membatalkan context eksekusi runner Python dan mengembalikan sesi ke status `IDLE`.
 
