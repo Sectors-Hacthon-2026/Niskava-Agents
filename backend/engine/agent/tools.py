@@ -6,6 +6,7 @@ Complies strictly with:
 - Law 5: Credit Budget Discipline (SQLite sectors_cache)
 """
 
+import json
 import os
 from typing import Any, Callable, Dict, List, Optional
 
@@ -358,8 +359,23 @@ class NiskavaToolRegistry:
         definitions.extend(self.skills_registry.get_all_tool_definitions())
         return definitions
 
-    def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
+    def execute_tool(self, tool_name: str, arguments: Any) -> Any:
         """Dynamically dispatch and execute a registered tool (supporting direct & MCP names)."""
+        if arguments is None:
+            arguments = {}
+        elif isinstance(arguments, str):
+            trimmed = arguments.strip()
+            if trimmed.startswith("{") and trimmed.endswith("}"):
+                try:
+                    parsed = json.loads(trimmed)
+                    arguments = parsed if isinstance(parsed, dict) else {"ticker": trimmed}
+                except Exception:
+                    arguments = {"ticker": trimmed}
+            else:
+                arguments = {"ticker": trimmed} if trimmed else {}
+        elif not isinstance(arguments, dict):
+            arguments = {}
+
         ticker = str(arguments.get("ticker") or arguments.get("symbol") or "").upper()
         raw_days = arguments.get("days")
         if raw_days is None:

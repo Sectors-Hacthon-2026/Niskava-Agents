@@ -165,6 +165,19 @@ class SectorsAPIClient:
             self._set_cache(cache_key, endpoint, mock_data, ttl_seconds)
             return mock_data
 
+    @staticmethod
+    def _normalize_list_response(raw: Any) -> List[Dict[str, Any]]:
+        """Normalize API responses expected to be lists, defending against dict errors/envelopes."""
+        if isinstance(raw, dict):
+            if "results" in raw and isinstance(raw["results"], list):
+                return [item for item in raw["results"] if isinstance(item, dict)]
+            if "data" in raw and isinstance(raw["data"], list):
+                return [item for item in raw["data"] if isinstance(item, dict)]
+            return []
+        if isinstance(raw, list):
+            return [item for item in raw if isinstance(item, dict)]
+        return []
+
     def get_daily_candles(
         self, symbol: str, start: Optional[str] = None, end: Optional[str] = None
     ) -> List[Dict[str, Any]]:
@@ -176,7 +189,8 @@ class SectorsAPIClient:
         if end:
             params["end"] = end
         # Historical candlestick data is permanently cached (ttl=None)
-        return self._request(endpoint, params, ttl_seconds=None)
+        raw = self._request(endpoint, params, ttl_seconds=None)
+        return self._normalize_list_response(raw)
 
     def get_company_report(
         self, symbol: str, sections: str = "valuation,financials,peers"
@@ -184,35 +198,41 @@ class SectorsAPIClient:
         """Fetch company fundamental report (cached for 24 hours)."""
         endpoint = f"/company/report/{symbol.upper()}/"
         params = {"sections": sections}
-        return self._request(endpoint, params, ttl_seconds=86400)
+        res = self._request(endpoint, params, ttl_seconds=86400)
+        return res if isinstance(res, dict) else {}
 
     def get_foreign_flow(self, symbol: str) -> List[Dict[str, Any]]:
         """Retrieve Foreign Flow Net Inflow data."""
         endpoint = f"/foreign-flow/{symbol.upper()}/"
-        return self._request(endpoint, ttl_seconds=86400)
+        raw = self._request(endpoint, ttl_seconds=86400)
+        return self._normalize_list_response(raw)
 
     def get_news(self, symbol: Optional[str] = None) -> List[Dict[str, Any]]:
         """Fetch curated financial news."""
         endpoint = "/news/"
         params = {"symbol": symbol.upper()} if symbol else {}
-        return self._request(endpoint, params, ttl_seconds=3600)
+        raw = self._request(endpoint, params, ttl_seconds=3600)
+        return self._normalize_list_response(raw)
 
     def get_suspensions(self, symbol: str) -> List[Dict[str, Any]]:
         """Fetch exchange suspension and UMA notices with official PDF links."""
         endpoint = "/suspensions/"
         params = {"symbol": symbol.upper()}
-        return self._request(endpoint, params, ttl_seconds=86400)
+        raw = self._request(endpoint, params, ttl_seconds=86400)
+        return self._normalize_list_response(raw)
 
     def get_corporate_actions(self, symbol: str) -> List[Dict[str, Any]]:
         """Fetch scheduled corporate actions (dividends, splits, rights issue)."""
         endpoint = f"/corporate-actions/{symbol.upper()}/"
-        return self._request(endpoint, ttl_seconds=86400)
+        raw = self._request(endpoint, ttl_seconds=86400)
+        return self._normalize_list_response(raw)
 
     def get_filings(self, symbol: str) -> List[Dict[str, Any]]:
         """Fetch insider trading and substantial shareholder filings."""
         endpoint = "/filings/"
         params = {"symbol": symbol.upper()}
-        return self._request(endpoint, params, ttl_seconds=86400)
+        raw = self._request(endpoint, params, ttl_seconds=86400)
+        return self._normalize_list_response(raw)
 
     def get_broker_summary(self, symbol: str) -> Dict[str, Any]:
         """Fetch top broker accumulation and distribution summary."""
