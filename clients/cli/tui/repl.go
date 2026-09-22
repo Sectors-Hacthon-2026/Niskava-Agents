@@ -218,6 +218,16 @@ func (m ReplInputModel) View() string {
 	// Render input prompt box
 	b.WriteString("\n" + m.TextInput.View() + "\n")
 
+	// Render long prompt drafting character counter indicator if input is long (>50 chars)
+	val := strings.TrimSpace(m.TextInput.Value())
+	if len(val) >= 50 && !m.SlashActive {
+		countPill := lipgloss.NewStyle().
+			Foreground(ColorMuted).
+			Italic(true).
+			Render(fmt.Sprintf("  ✍️  Long Prompt Active (%d chars) • [Enter to execute, Esc to clear]", len(val)))
+		b.WriteString(countPill + "\n")
+	}
+
 	// Render double-press exit warning hint if active
 	if m.ExitWarning && !m.LastExitTime.IsZero() && time.Since(m.LastExitTime) <= 2*time.Second {
 		warningStr := lipgloss.NewStyle().Bold(true).Foreground(ColorWarning).Render(T("repl_exit_confirm"))
