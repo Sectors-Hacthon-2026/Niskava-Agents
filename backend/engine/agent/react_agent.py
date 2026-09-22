@@ -13,15 +13,144 @@ import re
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from engine.agent.tools import NiskavaToolRegistry
 from engine.sectors.tickers import extract_valid_tickers, is_valid_idx_ticker
 from engine.utils.resilience import RetryConfig, execute_with_retry
 
-# Configurable ReAct loop depth — override via NISKAVA_MAX_REACT_ITERATIONS env var.
-# Default 10: cukup untuk multi-tool workflows (news + quant + memory + synthesis).
+# Configurable ReAct loop depth & resource bounds
 MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_MAX_REACT_ITERATIONS", "10"))
+DEFAULT_MAX_TOKENS: int = int(os.environ.get("NISKAVA_MAX_TOKENS", "30000"))
+DEFAULT_LLM_TIMEOUT: float = float(os.environ.get("NISKAVA_LLM_TIMEOUT", "90.0"))
+
+
+def parse_single_tool_call(raw: str) -> Optional[Tuple[str, Dict[str, Any]]]:
+    """Parse tool name and arguments from a tool_call body string.
+    Supports standard JSON, unclosed/repaired JSON, and XML format.
+    """
+    cleaned = raw.strip()
+    if not cleaned:
+        return None
+
+    # 1. Try JSON parsing
+    start_brace = cleaned.find("{")
+    if start_brace != -1:
+        end_brace = cleaned.rfind("}")
+        json_str = (
+            cleaned[start_brace : end_brace + 1]
+            if end_brace != -1 and end_brace > start_brace
+            else cleaned[start_brace:]
+        )
+        try:
+            data = json.loads(json_str)
+            if isinstance(data, dict):
+                name = data.get("name") or data.get("tool")
+                args = data.get("arguments") or data.get("args") or {}
+                if name:
+                    return str(name).strip(), args if isinstance(args, dict) else {}
+        except Exception:
+            # Try repairing unclosed JSON (missing trailing quotes / braces)
+            for suffix in ["}", "}}", '"}}', '"}\n}', '"}']:
+                try:
+                    data = json.loads(json_str + suffix)
+                    if isinstance(data, dict):
+                        name = data.get("name") or data.get("tool")
+                        args = data.get("arguments") or data.get("args") or {}
+                        if name:
+                            return str(name).strip(), args if isinstance(args, dict) else {}
+                except Exception:
+                    continue
+
+    # 2. Try XML tag format: <name>...</name> or tool_name with child tags
+    name_match = re.search(r"<name>(.*?)</name>", cleaned, re.IGNORECASE)
+    tool_name = name_match.group(1).strip() if name_match else None
+
+    if not tool_name:
+        first_line = cleaned.split("\n")[0].strip()
+        first_word = first_line.split("<")[0].strip()
+        if first_word and re.match(r"^[a-zA-Z0-9_]+$", first_word):
+            tool_name = first_word
+
+    if tool_name:
+        args: Dict[str, Any] = {}
+        arg_matches = re.findall(r"<([a-zA-Z0-9_]+)>(.*?)</\1>", cleaned, re.DOTALL)
+        for key, val in arg_matches:
+            if key.lower() not in ("name", "tool", "tool_call", "arguments"):
+                val_clean = val.strip()
+                try:
+                    if val_clean.startswith("{") or val_clean.startswith("["):
+                        args[key] = json.loads(val_clean)
+                    elif val_clean.isdigit():
+                        args[key] = int(val_clean)
+                    else:
+                        args[key] = val_clean
+                except Exception:
+                    args[key] = val_clean
+        return tool_name, args
+
+    return None
+
+
+def extract_tool_calls(content: str) -> List[Tuple[str, Dict[str, Any]]]:
+    """Extract tool calls from model content, matching both closed and unclosed tags."""
+    calls: List[Tuple[str, Dict[str, Any]]] = []
+    # 1. Closed tags: <tool_call>(.*?)</tool_call>
+    closed_matches = re.findall(r"<tool_call>(.*?)</tool_call>", content, re.DOTALL)
+    for m in closed_matches:
+        parsed = parse_single_tool_call(m)
+        if parsed:
+            calls.append(parsed)
+
+    # 2. If no closed matches, search for unclosed: <tool_call>(.*)$
+    if not calls:
+        unclosed_match = re.search(r"<tool_call>(.*)$", content, re.DOTALL)
+        if unclosed_match:
+            parsed = parse_single_tool_call(unclosed_match.group(1))
+            if parsed:
+                calls.append(parsed)
+
+    return calls
+
+
+def sanitize_final_response(content: str) -> str:
+    """Sanitize the agent's final response to eliminate internal XML tags and raw tool call leakage."""
+    if not content:
+        return ""
+
+    # If explicit <response>...</response> tags exist, prioritize the first complete block
+    response_matches = re.findall(r"<response>(.*?)</response>", content, re.DOTALL)
+    if response_matches:
+        candidate = response_matches[0]
+    else:
+        unclosed_resp = re.search(r"<response>(.*)$", content, re.DOTALL)
+        if unclosed_resp:
+            candidate = unclosed_resp.group(1)
+        else:
+            candidate = content
+
+    # Strip closed and unclosed internal reasoning tags
+    candidate = re.sub(r"<thought>.*?</thought>", "", candidate, flags=re.DOTALL)
+    candidate = re.sub(r"<thought>.*$", "", candidate, flags=re.DOTALL)
+
+    # Strip closed and unclosed tool calls
+    candidate = re.sub(r"<tool_call>.*?</tool_call>", "", candidate, flags=re.DOTALL)
+    candidate = re.sub(r"<tool_call>.*$", "", candidate, flags=re.DOTALL)
+
+    # Strip observations and tool responses
+    candidate = re.sub(r"<observation>.*?</observation>", "", candidate, flags=re.DOTALL)
+    candidate = re.sub(r"<observation>.*$", "", candidate, flags=re.DOTALL)
+    candidate = re.sub(r"<tool_response>.*?</tool_response>", "", candidate, flags=re.DOTALL)
+    candidate = re.sub(r"<tool_response>.*$", "", candidate, flags=re.DOTALL)
+
+    # Clean leftover closing tags
+    candidate = re.sub(r"</response>", "", candidate)
+    candidate = re.sub(r"</tool_call>", "", candidate)
+    candidate = re.sub(r"</thought>", "", candidate)
+    candidate = re.sub(r"</observation>", "", candidate)
+
+    return candidate.strip()
+
 
 
 def get_system_prompt(
@@ -105,12 +234,24 @@ class NiskavaReActAgent:
         base_url: Optional[str] = None,
         ai_provider: Optional[str] = None,
         language: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        llm_timeout: Optional[float] = None,
     ):
         self.tools = tool_registry
         self.memory = getattr(tool_registry, "memory", None)
         self.emitter = emitter or (lambda ev: None)
         self.db_path = getattr(tool_registry, "db_path", os.path.expanduser("~/.niskava/niskava.db"))
         self.language = (language or os.environ.get("NISKAVA_LANG") or "id").lower()
+        self.max_tokens = (
+            max_tokens
+            if max_tokens is not None
+            else int(os.environ.get("NISKAVA_MAX_TOKENS", str(DEFAULT_MAX_TOKENS)))
+        )
+        self.llm_timeout = (
+            llm_timeout
+            if llm_timeout is not None
+            else float(os.environ.get("NISKAVA_LLM_TIMEOUT", str(DEFAULT_LLM_TIMEOUT)))
+        )
 
         # Primary Active Model & Universal Endpoint Resolution
         self.model = (
@@ -471,7 +612,7 @@ class NiskavaReActAgent:
         user_prompt: str,
         history: Optional[List[Dict[str, str]]],
     ) -> List[Dict[str, str]]:
-        """Construct sanitized LLM message array without trailing user prompt duplication."""
+        """Construct sanitized LLM message array without trailing user prompt duplication or poisoned error cards."""
         messages: List[Dict[str, str]] = [
             {"role": "system", "content": dynamic_system_prompt},
         ]
@@ -485,7 +626,19 @@ class NiskavaReActAgent:
                 clean_history.pop()
 
             for h in clean_history:
-                messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+                role = h.get("role", "user")
+                content = str(h.get("content") or "")
+
+                # Strip previous assistant error cards to avoid poisoning context
+                if role == "assistant":
+                    if "### ⚠️ Gagal Terhubung ke Provider AI" in content or "AI provider connection error" in content:
+                        continue
+                    # Sanitize any raw tool call tags from previous assistant responses
+                    content = sanitize_final_response(content)
+                    if not content.strip():
+                        continue
+
+                messages.append({"role": role, "content": content})
 
         messages.append({"role": "user", "content": user_prompt})
         return messages
@@ -561,19 +714,20 @@ class NiskavaReActAgent:
         )
 
         last_error = ""
+        empty_retries = 0
+        transient_retries = 0
         for _ in range(MAX_REACT_ITERATIONS):
             payload = {
                 "model": model,
                 "messages": messages,
                 "temperature": 0.2,
-                "max_tokens": 1500,
+                "max_tokens": self.max_tokens,
                 "stream": False,
             }
-            if tool_defs:
-                payload["tools"] = [{"type": "function", "function": t} for t in tool_defs]
+            # Pure XML ReAct protocol: tools injected into system prompt, never as API-level function definitions
             try:
                 resp = execute_with_retry(
-                    lambda: requests.post(url, headers=headers, json=payload, timeout=45.0),
+                    lambda: requests.post(url, headers=headers, json=payload, timeout=self.llm_timeout),
                     config=retry_cfg,
                     on_retry_callback=on_llm_retry,
                 )
@@ -592,7 +746,36 @@ class NiskavaReActAgent:
                 data = json.loads(raw[first_brace : last_brace + 1])
                 choices = data.get("choices", [])
                 if not choices:
-                    last_error = f"Format respons tidak valid (tidak ada item 'choices'): {raw[:200]}"
+                    # Check if upstream returned an error payload (e.g. 503 Overloaded, 429 Rate Limit)
+                    if "error" in data and isinstance(data["error"], dict):
+                        err_obj = data["error"]
+                        err_msg = str(err_obj.get("message") or "")
+                        err_code = err_obj.get("code")
+                        is_transient = (
+                            err_code in (429, 500, 502, 503, 504)
+                            or "overload" in err_msg.lower()
+                            or "rate" in err_msg.lower()
+                            or "capacity" in err_msg.lower()
+                            or "busy" in err_msg.lower()
+                        )
+                        if is_transient and transient_retries < 3:
+                            transient_retries += 1
+                            wait_sec = 2.0 * transient_retries
+                            thought_msg = (
+                                f"[{model}] Upstream provider sibuk ({err_msg[:80]}). Menunggu {wait_sec:.1f}s ({transient_retries}/3)..."
+                                if self.language == "id"
+                                else f"[{model}] Upstream provider busy ({err_msg[:80]}). Waiting {wait_sec:.1f}s ({transient_retries}/3)..."
+                            )
+                            self._emit({
+                                "event": "agent_thought",
+                                "session_id": session_id,
+                                "thought": thought_msg,
+                            })
+                            time.sleep(wait_sec)
+                            continue
+                        last_error = f"AI Provider error: {err_msg}"
+                    else:
+                        last_error = f"Format respons tidak valid (tidak ada item 'choices'): {raw[:200]}"
                     break
                 msg = choices[0].get("message", {})
                 content = (
@@ -622,11 +805,26 @@ class NiskavaReActAgent:
                             content = f"{clean_c}\n{tc_xml}".strip()
                     else:
                         content = tc_xml.strip()
-                if not content:
-                    last_error = "Model AI mengembalikan konten respons kosong."
+
+                if not content or not content.strip():
+                    if empty_retries < 2:
+                        empty_retries += 1
+                        nudge_text = (
+                            "Please provide your complete analysis within <response>...</response> tags or call a tool if data is needed."
+                            if self.language == "en"
+                            else "Mohon berikan analisis lengkap Anda dalam tag <response>...</response> atau panggil alat jika memerlukan data tambahan."
+                        )
+                        messages.append({"role": "user", "content": nudge_text})
+                        self._emit({
+                            "event": "agent_thought",
+                            "session_id": session_id,
+                            "thought": f"[{model}] Respons kosong diterima. Mengirim permintaan kelanjutan ({empty_retries}/2)...",
+                        })
+                        continue
+                    last_error = "Model AI mengembalikan konten respons kosong setelah percobaan ulang."
                     break
             except requests.exceptions.Timeout:
-                last_error = f"Koneksi timeout setelah 45 detik ke {url}"
+                last_error = f"Koneksi timeout setelah {int(self.llm_timeout)} detik ke {url}"
                 break
             except requests.exceptions.ConnectionError:
                 last_error = f"Gagal terhubung ke {url} (Koneksi jaringan ditolak atau server tidak aktif)"
@@ -646,106 +844,97 @@ class NiskavaReActAgent:
                         "thought": f"[{model}] {clean_th}",
                     })
 
-            # Check for tool call
-            tool_calls = re.findall(r"<tool_call>(.*?)</tool_call>", content, re.DOTALL)
+            # Check for tool calls (supports closed & unclosed tags, JSON and XML)
+            tool_calls = extract_tool_calls(content)
             if tool_calls:
                 obs_parts = []
-                for call_str in tool_calls:
-                    call_str = call_str.strip()
-                    try:
-                        call_json = json.loads(call_str)
-                        tool_name = call_json.get("name")
-                        tool_args = call_json.get("arguments", {})
+                for tool_name, tool_args in tool_calls:
+                    self._emit({
+                        "event": "agent_tool_call",
+                        "session_id": session_id,
+                        "tool": tool_name,
+                        "args": tool_args,
+                    })
 
+                    # Execute deterministic tool with self-healing error guard
+                    try:
+                        tool_res = self.tools.execute_tool(tool_name, tool_args)
+
+                        # Extract anomalies if computed
+                        if tool_name == "compute_quant_anomalies" and isinstance(tool_res, list):
+                            for a in tool_res:
+                                anomalies.append(a)
+                                self._emit({
+                                    "event": "anomaly_detected",
+                                    "session_id": session_id,
+                                    "ticker": tool_args.get("ticker", ""),
+                                    "anomaly_date": a.get("date") or a.get("anomaly_date", ""),
+                                    "metric_type": a.get("metric_type", ""),
+                                    "z_score": a.get("z_score", 0.0),
+                                    "metric_value": a.get("metric_value", 0.0),
+                                    "baseline_value": a.get("baseline_value", 0.0),
+                                    "price_change_pct": a.get("price_change_pct", 0.0),
+                                    "sector_change_pct": a.get("sector_change_pct", 0.0),
+                                    "description": a.get("description", ""),
+                                })
+
+                            if tool_res:
+                                top_anomaly = tool_res[0]
+                                auto_finding: Dict[str, Any] = {
+                                    "event": "finding_emitted",
+                                    "session_id": session_id,
+                                    "id": f"FND-AUTO-{len(findings) + 1:02d}",
+                                    "title": f"Anomali Volume {tool_args.get('ticker', '')}: {top_anomaly.get('metric_type', 'VOLUME_SPIKE')}",
+                                    "claim_text": (
+                                        f"Z-Score {top_anomaly.get('z_score', 0):.2f}σ pada "
+                                        f"{top_anomaly.get('date') or top_anomaly.get('anomaly_date', 'N/A')}."
+                                    ),
+                                    "verification_status": "SUPPORTED",
+                                    "confidence_score": 1.0,
+                                    "causality_status": "DETECTED",
+                                }
+                                findings.append(auto_finding)
+                                self._emit(auto_finding)
+
+                        tool_res_str = json.dumps(tool_res, default=str)
+                        if len(tool_res_str) > 4000:
+                            if isinstance(tool_res, list):
+                                tool_res_str = json.dumps(tool_res[:30], default=str) + f" (summarized {len(tool_res[:30])} of {len(tool_res)} items)"
+                            else:
+                                tool_res_str = tool_res_str[:4000] + "... [truncated]"
+
+                        obs_str = f"Observation for {tool_name}: {tool_res_str}"
+                        obs_summary = (
+                            f"Observation data received ({len(tool_res_str)} bytes)."
+                            if self.language == "en"
+                            else f"Data observasi diterima ({len(tool_res_str)} bytes)."
+                        )
                         self._emit({
-                            "event": "agent_tool_call",
+                            "event": "agent_observation",
                             "session_id": session_id,
                             "tool": tool_name,
-                            "args": tool_args,
+                            "summary": obs_summary,
                         })
-
-                        # Execute deterministic tool with self-healing error guard
-                        try:
-                            tool_res = self.tools.execute_tool(tool_name, tool_args)
-
-                            # Extract anomalies if computed
-                            if tool_name == "compute_quant_anomalies" and isinstance(tool_res, list):
-                                for a in tool_res:
-                                    anomalies.append(a)
-                                    self._emit({
-                                        "event": "anomaly_detected",
-                                        "session_id": session_id,
-                                        "ticker": tool_args.get("ticker", ""),
-                                        "anomaly_date": a.get("date") or a.get("anomaly_date", ""),
-                                        "metric_type": a.get("metric_type", ""),
-                                        "z_score": a.get("z_score", 0.0),
-                                        "metric_value": a.get("metric_value", 0.0),
-                                        "baseline_value": a.get("baseline_value", 0.0),
-                                        "price_change_pct": a.get("price_change_pct", 0.0),
-                                        "sector_change_pct": a.get("sector_change_pct", 0.0),
-                                        "description": a.get("description", ""),
-                                    })
-
-                                if tool_res:
-                                    top_anomaly = tool_res[0]
-                                    auto_finding: Dict[str, Any] = {
-                                        "event": "finding_emitted",
-                                        "session_id": session_id,
-                                        "id": f"FND-AUTO-{len(findings) + 1:02d}",
-                                        "title": f"Anomali Volume {tool_args.get('ticker', '')}: {top_anomaly.get('metric_type', 'VOLUME_SPIKE')}",
-                                        "claim_text": (
-                                            f"Z-Score {top_anomaly.get('z_score', 0):.2f}σ pada "
-                                            f"{top_anomaly.get('date') or top_anomaly.get('anomaly_date', 'N/A')}."
-                                        ),
-                                        "verification_status": "SUPPORTED",
-                                        "confidence_score": 1.0,
-                                        "causality_status": "DETECTED",
-                                    }
-                                    findings.append(auto_finding)
-                                    self._emit(auto_finding)
-
-                            # Format observation data safely (no mid-JSON brutal truncation)
-                            tool_res_str = json.dumps(tool_res, default=str)
-                            if len(tool_res_str) > 4000:
-                                if isinstance(tool_res, list):
-                                    tool_res_str = json.dumps(tool_res[:30], default=str) + f" (summarized {len(tool_res[:30])} of {len(tool_res)} items)"
-                                else:
-                                    tool_res_str = tool_res_str[:4000] + "... [truncated]"
-
-                            obs_str = f"Observation for {tool_name}: {tool_res_str}"
-                            obs_summary = (
-                                f"Observation data received ({len(tool_res_str)} bytes)."
-                                if self.language == "en"
-                                else f"Data observasi diterima ({len(tool_res_str)} bytes)."
-                            )
-                            self._emit({
-                                "event": "agent_observation",
-                                "session_id": session_id,
-                                "tool": tool_name,
-                                "summary": obs_summary,
-                            })
-                            obs_parts.append(obs_str)
-                        except Exception as tool_exc:
-                            obs_str = (
-                                f"Tool execution failed for '{tool_name}': {str(tool_exc)}. "
-                                "Please analyze using available context or explain to the user."
-                            )
-                            fail_summary = (
-                                f"⚠️ Tool '{tool_name}' failed: {str(tool_exc)} (agent attempting self-recovery)."
-                                if self.language == "en"
-                                else f"⚠️ Alat '{tool_name}' gagal: {str(tool_exc)} (agen melakukan recovery otomatis)."
-                            )
-                            self._emit({
-                                "event": "agent_observation",
-                                "session_id": session_id,
-                                "tool": str(tool_name),
-                                "summary": fail_summary,
-                            })
-                            obs_parts.append(obs_str)
-                    except Exception as parse_exc:
-                        obs_str = f"Invalid tool call JSON: {str(parse_exc)}. Format must be: <tool_call>{{\"name\": \"tool_name\", \"arguments\": {{...}}}}</tool_call>"
+                        obs_parts.append(obs_str)
+                    except Exception as tool_exc:
+                        obs_str = (
+                            f"Tool execution failed for '{tool_name}': {str(tool_exc)}. "
+                            "Please analyze using available context or explain to the user."
+                        )
+                        fail_summary = (
+                            f"⚠️ Tool '{tool_name}' failed: {str(tool_exc)} (agent attempting self-recovery)."
+                            if self.language == "en"
+                            else f"⚠️ Alat '{tool_name}' gagal: {str(tool_exc)} (agen melakukan recovery otomatis)."
+                        )
+                        self._emit({
+                            "event": "agent_observation",
+                            "session_id": session_id,
+                            "tool": str(tool_name),
+                            "summary": fail_summary,
+                        })
                         obs_parts.append(obs_str)
 
+                # Feed back to model
                 combined_obs = "\n\n".join(obs_parts)
                 messages.append({"role": "assistant", "content": content})
                 messages.append({"role": "user", "content": f"<observation>\n{combined_obs}\n</observation>"})
@@ -825,6 +1014,7 @@ class NiskavaReActAgent:
                 "status": "ERROR",
             }
 
+        final_response = sanitize_final_response(final_response)
         self._emit({
             "event": "agent_message_chunk",
             "session_id": session_id,
