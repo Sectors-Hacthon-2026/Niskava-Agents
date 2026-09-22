@@ -401,6 +401,14 @@ var TUIStrings = map[string]map[string]string{
 		"en": "⚡ Niskava Agent:",
 		"id": "⚡ Niskava Agent:",
 	},
+	"repl_exit_confirm": {
+		"en": "  [!] Press Esc or Ctrl+C once more within 2 seconds to exit...",
+		"id": "  [!] Tekan Esc atau Ctrl+C sekali lagi dalam 2 detik untuk keluar...",
+	},
+	"repl_interrupt_confirm": {
+		"en": "[!] Press Ctrl+C once more within 2 seconds to cancel investigation...",
+		"id": "[!] Tekan Ctrl+C sekali lagi dalam 2 detik untuk membatalkan investigasi...",
+	},
 	"repl_session_reset": {
 		"en": "\n[✓] Session reset and memory graph cleared. New conversation session: %s\n",
 		"id": "\n[✓] Sesi direset dan memory graph dibersihkan. Sesi percakapan baru: %s\n",
@@ -478,8 +486,8 @@ var TUIStrings = map[string]map[string]string{
 		"id": " niskava %s  ·  %s Server: %s  ·  %s API Key: %s  ·  ↑/↓ navigasi  ·  [W/T/S/H/C/L/Q/E] pilih ",
 	},
 	"menu_press_enter": {
-		"en": "Press Enter to return to Menu...",
-		"id": "Tekan Enter untuk kembali ke Menu...",
+		"en": "Press ESC to return to Menu...",
+		"id": "Tekan ESC untuk kembali ke Menu...",
 	},
 	"menu_open_web": {
 		"en": "\n[●] Opening Web Workspace in browser: %s\n",
@@ -626,12 +634,20 @@ var TUIStrings = map[string]map[string]string{
 		"id": "💬 PILIH SESI CHAT UNTUK DILANJUTKAN",
 	},
 	"session_selector_hint": {
-		"en": "[↑/↓/j/k Navigate  •  Enter Select  •  Esc Cancel]",
-		"id": "[↑/↓/j/k Navigasi  •  Enter Pilih  •  Esc Batal]",
+		"en": "[↑/↓/j/k Nav  •  Type to Filter  •  Enter Select  •  Esc Clear/Back]",
+		"id": "[↑/↓/j/k Navigasi  •  Ketik untuk Filter  •  Enter Pilih  •  Esc Batal]",
 	},
 	"session_selector_empty": {
 		"en": "No previous chat sessions found in local SQLite database.",
 		"id": "Belum ada riwayat sesi chat tersimpan di database SQLite lokal.",
+	},
+	"session_selector_search_placeholder": {
+		"en": "Type ticker or keyword to filter...",
+		"id": "Ketik kode emiten atau kata kunci...",
+	},
+	"session_selector_no_match": {
+		"en": "  (No matching sessions found for query)",
+		"id": "  (Tidak ada sesi yang cocok dengan pencarian)",
 	},
 	"slash_chats_desc": {
 		"en": "Browse and resume previous conversational chat sessions",

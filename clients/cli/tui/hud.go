@@ -8,49 +8,40 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Lipgloss Color Palette for NISKAVA-HUD (Light Green / Matrix OSINT Aesthetic)
+// Lipgloss Color Palette for NISKAVA-HUD (Binance Dark Financial OSINT Aesthetic)
 var (
-	// Light Green Theme Palette
-	colorPrimaryGreen = lipgloss.Color("#22C55E") // Bright Emerald Green
-	colorLightGreen   = lipgloss.Color("#4ADE80") // Light Lime Green
-	colorMintGreen    = lipgloss.Color("#86EFAC") // Soft Mint Accent
-	colorDarkGreenBg  = lipgloss.Color("#052E16") // Deep Green Midnight Slate
-	colorGoldAccent   = lipgloss.Color("#FACC15") // Cyber Gold / Amber
-	colorMutedSlate   = lipgloss.Color("#64748B") // Subdued Slate
-	colorSoftWhite    = lipgloss.Color("#F8FAFC") // Text White
-	colorCyanDot      = lipgloss.Color("#38BDF8") // Subtle Cyan Node Accent
-
-	// Text & Box Styles
+	// Palette Aliases for HUD
 	hudTitleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(colorLightGreen)
+			Foreground(ColorAccent)
 
 	hudSubtitleStyle = lipgloss.NewStyle().
 				Italic(true).
-				Foreground(colorMintGreen)
+				Foreground(ColorMuted)
 
 	labelStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(colorLightGreen)
+			Foreground(ColorAccent)
 
 	valueStyle = lipgloss.NewStyle().
-			Foreground(colorSoftWhite)
+			Foreground(ColorFg)
 
 	valueHighlightStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(colorGoldAccent)
+				Foreground(ColorAccent)
 
 	statusDotStyle = lipgloss.NewStyle().
-			Foreground(colorGoldAccent)
+			Foreground(ColorAccent)
 
 	matrixDotStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#166534")) // Subdued matrix green
+			Foreground(ColorMuted) // Subdued slate node
 
 	constellationLineStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#15803D")) // Line green
+				Foreground(ColorMuted) // Slate divider
 )
 
 // GetDatabaseSizeMB returns formatted size of the SQLite database file.
@@ -90,14 +81,14 @@ func RenderConstellationLine(width int) string {
 	// Create pattern line
 	var sb strings.Builder
 	nodes := map[int]string{
-		12: lipgloss.NewStyle().Foreground(colorCyanDot).Render("◆"),
-		24: lipgloss.NewStyle().Foreground(colorLightGreen).Render("◆"),
-		30: lipgloss.NewStyle().Foreground(colorLightGreen).Render("◆"),
-		36: lipgloss.NewStyle().Foreground(colorGoldAccent).Render("●●"),
-		48: lipgloss.NewStyle().Foreground(colorCyanDot).Render("◆"),
-		60: lipgloss.NewStyle().Foreground(colorGoldAccent).Render("●"),
-		68: lipgloss.NewStyle().Foreground(colorGoldAccent).Render("●"),
-		72: lipgloss.NewStyle().Foreground(colorCyanDot).Render("◆"),
+		12: lipgloss.NewStyle().Foreground(ColorThought).Render("◆"),
+		24: lipgloss.NewStyle().Foreground(ColorAccent).Render("◆"),
+		30: lipgloss.NewStyle().Foreground(ColorAccent).Render("◆"),
+		36: lipgloss.NewStyle().Foreground(ColorAccent).Render("●●"),
+		48: lipgloss.NewStyle().Foreground(ColorThought).Render("◆"),
+		60: lipgloss.NewStyle().Foreground(ColorAccent).Render("●"),
+		68: lipgloss.NewStyle().Foreground(ColorAccent).Render("●"),
+		72: lipgloss.NewStyle().Foreground(ColorThought).Render("◆"),
 	}
 
 	for i := 0; i < width; i++ {
@@ -140,7 +131,7 @@ func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 
 	// 3. Status Dots Indicator
 	b.WriteString("\n")
-	b.WriteString(statusDotStyle.Render("● ● ● ●") + "  " + lipgloss.NewStyle().Foreground(colorMutedSlate).Render(T("hud_system_online")))
+	b.WriteString(statusDotStyle.Render("● ● ● ●") + "  " + lipgloss.NewStyle().Foreground(ColorMuted).Render(T("hud_system_online")))
 	b.WriteString("\n\n")
 
 	// 4. Motto Tagline
@@ -189,4 +180,147 @@ func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 	b.WriteString("\n" + RenderConstellationLine(85) + "\n")
 
 	return b.String()
+}
+
+// PrintHealthDiagnostics renders the system health check screen with the Binance Dark OSINT palette and HUD ASCII header.
+func PrintHealthDiagnostics(cfg *config.Config, serverURL string) {
+	if cfg == nil {
+		return
+	}
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorBg).
+		Background(ColorAccent).
+		Padding(0, 1)
+
+	lblStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorAccent)
+
+	valStyle := lipgloss.NewStyle().
+		Foreground(ColorFg)
+
+	statusAliveStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorSuccess)
+
+	statusErrStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorDanger)
+
+	dividerStyle := lipgloss.NewStyle().
+		Foreground(ColorMuted)
+
+	fmt.Println()
+	fmt.Println(headerStyle.Render(strings.TrimSpace(T("health_header"))))
+	fmt.Println(dividerStyle.Render("─────────────────────────────────────────────────────────────────────────────"))
+
+	daemonURL := serverURL
+	if daemonURL == "" {
+		daemonURL = "http://localhost:8080"
+	}
+	fmt.Printf("• %s: %s %s\n",
+		lblStyle.Render("Local Daemon URL"),
+		valStyle.Render(daemonURL),
+		statusAliveStyle.Render("[ALIVE]"))
+
+	fmt.Printf("• %s: %s\n",
+		lblStyle.Render("Database Path   "),
+		valStyle.Render(cfg.Storage.DBPath))
+
+	fmt.Printf("• %s: %s\n",
+		lblStyle.Render("Python Engine   "),
+		valStyle.Render(cfg.Engine.PythonBin))
+
+	secKeyText := statusAliveStyle.Render(T("health_installed"))
+	if cfg.Auth.SectorsAPIKey == "" {
+		secKeyText = statusErrStyle.Render(T("health_not_installed"))
+	}
+	fmt.Printf("• %s: %s\n",
+		lblStyle.Render("Sectors API Key "),
+		secKeyText)
+
+	activeModel := cfg.Auth.OpenAIModel
+	if activeModel == "" {
+		if cfg.Auth.GeminiModel != "" {
+			activeModel = cfg.Auth.GeminiModel
+		} else {
+			activeModel = "hermes"
+		}
+	}
+	baseURL := cfg.Auth.OpenAIBaseURL
+	if baseURL == "" {
+		baseURL = "Universal ReAct Standard"
+	}
+	hasModelKey := cfg.Auth.OpenAIAPIKey != "" || cfg.Auth.GeminiAPIKey != ""
+	modelKeyText := statusAliveStyle.Render(T("health_installed"))
+	if !hasModelKey {
+		modelKeyText = statusErrStyle.Render(T("health_not_installed"))
+	}
+
+	fmt.Printf("• %s: %s %s\n",
+		lblStyle.Render("Inference Engine"),
+		valStyle.Render(fmt.Sprintf("Universal ReAct (%s)", baseURL)),
+		statusAliveStyle.Render("[ALIVE]"))
+
+	fmt.Printf("• %s: %s\n",
+		lblStyle.Render("Active Model    "),
+		lblStyle.Render(activeModel))
+
+	fmt.Printf("• %s: %s\n",
+		lblStyle.Render("Model API Key   "),
+		modelKeyText)
+
+	fmt.Println(dividerStyle.Render("─────────────────────────────────────────────────────────────────────────────"))
+}
+
+// PrintWebWorkspaceLaunchScreen renders a styled, rich Web Workspace launcher card using the Binance Dark OSINT palette.
+func PrintWebWorkspaceLaunchScreen(serverURL string) {
+	if serverURL == "" {
+		serverURL = "http://localhost:8080"
+	}
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorBg).
+		Background(ColorAccent).
+		Padding(0, 1)
+
+	cardStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(ColorAccent).
+		Padding(1, 2).
+		MarginTop(1).
+		MarginBottom(1)
+
+	lblStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorAccent)
+
+	valStyle := lipgloss.NewStyle().
+		Foreground(ColorFg)
+
+	urlStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorThought)
+
+	statusStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorSuccess)
+
+	mutedStyle := lipgloss.NewStyle().
+		Italic(true).
+		Foreground(ColorMuted)
+
+	var b strings.Builder
+	b.WriteString(headerStyle.Render("🌐 NISKAVA WEB WORKSPACE (VISUAL CYBER-OSINT CANVAS)") + "\n\n")
+	b.WriteString(fmt.Sprintf("• %s : %s %s\n", lblStyle.Render("Local Server Status"), statusStyle.Render("[ONLINE]"), mutedStyle.Render("(Go SSE Gateway + React SPA)")))
+	b.WriteString(fmt.Sprintf("• %s : %s\n", lblStyle.Render("Browser Access URL "), urlStyle.Render(serverURL)))
+	b.WriteString(fmt.Sprintf("• %s : %s\n", lblStyle.Render("Canvas Features    "), valStyle.Render("TradingView Anomaly Markers, ReAct SSE Stream, Evidence Matrix")))
+	b.WriteString(fmt.Sprintf("• %s : %s\n\n", lblStyle.Render("Data Sovereignty   "), valStyle.Render("100% Local-First SQLite Persistence (~/.niskava/niskava.db)")))
+	b.WriteString(mutedStyle.Render("⚡ Opening default web browser automatically..."))
+
+	fmt.Println()
+	fmt.Println(cardStyle.Render(b.String()))
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/clients/cli/tui"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
@@ -16,16 +17,34 @@ import (
 var (
 	wizardTitleStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#00E5FF")).
+				Foreground(tui.ColorBg).
+				Background(tui.ColorAccent).
 				Padding(0, 1)
 
-	successBadgeStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("#10B981"))
+	wizardStepStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(tui.ColorAccent)
 
-	accentStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#38BDF8")).
-			Bold(true)
+	wizardItemBadgeStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(tui.ColorAccent)
+
+	wizardMutedStyle = lipgloss.NewStyle().
+				Foreground(tui.ColorMuted)
+
+	wizardSuccessBadgeStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(tui.ColorSuccess)
+
+	wizardDividerStyle = lipgloss.NewStyle().
+				Foreground(tui.ColorMuted)
+
+	setupCardStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(tui.ColorAccent).
+			Width(76).
+			Padding(0, 1).
+			Foreground(tui.ColorFg)
 )
 
 var setupCmd = &cobra.Command{
@@ -46,18 +65,21 @@ func RunInteractiveSetup() error {
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Println()
-	fmt.Println("=============================================================================")
-	fmt.Printf(" %s\n", wizardTitleStyle.Render("NISKAVA AGENT — QUICK SETUP WIZARD (1 MINUTE)"))
-	fmt.Println(" Automatic setup for AI Provider connection, Sectors Financial API, & Storage.")
-	fmt.Println("=============================================================================")
+	var headerBox strings.Builder
+	headerBox.WriteString(wizardTitleStyle.Render("NISKAVA AGENT — QUICK SETUP WIZARD (1 MINUTE)") + "\n")
+	headerBox.WriteString(wizardMutedStyle.Render("Automatic setup for AI Provider connection, Sectors Financial API, & Storage."))
+	fmt.Println(setupCardStyle.Render(headerBox.String()))
 	fmt.Println()
 
 	// 1. AI Provider Selection
-	fmt.Println(accentStyle.Render("Step 1: Select AI Provider for ReAct Research Assistant:"))
-	fmt.Println("  [1] Local 9router (http://localhost:20128/v1, Model: hermes) [Recommended]")
-	fmt.Println("  [2] Google Gemini Cloud (Google AI Studio, Model: gemini-2.0-flash)")
-	fmt.Println("  [3] Custom OpenAI-Compatible (OpenAI, vLLM, Ollama, etc)")
-	fmt.Print("\nChoice [1/2/3, default: 1]: ")
+	fmt.Println(wizardStepStyle.Render("Step 1: Select AI Provider for ReAct Research Assistant:"))
+	fmt.Printf("  %s Local 9router (http://localhost:20128/v1, Model: hermes) %s\n",
+		wizardItemBadgeStyle.Render("[1]"), wizardMutedStyle.Render("[Recommended]"))
+	fmt.Printf("  %s Google Gemini Cloud (Google AI Studio, Model: gemini-2.0-flash)\n",
+		wizardItemBadgeStyle.Render("[2]"))
+	fmt.Printf("  %s Custom OpenAI-Compatible (OpenAI, vLLM, Ollama, etc)\n",
+		wizardItemBadgeStyle.Render("[3]"))
+	fmt.Printf("\n%s Choice [1/2/3, default: 1]: ", wizardStepStyle.Render("►"))
 
 	providerChoice, _ := reader.ReadString('\n')
 	providerChoice = strings.TrimSpace(providerChoice)
@@ -82,11 +104,11 @@ func RunInteractiveSetup() error {
 	switch providerChoice {
 	case "2":
 		aiProvider = "gemini"
-		fmt.Print("\nEnter Google Gemini API Key (https://aistudio.google.com/): ")
+		fmt.Printf("\n%s Enter Google Gemini API Key (https://aistudio.google.com/): ", wizardStepStyle.Render("►"))
 		geminiKey, _ = reader.ReadString('\n')
 		geminiKey = strings.TrimSpace(geminiKey)
 
-		fmt.Print("Gemini Model Name [default: gemini-2.0-flash]: ")
+		fmt.Printf("%s Gemini Model Name [default: gemini-2.0-flash]: ", wizardStepStyle.Render("►"))
 		m, _ := reader.ReadString('\n')
 		m = strings.TrimSpace(m)
 		if m != "" {
@@ -95,18 +117,18 @@ func RunInteractiveSetup() error {
 
 	case "3":
 		aiProvider = "openai"
-		fmt.Print("\nEnter Base URL [example: https://api.openai.com/v1]: ")
+		fmt.Printf("\n%s Enter Base URL [example: https://api.openai.com/v1]: ", wizardStepStyle.Render("►"))
 		openAIBaseURL, _ = reader.ReadString('\n')
 		openAIBaseURL = strings.TrimSpace(openAIBaseURL)
 		if openAIBaseURL == "" {
 			openAIBaseURL = "https://api.openai.com/v1"
 		}
 
-		fmt.Print("Enter API Key: ")
+		fmt.Printf("%s Enter API Key: ", wizardStepStyle.Render("►"))
 		openAIKey, _ = reader.ReadString('\n')
 		openAIKey = strings.TrimSpace(openAIKey)
 
-		fmt.Print("Model Name [example: gpt-4o-mini]: ")
+		fmt.Printf("%s Model Name [example: gpt-4o-mini]: ", wizardStepStyle.Render("►"))
 		openAIModel, _ = reader.ReadString('\n')
 		openAIModel = strings.TrimSpace(openAIModel)
 		if openAIModel == "" {
@@ -116,21 +138,21 @@ func RunInteractiveSetup() error {
 	default: // 1: 9router
 		aiProvider = "openai"
 		openAIBaseURL = "http://localhost:20128/v1"
-		fmt.Printf("\nBase URL 9router [%s]: ", openAIBaseURL)
+		fmt.Printf("\n%s Base URL 9router [%s]: ", wizardStepStyle.Render("►"), wizardMutedStyle.Render(openAIBaseURL))
 		u, _ := reader.ReadString('\n')
 		u = strings.TrimSpace(u)
 		if u != "" {
 			openAIBaseURL = u
 		}
 
-		fmt.Printf("9router API Key [%s]: ", openAIKey)
+		fmt.Printf("%s 9router API Key [%s]: ", wizardStepStyle.Render("►"), wizardMutedStyle.Render(openAIKey))
 		k, _ := reader.ReadString('\n')
 		k = strings.TrimSpace(k)
 		if k != "" {
 			openAIKey = k
 		}
 
-		fmt.Printf("Model Combo [%s]: ", openAIModel)
+		fmt.Printf("%s Model Combo [%s]: ", wizardStepStyle.Render("►"), wizardMutedStyle.Render(openAIModel))
 		m, _ := reader.ReadString('\n')
 		m = strings.TrimSpace(m)
 		if m != "" {
@@ -140,15 +162,15 @@ func RunInteractiveSetup() error {
 
 	// 2. Sectors Financial API Key
 	fmt.Println()
-	fmt.Println(accentStyle.Render("Step 2: Sectors Financial API v2 (Indonesia Stock Exchange):"))
-	fmt.Println("  (Get key at https://sectors.app. Press ENTER for Offline Mock Mode).")
-	fmt.Print("Sectors API Key [optional]: ")
+	fmt.Println(wizardStepStyle.Render("Step 2: Sectors Financial API v2 (Indonesia Stock Exchange):"))
+	fmt.Println(wizardMutedStyle.Render("  (Get key at https://sectors.app. Press ENTER for Offline Mock Mode)."))
+	fmt.Printf("%s Sectors API Key [optional]: ", wizardStepStyle.Render("►"))
 	sectorsKey, _ := reader.ReadString('\n')
 	sectorsKey = strings.TrimSpace(sectorsKey)
 
 	// 3. Health ping test
 	fmt.Println()
-	fmt.Println("Testing provider connection...")
+	fmt.Println(wizardMutedStyle.Render("Testing provider connection..."))
 	if aiProvider == "openai" && strings.Contains(openAIBaseURL, "localhost:20128") {
 		client := http.Client{Timeout: 3 * time.Second}
 		req, _ := http.NewRequestWithContext(context.Background(), "GET", openAIBaseURL+"/models", nil)
@@ -156,9 +178,9 @@ func RunInteractiveSetup() error {
 		resp, err := client.Do(req)
 		if err == nil && resp.StatusCode == 200 {
 			_ = resp.Body.Close()
-			fmt.Println(successBadgeStyle.Render("  [✓] Local 9router connected successfully!"))
+			fmt.Println(wizardSuccessBadgeStyle.Render("  [✓] Local 9router connected successfully!"))
 		} else {
-			fmt.Println("  [!] 9router not active on localhost:20128. Config saved successfully.")
+			fmt.Println(wizardMutedStyle.Render("  [!] 9router not active on localhost:20128. Config saved successfully."))
 		}
 	}
 
@@ -220,11 +242,11 @@ NEWS_TIMEOUT_SECONDS=10
 	}
 
 	fmt.Println()
-	fmt.Println("=============================================================================")
-	fmt.Println(successBadgeStyle.Render(" SETUP COMPLETED! Secure .env file generated successfully (0600 permissions)."))
-	fmt.Println(" You can launch the interactive interface right away with:")
-	fmt.Println("   " + accentStyle.Render("./bin/niskava"))
-	fmt.Println("=============================================================================")
+	var completeBox strings.Builder
+	completeBox.WriteString(wizardSuccessBadgeStyle.Render("SETUP COMPLETED! Secure .env file generated successfully (0600 permissions).") + "\n")
+	completeBox.WriteString(wizardMutedStyle.Render("You can launch the interactive interface right away with:") + "\n")
+	completeBox.WriteString("  " + wizardStepStyle.Render("./bin/niskava"))
+	fmt.Println(setupCardStyle.Render(completeBox.String()))
 	fmt.Println()
 
 	return nil

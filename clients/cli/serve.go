@@ -45,9 +45,9 @@ for the Web Workspace and external clients on http://localhost:20128.`,
 
 		box := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#22C55E")).
+			BorderForeground(lipgloss.Color("#FCD535")).
 			Padding(0, 1).
-			Foreground(lipgloss.Color("#F8FAFC"))
+			Foreground(lipgloss.Color("#FFFFFF"))
 
 		dbPath := "~/.niskava/niskava.db"
 		if cfg != nil && cfg.Storage.DBPath != "" {

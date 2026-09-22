@@ -67,78 +67,50 @@ and qualitative market disclosures/news.`,
 		}
 
 		hasAPIKey := cfg.Auth.SectorsAPIKey != "" || cfg.Auth.GeminiAPIKey != "" || cfg.Auth.OpenAIAPIKey != ""
+		activeCursor := 0
 		for {
 			fmt.Print("\033[H\033[2J")
-			launcher := tui.NewLauncherModelWithHealth(srv.URL, "v1.0.0", hasAPIKey)
+			launcher := tui.NewLauncherModelWithHealthAndCursor(srv.URL, "v1.0.0", hasAPIKey, activeCursor)
 			p := tea.NewProgram(launcher, tea.WithAltScreen())
 			m, err := p.Run()
 			if err != nil {
 				return fmt.Errorf("launcher error: %w", err)
 			}
 
-			selected := m.(tui.LauncherModel).Selected
+			resModel := m.(tui.LauncherModel)
+			activeCursor = resModel.Cursor
+			selected := resModel.Selected
 			switch selected {
 			case "web":
-				fmt.Printf(tui.T("menu_open_web"), srv.URL)
+				tui.PrintWebWorkspaceLaunchScreen(srv.URL)
 				_ = server.OpenBrowser(srv.URL)
-				fmt.Println(tui.T("menu_press_enter"))
-				_, _ = fmt.Scanln()
+				tui.PromptPressEscToReturn()
 
 			case "terminal":
-				// RunLiveREPL returns replBackSentinel if user pressed /back,
-				// or "" if user pressed /exit. In both cases, loop continues
-				// back to the launcher — no special branching needed here.
-				tui.RunLiveREPL(cfg, appDB, srv.URL)
+				// RunLiveREPL returns ReplBackSentinel if user typed /back.
+				// If user typed /exit (or double-pressed Esc/Ctrl+C), it returns "" -> exit to shell.
+				ret := tui.RunLiveREPL(cfg, appDB, srv.URL)
+				if ret != tui.ReplBackSentinel {
+					return nil
+				}
 
 			case "sessions":
 				// Show saved sessions with interactive resume option
 				selectedSessionID := runSessionsInteractive(cmd, appDB)
 				if selectedSessionID != "" {
-					// Result ignored: both /back and /exit return user to launcher loop.
-					tui.RunLiveREPL(cfg, appDB, srv.URL, selectedSessionID)
+					ret := tui.RunLiveREPL(cfg, appDB, srv.URL, selectedSessionID)
+					if ret != tui.ReplBackSentinel {
+						return nil
+					}
 				}
 
 			case "help":
 				tui.PrintFullHelpGuide()
-				fmt.Println("\n" + tui.T("menu_press_enter"))
-				_, _ = fmt.Scanln()
+				tui.PromptPressEscToReturn()
 
 			case "health":
-				fmt.Println(tui.T("health_header"))
-				fmt.Println("─────────────────────────────────────────────────────────────────────────────")
-				fmt.Printf("• Local Daemon URL: %s [ALIVE]\n", srv.URL)
-				fmt.Printf("• Database Path   : %s\n", cfg.Storage.DBPath)
-				fmt.Printf("• Python Engine   : %s\n", cfg.Engine.PythonBin)
-
-				secKeyText := tui.T("health_status_installed")
-				if cfg.Auth.SectorsAPIKey == "" {
-					secKeyText = tui.T("health_status_missing")
-				}
-				fmt.Printf("• Sectors API Key : %s\n", secKeyText)
-
-				activeModel := cfg.Auth.OpenAIModel
-				if activeModel == "" {
-					if cfg.Auth.GeminiModel != "" {
-						activeModel = cfg.Auth.GeminiModel
-					} else {
-						activeModel = "hermes"
-					}
-				}
-				baseURL := cfg.Auth.OpenAIBaseURL
-				if baseURL == "" {
-					baseURL = "OpenAI-Compatible Standard"
-				}
-				hasModelKey := cfg.Auth.OpenAIAPIKey != "" || cfg.Auth.GeminiAPIKey != ""
-				modelKeyText := tui.T("health_status_installed")
-				if !hasModelKey {
-					modelKeyText = tui.T("health_status_missing")
-				}
-				fmt.Printf("• Inference Engine: Universal ReAct (%s) [ALIVE]\n", baseURL)
-				fmt.Printf("• Active Model    : %s\n", activeModel)
-				fmt.Printf("• Model API Key   : %s\n", modelKeyText)
-				fmt.Println("─────────────────────────────────────────────────────────────────────────────")
-				fmt.Println(tui.T("menu_press_enter"))
-				_, _ = fmt.Scanln()
+				tui.PrintHealthDiagnostics(cfg, srv.URL)
+				tui.PromptPressEscToReturn()
 
 			case "lang":
 				langModel := tui.NewLangSelectorModel()
@@ -154,8 +126,7 @@ and qualitative market disclosures/news.`,
 
 			case "setup":
 				_ = RunInteractiveSetup()
-				fmt.Println(tui.T("menu_press_enter"))
-				_, _ = fmt.Scanln()
+				tui.PromptPressEscToReturn()
 
 			case "exit", "":
 				fmt.Println(tui.T("menu_exit_msg"))

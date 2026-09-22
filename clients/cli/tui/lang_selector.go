@@ -20,23 +20,23 @@ type LangSelectorModel struct {
 var (
 	langBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#22C55E")).
+			BorderForeground(ColorAccent).
 			Padding(1, 2).
-			Foreground(lipgloss.Color("#F8FAFC"))
+			Foreground(ColorFg)
 
 	langTitleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#00FF87"))
+			Foreground(ColorAccent)
 
 	activeBadgeStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#052E16")).
-				Background(lipgloss.Color("#4ADE80")).
+				Foreground(ColorBg).
+				Background(ColorAccent).
 				Padding(0, 1)
 
 	langCursorStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#4ADE80"))
+			Foreground(ColorAccent)
 )
 
 // NewLangSelectorModel creates a new language selection sub-menu model.
@@ -121,13 +121,13 @@ func (m LangSelectorModel) View() string {
 		}
 
 		if i == m.Cursor {
-			b.WriteString(langCursorStyle.Render("▶ ") + lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF")).Render(lineStr) + "\n")
+			b.WriteString(langCursorStyle.Render("▶ ") + lipgloss.NewStyle().Bold(true).Foreground(ColorFg).Render(lineStr) + "\n")
 		} else {
-			b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color("#94A3B8")).Render(lineStr) + "\n")
+			b.WriteString("  " + lipgloss.NewStyle().Foreground(ColorMuted).Render(lineStr) + "\n")
 		}
 	}
 
-	b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(T("lang_selector_hint")))
+	b.WriteString("\n" + lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(T("lang_selector_hint")))
 
 	return "\n" + langBoxStyle.Render(b.String()) + "\n"
 }

@@ -204,61 +204,68 @@ func TestRenderResumedHistory(t *testing.T) {
 	renderResumedHistory(tmpDB, sessionID)
 }
 
-func TestReplInputModelEscClearsInputNotExit(t *testing.T) {
+func TestReplInputModel_EscKeyBehavior(t *testing.T) {
 	model := NewReplInputModel("niskava [hermes] >")
-	model.TextInput.SetValue("saham ANTM") // user sudah mengetik sesuatu
 
-	// Tekan Esc ketika slash popup TIDAK aktif
+	// 1. Non-empty input: pressing Esc clears text input
+	model.TextInput.SetValue("analisis ANTM")
 	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	m := updated.(ReplInputModel)
 
-	// Esc seharusnya HANYA clear input, BUKAN exit
+	if m.TextInput.Value() != "" {
+		t.Fatalf("expected text input to be cleared after Esc, got: %s", m.TextInput.Value())
+	}
 	if m.Quitting {
-		t.Error("expected Quitting to be false: Esc should clear input, not exit")
+		t.Fatalf("expected Quitting to be false when clearing text input")
 	}
 	if cmd != nil {
-		t.Error("expected no tea command (no tea.Quit) when Esc clears input")
+		t.Fatalf("expected nil cmd when clearing text input")
 	}
-	if m.TextInput.Value() != "" {
-		t.Errorf("expected empty input after Esc, got '%s'", m.TextInput.Value())
+
+	// 2. Slash active: pressing Esc closes slash popup
+	model.TextInput.SetValue("/res")
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(ReplInputModel)
+	if !m.SlashActive {
+		t.Fatalf("expected SlashActive to be true for '/res'")
 	}
-	if m.SubmittedValue != "" {
-		t.Errorf("expected empty SubmittedValue after Esc, got '%s'", m.SubmittedValue)
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updated.(ReplInputModel)
+	if m.SlashActive {
+		t.Fatalf("expected SlashActive to be false after Esc")
+	}
+	if m.Quitting {
+		t.Fatalf("expected Quitting to be false when dismissing slash popup")
 	}
 }
 
-func TestReplInputModelEscOnEmptyInputExits(t *testing.T) {
+func TestReplInputModel_DoublePressExit(t *testing.T) {
 	model := NewReplInputModel("niskava [hermes] >")
-	// Input kosong: Esc seharusnya set SubmittedValue = "/exit" (keluar REPL)
-	model.TextInput.SetValue("")
 
+	// First Esc press on empty input: sets warning, does not quit
 	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	m := updated.(ReplInputModel)
 
-	if !m.Quitting {
-		t.Error("expected Quitting to be true: Esc on empty input should exit REPL")
+	if !m.ExitWarning {
+		t.Fatalf("expected ExitWarning to be true after first Esc press")
 	}
-	if cmd == nil {
-		t.Error("expected tea.Quit command when Esc on empty input")
+	if m.Quitting {
+		t.Fatalf("expected Quitting to be false after first Esc press")
+	}
+	if cmd != nil {
+		t.Fatalf("expected nil cmd after first Esc press")
+	}
+
+	// Second Esc press immediately (within 2s): quits with /exit
+	updated, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updated.(ReplInputModel)
+
+	if !m.Quitting {
+		t.Fatalf("expected Quitting to be true after second Esc press")
 	}
 	if m.SubmittedValue != "/exit" {
-		t.Errorf("expected SubmittedValue '/exit', got '%s'", m.SubmittedValue)
-	}
-}
-
-func TestReplInputModelCtrlCAlwaysExits(t *testing.T) {
-	model := NewReplInputModel("niskava [hermes] >")
-	model.TextInput.SetValue("saham ANTM") // ada teks
-
-	// Ctrl+C harus selalu exit (tetap behavior lama)
-	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
-	m := updated.(ReplInputModel)
-
-	if !m.Quitting {
-		t.Error("expected Quitting to be true on Ctrl+C regardless of input")
-	}
-	if cmd == nil {
-		t.Error("expected tea.Quit command on Ctrl+C")
+		t.Fatalf("expected SubmittedValue to be '/exit', got: %s", m.SubmittedValue)
 	}
 }
 
@@ -462,3 +469,4 @@ func TestSlashCommandsListContainsBack(t *testing.T) {
 
 	SetLanguage("en")
 }
+
