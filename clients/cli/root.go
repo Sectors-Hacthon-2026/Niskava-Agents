@@ -67,16 +67,19 @@ and qualitative market disclosures/news.`,
 		}
 
 		hasAPIKey := cfg.Auth.SectorsAPIKey != "" || cfg.Auth.GeminiAPIKey != "" || cfg.Auth.OpenAIAPIKey != ""
+		activeCursor := 0
 		for {
 			fmt.Print("\033[H\033[2J")
-			launcher := tui.NewLauncherModelWithHealth(srv.URL, "v1.0.0", hasAPIKey)
+			launcher := tui.NewLauncherModelWithHealthAndCursor(srv.URL, "v1.0.0", hasAPIKey, activeCursor)
 			p := tea.NewProgram(launcher, tea.WithAltScreen())
 			m, err := p.Run()
 			if err != nil {
 				return fmt.Errorf("launcher error: %w", err)
 			}
 
-			selected := m.(tui.LauncherModel).Selected
+			resModel := m.(tui.LauncherModel)
+			activeCursor = resModel.Cursor
+			selected := resModel.Selected
 			switch selected {
 			case "web":
 				tui.PrintWebWorkspaceLaunchScreen(srv.URL)

@@ -98,14 +98,22 @@ func NewLauncherModel(serverURL string, version string) LauncherModel {
 
 // NewLauncherModelWithHealth initializes the revamped launcher menu with live health state.
 func NewLauncherModelWithHealth(serverURL string, version string, apiKeyOK bool) LauncherModel {
+	return NewLauncherModelWithHealthAndCursor(serverURL, version, apiKeyOK, 0)
+}
+
+// NewLauncherModelWithHealthAndCursor initializes launcher menu with custom initial cursor position.
+func NewLauncherModelWithHealthAndCursor(serverURL string, version string, apiKeyOK bool, initialCursor int) LauncherModel {
 	items := GetLocalizedLauncherItems()
+	if initialCursor < 0 || initialCursor >= len(items) {
+		initialCursor = 0
+	}
 
 	return LauncherModel{
 		ServerURL: serverURL,
 		Version:   version,
 		APIKeyOK:  apiKeyOK,
 		Items:     items,
-		Cursor:    0, // Default cursor on Web UI [W]
+		Cursor:    initialCursor,
 	}
 }
 
