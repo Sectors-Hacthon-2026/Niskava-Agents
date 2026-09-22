@@ -157,68 +157,133 @@ def get_system_prompt(
     language: str = "id",
     available_tools: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
+    """Build the lean system prompt (~420 tokens) using Progressive Skill Disclosure.
+
+    The LLM receives only 4 gateway primitive definitions — never the full list
+    of 15+ atomic Sectors API tools. Skills are presented as a compact 1-liner
+    manifest; full SOPs are injected by the Python engine when execute_skill
+    is called (ADR-11).
+
+    Args:
+        language: 'id' (Bahasa Indonesia) or 'en' (English).
+        available_tools: List of 4 gateway tool definition dicts from
+                         NiskavaToolRegistry.get_tool_definitions().
+
+    Returns:
+        Complete system prompt string for the LLM.
+    """
     lang = (language or "id").lower()
     user_lang_instruction = (
         "- The user prefers English. Respond in professional, engaging English."
         if lang == "en"
-        else "- The user communicates in Indonesian (Bahasa Indonesia). Provide all final answers, insights, tables, and narrative summaries in fluent, professional, and clear Indonesian."
+        else (
+            "- The user communicates in Bahasa Indonesia. "
+            "Provide all final answers, insights, tables, and narrative summaries "
+            "in fluent, professional, and clear Indonesian."
+        )
     )
 
+    # Build compact gateway tools section — 4 gateways, not 15+ atomic tools
     tools_section = ""
     if available_tools:
-        tools_section = "\n=== AVAILABLE DETERMINISTIC TOOLS & DOMAIN SKILLS ===\n"
+        tools_section = "\n=== GATEWAY TOOLS (call via <tool_call>) ===\n"
         for t in available_tools:
-            props = t.get("parameters", {}).get("properties", {})
-            args_str = ", ".join(props.keys()) if props else "none"
-            tools_section += f"- `{t['name']}`: {t.get('description', '')} [args: {args_str}]\n"
+            req = t.get("parameters", {}).get("required", [])
+            req_str = ", ".join(req) if req else "none"
+            tools_section += f"- `{t['name']}`: {t.get('description', '')} [required: {req_str}]\n"
 
-    return f"""You are Niskava Agent, an autonomous financial research assistant and market intelligence specialist for the Indonesia Stock Exchange (IDX). You assist equity analysts, financial journalists, and retail traders with market analysis, fundamental research, regulatory insights, and quantitative investigations.
+    return f"""You are Niskava Agent, an autonomous financial OSINT and market intelligence specialist for the Indonesia Stock Exchange (IDX). You help equity analysts, financial journalists, and retail traders with rigorous, evidence-based market investigations.
 
 === TARGET USER LANGUAGE ===
 {user_lang_instruction}
-- Internal reasoning, tool calls, and XML tags MUST strictly follow the English protocol below regardless of user language.
+- Internal reasoning, tool calls, and XML tags MUST follow the English protocol below.
 
 === GOLDEN OPERATIONAL RULES ===
-1. ZERO PREAMBLE TO USER: NEVER output preliminary conversational chit-chat, greetings, or execution plans (e.g. "Mari kita lakukan analisis...", "Langkah 1: Ambil Data...") to the user before calling tools.
-2. THOUGHT ISOLATION: Put ALL your internal planning, hypotheses, and step breakdowns strictly inside <thought>...</thought>.
-3. IMMEDIATE ACTION: When asked to analyze, screen, or investigate any IDX ticker (e.g. GOTO, ANTM, BBCA), immediately emit the required <tool_call> on your very first step.
+1. ZERO PREAMBLE TO USER: Never output greetings or execution plans before calling tools. Act immediately.
+2. THOUGHT ISOLATION: All internal planning MUST be inside <thought>...</thought>.
+3. IMMEDIATE ACTION: For any IDX ticker inquiry, emit <tool_call> on your very first step.
 4. TOOL SELECTION SOP:
-   - Price & Volume Anomaly: Call 'compute_quant_anomalies' or 'get_daily_candles'.
-   - Market News & Catalysts: Call 'harvest_market_news'.
-   - General knowledge, concepts (PER, PBV, IDX trading hours): Answer directly inside <response>...</response> without calling tools.
-5. RESPONSE GATING: Only communicate with the user inside <response>...</response> AFTER you have gathered factual data via <observation>.
+   - Deep investigation: call `execute_skill` with the appropriate skill_id.
+   - Raw market data: call `query_sectors` with the appropriate domain.
+   - News & catalysts: call `search_osint`.
+   - Session memory recall: call `query_memory` before starting fresh investigations.
+   - General concepts (PER, PBV, IDX trading hours): answer directly in <response>.
+5. RESPONSE GATING: Communicate with user ONLY inside <response>...</response> AFTER observing factual tool data.
 
-=== OPERATIONAL LAWS & BOUNDARIES ===
-1. LAW 1 (Deterministic Before Generative):
-   - When quantitative indicators (volume moving averages, Z-scores, abnormal returns, price changes) are needed for a stock, NEVER guess or calculate numbers in your head. Call deterministic tools ('compute_quant_anomalies', 'get_daily_candles') and base your analysis on factual tool observations.
-   
-2. LAW 2 (Strict Financial Non-Advisory Boundary):
-   - You are an objective research and intelligence assistant, NOT an investment advisor or broker.
-   - NEVER output direct BUY/SELL recommendations, target prices, or portfolio advice.
-   - When presenting investigative findings on specific corporate events or rumors, categorize evidence objectively:
-     * [SUPPORTED]: Confirmed by official Sectors API data or formal IDX disclosures.
-     * [UNCERTAIN]: Correlation observed, but causality unverified (rumors, social media).
-     * [CONTRADICTED]: Claims refuted by official disclosures or financial facts.
-   - Always conclude formal stock investigations with the standard non-advisory disclaimer.
+=== OPERATIONAL LAWS ===
+LAW 1 (Deterministic Before Generative): NEVER calculate Z-scores, moving averages, or abnormal returns in your head. Always call `execute_skill` or `query_sectors` and use the returned computed values.
+LAW 2 (Non-Advisory Boundary): You are an investigative intelligence platform, NOT an investment advisor. NEVER output BUY/SELL recommendations or price targets. Classify all findings as [SUPPORTED], [UNCERTAIN], or [CONTRADICTED]. Always include the non-advisory disclaimer on stock investigations.
 
 === REACTION PROTOCOL & 1-SHOT DEMONSTRATION ===
 Example:
-User: "analisis ANTM coba"
-Assistant:
-<thought>User wants quantitative and market analysis for ANTM. I must check volume anomalies and daily candles first deterministically.</thought>
-<tool_call>{{"name": "compute_quant_anomalies", "arguments": {{"ticker": "ANTM"}}}}</tool_call>
-
-(System provides: <observation>...</observation>)
-
-Assistant:
-<thought>Data shows volume anomaly on 2026-09-15 with Z-score 2.8. Ready to synthesize final findings for the user.</thought>
+User: "analisis ANTM"
+<thought>Need volume anomaly scan for ANTM. Will run market_anomaly_recon skill first.</thought>
+<tool_call>{{"name": "execute_skill", "arguments": {{"skill_id": "market_anomaly_recon", "arguments": {{"ticker": "ANTM"}}}}}}</tool_call>
+(System provides: <observation>Z-Score 3.84σ on 2026-09-12, Abnormal Return +6.2%</observation>)
+<thought>Significant anomaly detected. Ready to synthesize findings.</thought>
 <response>
-[Comprehensive analytical synthesis in user's target language with data tables and non-advisory disclaimer]
+[Evidence-based analytical synthesis in user's target language with data tables and disclaimer]
 </response>
 {tools_section}"""
 
 
 SYSTEM_PROMPT = get_system_prompt("id")
+
+
+# ---------------------------------------------------------------------------
+# Proactive Follow-Up Chips & Skill Recommendation Graph (ADR-11)
+# ---------------------------------------------------------------------------
+
+_SKILL_FOLLOWUP_GRAPH: Dict[str, List[str]] = {
+    "market_anomaly_recon": [
+        "event_causality_audit",
+        "insider_bandarmology_forensic",
+        "peer_valuation_benchmark",
+    ],
+    "event_causality_audit": [
+        "insider_bandarmology_forensic",
+        "financial_health_stress_test",
+        "peer_valuation_benchmark",
+    ],
+    "insider_bandarmology_forensic": [
+        "event_causality_audit",
+        "financial_health_stress_test",
+        "peer_valuation_benchmark",
+    ],
+    "financial_health_stress_test": [
+        "peer_valuation_benchmark",
+        "insider_bandarmology_forensic",
+        "event_causality_audit",
+    ],
+    "mining_commodity_divergence": [
+        "event_causality_audit",
+        "peer_valuation_benchmark",
+        "insider_bandarmology_forensic",
+    ],
+    "peer_valuation_benchmark": [
+        "financial_health_stress_test",
+        "market_anomaly_recon",
+        "insider_bandarmology_forensic",
+    ],
+}
+
+_SKILL_CHIP_DESCRIPTIONS_ID: Dict[str, str] = {
+    "market_anomaly_recon": "Scan lonjakan volume MA20/Z-score & abnormal return {ticker} via NumPy (`market_anomaly_recon`).",
+    "event_causality_audit": "Audit kausalitas berita vs lonjakan volume {ticker} (`event_causality_audit`).",
+    "insider_bandarmology_forensic": "Audit akumulasi top broker (C3 >= 65%) dan transaksi orang dalam {ticker} (`insider_bandarmology_forensic`).",
+    "financial_health_stress_test": "Audit likuiditas, solvabilitas, dan uji stres neraca {ticker} (`financial_health_stress_test`).",
+    "mining_commodity_divergence": "Uji korelasi pergerakan {ticker} terhadap harga spot komoditas acuan (`mining_commodity_divergence`).",
+    "peer_valuation_benchmark": "Benchmark valuasi relatif (PER/PBV) {ticker} terhadap median rekan subsektor IDX (`peer_valuation_benchmark`).",
+}
+
+_SKILL_CHIP_DESCRIPTIONS_EN: Dict[str, str] = {
+    "market_anomaly_recon": "Scan {ticker} volume spikes (MA20/Z-score) & abnormal returns via NumPy (`market_anomaly_recon`).",
+    "event_causality_audit": "Audit news causality vs {ticker} volume surges (`event_causality_audit`).",
+    "insider_bandarmology_forensic": "Audit top broker accumulation (C3 >= 65%) and insider transactions for {ticker} (`insider_bandarmology_forensic`).",
+    "financial_health_stress_test": "Stress-test {ticker} balance sheet liquidity and solvency ratios (`financial_health_stress_test`).",
+    "mining_commodity_divergence": "Test {ticker} correlation against global commodity spot prices (`mining_commodity_divergence`).",
+    "peer_valuation_benchmark": "Benchmark {ticker} relative valuation (PER/PBV) against IDX subsector peers (`peer_valuation_benchmark`).",
+}
 
 
 class NiskavaReActAgent:
@@ -643,6 +708,95 @@ class NiskavaReActAgent:
         messages.append({"role": "user", "content": user_prompt})
         return messages
 
+    def _build_followup_chips(
+        self,
+        final_response: str,
+        skills_executed: List[str],
+        ticker: str,
+        language: str = "id",
+    ) -> str:
+        """Generate proactive follow-up investigation chips (ADR-11).
+
+        Recommends 2-3 logical next-step domain skills based on the skills executed
+        in the current session and the target ticker, preventing duplicate suggestions.
+
+        Args:
+            final_response: Current synthesized agent response string.
+            skills_executed: List of skill_ids already invoked in this turn/session.
+            ticker: Primary IDX stock ticker being investigated.
+            language: Target language ('id' or 'en').
+
+        Returns:
+            Markdown formatted string of recommended next steps, or empty string.
+        """
+        if not final_response or not ticker:
+            return ""
+
+        # Avoid appending duplicate chips if already synthesized in final response
+        if (
+            "💡 Rekomendasi" in final_response
+            or "💡 Recommended" in final_response
+            or "Rekomendasi Penelusuran" in final_response
+            or "Recommended Next Steps" in final_response
+        ):
+            return ""
+
+        clean_ticker = ticker.strip().upper()
+        clean_executed = [
+            s.replace("skill_", "").strip()
+            for s in skills_executed
+            if s
+        ]
+
+        candidates: List[str] = []
+        if clean_executed:
+            # Follow edges from the executed skills (most recent first)
+            for executed in reversed(clean_executed):
+                for next_skill in _SKILL_FOLLOWUP_GRAPH.get(executed, []):
+                    if next_skill not in clean_executed and next_skill not in candidates:
+                        candidates.append(next_skill)
+            # Fill from all remaining skills if fewer than 3
+            for skill_id in _SKILL_FOLLOWUP_GRAPH:
+                if skill_id not in clean_executed and skill_id not in candidates:
+                    candidates.append(skill_id)
+        else:
+            # Default starting skills for fresh investigation on ticker
+            defaults = [
+                "market_anomaly_recon",
+                "event_causality_audit",
+                "peer_valuation_benchmark",
+            ]
+            for s in defaults:
+                if s not in clean_executed and s not in candidates:
+                    candidates.append(s)
+
+        selected = candidates[:3]
+        if not selected:
+            return ""
+
+        lang = (language or self.language or "id").lower()
+        if lang == "en":
+            header = "### 💡 Recommended Next Steps:"
+            desc_map = _SKILL_CHIP_DESCRIPTIONS_EN
+            ticker_fallback = clean_ticker or "the stock"
+        else:
+            header = "### 💡 Rekomendasi Penelusuran Lanjutan:"
+            desc_map = _SKILL_CHIP_DESCRIPTIONS_ID
+            ticker_fallback = clean_ticker or "emiten"
+
+        items: List[str] = [f"\n\n---\n{header}"]
+        for i, s_id in enumerate(selected, 1):
+            raw = desc_map.get(s_id, f"Jalankan `{s_id}` untuk {clean_ticker}.")
+            if "{ticker}" in raw:
+                desc = raw.format(ticker=clean_ticker or ticker_fallback)
+            else:
+                desc = raw
+            if f"`{s_id}`" not in desc:
+                desc = f"{desc} (`{s_id}`)"
+            items.append(f"{i}. {desc}")
+
+        return "\n".join(items)
+
     def _run_universal_chat_cycle(
         self,
         session_id: str,
@@ -664,6 +818,7 @@ class NiskavaReActAgent:
 
         now = datetime.now()
         current_date_str = now.strftime("%Y-%m-%d (%A)")
+        # ADR-11: get_tool_definitions() returns only 4 lean gateway defs (~380 tokens).
         tool_defs = (
             self.tools.get_tool_definitions()
             if self.tools and hasattr(self.tools, "get_tool_definitions")
@@ -1015,6 +1170,53 @@ class NiskavaReActAgent:
             }
 
         final_response = sanitize_final_response(final_response)
+
+        # ADR-11: Proactive Follow-Up Chips Generator
+        skills_executed: List[str] = []
+        detected_ticker = ""
+
+        for m in messages:
+            content_str = str(m.get("content") or "")
+            if m.get("role") == "assistant":
+                for name, args in extract_tool_calls(content_str):
+                    if name == "execute_skill":
+                        sid = args.get("skill_id", "")
+                        if sid:
+                            clean_sid = sid.replace("skill_", "").strip()
+                            if clean_sid not in skills_executed:
+                                skills_executed.append(clean_sid)
+                        if not detected_ticker and isinstance(args.get("arguments"), dict):
+                            t_arg = args["arguments"].get("ticker", "")
+                            if t_arg:
+                                detected_ticker = str(t_arg).upper()
+                    elif name in _SKILL_FOLLOWUP_GRAPH or name.replace("skill_", "") in _SKILL_FOLLOWUP_GRAPH:
+                        clean_sid = name.replace("skill_", "").strip()
+                        if clean_sid not in skills_executed:
+                            skills_executed.append(clean_sid)
+                        if not detected_ticker and isinstance(args, dict) and args.get("ticker"):
+                            detected_ticker = str(args["ticker"]).upper()
+                    elif not detected_ticker and isinstance(args, dict) and args.get("ticker"):
+                        detected_ticker = str(args["ticker"]).upper()
+            elif m.get("role") == "user":
+                if not detected_ticker:
+                    t_candidates = extract_valid_tickers(content_str)
+                    if t_candidates:
+                        detected_ticker = t_candidates[0].upper()
+
+        if not detected_ticker:
+            t_candidates = extract_valid_tickers(user_prompt)
+            if t_candidates:
+                detected_ticker = t_candidates[0].upper()
+
+        chips = self._build_followup_chips(
+            final_response=final_response,
+            skills_executed=skills_executed,
+            ticker=detected_ticker,
+            language=self.language,
+        )
+        if chips:
+            final_response = final_response + chips
+
         self._emit({
             "event": "agent_message_chunk",
             "session_id": session_id,

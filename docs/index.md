@@ -1,8 +1,8 @@
 # Niskava Agent Documentation Catalogue (Index)
 
-**Doc set version:** `1.1.0`  
+**Doc set version:** `1.2.0`  
 **Status:** ACTIVE BASELINE  
-**Terakhir Diperbarui:** 2026-09-16  
+**Terakhir Diperbarui:** 2026-09-22  
 
 Katalog lengkap seluruh dokumen arsitektur, produk, logika agen, dan keputusan teknis Niskava Agent.
 
@@ -24,9 +24,10 @@ Katalog lengkap seluruh dokumen arsitektur, produk, logika agen, dan keputusan t
 |---|---|---|
 | [`10-product/01-problem-and-market.md`](10-product/01-problem-and-market.md) | Analisis lanskap pasar modal Indonesia, kebutuhan investor, dan keunggulan data moat Sectors.app. | `ACCEPTED` |
 | [`10-product/02-personas-and-jobs.md`](10-product/02-personas-and-jobs.md) | Profil target persona: Retail Swing Trader, Equity Research Associate, dan Financial Fact-Checker. | `ACCEPTED` |
-| [`10-product/03-product-scope-and-surfaces.md`](10-product/03-product-scope-and-surfaces.md) | Spesifikasi antarmuka ganda: Terminal CLI interaktif (`bubbletea`) dan Local Web Dashboard (`shadcn/ui`). | `ACCEPTED` |
+| [`10-product/03-product-scope-and-surfaces.md`](10-product/03-product-scope-and-surfaces.md) | Spesifikasi antarmuka ganda: Terminal CLI interaktif (`bubbletea` + i18n) dan Local Web Dashboard (`server.go` embedded & `shadcn/ui`). | `ACCEPTED` |
 | [`10-product/04-user-journeys.md`](10-product/04-user-journeys.md) | Alur interaksi pengguna ujung-ke-ujung (dari inisiasi CLI hingga inspeksi timeline bukti di web). | `ACCEPTED` |
 | [`10-product/05-hackathon-strategy.md`](10-product/05-hackathon-strategy.md) | Penyelarasan kriteria Track 1 Sectors Hackathon 2026, strategi 1.000 API credit, dan skenario demo ANTM. | `LOCKED` |
+| [`10-product/06-demo-video-script.md`](10-product/06-demo-video-script.md) | Storyboard dan naskah resmi video demo penjurian: Teaser 1-Menit & Judging Walkthrough 3-Menit. | `ACCEPTED` |
 
 ---
 
@@ -69,10 +70,16 @@ Katalog lengkap seluruh dokumen arsitektur, produk, logika agen, dan keputusan t
 | [`90-decisions/05-strict-financial-non-advisory-boundary.md`](90-decisions/05-strict-financial-non-advisory-boundary.md) | Membatasi agen pada intelijen faktual dan melarang keras sinyal trading spekulatif *Buy/Sell*. | `ACCEPTED` |
 | [`90-decisions/06-local-conversational-graph-memory.md`](90-decisions/06-local-conversational-graph-memory.md) | Mengadopsi graf memori lokal (SQLite + NetworkX) untuk retensi asosiasi entitas dan preferensi pengguna lintas sesi. | `ACCEPTED` |
 | [`90-decisions/07-resilient-dual-engine-osint-architecture.md`](90-decisions/07-resilient-dual-engine-osint-architecture.md) | Mengadopsi arsitektur Dual-Engine OSINT (Sectors v2 + Google News RSS) untuk mengatasi sensor ISP lokal dan proteksi WAF bursa. | `ACCEPTED` |
+| [`90-decisions/08-modular-skills-and-mcp-architecture.md`](90-decisions/08-modular-skills-and-mcp-architecture.md) | Mengadopsi arsitektur 4-layer pemisahan MCP primitives, compute gate, domain skills, dan cognitive ReAct loop. | `ACCEPTED` |
+| [`90-decisions/09-internationalization-and-dual-language-ux.md`](90-decisions/09-internationalization-and-dual-language-ux.md) | Mengadopsi standardisasi i18n dwibahasa (Bahasa Indonesia & English) pada TUI dan prompt synthesis. | `ACCEPTED` |
+| [`90-decisions/10-dual-surface-web-delivery-strategy.md`](90-decisions/10-dual-surface-web-delivery-strategy.md) | Mengadopsi strategi web delivery ganda: Embedded Go HTML Single-Binary Fallback + Vite React SPA. | `ACCEPTED` |
+| [`90-decisions/11-progressive-skill-disclosure-and-lean-agent-architecture.md`](90-decisions/11-progressive-skill-disclosure-and-lean-agent-architecture.md) | Mengadopsi pola Progressive Skill Disclosure & Gateway Primitives (Antigravity/OpenCode) untuk memangkas prompt bloat. | `ACCEPTED` |
 
 ---
 
 ## Dokumen Navigasi Tambahan
 * [`README.md`](README.md) — Halaman panduan utama, panduan bacaan (*reading order*), dan aturan tata kelola dokumentasi.
-* [`AGENTS.md`](AGENTS.md) / [Root `AGENTS.md`](../AGENTS.md) — Konstitusi dan aturan operasional wajib bagi AI coding agent dan pengembang (Full English).
+* [Root `AGENTS.md`](../AGENTS.md) — Konstitusi dan aturan operasional wajib bagi AI coding agent dan pengembang (Full English).
 * [`open-questions.md`](open-questions.md) — Daftar pertanyaan terbuka dan keputusan arsitektur yang masih dalam proses evaluasi.
+* [`TEAM_CLIENTS_INTEGRATION_GUIDE.md`](TEAM_CLIENTS_INTEGRATION_GUIDE.md) — Panduan integrasi teknis frontend dan CLI untuk pengembang klien.
+* [`niskava_Project_Summary.md`](niskava_Project_Summary.md) — Ringkasan komprehensif produk, arsitektur, dan nilai tambah Niskava Agent.

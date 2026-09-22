@@ -275,3 +275,46 @@ Agen ReAct [`engine/agent/react_agent.py`](../../engine/agent/react_agent.py) ti
 5. SYNTHESIS: Agen merangkum jawaban dengan taksonomi bukti [SUPPORTED | UNCERTAIN | CONTRADICTED].
 ```
 
+---
+
+## 4. Progressive Skill Disclosure & Proactive Recommendations (ADR-11)
+
+Sesuai arsitektur **ADR-11**, Niskava Agent tidak melakukan *eager dump* terhadap seluruh definisi detail skill ke dalam system prompt (menghindari *prompt bloat* ~1.450 token). Sebagai gantinya:
+
+### A. Gateway Primitive (`execute_skill`)
+LLM hanya melihat satu fungsi pintu gerbang:
+```json
+{
+  "name": "execute_skill",
+  "arguments": {
+    "skill_id": "market_anomaly_recon",
+    "arguments": {"ticker": "ANTM", "days": 30}
+  }
+}
+```
+Deskripsi fungsi `execute_skill` memuat **Compact Skills Manifest** 1-baris untuk masing-masing dari 6 SOP di atas, memangkas ukuran prompt sistem hingga ~716 token.
+
+### B. Proactive Follow-Up Graph (`_SKILL_FOLLOWUP_GRAPH`)
+Setelah skill selesai dieksekusi dan hasil sintesis siap dikirim, agen secara proaktif menavigasikan langkah investigasi logis berikutnya via directed graph:
+
+```
+market_anomaly_recon
+  ├──▶ event_causality_audit
+  └──▶ insider_bandarmology_forensic
+
+event_causality_audit
+  ├──▶ insider_bandarmology_forensic
+  └──▶ financial_health_stress_test
+
+insider_bandarmology_forensic
+  ├──▶ peer_valuation_benchmark
+  └──▶ financial_health_stress_test
+
+mining_commodity_divergence
+  ├──▶ market_anomaly_recon
+  └──▶ peer_valuation_benchmark
+```
+
+Di akhir respon markdown, agen menyematkan rekomendasi langkah berikutnya (tanpa mengulang skill yang sudah pernah dijalankan pada sesi tersebut) dalam format dwibahasa (*ID/EN*).
+
+

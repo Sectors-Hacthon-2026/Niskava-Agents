@@ -63,6 +63,7 @@ func StreamChatViaSSE(ctx context.Context, serverURL, sessionID, prompt string) 
 		}
 
 		scanner := bufio.NewScanner(resp.Body)
+		scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
 		var currentEvent string
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
@@ -111,6 +112,7 @@ func StreamChatViaSSE(ctx context.Context, serverURL, sessionID, prompt string) 
 
 func parseSSEReader(r io.Reader) []ipc.Event {
 	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
 	var events []ipc.Event
 	var currentEvent string
 	for scanner.Scan() {

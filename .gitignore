@@ -52,6 +52,7 @@ wheels/
 htmlcov/
 
 # Python Virtual Environments
+.venv
 .venv/
 env/
 venv/

@@ -1,8 +1,9 @@
 # 02 — Skema Database SQLite Lokal
 
+**Doc set version:** 1.2.0  
 **Status:** ACCEPTED  
-**Versi Dokumen:** 1.1.0  
-**Terakhir Diperbarui:** 2026-09-16  
+**Versi Dokumen:** 1.2.0  
+**Terakhir Diperbarui:** 2026-09-22  
 **Keputusan Terkait:** [`04-local-first-sqlite-storage.md`](../90-decisions/04-local-first-sqlite-storage.md), [`06-local-conversational-graph-memory.md`](../90-decisions/06-local-conversational-graph-memory.md)  
 
 Database SQLite lokal disimpan di path direktori home pengguna: `~/.niskava/niskava.db`.

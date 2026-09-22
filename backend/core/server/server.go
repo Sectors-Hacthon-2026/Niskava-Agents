@@ -710,6 +710,10 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			return
 		}
 
+		// Disable write timeout for this streaming SSE connection
+		rc := http.NewResponseController(w)
+		_ = rc.SetWriteDeadline(time.Time{})
+
 		// Create cancellable context for this chat execution
 		chatCtx, cancelChat := context.WithCancel(r.Context())
 		defer cancelChat()
@@ -762,11 +766,20 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 
 		eventsChan, errChan := ipc.RunSubprocess(chatCtx, runnerParams)
 
+		// Periodic keep-alive comment to prevent proxy/socket timeouts during long multi-tool LLM turns
+		keepAliveTicker := time.NewTicker(15 * time.Second)
+		defer keepAliveTicker.Stop()
+
 		var assistantResponse strings.Builder
 		wasAborted := false
 
 		for {
 			select {
+			case <-keepAliveTicker.C:
+				// SSE comment line: keep-alive (ignored by event parsers, prevents socket idle death)
+				fmt.Fprintf(w, ": keep-alive\n\n")
+				flusher.Flush()
+
 			case <-chatCtx.Done():
 				wasAborted = true
 				fmt.Fprintf(w, "event: session_error\ndata: {\"error\": \"execution aborted by user or context cancelled\"}\n\n")
@@ -1135,7 +1148,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 	s.httpServer = &http.Server{
 		Handler:      mux,
 		ReadTimeout:  60 * time.Second,
-		WriteTimeout: 60 * time.Second,
+		WriteTimeout: 0, // 0 disables global write deadline, essential for long-running SSE streaming sessions
 	}
 
 	go func() {

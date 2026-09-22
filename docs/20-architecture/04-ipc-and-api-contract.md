@@ -194,6 +194,11 @@ Go Core Daemon menjalankan HTTP REST & Server-Sent Events (SSE) server lokal pad
 | `GET` | `/api/chat/sessions/{id}/export` | Ekspor transkrip percakapan | `?format=markdown` atau `?format=json` | Markdown plain text / JSON payload terstruktur |
 | `GET` | `/api/chat/search` | Pencarian pesan global lintas seluruh sesi | `?q={kata_kunci}` | JSON `{query: "...", count: N, results: [...]}` |
 | `POST` | `/api/chat` | Eksekusi turn percakapan dengan streaming SSE | `{"prompt": "...", "session_id": "..."}` | `text/event-stream` (Server-Sent Events) |
+| `GET` | `/api/graph/data` | Ekspor data node & edge graf memori lokal | `?session_id={id}&radius=2` | JSON `{nodes: [...], edges: [...]}` |
+| `GET` | `/graph` | Halaman visualisasi graf interaktif Vis.js di browser | `-` | HTML interaktif Vis.js Network |
+| `GET` | `/api/sessions` | Riwayat sesi investigasi pipeline headless | `-` | JSON daftar sesi `investigations` |
+| `GET` | `/api/investigations/{id}` | Detail lengkap hasil anomali & bukti investigasi | URL Param `{id}` | JSON objek investigasi, anomalies, findings, timeline |
+| `GET` | `/` | Web Workspace AI Assistant Canvas (Cyber-OSINT) | `-` | HTML/CSS/JS Single-Page Web Dashboard |
 
 ---
 
@@ -259,6 +264,11 @@ Access-Control-Allow-Origin: *
    event: error
    data: {"error": "Timeout saat memanggil upstream LLM"}
    ```
+
+### Protokol Ketahanan Streaming SSE (SSE Streaming Resilience):
+1. **Zero Write Deadline (`WriteTimeout: 0`)**: Server Go menonaktifkan deadline penulisan global pada `http.Server` dan menggunakan `http.NewResponseController(w).SetWriteDeadline(time.Time{})` pada endpoint `/api/chat`, mencegah terputusnya koneksi streaming saat LLM melakukan investigasi multi-tool berdurasi panjang (>60 detik).
+2. **Periodic Heartbeat (`: keep-alive\n\n`)**: Server mengirim komentar SSE `: keep-alive\n\n` setiap 15 detik selama eksekusi tool atau inferensi model berlangsung. Komentar ini diabaikan oleh parser event SSE standar namun menjaga koneksi soket TCP dan proxy/gateway tetap aktif (*anti-idle*).
+3. **1 MB Scanner Buffer**: Klien TUI dan web menggunakan buffer `bufio.NewScanner` berkapasitas 1 MB (`1024 * 1024`) untuk menjamin payload observasi berita dan tabel keuangan berukuran besar dapat dibaca tanpa memicu `bufio.ErrTooLong`.
 
 ### Manajemen Pembatalan Klien (Client Abort):
 Klien web atau terminal dapat menghentikan streaming kapan saja dengan mengirimkan request `POST /api/chat/sessions/{id}/abort`. Go Core akan secara instan membatalkan context eksekusi runner Python dan mengembalikan sesi ke status `IDLE`.
