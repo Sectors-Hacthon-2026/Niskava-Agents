@@ -16,6 +16,7 @@ type SessionSelectorModel struct {
 	Cursor          int
 	SelectedSession *db.ChatSession
 	Canceled        bool
+	FilterQuery     string
 }
 
 var (
@@ -50,38 +51,73 @@ func NewSessionSelectorModel(sessions []db.ChatSession) SessionSelectorModel {
 	}
 }
 
+func (m SessionSelectorModel) getFilteredSessions() []db.ChatSession {
+	q := strings.TrimSpace(strings.ToLower(m.FilterQuery))
+	if q == "" {
+		return m.Sessions
+	}
+	var filtered []db.ChatSession
+	for _, s := range m.Sessions {
+		if strings.Contains(strings.ToLower(s.ID), q) ||
+			strings.Contains(strings.ToLower(s.Title), q) ||
+			strings.Contains(strings.ToLower(s.LastMessagePreview), q) {
+			filtered = append(filtered, s)
+		}
+	}
+	return filtered
+}
+
 func (m SessionSelectorModel) Init() tea.Cmd {
 	return nil
 }
 
 func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	filtered := m.getFilteredSessions()
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "esc", "q", "ctrl+c":
+		case "esc", "ctrl+c":
+			if m.FilterQuery != "" {
+				m.FilterQuery = ""
+				m.Cursor = 0
+				return m, nil
+			}
 			m.Canceled = true
 			return m, tea.Quit
 
 		case "up", "k":
 			if m.Cursor > 0 {
 				m.Cursor--
-			} else if len(m.Sessions) > 0 {
-				m.Cursor = len(m.Sessions) - 1
+			} else if len(filtered) > 0 {
+				m.Cursor = len(filtered) - 1
 			}
 
 		case "down", "j":
-			if m.Cursor < len(m.Sessions)-1 {
+			if m.Cursor < len(filtered)-1 {
 				m.Cursor++
 			} else {
 				m.Cursor = 0
 			}
 
+		case "backspace":
+			if len(m.FilterQuery) > 0 {
+				m.FilterQuery = m.FilterQuery[:len(m.FilterQuery)-1]
+				m.Cursor = 0
+			}
+
 		case "enter":
-			if len(m.Sessions) > 0 && m.Cursor >= 0 && m.Cursor < len(m.Sessions) {
-				selected := m.Sessions[m.Cursor]
+			if len(filtered) > 0 && m.Cursor >= 0 && m.Cursor < len(filtered) {
+				selected := filtered[m.Cursor]
 				m.SelectedSession = &selected
 			}
 			return m, tea.Quit
+
+		default:
+			if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+				m.FilterQuery += string(msg.Runes)
+				m.Cursor = 0
+			}
 		}
 	}
 	return m, nil
@@ -125,9 +161,22 @@ func (m SessionSelectorModel) View() string {
 	title := T("session_selector_title")
 	b.WriteString(sessionTitleStyle.Render(title) + "\n\n")
 
-	total := len(m.Sessions)
-	if total == 0 {
+	filtered := m.getFilteredSessions()
+	totalAll := len(m.Sessions)
+	totalFiltered := len(filtered)
+
+	if m.FilterQuery != "" {
+		filterBar := fmt.Sprintf("🔍 Filter: %s (Found %d of %d sessions)", lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render("\""+m.FilterQuery+"\""), totalFiltered, totalAll)
+		b.WriteString(filterBar + "\n\n")
+	}
+
+	if totalAll == 0 {
 		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("session_selector_empty")) + "\n")
+		return "\n" + sessionBoxStyle.Render(b.String()) + "\n"
+	}
+
+	if totalFiltered == 0 {
+		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render("  (No matching sessions found for query)") + "\n")
 		return "\n" + sessionBoxStyle.Render(b.String()) + "\n"
 	}
 
@@ -138,17 +187,17 @@ func (m SessionSelectorModel) View() string {
 		windowStart = m.Cursor - maxVisible + 1
 	}
 	windowEnd := windowStart + maxVisible
-	if windowEnd > total {
-		windowEnd = total
+	if windowEnd > totalFiltered {
+		windowEnd = totalFiltered
 		windowStart = max(0, windowEnd-maxVisible)
 	}
 
-	if total > maxVisible {
-		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(fmt.Sprintf("--- Showing %d-%d of %d sessions ---", windowStart+1, windowEnd, total)) + "\n\n")
+	if totalFiltered > maxVisible {
+		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(fmt.Sprintf("--- Showing %d-%d of %d sessions ---", windowStart+1, windowEnd, totalFiltered)) + "\n\n")
 	}
 
 	for i := windowStart; i < windowEnd; i++ {
-		s := m.Sessions[i]
+		s := filtered[i]
 		dateStr := s.UpdatedAt
 		if len(dateStr) > 16 {
 			dateStr = strings.Replace(dateStr[:16], "T", " ", 1)

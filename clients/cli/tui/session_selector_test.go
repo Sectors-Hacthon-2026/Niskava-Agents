@@ -105,3 +105,25 @@ func TestSanitizePreviewText(t *testing.T) {
 		t.Fatalf("expected '%s', got '%s'", expected, cleaned)
 	}
 }
+
+func TestSessionSelectorModel_LiveKeywordFilter(t *testing.T) {
+	sessions := []db.ChatSession{
+		{ID: "CHAT-1", Title: "Riset Saham ANTM", LastMessagePreview: "Volume naik"},
+		{ID: "CHAT-2", Title: "Valuasi Saham BBCA", LastMessagePreview: "Diskon 5%"},
+	}
+	model := NewSessionSelectorModel(sessions)
+
+	model.FilterQuery = "bbca"
+	filtered := model.getFilteredSessions()
+	if len(filtered) != 1 {
+		t.Fatalf("expected 1 matching session for 'bbca', got %d", len(filtered))
+	}
+	if filtered[0].ID != "CHAT-2" {
+		t.Fatalf("expected CHAT-2 for 'bbca', got %s", filtered[0].ID)
+	}
+
+	view := model.View()
+	if !strings.Contains(view, "Filter: \"bbca\"") {
+		t.Fatalf("expected view to contain filter header, got: %s", view)
+	}
+}
