@@ -123,7 +123,7 @@ func TestSessionSelectorModel_LiveKeywordFilter(t *testing.T) {
 	}
 
 	view := model.View()
-	if !strings.Contains(view, "bbca") || !strings.Contains(view, "Cari/Filter") {
+	if !strings.Contains(view, "bbca") || !strings.Contains(view, "Filter:") {
 		t.Fatalf("expected view to contain filter header with 'bbca', got: %s", view)
 	}
 }

@@ -178,7 +178,7 @@ func (m SessionSelectorModel) View() string {
 		searchVal = lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(searchVal)
 	}
 
-	searchBar := fmt.Sprintf("🔍 Cari/Filter: [ %s ] (%d/%d)", searchVal, totalFiltered, totalAll)
+	searchBar := fmt.Sprintf("🔍 Filter: [ %s ] (%d/%d)", searchVal, totalFiltered, totalAll)
 	b.WriteString(searchBar + "\n\n")
 
 	if totalAll == 0 {
