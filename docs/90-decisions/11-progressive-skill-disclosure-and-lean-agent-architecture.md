@@ -1,7 +1,7 @@
 # 11 — Arsitektur Progressive Skill Disclosure & Lean System Prompt (Mengadopsi Pola Antigravity & OpenCode)
 
-**Status:** PROPOSED  
-**Versi Dokumen:** 1.0.0  
+**Status:** ACCEPTED  
+**Versi Dokumen:** 1.1.0  
 **Tanggal:** 2026-09-22  
 **Pengambil Keputusan:** Core Architecture Team  
 **Dokumen Terkait:** [`08-modular-skills-and-mcp-architecture.md`](08-modular-skills-and-mcp-architecture.md), [`02-deterministic-quant-pre-llm.md`](02-deterministic-quant-pre-llm.md), [`../30-agent/02-skills-catalog.md`](../30-agent/02-skills-catalog.md), [`../30-agent/05-conversational-memory-engine.md`](../30-agent/05-conversational-memory-engine.md)
@@ -170,13 +170,16 @@ Di akhir giliran percakapan, agen tidak sekadar berhenti, melainkan menyertakan 
 
 ---
 
-## 5. Rencana Penerapan Bertahap (Roadmap Implementasi)
+## 5. Rencana Penerapan Bertahap & Status Implementasi
 
-1. **Fase 1: Gateway Primitives di `tools.py`**:
-   * Buat method universal `query_sectors` dan `query_memory` di [`NiskavaToolRegistry`](file:///home/ikhsan/orca/workspaces/Niskava-Agent/dev/backend/engine/agent/tools.py).
-2. **Fase 2: Lean System Prompt Refactoring di `react_agent.py`**:
-   * Ubah `get_system_prompt()` agar hanya mencetak 4 gateway tools dan manifest ringkas 6 skills.
-3. **Fase 3: Proactive Follow-Up Generator**:
-   * Tambahkan generator rekomendasi skill lanjutan pada tahap sintesis akhir respon agen.
-4. **Fase 4: Unit Testing & Benchmark Verification**:
-   * Pastikan seluruh 150 pengujian pytest dan Go test tetap lulus 100%.
+1. **Fase 1: Gateway Primitives di `tools.py`** — `[COMPLETED]`:
+   * Method universal `query_sectors`, `search_osint`, dan `query_memory` di [`NiskavaToolRegistry`](file:///home/ikhsan/orca/workspaces/Niskava-Agent/dev/backend/engine/agent/tools.py) selesai diimplementasikan.
+   * Backwards-compatibility pada dispatch table `execute_tool()` tetap 100% utuh.
+2. **Fase 2: Lean System Prompt Refactoring di `react_agent.py`** — `[COMPLETED]`:
+   * `get_system_prompt()` direfaktor menjadi 551 kata (~716 token) hanya dengan 4 gateway primitives dan ringkasan manifest 6 skills.
+   * Law 1 dan Law 2 tetap dipertahankan tanpa kompromi.
+3. **Fase 3: Proactive Follow-Up Generator** — `[COMPLETED]`:
+   * Implementasi `_SKILL_FOLLOWUP_GRAPH`, deskripsi dwibahasa, deduplikasi skill yang sudah dijalankan, dan hook pada `_run_universal_chat_cycle`.
+4. **Fase 4: Unit Testing & Benchmark Verification** — `[COMPLETED]`:
+   * Seluruh 182 pengujian pytest dan 7 paket Go test lulus 100% tanpa regresi.
+   * Menambahkan pengujian ketahanan SSE streaming (`WriteTimeout: 0`, 15s keep-alive ticker, 1MB scanner buffer).
