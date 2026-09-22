@@ -23,7 +23,7 @@ var (
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(ColorAccent).
 			Width(76).
-			Padding(1, 2).
+			Padding(0, 1).
 			Foreground(ColorFg)
 
 	sessionTitleStyle = lipgloss.NewStyle().
@@ -87,6 +87,38 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// SanitizePreviewText strips newlines, markdown tokens, and wide emojis to ensure 100% predictable 1-to-1 ASCII display width.
+func SanitizePreviewText(raw string) string {
+	s := strings.ReplaceAll(raw, "\r\n", " ")
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "\r", " ")
+	s = strings.ReplaceAll(s, "\t", " ")
+
+	s = strings.ReplaceAll(s, "###", "")
+	s = strings.ReplaceAll(s, "##", "")
+	s = strings.ReplaceAll(s, "#", "")
+	s = strings.ReplaceAll(s, "**", "")
+	s = strings.ReplaceAll(s, "__", "")
+	s = strings.ReplaceAll(s, "```", "")
+	s = strings.ReplaceAll(s, "`", "")
+	s = strings.ReplaceAll(s, "❌", "")
+	s = strings.ReplaceAll(s, "⚠️", "")
+	s = strings.ReplaceAll(s, "🚨", "")
+	s = strings.ReplaceAll(s, "⚡", "")
+	s = strings.ReplaceAll(s, "👤", "")
+
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 32 && r <= 126) || (r >= 160 && r <= 255) {
+			b.WriteRune(r)
+		} else if r == ' ' {
+			b.WriteRune(' ')
+		}
+	}
+
+	return strings.Join(strings.Fields(b.String()), " ")
+}
+
 func (m SessionSelectorModel) View() string {
 	var b strings.Builder
 
@@ -122,9 +154,11 @@ func (m SessionSelectorModel) View() string {
 			dateStr = strings.Replace(dateStr[:16], "T", " ", 1)
 		}
 
-		preview := s.LastMessagePreview
-		if len(preview) > 58 {
-			preview = preview[:55] + "..."
+		// Clean and sanitize preview string (strip newlines, markdown, and emojis to prevent line breaking inside card)
+		preview := SanitizePreviewText(s.LastMessagePreview)
+		previewRunes := []rune(preview)
+		if len(previewRunes) > 40 {
+			preview = string(previewRunes[:37]) + "..."
 		}
 		if preview == "" {
 			preview = "-"
@@ -135,12 +169,14 @@ func (m SessionSelectorModel) View() string {
 			pinBadge = " [PINNED]"
 		}
 
-		title := s.Title + pinBadge
-		if len(title) > 18 {
-			title = title[:15] + "..."
+		rawTitle := SanitizePreviewText(s.Title)
+		title := rawTitle + pinBadge
+		titleRunes := []rune(title)
+		if len(titleRunes) > 16 {
+			title = string(titleRunes[:13]) + "..."
 		}
 
-		lineTitle := fmt.Sprintf("%-19s %-18s (%d msgs) [%s]", s.ID, title, s.MessageCount, dateStr)
+		lineTitle := fmt.Sprintf("%-18s %-16s (%d msgs) [%s]", s.ID, title, s.MessageCount, dateStr)
 		previewLine := fmt.Sprintf("    ↳ %s", preview)
 
 		if i == m.Cursor {
