@@ -597,6 +597,14 @@ var TUIStrings = map[string]map[string]string{
 		"en": "No previous chat sessions found in local SQLite database.",
 		"id": "Belum ada riwayat sesi chat tersimpan di database SQLite lokal.",
 	},
+	"session_selector_search_placeholder": {
+		"en": "Type ticker or keyword to filter...",
+		"id": "Ketik kode emiten atau kata kunci...",
+	},
+	"session_selector_no_match": {
+		"en": "  (No matching sessions found for query)",
+		"id": "  (Tidak ada sesi yang cocok dengan pencarian)",
+	},
 	"slash_chats_desc": {
 		"en": "Browse and resume previous conversational chat sessions",
 		"id": "Jelajahi dan lanjutkan sesi obrolan chat sebelumnya",

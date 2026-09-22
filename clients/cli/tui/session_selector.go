@@ -166,10 +166,7 @@ func (m SessionSelectorModel) View() string {
 	totalFiltered := len(filtered)
 
 	// Always render visible search/filter bar box
-	searchPlaceholder := "Ketik kode emiten/kata kunci untuk memfilter..."
-	if ActiveLanguage == "en" {
-		searchPlaceholder = "Type ticker or keyword to filter sessions..."
-	}
+	searchPlaceholder := T("session_selector_search_placeholder")
 
 	searchVal := m.FilterQuery
 	if searchVal == "" {
@@ -187,7 +184,7 @@ func (m SessionSelectorModel) View() string {
 	}
 
 	if totalFiltered == 0 {
-		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render("  (Tidak ada sesi yang cocok dengan pencarian)") + "\n")
+		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("session_selector_no_match")) + "\n")
 		return "\n" + sessionBoxStyle.Render(b.String()) + "\n"
 	}
 
