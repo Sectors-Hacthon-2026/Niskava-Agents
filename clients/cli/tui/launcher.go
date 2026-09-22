@@ -30,16 +30,16 @@ type LauncherModel struct {
 	Quitting  bool
 }
 
-// Styles adhering to PRD Color Palette Specification (#00FF87 Bright Green Theme)
+// Styles adhering to Binance Dark Financial OSINT Palette Specification (#FCD535 Gold / #1E2329 Dark Slate)
 var (
-	colorPrdBrightGreen = lipgloss.Color("#00FF87")
-	colorPrdMutedGreen  = lipgloss.Color("#1F5C3F")
-	colorPrdDarkGreen   = lipgloss.Color("#052E16")
-	colorPrdWhite       = lipgloss.Color("#FFFFFF")
-	colorPrdLightGray   = lipgloss.Color("#B0B0B0")
-	colorPrdDimGray     = lipgloss.Color("#6E6E6E")
-	colorPrdStatusOK    = lipgloss.Color("#3DDC97")
-	colorPrdStatusErr   = lipgloss.Color("#FF5555")
+	colorPrdBrightGreen = lipgloss.Color("#FCD535") // Financial Gold Accent
+	colorPrdMutedGreen  = lipgloss.Color("#848E9C") // Slate Gray
+	colorPrdDarkGreen   = lipgloss.Color("#1E2329") // Dark Slate
+	colorPrdWhite       = lipgloss.Color("#FFFFFF") // Pure White
+	colorPrdLightGray   = lipgloss.Color("#848E9C") // Muted Slate Gray
+	colorPrdDimGray     = lipgloss.Color("#848E9C") // Dimmed Slate Gray
+	colorPrdStatusOK    = lipgloss.Color("#0ECB81") // Financial Green OK
+	colorPrdStatusErr   = lipgloss.Color("#F6465D") // Financial Red Error
 
 	bannerStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -57,8 +57,8 @@ var (
 
 	shortcutKeyActiveStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(colorPrdBrightGreen).
-				Background(colorPrdDarkGreen)
+				Foreground(colorPrdDarkGreen).
+				Background(colorPrdBrightGreen)
 
 	shortcutKeyInactiveStyle = lipgloss.NewStyle().
 					Bold(true).
@@ -66,14 +66,14 @@ var (
 
 	itemTitleActiveStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(colorPrdWhite).
-				Background(colorPrdDarkGreen)
+				Foreground(colorPrdDarkGreen).
+				Background(colorPrdBrightGreen)
 
 	itemTitleInactiveStyle = lipgloss.NewStyle().
-				Foreground(colorPrdLightGray)
+				Foreground(colorPrdWhite)
 
 	itemDescStyle = lipgloss.NewStyle().
-			Foreground(colorPrdDimGray)
+			Foreground(colorPrdLightGray)
 
 	cursorIndicatorStyle = lipgloss.NewStyle().
 				Bold(true).
@@ -98,14 +98,22 @@ func NewLauncherModel(serverURL string, version string) LauncherModel {
 
 // NewLauncherModelWithHealth initializes the revamped launcher menu with live health state.
 func NewLauncherModelWithHealth(serverURL string, version string, apiKeyOK bool) LauncherModel {
+	return NewLauncherModelWithHealthAndCursor(serverURL, version, apiKeyOK, 0)
+}
+
+// NewLauncherModelWithHealthAndCursor initializes launcher menu with custom initial cursor position.
+func NewLauncherModelWithHealthAndCursor(serverURL string, version string, apiKeyOK bool, initialCursor int) LauncherModel {
 	items := GetLocalizedLauncherItems()
+	if initialCursor < 0 || initialCursor >= len(items) {
+		initialCursor = 0
+	}
 
 	return LauncherModel{
 		ServerURL: serverURL,
 		Version:   version,
 		APIKeyOK:  apiKeyOK,
 		Items:     items,
-		Cursor:    1, // Default cursor on Terminal UI
+		Cursor:    initialCursor,
 	}
 }
 
@@ -299,4 +307,32 @@ func (m LauncherModel) View() string {
 	}
 
 	return b.String()
+}
+
+// PromptEscReturnModel is a Bubbletea sub-model that prompts the user to press ESC or Enter to return to main menu.
+type PromptEscReturnModel struct{}
+
+func (m PromptEscReturnModel) Init() tea.Cmd {
+	return nil
+}
+
+func (m PromptEscReturnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc", "enter", "q", "space", "ctrl+c":
+			return m, tea.Quit
+		}
+	}
+	return m, nil
+}
+
+func (m PromptEscReturnModel) View() string {
+	return "\n" + lipgloss.NewStyle().Foreground(ColorMuted).Render(T("menu_press_enter")) + "\n"
+}
+
+// PromptPressEscToReturn renders "Press ESC to return to Menu..." and waits for keypress.
+func PromptPressEscToReturn() {
+	p := tea.NewProgram(PromptEscReturnModel{})
+	_, _ = p.Run()
 }

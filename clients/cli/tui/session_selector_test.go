@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -75,5 +76,54 @@ func TestSessionSelectorModel_EmptyList(t *testing.T) {
 	view := model.View()
 	if view == "" {
 		t.Fatal("expected non-empty view for empty sessions list")
+	}
+}
+
+func TestSessionSelectorModel_SanitizeMultilinePreview(t *testing.T) {
+	sessions := []db.ChatSession{
+		{
+			ID:                 "CHAT-20260921-3076",
+			Title:              "Sesi Riset Pasar",
+			MessageCount:       4,
+			LastMessagePreview: "### ⚠️ Gagal Terhubung ke Provider AI\n\n - **Endpoint...",
+			UpdatedAt:          time.Now().Format(time.RFC3339),
+		},
+	}
+	model := NewSessionSelectorModel(sessions)
+	view := model.View()
+
+	if strings.Contains(view, "\n - **Endpoint") {
+		t.Fatalf("expected multiline preview to be sanitized into a single line, got raw newline in view: %s", view)
+	}
+}
+
+func TestSanitizePreviewText(t *testing.T) {
+	raw := "### ⚠️ Gagal Terhubung ke Provider AI\n\n - **Endpoint..."
+	cleaned := SanitizePreviewText(raw)
+	expected := "Gagal Terhubung ke Provider AI - Endpoint..."
+	if cleaned != expected {
+		t.Fatalf("expected '%s', got '%s'", expected, cleaned)
+	}
+}
+
+func TestSessionSelectorModel_LiveKeywordFilter(t *testing.T) {
+	sessions := []db.ChatSession{
+		{ID: "CHAT-1", Title: "Riset Saham ANTM", LastMessagePreview: "Volume naik"},
+		{ID: "CHAT-2", Title: "Valuasi Saham BBCA", LastMessagePreview: "Diskon 5%"},
+	}
+	model := NewSessionSelectorModel(sessions)
+
+	model.FilterQuery = "bbca"
+	filtered := model.getFilteredSessions()
+	if len(filtered) != 1 {
+		t.Fatalf("expected 1 matching session for 'bbca', got %d", len(filtered))
+	}
+	if filtered[0].ID != "CHAT-2" {
+		t.Fatalf("expected CHAT-2 for 'bbca', got %s", filtered[0].ID)
+	}
+
+	view := model.View()
+	if !strings.Contains(view, "bbca") || !strings.Contains(view, "Filter:") {
+		t.Fatalf("expected view to contain filter header with 'bbca', got: %s", view)
 	}
 }

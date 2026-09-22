@@ -26,52 +26,52 @@ const ReplBackSentinel = "__back__"
 const replBackSentinel = ReplBackSentinel
 
 var (
-	// Terminal Color Styles (Light Green / Matrix OSINT Aesthetic)
+	// Terminal Color Styles (Binance Dark Financial OSINT Aesthetic)
 	promptBoxStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#4ADE80"))
+			Foreground(ColorAccent)
 
 	userBubbleStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#22C55E")).
-			Foreground(lipgloss.Color("#F8FAFC")).
+			BorderForeground(ColorAccent).
+			Foreground(ColorFg).
 			Padding(0, 1).
 			MarginTop(1)
 
 	thoughtStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#86EFAC")).
+			Foreground(ColorThought).
 			Italic(true)
 
 	toolCallStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FACC15")).
+			Foreground(ColorAccent).
 			Bold(true)
 
 	observationStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#4ADE80"))
+				Foreground(ColorSuccess)
 
 	replAnomalyBoxStyle = lipgloss.NewStyle().
 				Border(lipgloss.NormalBorder()).
-				BorderForeground(lipgloss.Color("#EF4444")).
-				Foreground(lipgloss.Color("#FCA5A5")).
+				BorderForeground(ColorDanger).
+				Foreground(ColorFg).
 				Padding(0, 1).
 				MarginTop(1)
 
 	supportedBadgeStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#052E16")).
-				Background(lipgloss.Color("#22C55E")).
+				Foreground(ColorBg).
+				Background(ColorSuccess).
 				Padding(0, 1)
 
 	uncertainBadgeStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#0F172A")).
-				Background(lipgloss.Color("#FACC15")).
+				Foreground(ColorBg).
+				Background(ColorWarning).
 				Padding(0, 1)
 
 	contradictedBadgeStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#FFFFFF")).
-				Background(lipgloss.Color("#EF4444")).
+				Foreground(ColorFg).
+				Background(ColorDanger).
 				Padding(0, 1)
 )
 
@@ -95,6 +95,8 @@ type ReplInputModel struct {
 	SlashActive      bool
 	SubmittedValue   string
 	Quitting         bool
+	LastExitTime     time.Time
+	ExitWarning      bool
 }
 
 // NewReplInputModel initializes the interactive REPL prompt input.
@@ -127,27 +129,28 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Priority 1: Esc menutup slash popup jika aktif
 			if m.SlashActive && msg.Type == tea.KeyEsc {
 				m.SlashActive = false
+				m.ExitWarning = false
+				m.LastExitTime = time.Time{}
 				return m, nil
 			}
-			// Priority 2: Esc dengan Ctrl+C selalu exit
-			if msg.Type == tea.KeyCtrlC {
+			if msg.Type == tea.KeyEsc && strings.TrimSpace(m.TextInput.Value()) != "" {
+				m.TextInput.SetValue("")
+				m.TextInput.SetCursor(0)
+				m.ExitWarning = false
+				m.LastExitTime = time.Time{}
+				return m, nil
+			}
+
+			// 3-Layer Double Press Esc / Ctrl+C Safety Protection
+			now := time.Now()
+			if !m.LastExitTime.IsZero() && now.Sub(m.LastExitTime) <= 2*time.Second {
 				m.Quitting = true
 				m.SubmittedValue = "/exit"
 				return m, tea.Quit
 			}
-			// Priority 3: Esc dengan input tidak kosong → clear input saja
-			if strings.TrimSpace(m.TextInput.Value()) != "" {
-				m.TextInput.SetValue("")
-				m.TextInput.SetCursor(0)
-				m.SlashActive = false
-				m.FilteredCommands = m.SlashCommands
-				m.SlashCursor = 0
-				return m, nil
-			}
-			// Priority 4: Esc dengan input kosong → keluar REPL
-			m.Quitting = true
-			m.SubmittedValue = "/exit"
-			return m, tea.Quit
+			m.LastExitTime = now
+			m.ExitWarning = true
+			return m, nil
 
 		case tea.KeyUp:
 			if m.SlashActive && len(m.FilteredCommands) > 0 {
@@ -221,18 +224,34 @@ func (m ReplInputModel) View() string {
 	// Render input prompt box
 	b.WriteString("\n" + m.TextInput.View() + "\n")
 
+	// Render long prompt drafting character counter indicator if input is long (>50 chars)
+	val := strings.TrimSpace(m.TextInput.Value())
+	if len(val) >= 50 && !m.SlashActive {
+		countPill := lipgloss.NewStyle().
+			Foreground(ColorMuted).
+			Italic(true).
+			Render(fmt.Sprintf("  ✍️  Long Prompt Active (%d chars) • [Enter to execute, Esc to clear]", len(val)))
+		b.WriteString(countPill + "\n")
+	}
+
+	// Render double-press exit warning hint if active
+	if m.ExitWarning && !m.LastExitTime.IsZero() && time.Since(m.LastExitTime) <= 2*time.Second {
+		warningStr := lipgloss.NewStyle().Bold(true).Foreground(ColorWarning).Render(T("repl_exit_confirm"))
+		b.WriteString(warningStr + "\n")
+	}
+
 	// Render OpenCode-style Slash Autocomplete Popup Box when slash active
 	if m.SlashActive && len(m.FilteredCommands) > 0 {
 		popupHeader := lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#052E16")).
-			Background(lipgloss.Color("#22C55E")).
+			Foreground(ColorBg).
+			Background(ColorAccent).
 			Padding(0, 1).
 			Render(T("slash_popup_header"))
 
 		boxStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#22C55E")).
+			BorderForeground(ColorAccent).
 			Padding(0, 1)
 
 		var popupLines []string
@@ -241,19 +260,19 @@ func (m ReplInputModel) View() string {
 		for i, sc := range m.FilteredCommands {
 			cursor := "  "
 			if i == m.SlashCursor {
-				cursor = "▶ "
+				cursor = "> "
 			}
 
 			cmdStr := fmt.Sprintf("%-12s", sc.Command)
 			descStr := sc.Description
 
 			if i == m.SlashCursor {
-				cmdR := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00FF87")).Render(cmdStr)
-				descR := lipgloss.NewStyle().Foreground(lipgloss.Color("#F8FAFC")).Render(descStr)
-				popupLines = append(popupLines, fmt.Sprintf("%s%s %s", lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF87")).Render(cursor), cmdR, descR))
+				cmdR := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(cmdStr)
+				descR := lipgloss.NewStyle().Foreground(ColorFg).Render(descStr)
+				popupLines = append(popupLines, fmt.Sprintf("%s%s %s", lipgloss.NewStyle().Foreground(ColorAccent).Render(cursor), cmdR, descR))
 			} else {
-				cmdR := lipgloss.NewStyle().Foreground(lipgloss.Color("#4ADE80")).Render(cmdStr)
-				descR := lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Render(descStr)
+				cmdR := lipgloss.NewStyle().Foreground(ColorAccent).Render(cmdStr)
+				descR := lipgloss.NewStyle().Foreground(ColorMuted).Render(descStr)
 				popupLines = append(popupLines, fmt.Sprintf("  %s %s", cmdR, descR))
 			}
 		}
@@ -275,7 +294,7 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 	}
 
 	fmt.Println()
-	divider := lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Render(TF("repl_resumed_history_divider", len(history)))
+	divider := lipgloss.NewStyle().Foreground(ColorMuted).Render(TF("repl_resumed_history_divider", len(history)))
 	fmt.Println(divider)
 
 	for _, msg := range history {
@@ -283,12 +302,12 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 			userBox := userBubbleStyle.Render(TF("repl_user_label", msg.Content))
 			fmt.Println(userBox)
 		} else if msg.Role == "assistant" {
-			fmt.Println("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#22C55E")).Bold(true).Render(T("repl_agent_label")))
+			fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(T("repl_agent_label")))
 			renderFinalMarkdown(msg.Content)
 		}
 	}
 
-	fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Render("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━") + "\n")
+	fmt.Println(lipgloss.NewStyle().Foreground(ColorMuted).Render("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━") + "\n")
 }
 
 // RunLiveREPL starts an interactive, conversational research assistant session.
@@ -404,7 +423,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 			fmt.Print("\033[H\033[2J")
 			renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
 			activeInfo := GetActiveLanguageInfo()
-			fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(TF("repl_lang_switched", activeInfo.FlagSymbol, activeInfo.NativeName, activeInfo.Code)))
+			fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(TF("repl_lang_switched", activeInfo.FlagSymbol, activeInfo.NativeName, activeInfo.Code)))
 			continue
 		}
 
@@ -415,12 +434,12 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 
 		if lower == "/chats" {
 			if appDB == nil {
-				fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(T("repl_db_unavailable")))
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(T("repl_db_unavailable")))
 				continue
 			}
 			chatList, _, errList := appDB.ListChatSessions(30, 0, "")
 			if errList != nil {
-				fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(TF("repl_chats_fetch_err", errList)))
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("repl_chats_fetch_err", errList)))
 				continue
 			}
 			selector := NewSessionSelectorModel(chatList)
@@ -437,7 +456,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 					if title == "" {
 						title = res.SelectedSession.ID
 					}
-					fmt.Print(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
+					fmt.Print(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
 					renderResumedHistory(appDB, sessionID)
 				}
 			}
@@ -447,14 +466,14 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 		if strings.HasPrefix(lower, "/resume") {
 			parts := strings.Fields(input)
 			if len(parts) < 2 {
-				fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#FACC15")).Render(T("repl_resume_usage")))
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("repl_resume_usage")))
 				continue
 			}
 			targetID := strings.TrimSpace(parts[1])
 			if appDB != nil {
 				sess, errGet := appDB.GetChatSession(targetID)
 				if errGet != nil || sess == nil {
-					fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(TF("repl_resume_not_found", targetID)))
+					fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("repl_resume_not_found", targetID)))
 					continue
 				}
 				prevSessionID := sessionID
@@ -465,7 +484,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 				if title == "" {
 					title = sess.ID
 				}
-				fmt.Print(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
+				fmt.Print(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
 				renderResumedHistory(appDB, sessionID)
 			}
 			continue
@@ -478,7 +497,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 
 func renderBanner(modelLabel, serverURL, sessionID, dbPath string) {
 	fmt.Print(RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID))
-	helpHint := lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Render(T("banner_hint"))
+	helpHint := lipgloss.NewStyle().Foreground(ColorMuted).Render(T("banner_hint"))
 	fmt.Printf("\n%s\n", helpHint)
 }
 
@@ -498,7 +517,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 	}
 
 	// Sleek session divider (avoids redundant duplicate user input box)
-	fmt.Printf("\n%s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("#22C55E")).Render(TF("repl_session_banner", sessionID)))
+	fmt.Printf("\n%s\n", lipgloss.NewStyle().Foreground(ColorAccent).Render(TF("repl_session_banner", sessionID)))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -508,13 +527,23 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 	defer signal.Stop(sigChan)
 
 	var interrupted atomic.Bool
+	lastSignalTime := time.Time{}
 	go func() {
-		select {
-		case <-sigChan:
-			interrupted.Store(true)
-			fmt.Println("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#FACC15")).Bold(true).Render(strings.TrimSpace(T("repl_execution_cancelled"))))
-			cancel()
-		case <-ctx.Done():
+		for {
+			select {
+			case <-sigChan:
+				now := time.Now()
+				if !lastSignalTime.IsZero() && now.Sub(lastSignalTime) <= 2*time.Second {
+					interrupted.Store(true)
+					fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorDanger).Bold(true).Render(strings.TrimSpace(T("repl_execution_cancelled"))))
+					cancel()
+					return
+				}
+				lastSignalTime = now
+				fmt.Print("\r\033[K" + lipgloss.NewStyle().Foreground(ColorWarning).Bold(true).Render(T("repl_interrupt_confirm")) + "\r")
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
 
@@ -562,7 +591,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 		}
 	}
 
-	fmt.Print("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(TF("thinking_init", modelLabel)) + "\r")
+	fmt.Print("\n" + lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(TF("thinking_init", modelLabel)) + "\r")
 
 	activeErrChan := errChan
 	for {
@@ -614,7 +643,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				lastThought = ev.Thought
 				fmt.Print("\r\033[K")
 				fmt.Printf("💭 %s\n", thoughtStyle.Render(ev.Thought))
-				fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(TF("thinking_verify", modelLabel)) + "\r")
+				fmt.Print(lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(TF("thinking_verify", modelLabel)) + "\r")
 
 			case ipc.EventAgentToolCall:
 				fmt.Print("\r\033[K")
@@ -623,12 +652,12 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 					argsJSON = fmt.Sprintf(" %v", ev.Args)
 				}
 				fmt.Printf("⚡ %s%s\n", toolCallStyle.Render("[TOOL CALL: "+ev.Tool+"]"), argsJSON)
-				fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("#FACC15")).Italic(true).Render(TF("tool_executing", ev.Tool)) + "\r")
+				fmt.Print(lipgloss.NewStyle().Foreground(ColorAccent).Italic(true).Render(TF("tool_executing", ev.Tool)) + "\r")
 
 			case ipc.EventAgentObservation:
 				fmt.Print("\r\033[K")
 				fmt.Printf("🔎 %s\n", observationStyle.Render(ev.Summary))
-				fmt.Print(lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B")).Italic(true).Render(TF("thinking_synthesize", modelLabel)) + "\r")
+				fmt.Print(lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(TF("thinking_synthesize", modelLabel)) + "\r")
 
 			case ipc.EventAnomalyDetected:
 				fmt.Print("\r\033[K")
@@ -654,7 +683,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 			case ipc.EventAgentMessageChunk:
 				assistantResponse.WriteString(ev.Chunk)
 				words := len(strings.Fields(assistantResponse.String()))
-				fmt.Print("\r\033[K" + lipgloss.NewStyle().Foreground(lipgloss.Color("#4ADE80")).Italic(true).Render(TF("thinking_drafting", modelLabel, words)) + "\r")
+				fmt.Print("\r\033[K" + lipgloss.NewStyle().Foreground(ColorAccent).Italic(true).Render(TF("thinking_drafting", modelLabel, words)) + "\r")
 
 			case ipc.EventAgentMessageComplete:
 				if assistantResponse.Len() == 0 {
@@ -674,9 +703,9 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				if assistantResponse.Len() == 0 {
 					errBox := lipgloss.NewStyle().
 						Border(lipgloss.RoundedBorder()).
-						BorderForeground(lipgloss.Color("#EF4444")).
+						BorderForeground(ColorDanger).
 						Padding(0, 1).
-						Foreground(lipgloss.Color("#FCA5A5")).
+						Foreground(ColorFg).
 						Render(fmt.Sprintf("❌ [ERROR SESSION]: %s", ev.Error))
 					assistantResponse.WriteString(errBox)
 				}
@@ -686,8 +715,8 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 }
 
 func renderCompletionBadge(duration time.Duration, sessionID, model string, anomalies, findings int) string {
-	sep := lipgloss.NewStyle().Foreground(lipgloss.Color("#1F5C3F")).Render("─────────────────────────────────────────────────────────────────────────────")
-	badge := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#22C55E")).Render(T("badge_completed"))
+	sep := lipgloss.NewStyle().Foreground(ColorMuted).Render("─────────────────────────────────────────────────────────────────────────────")
+	badge := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(T("badge_completed"))
 	detail := TF("badge_completed_detail", duration.Seconds(), model, sessionID)
 	if anomalies > 0 || findings > 0 {
 		detail += TF("badge_completed_counts", anomalies, findings)
@@ -734,40 +763,7 @@ func printHelp() {
 }
 
 func printHealth(cfg *config.Config) {
-	fmt.Println(T("health_header"))
-	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
-	fmt.Printf("• Database Path  : %s\n", cfg.Storage.DBPath)
-	fmt.Printf("• Python Runtime : %s\n", cfg.Engine.PythonBin)
-
-	secKeyStatus := T("health_installed")
-	if cfg.Auth.SectorsAPIKey == "" {
-		secKeyStatus = T("health_not_installed")
-	}
-	fmt.Printf("• Sectors API Key: %s\n", secKeyStatus)
-
-	activeModel := cfg.Auth.OpenAIModel
-	if activeModel == "" {
-		if cfg.Auth.GeminiModel != "" {
-			activeModel = cfg.Auth.GeminiModel
-		} else {
-			activeModel = "hermes"
-		}
-	}
-
-	baseURL := cfg.Auth.OpenAIBaseURL
-	if baseURL == "" {
-		baseURL = "OpenAI-Compatible Standard"
-	}
-
-	keyStatus := T("health_installed")
-	if cfg.Auth.OpenAIAPIKey == "" && cfg.Auth.GeminiAPIKey == "" {
-		keyStatus = T("health_not_installed")
-	}
-
-	fmt.Printf("• Inference Engine: Universal ReAct (%s)\n", baseURL)
-	fmt.Printf("• Active Model   : %s\n", activeModel)
-	fmt.Printf("• Model API Key  : %s\n", keyStatus)
-	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
+	PrintHealthDiagnostics(cfg, "")
 }
 
 func printSessions(appDB *db.DB) {
