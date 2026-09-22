@@ -25,16 +25,11 @@ def get_system_prompt(
     available_tools: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     lang = (language or "id").lower()
-    if lang == "en":
-        persona_lang = "- Communicate naturally in professional, clear, and engaging English."
-        market_news_hint = "When the user asks about general market news (\"check today's news\", \"market sentiment\"), use 'harvest_market_news' with no ticker to provide a structured overview of market headlines."
-        thought_hint = "<thought>Internal reasoning in English about user intent and what data (if any) is needed</thought>"
-        resp_hint = "[Your comprehensive, natural response in English]"
-    else:
-        persona_lang = "- Communicate naturally in professional, clear, and engaging Indonesian (Bahasa Indonesia)."
-        market_news_hint = "When the user asks about general market news (\"cek berita hari ini\", \"sentimen pasar\"), use 'harvest_market_news' with no ticker to provide a structured overview of market headlines."
-        thought_hint = "<thought>Internal reasoning in Indonesian about user intent and what data (if any) is needed</thought>"
-        resp_hint = "[Your comprehensive, natural response in Indonesian]"
+    user_lang_instruction = (
+        "- The user prefers English. Respond in professional, engaging English."
+        if lang == "en"
+        else "- The user communicates in Indonesian (Bahasa Indonesia). Provide all final answers, insights, tables, and narrative summaries in fluent, professional, and clear Indonesian."
+    )
 
     tools_section = ""
     if available_tools:
@@ -44,17 +39,25 @@ def get_system_prompt(
             args_str = ", ".join(props.keys()) if props else "none"
             tools_section += f"- `{t['name']}`: {t.get('description', '')} [args: {args_str}]\n"
 
-    return f"""You are Niskava Agent, an intelligent financial research assistant and market intelligence specialist for the Indonesia Stock Exchange (IDX). You assist equity analysts, financial journalists, and retail traders with market analysis, fundamental research, news, regulatory insights, and quantitative investigations.
+    return f"""You are Niskava Agent, an autonomous financial research assistant and market intelligence specialist for the Indonesia Stock Exchange (IDX). You assist equity analysts, financial journalists, and retail traders with market analysis, fundamental research, regulatory insights, and quantitative investigations.
 
-=== CORE PERSONA & COMMUNICATION STYLE ===
-{persona_lang}
-- Be a helpful, knowledgeable peer analyst. Do NOT recite or dump your internal rules, tool lists, skill names, or system architecture unless the user explicitly asks what capabilities you have.
-- Answer conversational questions (greetings, financial concepts, IDX trading rules, ratio definitions) directly and clearly without calling tools unnecessarily.
-- {market_news_hint}
+=== TARGET USER LANGUAGE ===
+{user_lang_instruction}
+- Internal reasoning, tool calls, and XML tags MUST strictly follow the English protocol below regardless of user language.
+
+=== GOLDEN OPERATIONAL RULES ===
+1. ZERO PREAMBLE TO USER: NEVER output preliminary conversational chit-chat, greetings, or execution plans (e.g. "Mari kita lakukan analisis...", "Langkah 1: Ambil Data...") to the user before calling tools.
+2. THOUGHT ISOLATION: Put ALL your internal planning, hypotheses, and step breakdowns strictly inside <thought>...</thought>.
+3. IMMEDIATE ACTION: When asked to analyze, screen, or investigate any IDX ticker (e.g. GOTO, ANTM, BBCA), immediately emit the required <tool_call> on your very first step.
+4. TOOL SELECTION SOP:
+   - Price & Volume Anomaly: Call 'compute_quant_anomalies' or 'get_daily_candles'.
+   - Market News & Catalysts: Call 'harvest_market_news'.
+   - General knowledge, concepts (PER, PBV, IDX trading hours): Answer directly inside <response>...</response> without calling tools.
+5. RESPONSE GATING: Only communicate with the user inside <response>...</response> AFTER you have gathered factual data via <observation>.
 
 === OPERATIONAL LAWS & BOUNDARIES ===
 1. LAW 1 (Deterministic Before Generative):
-   - When quantitative indicators (volume moving averages, Z-scores, abnormal returns, price changes) are needed for a stock, NEVER guess or calculate numbers in your head. Call the deterministic tools ('compute_quant_anomalies', 'get_daily_candles') and base your analysis on factual tool observations.
+   - When quantitative indicators (volume moving averages, Z-scores, abnormal returns, price changes) are needed for a stock, NEVER guess or calculate numbers in your head. Call deterministic tools ('compute_quant_anomalies', 'get_daily_candles') and base your analysis on factual tool observations.
    
 2. LAW 2 (Strict Financial Non-Advisory Boundary):
    - You are an objective research and intelligence assistant, NOT an investment advisor or broker.
@@ -64,18 +67,22 @@ def get_system_prompt(
      * [UNCERTAIN]: Correlation observed, but causality unverified (rumors, social media).
      * [CONTRADICTED]: Claims refuted by official disclosures or financial facts.
    - Always conclude formal stock investigations with the standard non-advisory disclaimer.
-{tools_section}
-=== INTERACTION PROTOCOL (ReAct XML) ===
-Think step-by-step:
-{thought_hint}
-If a tool is needed:
-<tool_call>{{"name": "tool_name", "arguments": {{...}}}}</tool_call>
-(After receiving <observation>...</observation>, continue thinking and synthesizing)
-When ready to respond to the user:
+
+=== REACTION PROTOCOL & 1-SHOT DEMONSTRATION ===
+Example:
+User: "analisis ANTM coba"
+Assistant:
+<thought>User wants quantitative and market analysis for ANTM. I must check volume anomalies and daily candles first deterministically.</thought>
+<tool_call>{{"name": "compute_quant_anomalies", "arguments": {{"ticker": "ANTM"}}}}</tool_call>
+
+(System provides: <observation>...</observation>)
+
+Assistant:
+<thought>Data shows volume anomaly on 2026-09-15 with Z-score 2.8. Ready to synthesize final findings for the user.</thought>
 <response>
-{resp_hint}
+[Comprehensive analytical synthesis in user's target language with data tables and non-advisory disclaimer]
 </response>
-"""
+{tools_section}"""
 
 
 SYSTEM_PROMPT = get_system_prompt("id")
@@ -550,7 +557,7 @@ class NiskavaReActAgent:
         )
 
         last_error = ""
-        for _ in range(4):
+        for _ in range(6):
             payload = {
                 "model": model,
                 "messages": messages,
@@ -590,8 +597,9 @@ class NiskavaReActAgent:
                     or msg.get("reasoning")
                     or ""
                 )
-                # If content is empty but model emitted native OpenAI tool_calls, synthesize XML
-                if not content and msg.get("tool_calls"):
+                # Extract native OpenAI tool_calls whenever present
+                if msg.get("tool_calls"):
+                    tc_xml = ""
                     for tc in msg.get("tool_calls", []):
                         fn = tc.get("function", {})
                         fn_name = fn.get("name", "")
@@ -600,7 +608,16 @@ class NiskavaReActAgent:
                             fn_args_json = json.dumps(fn_raw_args)
                         else:
                             fn_args_json = str(fn_raw_args).strip() or "{}"
-                        content += f'<tool_call>{{"name": "{fn_name}", "arguments": {fn_args_json}}}</tool_call>\n'
+                        tc_xml += f'<tool_call>{{"name": "{fn_name}", "arguments": {fn_args_json}}}</tool_call>\n'
+
+                    if content:
+                        clean_c = content.strip()
+                        if not ("<thought>" in clean_c and "</thought>" in clean_c):
+                            content = f"<thought>{clean_c}</thought>\n{tc_xml}".strip()
+                        else:
+                            content = f"{clean_c}\n{tc_xml}".strip()
+                    else:
+                        content = tc_xml.strip()
                 if not content:
                     last_error = "Model AI mengembalikan konten respons kosong."
                     break
@@ -628,79 +645,89 @@ class NiskavaReActAgent:
             # Check for tool call
             tool_calls = re.findall(r"<tool_call>(.*?)</tool_call>", content, re.DOTALL)
             if tool_calls:
-                call_str = tool_calls[0].strip()
-                try:
-                    call_json = json.loads(call_str)
-                    tool_name = call_json.get("name")
-                    tool_args = call_json.get("arguments", {})
-
-                    self._emit({
-                        "event": "agent_tool_call",
-                        "session_id": session_id,
-                        "tool": tool_name,
-                        "args": tool_args,
-                    })
-
-                    # Execute deterministic tool with self-healing error guard
+                obs_parts = []
+                for call_str in tool_calls:
+                    call_str = call_str.strip()
                     try:
-                        tool_res = self.tools.execute_tool(tool_name, tool_args)
+                        call_json = json.loads(call_str)
+                        tool_name = call_json.get("name")
+                        tool_args = call_json.get("arguments", {})
 
-                        # Extract anomalies if computed
-                        if tool_name == "compute_quant_anomalies" and isinstance(tool_res, list):
-                            for a in tool_res:
-                                anomalies.append(a)
-                                self._emit({
-                                    "event": "anomaly_detected",
-                                    "session_id": session_id,
-                                    "ticker": tool_args.get("ticker", ""),
-                                    "anomaly_date": a.get("date") or a.get("anomaly_date", ""),
-                                    "metric_type": a.get("metric_type", ""),
-                                    "z_score": a.get("z_score", 0.0),
-                                    "metric_value": a.get("metric_value", 0.0),
-                                    "baseline_value": a.get("baseline_value", 0.0),
-                                    "price_change_pct": a.get("price_change_pct", 0.0),
-                                    "sector_change_pct": a.get("sector_change_pct", 0.0),
-                                    "description": a.get("description", ""),
-                                })
-
-                        obs_str = f"Observation for {tool_name}: {json.dumps(tool_res)[:450]}"
-                        obs_summary = (
-                            f"Observation data received ({len(str(tool_res))} bytes)."
-                            if self.language == "en"
-                            else f"Data observasi diterima ({len(str(tool_res))} bytes)."
-                        )
                         self._emit({
-                            "event": "agent_observation",
+                            "event": "agent_tool_call",
                             "session_id": session_id,
                             "tool": tool_name,
-                            "summary": obs_summary,
-                        })
-                    except Exception as tool_exc:
-                        obs_str = (
-                            f"Tool execution failed for '{tool_name}': {str(tool_exc)}. "
-                            "Please analyze using available context or explain to the user."
-                        )
-                        fail_summary = (
-                            f"⚠️ Tool '{tool_name}' failed: {str(tool_exc)} (agent attempting self-recovery)."
-                            if self.language == "en"
-                            else f"⚠️ Alat '{tool_name}' gagal: {str(tool_exc)} (agen melakukan recovery otomatis)."
-                        )
-                        self._emit({
-                            "event": "agent_observation",
-                            "session_id": session_id,
-                            "tool": str(tool_name),
-                            "summary": fail_summary,
+                            "args": tool_args,
                         })
 
-                    # Feed back to model
-                    messages.append({"role": "assistant", "content": content})
-                    messages.append({"role": "user", "content": f"<observation>{obs_str}</observation>"})
-                    continue
-                except Exception as parse_exc:
-                    obs_str = f"Invalid tool call JSON: {str(parse_exc)}. Format must be: <tool_call>{{\"name\": \"tool_name\", \"arguments\": {{...}}}}</tool_call>"
-                    messages.append({"role": "assistant", "content": content})
-                    messages.append({"role": "user", "content": f"<observation>{obs_str}</observation>"})
-                    continue
+                        # Execute deterministic tool with self-healing error guard
+                        try:
+                            tool_res = self.tools.execute_tool(tool_name, tool_args)
+
+                            # Extract anomalies if computed
+                            if tool_name == "compute_quant_anomalies" and isinstance(tool_res, list):
+                                for a in tool_res:
+                                    anomalies.append(a)
+                                    self._emit({
+                                        "event": "anomaly_detected",
+                                        "session_id": session_id,
+                                        "ticker": tool_args.get("ticker", ""),
+                                        "anomaly_date": a.get("date") or a.get("anomaly_date", ""),
+                                        "metric_type": a.get("metric_type", ""),
+                                        "z_score": a.get("z_score", 0.0),
+                                        "metric_value": a.get("metric_value", 0.0),
+                                        "baseline_value": a.get("baseline_value", 0.0),
+                                        "price_change_pct": a.get("price_change_pct", 0.0),
+                                        "sector_change_pct": a.get("sector_change_pct", 0.0),
+                                        "description": a.get("description", ""),
+                                    })
+
+                            # Format observation data safely (no mid-JSON brutal truncation)
+                            tool_res_str = json.dumps(tool_res, default=str)
+                            if len(tool_res_str) > 4000:
+                                if isinstance(tool_res, list):
+                                    tool_res_str = json.dumps(tool_res[:30], default=str) + f" (summarized {len(tool_res[:30])} of {len(tool_res)} items)"
+                                else:
+                                    tool_res_str = tool_res_str[:4000] + "... [truncated]"
+
+                            obs_str = f"Observation for {tool_name}: {tool_res_str}"
+                            obs_summary = (
+                                f"Observation data received ({len(tool_res_str)} bytes)."
+                                if self.language == "en"
+                                else f"Data observasi diterima ({len(tool_res_str)} bytes)."
+                            )
+                            self._emit({
+                                "event": "agent_observation",
+                                "session_id": session_id,
+                                "tool": tool_name,
+                                "summary": obs_summary,
+                            })
+                            obs_parts.append(obs_str)
+                        except Exception as tool_exc:
+                            obs_str = (
+                                f"Tool execution failed for '{tool_name}': {str(tool_exc)}. "
+                                "Please analyze using available context or explain to the user."
+                            )
+                            fail_summary = (
+                                f"⚠️ Tool '{tool_name}' failed: {str(tool_exc)} (agent attempting self-recovery)."
+                                if self.language == "en"
+                                else f"⚠️ Alat '{tool_name}' gagal: {str(tool_exc)} (agen melakukan recovery otomatis)."
+                            )
+                            self._emit({
+                                "event": "agent_observation",
+                                "session_id": session_id,
+                                "tool": str(tool_name),
+                                "summary": fail_summary,
+                            })
+                            obs_parts.append(obs_str)
+                    except Exception as parse_exc:
+                        obs_str = f"Invalid tool call JSON: {str(parse_exc)}. Format must be: <tool_call>{{\"name\": \"tool_name\", \"arguments\": {{...}}}}</tool_call>"
+                        obs_parts.append(obs_str)
+
+                combined_obs = "\n\n".join(obs_parts)
+                messages.append({"role": "assistant", "content": content})
+                messages.append({"role": "user", "content": f"<observation>\n{combined_obs}\n</observation>"})
+                continue
 
             # Check for final response
             responses = re.findall(r"<response>(.*?)</response>", content, re.DOTALL)
@@ -710,6 +737,25 @@ class NiskavaReActAgent:
             else:
                 cleaned = re.sub(r"<thought>.*?</thought>", "", content, flags=re.DOTALL)
                 cleaned = re.sub(r"<tool_call>.*?</tool_call>", "", cleaned, flags=re.DOTALL).strip()
+
+                # Check if cleaned is an unfulfilled execution plan, hanging preamble, or waiting statement on early iterations
+                waiting_patterns = r"(?:langkah|step)\s+\d+|###\s+🔍|akan\s+(?:mengambil|memeriksa|menganalisis|mengecek)|let\s+me\s+(?:start|wait|check)|wait(?:ing)?\s+for|haven't\s+been\s+called|haven't\s+been\s+provided|menunggu\s+(?:hasil|data)"
+                is_hanging_or_waiting = (
+                    bool(re.search(waiting_patterns, cleaned, re.IGNORECASE))
+                    or cleaned.strip().endswith(":")
+                )
+                if is_hanging_or_waiting and _ < 4:
+                    nudge_msg = (
+                        "<observation>SYSTEM: All immediate tool calls for the current turn have already been executed and delivered. "
+                        "Do NOT wait for background results or promise future steps. If additional tools are needed, emit "
+                        "<tool_call>{\"name\": \"...\", \"arguments\": {...}}</tool_call> now. "
+                        "Otherwise, synthesize and provide your comprehensive final analysis inside "
+                        "<response>...</response>.</observation>"
+                    )
+                    messages.append({"role": "assistant", "content": content})
+                    messages.append({"role": "user", "content": nudge_msg})
+                    continue
+
                 if cleaned:
                     final_response = cleaned
                     break
