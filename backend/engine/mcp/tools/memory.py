@@ -16,17 +16,17 @@ def get_memory_tool_definitions() -> List[Dict[str, Any]]:
     return [
         {
             "name": "memory_recall_context",
-            "description": "Ambil relasi graf memori dan konteks masa lalu untuk suatu entitas (misal ticker atau topik) dari basis data SQLite lokal, diurutkan berdasarkan bobot peluruhan waktu (recency decay).",
+            "description": "Retrieve graph memory relations and past context for an entity (e.g. ticker or topic) from local SQLite, ranked by temporal recency decay weight.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "query_entity": {
                         "type": "string",
-                        "description": "Nama entitas atau ticker saham yang dicari (contoh: 'ANTM', 'smelter')",
+                        "description": "Entity name or stock ticker to search (e.g. 'ANTM', 'smelter')",
                     },
                     "radius": {
                         "type": "integer",
-                        "description": "Kedalaman hop penelusuran Ego-Graph (default: 2, max: 2)",
+                        "description": "Ego-graph traversal hop depth (default: 2, max: 2)",
                         "default": 2,
                     },
                 },
@@ -35,40 +35,40 @@ def get_memory_tool_definitions() -> List[Dict[str, Any]]:
         },
         {
             "name": "memory_store_observation",
-            "description": "Simpan observasi relasi baru (graf memori) antara dua entitas ke dalam SQLite lokal.",
+            "description": "Persist a new relational observation (graph memory triple) between two entities into local SQLite.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "source_label": {
                         "type": "string",
-                        "description": "Label entitas asal (contoh: 'ANTM')",
+                        "description": "Source entity label (e.g. 'ANTM')",
                     },
                     "source_type": {
                         "type": "string",
-                        "description": "Tipe entitas asal (contoh: 'TICKER', 'PERSON', 'FACILITY')",
+                        "description": "Source entity type (e.g. 'TICKER', 'PERSON', 'FACILITY')",
                         "default": "TICKER",
                     },
                     "relation": {
                         "type": "string",
-                        "description": "Relasi/predikat penghubung (contoh: 'OPERATES', 'AFFECTED_BY', 'SUSPENDED_BY')",
+                        "description": "Relation predicate (e.g. 'OPERATES', 'AFFECTED_BY', 'SUSPENDED_BY')",
                     },
                     "target_label": {
                         "type": "string",
-                        "description": "Label entitas tujuan (contoh: 'Smelter Haltim')",
+                        "description": "Target entity label (e.g. 'Smelter Haltim')",
                     },
                     "target_type": {
                         "type": "string",
-                        "description": "Tipe entitas tujuan (contoh: 'FACILITY', 'EVENT')",
+                        "description": "Target entity type (e.g. 'FACILITY', 'EVENT')",
                         "default": "ENTITY",
                     },
                     "context_snippet": {
                         "type": "string",
-                        "description": "Kutipan atau konteks bukti ringkas",
+                        "description": "Brief evidence quote or context",
                         "default": "",
                     },
                     "session_id": {
                         "type": "string",
-                        "description": "ID sesi investigasi terkait (opsional)",
+                        "description": "Associated investigation session ID (optional)",
                     },
                 },
                 "required": ["source_label", "relation", "target_label"],
@@ -76,17 +76,17 @@ def get_memory_tool_definitions() -> List[Dict[str, Any]]:
         },
         {
             "name": "memory_find_connection",
-            "description": "Lacak jalur koneksi terpendek (shortest path) antara dua entitas pasar untuk membongkar afiliasi atau keterkaitan tersembunyi.",
+            "description": "Trace the shortest connection path between two market entities to uncover hidden affiliations or relationships.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "source_entity": {
                         "type": "string",
-                        "description": "Nama/label entitas pertama (contoh: 'ANTM')",
+                        "description": "First entity name or label (e.g. 'ANTM')",
                     },
                     "target_entity": {
                         "type": "string",
-                        "description": "Nama/label entitas kedua (contoh: 'BBCA')",
+                        "description": "Second entity name or label (e.g. 'BBCA')",
                     },
                 },
                 "required": ["source_entity", "target_entity"],
@@ -94,7 +94,7 @@ def get_memory_tool_definitions() -> List[Dict[str, Any]]:
         },
         {
             "name": "memory_get_graph_stats",
-            "description": "Ambil ringkasan statistik topologi graf memori dan entitas sentral (hub/god nodes).",
+            "description": "Retrieve summary topological statistics of the memory graph and identify central hub entities.",
             "inputSchema": {
                 "type": "object",
                 "properties": {},
@@ -102,18 +102,18 @@ def get_memory_tool_definitions() -> List[Dict[str, Any]]:
         },
         {
             "name": "memory_export_graph_html",
-            "description": "Ekspor visualisasi graf interaktif mandiri ke file HTML lokal (gaya Cyber-OSINT Graphify).",
+            "description": "Export a standalone interactive graph visualization to a local HTML file (vis-network.js, institutional financial aesthetic).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "output_path": {
                         "type": "string",
-                        "description": "Path tujuan penyimpanan file HTML (default: ~/.niskava/graph.html)",
+                        "description": "Destination path for the HTML file (default: ~/.niskava/graph.html)",
                         "default": "~/.niskava/graph.html",
                     },
                     "session_id": {
                         "type": "string",
-                        "description": "Filter berdasarkan ID sesi tertentu (opsional)",
+                        "description": "Filter nodes and edges by a specific session ID (optional)",
                     },
                 },
             },
