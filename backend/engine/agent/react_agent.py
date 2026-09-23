@@ -20,7 +20,7 @@ from engine.sectors.tickers import extract_valid_tickers, is_valid_idx_ticker
 from engine.utils.resilience import RetryConfig, execute_with_retry
 
 # Configurable ReAct loop depth & resource bounds
-MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_MAX_REACT_ITERATIONS", "10"))
+MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_MAX_REACT_ITERATIONS", "15"))
 DEFAULT_MAX_TOKENS: int = int(os.environ.get("NISKAVA_MAX_TOKENS", "30000"))
 DEFAULT_LLM_TIMEOUT: float = float(os.environ.get("NISKAVA_LLM_TIMEOUT", "90.0"))
 
@@ -1233,6 +1233,15 @@ class NiskavaReActAgent:
 
                 # Feed back to model
                 combined_obs = "\n\n".join(obs_parts)
+                # Graceful landing warning: when approaching iteration limit, instruct model to synthesize
+                remaining_steps = MAX_REACT_ITERATIONS - 1 - _
+                if 0 < remaining_steps <= 2:
+                    combined_obs += (
+                        f"\n\n[SYSTEM NOTICE: Hanya tersisa {remaining_steps} langkah penalaran. "
+                        "Data yang terkumpul sudah memadai. JANGAN panggil tool lagi. "
+                        "Segera rangkum dan sajikan analisis akhir lengkap Anda di dalam "
+                        "tag <response>...</response>.]"
+                    )
                 messages.append({"role": "assistant", "content": content})
                 messages.append({"role": "user", "content": f"<observation>\n{combined_obs}\n</observation>"})
                 continue
