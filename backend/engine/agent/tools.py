@@ -99,7 +99,25 @@ class NiskavaToolRegistry:
         # Intelligently default domain when omitted or empty to prevent ReAct loop crashes
         if not domain:
             if clean_ticker in _INDEX_TICKERS:
-                domain = "news"
+                # Return enriched market overview instead of raw news list
+                # to prevent model confusion and duplicate tool call loops
+                news = self.sectors_client.get_news(None)
+                context_parts = [
+                    f"Data pasar umum IDX per hari ini.",
+                    f"Jumlah artikel berita terkini: {len(news)}.",
+                ]
+                if news:
+                    top_headlines = [n.get("title", "") for n in news[:3] if isinstance(n, dict)]
+                    if top_headlines:
+                        context_parts.append(
+                            "Headline: " + "; ".join(top_headlines)
+                        )
+                return {
+                    "type": "market_overview",
+                    "ticker": clean_ticker,
+                    "news": news,
+                    "market_context": " ".join(context_parts),
+                }
             else:
                 domain = "candles"
 
