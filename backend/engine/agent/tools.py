@@ -94,14 +94,40 @@ class NiskavaToolRegistry:
         Raises:
             ValueError: If `domain` is not in _SECTORS_DOMAIN_MAP.
         """
+        clean_ticker = ticker.upper() if ticker else ""
+
+        # Intelligently default domain when omitted or empty to prevent ReAct loop crashes
+        if not domain:
+            if clean_ticker in _INDEX_TICKERS:
+                # Return enriched market overview instead of raw news list
+                # to prevent model confusion and duplicate tool call loops
+                news = self.sectors_client.get_news(None)
+                context_parts = [
+                    f"Data pasar umum IDX per hari ini.",
+                    f"Jumlah artikel berita terkini: {len(news)}.",
+                ]
+                if news:
+                    top_headlines = [n.get("title", "") for n in news[:3] if isinstance(n, dict)]
+                    if top_headlines:
+                        context_parts.append(
+                            "Headline: " + "; ".join(top_headlines)
+                        )
+                return {
+                    "type": "market_overview",
+                    "ticker": clean_ticker,
+                    "news": news,
+                    "market_context": " ".join(context_parts),
+                }
+            else:
+                domain = "candles"
+
         method_name = _SECTORS_DOMAIN_MAP.get(domain)
         if not method_name:
             supported = ", ".join(sorted(_SECTORS_DOMAIN_MAP.keys()))
             raise ValueError(
-                f"Domain tidak dikenal: '{domain}'. Domain yang didukung: {supported}"
+                f"Unknown domain: '{domain}'. Supported domains: {supported}"
             )
 
-        clean_ticker = ticker.upper() if ticker else ticker
         client_method = getattr(self.sectors_client, method_name)
 
         # Domains with a non-ticker primary key
@@ -590,7 +616,7 @@ class NiskavaToolRegistry:
 
         handler = handlers.get(tool_name)
         if not handler:
-            raise ValueError(f"Tool '{tool_name}' tidak terdaftar di Niskava Tool Registry.")
+            raise ValueError(f"Tool '{tool_name}' is not registered in Niskava Tool Registry.")
 
         return handler(arguments)
 

@@ -8,14 +8,16 @@ import (
 	"syscall"
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/server"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/telegram"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/clients/cli/tui"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
 
 var (
-	portFlag int
-	openFlag bool
+	portFlag     int
+	openFlag     bool
+	telegramFlag bool
 )
 
 var serveCmd = &cobra.Command{
@@ -57,6 +59,23 @@ for the Web Workspace and external clients on http://localhost:20128.`,
 		serverInfo := tui.TF("serve_online_box", srv.URL, dbPath)
 		fmt.Println("\n" + box.Render(serverInfo) + "\n")
 
+		// Optional Telegram Bot Daemon in background
+		if (telegramFlag || (cfg != nil && cfg.Telegram.Enabled)) && cfg != nil && cfg.Telegram.BotToken != "" {
+			sm := srv.SessionManager
+			botSvc, botErr := telegram.NewBotService(cfg, appDB, sm)
+			if botErr == nil {
+				if startErr := botSvc.Start(); startErr == nil {
+					defer botSvc.Stop()
+					teleBox := lipgloss.NewStyle().
+						Border(lipgloss.RoundedBorder()).
+						BorderForeground(lipgloss.Color("#2AABEE")).
+						Padding(0, 1).
+						Foreground(lipgloss.Color("#FFFFFF"))
+					fmt.Println(teleBox.Render("🤖 Telegram Bot Poller Active in background") + "\n")
+				}
+			}
+		}
+
 		if openFlag {
 			fmt.Printf(tui.T("serve_opening_browser"), srv.URL)
 			_ = server.OpenBrowser(srv.URL)
@@ -73,5 +92,6 @@ for the Web Workspace and external clients on http://localhost:20128.`,
 func init() {
 	serveCmd.Flags().IntVarP(&portFlag, "port", "p", 20128, "server port (default: 20128)")
 	serveCmd.Flags().BoolVarP(&openFlag, "open", "o", false, "open web dashboard in browser automatically")
+	serveCmd.Flags().BoolVar(&telegramFlag, "telegram", false, "enable Telegram bot long-poller alongside the web server")
 	RootCmd.AddCommand(serveCmd)
 }

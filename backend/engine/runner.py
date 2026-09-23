@@ -14,12 +14,21 @@ from engine.agent.react_agent import NiskavaReActAgent
 from engine.agent.tools import NiskavaToolRegistry
 
 
+# Ensure UTF-8 output across all operating systems (especially Windows consoles)
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
+
 def _handle_signal(sig: int, frame: Any) -> None:
     sys.exit(0)
 
 
-signal.signal(signal.SIGINT, _handle_signal)
-signal.signal(signal.SIGTERM, _handle_signal)
+if hasattr(signal, "SIGINT"):
+    signal.signal(signal.SIGINT, _handle_signal)
+if hasattr(signal, "SIGTERM"):
+    signal.signal(signal.SIGTERM, _handle_signal)
 
 
 def emit_jsonl(event_dict: Dict[str, Any]) -> None:

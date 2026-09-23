@@ -70,3 +70,59 @@ TEST_DOTENV_QUOTED="gemini_secret_val"
 		t.Errorf("expected gemini_secret_val, got %s", os.Getenv("TEST_DOTENV_QUOTED"))
 	}
 }
+
+func TestTelegramConfigParsing(t *testing.T) {
+	os.Setenv("NISKAVA_TELEGRAM_TOKEN", "test-bot-token-xyz")
+	os.Setenv("NISKAVA_TELEGRAM_ENABLED", "true")
+	os.Setenv("NISKAVA_TELEGRAM_ALLOWED_USERS", "user1,123456")
+	defer func() {
+		os.Unsetenv("NISKAVA_TELEGRAM_TOKEN")
+		os.Unsetenv("NISKAVA_TELEGRAM_ENABLED")
+		os.Unsetenv("NISKAVA_TELEGRAM_ALLOWED_USERS")
+	}()
+
+	tempDir := t.TempDir()
+	cfgPath := filepath.Join(tempDir, "config.yaml")
+
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	if cfg.Telegram.BotToken != "test-bot-token-xyz" {
+		t.Errorf("expected bot token 'test-bot-token-xyz', got '%s'", cfg.Telegram.BotToken)
+	}
+	if !cfg.Telegram.Enabled {
+		t.Errorf("expected telegram enabled to be true")
+	}
+	if len(cfg.Telegram.AllowedUsers) != 2 || cfg.Telegram.AllowedUsers[0] != "user1" || cfg.Telegram.AllowedUsers[1] != "123456" {
+		t.Errorf("unexpected allowed users: %v", cfg.Telegram.AllowedUsers)
+	}
+}
+
+func TestExpandHome_CrossPlatform(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("skipping test: UserHomeDir not available")
+	}
+
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"~", home},
+		{"~/", home},
+		{"~/.niskava", filepath.Join(home, ".niskava")},
+		{"~/.niskava/config.yaml", filepath.Join(home, ".niskava", "config.yaml")},
+		{`~\.niskava\config.yaml`, filepath.Join(home, ".niskava", "config.yaml")},
+		{"/var/log/niskava.log", "/var/log/niskava.log"},
+		{"relative/path.db", "relative/path.db"},
+	}
+
+	for _, tt := range tests {
+		got := ExpandHome(tt.input)
+		if got != tt.expected {
+			t.Errorf("ExpandHome(%q) = %q, want %q", tt.input, got, tt.expected)
+		}
+	}
+}

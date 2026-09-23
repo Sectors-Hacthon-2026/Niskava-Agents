@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -553,13 +552,11 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 	if usingDaemon {
 		eventsChan, errChan = StreamChatViaSSE(ctx, serverURL, sessionID, prompt)
 	} else {
-		pythonBin := cfg.Engine.PythonBin
-		if pythonBin == "python3" {
-			localVenv := filepath.Join(".venv", "bin", "python3")
-			if _, err := os.Stat(localVenv); err == nil {
-				pythonBin = localVenv
-			}
+		pythonBin := ""
+		if cfg != nil {
+			pythonBin = cfg.Engine.PythonBin
 		}
+		pythonBin = ipc.ResolvePythonBin(pythonBin)
 
 		wd, _ := os.Getwd()
 		runnerParams := ipc.RunnerParams{
@@ -610,7 +607,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 			}
 			if err != nil {
 				fmt.Print("\r\033[K")
-				fmt.Printf("\n[Error Subprocess]: %v\n", err)
+				fmt.Printf("\n[Subprocess Error]: %v\n", err)
 				return
 			}
 
@@ -706,7 +703,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 						BorderForeground(ColorDanger).
 						Padding(0, 1).
 						Foreground(ColorFg).
-						Render(fmt.Sprintf("❌ [ERROR SESSION]: %s", ev.Error))
+						Render(fmt.Sprintf("❌ [SESSION ERROR]: %s", ev.Error))
 					assistantResponse.WriteString(errBox)
 				}
 			}

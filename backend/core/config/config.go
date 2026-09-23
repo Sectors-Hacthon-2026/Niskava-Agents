@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -20,6 +21,14 @@ type Config struct {
 	Server      ServerConfig      `yaml:"server"`
 	Preferences PreferencesConfig `yaml:"preferences"`
 	Memory      MemoryConfig      `yaml:"memory"`
+	Telegram    TelegramConfig    `yaml:"telegram"`
+}
+
+// TelegramConfig stores parameters for the Telegram Bot integration.
+type TelegramConfig struct {
+	BotToken     string   `yaml:"bot_token"`
+	Enabled      bool     `yaml:"enabled"`
+	AllowedUsers []string `yaml:"allowed_users"`
 }
 
 // AuthConfig stores API keys and model parameters for external services.
@@ -73,6 +82,11 @@ func DefaultConfig() *Config {
 	homeDir, _ := os.UserHomeDir()
 	defaultDBPath := filepath.Join(homeDir, ".niskava", "niskava.db")
 
+	defaultPythonBin := "python3"
+	if runtime.GOOS == "windows" {
+		defaultPythonBin = "python"
+	}
+
 	return &Config{
 		Auth: AuthConfig{
 			AIProvider:      "gemini",
@@ -91,7 +105,7 @@ func DefaultConfig() *Config {
 			DBPath: defaultDBPath,
 		},
 		Engine: EngineConfig{
-			PythonBin:  "python3",
+			PythonBin:  defaultPythonBin,
 			EnginePath: "./backend/engine",
 		},
 		Server: ServerConfig{
@@ -111,15 +125,17 @@ func DefaultConfig() *Config {
 	}
 }
 
-// ExpandHome resolves a leading tilde (~) in file paths.
+// ExpandHome resolves a leading tilde (~) in file paths across POSIX and Windows.
 func ExpandHome(path string) string {
-	if strings.HasPrefix(path, "~/") || path == "~" {
+	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, `~\`) || path == "~" {
 		home, err := os.UserHomeDir()
 		if err == nil {
 			if path == "~" {
 				return home
 			}
-			return filepath.Join(home, path[2:])
+			sub := strings.ReplaceAll(path[2:], `\`, string(filepath.Separator))
+			sub = strings.ReplaceAll(sub, "/", string(filepath.Separator))
+			return filepath.Join(home, sub)
 		}
 	}
 	return path
@@ -242,6 +258,27 @@ func Load(customConfigPath string) (*Config, error) {
 	}
 	if val := os.Getenv("NISKAVA_LANG"); val != "" {
 		cfg.Preferences.Language = strings.ToLower(val)
+	}
+	if val := os.Getenv("NISKAVA_TELEGRAM_TOKEN"); val != "" {
+		cfg.Telegram.BotToken = val
+	}
+	if val := os.Getenv("TELEGRAM_BOT_TOKEN"); val != "" && cfg.Telegram.BotToken == "" {
+		cfg.Telegram.BotToken = val
+	}
+	if val := os.Getenv("NISKAVA_TELEGRAM_ENABLED"); val == "1" || strings.ToLower(val) == "true" {
+		cfg.Telegram.Enabled = true
+	}
+	if val := os.Getenv("NISKAVA_TELEGRAM_ALLOWED_USERS"); val != "" {
+		parts := strings.Split(val, ",")
+		var cleaned []string
+		for _, p := range parts {
+			if trimmed := strings.TrimSpace(p); trimmed != "" {
+				cleaned = append(cleaned, trimmed)
+			}
+		}
+		if len(cleaned) > 0 {
+			cfg.Telegram.AllowedUsers = cleaned
+		}
 	}
 
 	return cfg, nil

@@ -282,4 +282,106 @@ class TestFollowupChips:
         assert "💡 Rekomendasi Penelusuran Lanjutan" in complete_events[-1]["content"]
 
 
+def test_memory_records_session_even_without_anomalies(tmp_path, monkeypatch):
+    """Regression: record_investigation must be called even if no anomalies or findings
+    are returned. Bug #1A — guard 'if target_ticker and (anomalies or findings)' was
+    silently skipping graph recording for conversational-only sessions.
+    """
+    from engine.agent.react_agent import NiskavaReActAgent
+    from engine.agent.tools import NiskavaToolRegistry
+    from engine.memory.graph_memory import LocalGraphMemory
+
+    db_file = str(tmp_path / "test_no_anomaly.db")
+    registry = NiskavaToolRegistry(db_path=db_file, mock_mode=True)
+    memory = LocalGraphMemory(db_path=db_file)
+
+    record_calls = []
+    original_record = memory.record_investigation
+
+    def recording_spy(*args, **kwargs):
+        record_calls.append(kwargs)
+        return original_record(*args, **kwargs)
+
+    memory.record_investigation = recording_spy
+
+    agent = NiskavaReActAgent(tool_registry=registry, mock_mode=True)
+    agent.memory = memory
+
+    # Ensure deterministic chat cycle returns zero anomalies and zero findings
+    # to specifically test conversational-only sessions where no quant anomalies exist.
+    monkeypatch.setattr(
+        agent,
+        "_run_deterministic_chat_cycle",
+        lambda session_id, prompt, history, start_time: {
+            "session_id": session_id,
+            "response": "BBCA fundamental overview.",
+            "anomalies": [],
+            "findings": [],
+        },
+    )
+
+    agent.chat(user_prompt="Tell me about BBCA fundamentals", session_id="CHAT-TEST-001")
+
+    assert len(record_calls) >= 1, (
+        "record_investigation was never called. "
+        "Bug #1A: guard 'anomalies or findings' is blocking graph updates."
+    )
+
+
+def test_memory_graph_no_crash_when_memory_is_none(tmp_path):
+    """Regression: Bug #1B — valid_candidates may be undefined if self.memory is None.
+    When memory is None, the post-chat block must not raise NameError.
+    """
+    from engine.agent.react_agent import NiskavaReActAgent
+    from engine.agent.tools import NiskavaToolRegistry
+
+    db_file = str(tmp_path / "test_no_memory.db")
+    registry = NiskavaToolRegistry(db_path=db_file, mock_mode=True)
+    agent = NiskavaReActAgent(tool_registry=registry, mock_mode=True)
+    agent.memory = None  # Explicitly disable
+
+    result = agent.chat(user_prompt="What is PER ratio?", session_id="CHAT-NO-MEM-001")
+    assert isinstance(result, dict)
+    assert "session_id" in result
+
+
+def test_compact_tool_observation_limits_length():
+    """Verify bulky tool observations (OSINT news, sectors reports) are compacted to <= 1600 chars."""
+    from engine.agent.react_agent import _compact_tool_observation
+
+    # Simulate large OSINT news payload (> 8KB)
+    large_news = [
+        {"title": f"News Headline {i}", "snippet": "A" * 500, "date": "2026-09-20", "source": "Reuters"}
+        for i in range(10)
+    ]
+    compacted = _compact_tool_observation("search_osint", large_news, max_len=1500)
+    assert len(compacted) <= 1600
+    assert "News Headline 0" in compacted
+    assert "summarized" in compacted or "items" in compacted
+
+
+def test_on_llm_retry_emits_english_thoughts(tmp_path):
+    """Verify that retry thoughts and provider warnings are strictly in English regardless of agent language."""
+    from engine.agent.react_agent import NiskavaReActAgent
+    from engine.agent.tools import NiskavaToolRegistry
+
+    db_file = str(tmp_path / "test_retry_lang.db")
+    registry = NiskavaToolRegistry(db_path=db_file, mock_mode=True)
+
+    # Test with language="id" - errors and retry notices must still be English
+    agent = NiskavaReActAgent(tool_registry=registry, mock_mode=False, language="id")
+
+    emitted = []
+    agent.emitter = lambda ev: emitted.append(ev)
+
+    agent.url = "http://127.0.0.1:59999/v1/chat/completions"  # Unreachable port
+    agent.chat("investigasi MANDIRI", session_id="RETRY-TEST-001")
+
+    thoughts = [e.get("thought", "") for e in emitted if e.get("event") == "agent_thought"]
+    assert len(thoughts) > 0
+    for th in thoughts:
+        assert "Koneksi Terputus" not in th, f"Indonesian text found in thought: {th}"
+        assert "Menunggu" not in th, f"Indonesian text found in thought: {th}"
+        assert "Gagal mengeksekusi" not in th, f"Indonesian text found in thought: {th}"
+
 

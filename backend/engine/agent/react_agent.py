@@ -74,6 +74,7 @@ def parse_single_tool_call(raw: str) -> Optional[Tuple[str, Dict[str, Any]]]:
 
     if tool_name:
         args: Dict[str, Any] = {}
+        # Match standard child tags: <tag>val</tag>
         arg_matches = re.findall(r"<([a-zA-Z0-9_]+)>(.*?)</\1>", cleaned, re.DOTALL)
         for key, val in arg_matches:
             if key.lower() not in ("name", "tool", "tool_call", "arguments"):
@@ -87,6 +88,33 @@ def parse_single_tool_call(raw: str) -> Optional[Tuple[str, Dict[str, Any]]]:
                         args[key] = val_clean
                 except Exception:
                     args[key] = val_clean
+
+        # Match XML attribute style tags: <arg name="ticker">ANTM</arg> or <param key="domain">candles</param>
+        attr_matches = re.findall(
+            r'<[a-zA-Z0-9_]+\s+(?:name|key|id)=["\']([a-zA-Z0-9_]+)["\']>(.*?)</[a-zA-Z0-9_]+>',
+            cleaned,
+            re.DOTALL,
+        )
+        for k, v in attr_matches:
+            v_clean = v.strip()
+            try:
+                if v_clean.startswith("{") or v_clean.startswith("["):
+                    args[k] = json.loads(v_clean)
+                elif v_clean.isdigit():
+                    args[k] = int(v_clean)
+                else:
+                    args[k] = v_clean
+            except Exception:
+                args[k] = v_clean
+
+        # Normalize key-value pairs (e.g. arg_key/arg_value, key/value, param_name/param_value)
+        for k_tag, v_tag in [("arg_key", "arg_value"), ("key", "value"), ("param_name", "param_value")]:
+            if k_tag in args and v_tag in args:
+                real_key = str(args.pop(k_tag)).strip()
+                real_val = args.pop(v_tag)
+                if real_key:
+                    args[real_key] = real_val
+
         return tool_name, args
 
     return None
@@ -111,6 +139,48 @@ def extract_tool_calls(content: str) -> List[Tuple[str, Dict[str, Any]]]:
                 calls.append(parsed)
 
     return calls
+
+
+def _compact_tool_observation(tool_name: str, tool_res: Any, max_len: int = 1500) -> str:
+    """Compact raw tool results to prevent context-window bloat and LLM gateway timeouts.
+    Extracts key quantitative facts and headlines while keeping length <= max_len.
+    """
+    if tool_res is None:
+        return "{}"
+
+    if isinstance(tool_res, list):
+        if tool_name in ("search_osint", "harvest_market_news"):
+            # Extract only title, date, and brief snippet for top 3 articles
+            compact_items = []
+            for item in tool_res[:3]:
+                if isinstance(item, dict):
+                    compact_items.append({
+                        "title": item.get("title", ""),
+                        "date": item.get("date") or item.get("published_at", ""),
+                        "snippet": (item.get("snippet") or item.get("content", ""))[:180],
+                    })
+                else:
+                    compact_items.append(str(item)[:180])
+            res_str = json.dumps(compact_items, default=str)
+            if len(tool_res) > 3:
+                res_str += f" (summarized top 3 of {len(tool_res)} items)"
+            return res_str
+        elif len(tool_res) > 10:
+            res_str = json.dumps(tool_res[:10], default=str) + f" (summarized 10 of {len(tool_res)} items)"
+            if len(res_str) > max_len:
+                return res_str[:max_len] + "... [truncated]"
+            return res_str
+
+    if isinstance(tool_res, dict):
+        res_str = json.dumps(tool_res, default=str)
+        if len(res_str) > max_len:
+            return res_str[:max_len] + "... [truncated]"
+        return res_str
+
+    res_str = str(tool_res)
+    if len(res_str) > max_len:
+        return res_str[:max_len] + "... [truncated]"
+    return res_str
 
 
 def sanitize_final_response(content: str) -> str:
@@ -542,7 +612,7 @@ class NiskavaReActAgent:
                                         relation="SUPERSEDES",
                                         target_label=edge.get("source_label", ""),
                                         target_type="PRICE_LEVEL",
-                                        context_snippet=f"Realisasi keluar posisi menganulir level masuk {edge.get('source_label')}",
+                                        context_snippet=f"Exit realization supersedes prior entry level {edge.get('source_label')}",
                                         session_id=session_id,
                                     )
             except Exception:
@@ -607,16 +677,24 @@ class NiskavaReActAgent:
             res = self._run_universal_chat_cycle(session_id, effective_prompt, history, start_time)
 
         if self.memory and isinstance(res, dict):
+            import logging
+            _log = logging.getLogger(__name__)
             findings = res.get("findings", [])
             anomalies = res.get("anomalies", [])
-            target_ticker = None
+            target_ticker: Optional[str] = None
+
             if anomalies:
                 target_ticker = anomalies[0].get("ticker")
+
+            # Bug #1B fix: fresh call — never rely on outer-scope variable
             if not target_ticker:
-                for c in valid_candidates:
-                    target_ticker = c.upper()
+                for cand in extract_valid_tickers(user_prompt):
+                    target_ticker = cand.upper()
                     break
-            if target_ticker and (anomalies or findings):
+
+            # Bug #1A fix: record for any session with an identified ticker,
+            # regardless of whether anomalies or findings were produced.
+            if target_ticker:
                 try:
                     self.memory.record_investigation(
                         session_id=session_id,
@@ -624,8 +702,11 @@ class NiskavaReActAgent:
                         anomalies=anomalies,
                         findings=findings,
                     )
-                except Exception:
-                    pass
+                except Exception as exc:    # Bug #1C fix: surface failures via logging
+                    _log.warning(
+                        "graph_memory: record_investigation failed session=%s ticker=%s: %s",
+                        session_id, target_ticker, exc,
+                    )
 
         return res
 
@@ -846,12 +927,8 @@ class NiskavaReActAgent:
         final_response = ""
 
         def on_llm_retry(attempt: int, delay: float, status_code: int, summary: str):
-            if self.language == "en":
-                status_desc = f"HTTP {status_code}" if status_code else "Connection Lost"
-                thought_msg = f"[{model}] {status_desc}: Waiting {delay:.1f}s before retrying (Attempt {attempt}/3)..."
-            else:
-                status_desc = f"HTTP {status_code}" if status_code else "Koneksi Terputus"
-                thought_msg = f"[{model}] {status_desc}: Menunggu {delay:.1f}s sebelum mencoba kembali (Percobaan {attempt}/3)..."
+            status_desc = f"HTTP {status_code}" if status_code else "Connection Lost"
+            thought_msg = f"[{model}] {status_desc}: Waiting {delay:.1f}s before retrying (Attempt {attempt}/3)..."
 
             self._emit({
                 "event": "agent_thought",
@@ -871,6 +948,10 @@ class NiskavaReActAgent:
         last_error = ""
         empty_retries = 0
         transient_retries = 0
+        # Duplicate tool call guard: track (tool_name, args_fingerprint) per iteration
+        _prev_tool_signature: str = ""
+        _dup_streak: int = 0
+        _MAX_DUP_STREAK: int = 2  # Force synthesis after 2 consecutive identical calls
         for _ in range(MAX_REACT_ITERATIONS):
             payload = {
                 "model": model,
@@ -896,7 +977,7 @@ class NiskavaReActAgent:
                 first_brace = raw.find("{")
                 last_brace = raw.rfind("}")
                 if first_brace == -1 or last_brace == -1:
-                    last_error = f"Format respons tidak valid (tidak ditemukan objek JSON): {raw[:200]}"
+                    last_error = f"Invalid response format (no JSON object found): {raw[:200]}"
                     break
                 data = json.loads(raw[first_brace : last_brace + 1])
                 choices = data.get("choices", [])
@@ -913,24 +994,59 @@ class NiskavaReActAgent:
                             or "capacity" in err_msg.lower()
                             or "busy" in err_msg.lower()
                         )
-                        if is_transient and transient_retries < 3:
-                            transient_retries += 1
-                            wait_sec = 2.0 * transient_retries
-                            thought_msg = (
-                                f"[{model}] Upstream provider sibuk ({err_msg[:80]}). Menunggu {wait_sec:.1f}s ({transient_retries}/3)..."
-                                if self.language == "id"
-                                else f"[{model}] Upstream provider busy ({err_msg[:80]}). Waiting {wait_sec:.1f}s ({transient_retries}/3)..."
-                            )
-                            self._emit({
-                                "event": "agent_thought",
-                                "session_id": session_id,
-                                "thought": thought_msg,
-                            })
-                            time.sleep(wait_sec)
-                            continue
-                        last_error = f"AI Provider error: {err_msg}"
+                        if is_transient:
+                            _transient_ok = False
+                            for _tr in range(1, 4):  # Up to 3 retries without consuming ReAct loop budget
+                                wait_sec = 2.0 * _tr
+                                self._emit({
+                                    "event": "agent_thought",
+                                    "session_id": session_id,
+                                    "thought": (
+                                        f"[{model}] Upstream provider busy ({err_msg[:80]}). "
+                                        f"Waiting {wait_sec:.1f}s ({_tr}/3)..."
+                                    ),
+                                })
+                                time.sleep(wait_sec)
+                                try:
+                                    resp = execute_with_retry(
+                                        lambda: requests.post(
+                                            url, headers=headers, json=payload,
+                                            timeout=self.llm_timeout,
+                                        ),
+                                        config=retry_cfg,
+                                        on_retry_callback=on_llm_retry,
+                                    )
+                                    if resp.status_code != 200:
+                                        continue
+                                    raw = resp.text.strip()
+                                    if "data: [DONE]" in raw:
+                                        raw = raw.split("data: [DONE]")[0].strip()
+                                    fb = raw.find("{")
+                                    lb = raw.rfind("}")
+                                    if fb == -1 or lb == -1:
+                                        continue
+                                    data = json.loads(raw[fb : lb + 1])
+                                    choices = data.get("choices", [])
+                                    if choices:
+                                        _transient_ok = True
+                                        break
+                                    if "error" in data and isinstance(data["error"], dict):
+                                        err_msg = str(data["error"].get("message") or "")
+                                        continue
+                                    break
+                                except Exception:
+                                    continue
+                            if not _transient_ok:
+                                last_error = f"AI Provider error: {err_msg}"
+                                break
+                        else:
+                            last_error = f"AI Provider error: {err_msg}"
+                            break
                     else:
-                        last_error = f"Format respons tidak valid (tidak ada item 'choices'): {raw[:200]}"
+                        last_error = f"Invalid response format (missing 'choices'): {raw[:200]}"
+                        break
+
+                if not choices:
                     break
                 msg = choices[0].get("message", {})
                 content = (
@@ -1002,6 +1118,45 @@ class NiskavaReActAgent:
             # Check for tool calls (supports closed & unclosed tags, JSON and XML)
             tool_calls = extract_tool_calls(content)
             if tool_calls:
+                # --- Duplicate Tool Call Guard ---
+                # Build a stable fingerprint of all tool calls in this iteration
+                call_signature = json.dumps(
+                    [(n, sorted(a.items())) for n, a in tool_calls],
+                    sort_keys=True,
+                    default=str,
+                )
+                if call_signature == _prev_tool_signature:
+                    _dup_streak += 1
+                else:
+                    _dup_streak = 0
+                _prev_tool_signature = call_signature
+
+                if _dup_streak >= _MAX_DUP_STREAK:
+                    # Break the loop: inject forced synthesis nudge
+                    dup_tool_names = ", ".join(n for n, _ in tool_calls)
+                    self._emit({
+                        "event": "agent_thought",
+                        "session_id": session_id,
+                        "thought": (
+                            f"[{model}] Duplicate tool call detected ({dup_tool_names}) "
+                            f"— {_dup_streak + 1} consecutive identical calls. "
+                            f"Forcing synthesis via nudge."
+                        ),
+                    })
+                    nudge_msg = (
+                        "<observation>SYSTEM: Anda telah memanggil tool yang sama "
+                        f"({dup_tool_names}) dengan argumen identik sebanyak "
+                        f"{_dup_streak + 1} kali berturut-turut. Data yang dikembalikan "
+                        "selalu sama. JANGAN panggil tool ini lagi. "
+                        "Gunakan data dari observasi sebelumnya dan segera hasilkan "
+                        "analisis akhir Anda dalam tag <response>...</response>."
+                        "</observation>"
+                    )
+                    messages.append({"role": "assistant", "content": content})
+                    messages.append({"role": "user", "content": nudge_msg})
+                    _dup_streak = 0  # Reset so model gets one more chance
+                    continue
+
                 obs_parts = []
                 for tool_name, tool_args in tool_calls:
                     self._emit({
@@ -1051,19 +1206,10 @@ class NiskavaReActAgent:
                                 findings.append(auto_finding)
                                 self._emit(auto_finding)
 
-                        tool_res_str = json.dumps(tool_res, default=str)
-                        if len(tool_res_str) > 4000:
-                            if isinstance(tool_res, list):
-                                tool_res_str = json.dumps(tool_res[:30], default=str) + f" (summarized {len(tool_res[:30])} of {len(tool_res)} items)"
-                            else:
-                                tool_res_str = tool_res_str[:4000] + "... [truncated]"
+                        tool_res_str = _compact_tool_observation(tool_name, tool_res, max_len=1500)
 
                         obs_str = f"Observation for {tool_name}: {tool_res_str}"
-                        obs_summary = (
-                            f"Observation data received ({len(tool_res_str)} bytes)."
-                            if self.language == "en"
-                            else f"Data observasi diterima ({len(tool_res_str)} bytes)."
-                        )
+                        obs_summary = f"Observation data received ({len(tool_res_str)} bytes)."
                         self._emit({
                             "event": "agent_observation",
                             "session_id": session_id,
@@ -1076,11 +1222,7 @@ class NiskavaReActAgent:
                             f"Tool execution failed for '{tool_name}': {str(tool_exc)}. "
                             "Please analyze using available context or explain to the user."
                         )
-                        fail_summary = (
-                            f"⚠️ Tool '{tool_name}' failed: {str(tool_exc)} (agent attempting self-recovery)."
-                            if self.language == "en"
-                            else f"⚠️ Alat '{tool_name}' gagal: {str(tool_exc)} (agen melakukan recovery otomatis)."
-                        )
+                        fail_summary = f"⚠️ Tool '{tool_name}' failed: {str(tool_exc)} (agent attempting self-recovery)."
                         self._emit({
                             "event": "agent_observation",
                             "session_id": session_id,
@@ -1127,21 +1269,48 @@ class NiskavaReActAgent:
                     break
 
         if not final_response:
-            err_detail = last_error or "Model AI tidak menghasilkan sintesis respons valid dalam siklus ReAct."
-            error_markdown = (
-                f"### ⚠️ Gagal Terhubung ke Provider AI\n\n"
-                f"- **Endpoint**: `{url}`\n"
-                f"- **Model**: `{model}`\n"
-                f"- **Detail Error**: {err_detail}\n\n"
-                f"**Solusi Pemecahan Masalah:**\n"
-                f"1. Pastikan server LLM (Ollama / vLLM / 9router / OpenRouter) aktif di `{base_url}` atau API key terpasang.\n"
-                f"2. Periksa konfigurasi di file `~/.niskava/.env` atau jalankan `niskava setup`.\n"
-                f"3. Gunakan mode offline (`--offline`) jika ingin menjalankan analisis deterministik tanpa LLM."
+            err_detail = last_error or "AI model did not produce a valid synthesis response within the ReAct cycle."
+
+            # Classify error: connection failure vs. loop exhaustion
+            _connection_keywords = (
+                "Gagal terhubung", "Connection refused", "Koneksi timeout",
+                "ConnectionError", "Timeout", "HTTP 4", "HTTP 5",
             )
+            is_connection_error = any(kw.lower() in err_detail.lower() for kw in _connection_keywords)
+
+            if is_connection_error:
+                error_title = "### ⚠️ Unable to Connect to AI Provider"
+                error_markdown = (
+                    f"{error_title}\n\n"
+                    f"- **Endpoint**: `{url}`\n"
+                    f"- **Model**: `{model}`\n"
+                    f"- **Error Details**: {err_detail}\n\n"
+                    f"**Troubleshooting Steps:**\n"
+                    f"1. Ensure the LLM gateway/server (Ollama / vLLM / 9router / OpenRouter) is running at `{base_url}` or that an API key is configured.\n"
+                    f"2. Check the configuration in `~/.niskava/.env` or run `niskava setup`.\n"
+                    f"3. Use offline mode (`--offline`) to run deterministic analysis without an LLM."
+                )
+                session_error_msg = f"AI provider connection error ({model} @ {url}): {err_detail}"
+            else:
+                error_title = "### ⏱️ ReAct Analysis Limit Reached"
+                error_markdown = (
+                    f"{error_title}\n\n"
+                    f"- **Model**: `{model}`\n"
+                    f"- **Iterations Used**: {MAX_REACT_ITERATIONS}\n"
+                    f"- **Details**: {err_detail}\n\n"
+                    f"Agen membutuhkan lebih banyak langkah analisis dari batas yang tersedia, "
+                    f"atau terjebak dalam pencarian data berulang.\n\n"
+                    f"**Saran:**\n"
+                    f"1. Coba pertanyaan yang lebih spesifik (misalnya menyebutkan ticker saham langsung: `analisis BBCA`).\n"
+                    f"2. Jalankan ulang query — masalah ini sering bersifat sementara.\n"
+                    f"3. Use offline mode (`--offline`) to run deterministic analysis without an LLM."
+                )
+                session_error_msg = f"ReAct analysis limit reached ({model}): {err_detail}"
+
             self._emit({
                 "event": "agent_thought",
                 "session_id": session_id,
-                "thought": f"Gagal mengeksekusi inferensi AI: {err_detail}",
+                "thought": f"Failed to execute AI inference: {err_detail}",
             })
             self._emit({
                 "event": "agent_message_chunk",
@@ -1156,7 +1325,7 @@ class NiskavaReActAgent:
             self._emit({
                 "event": "session_error",
                 "session_id": session_id,
-                "error": f"AI provider connection error ({model} @ {url}): {err_detail}",
+                "error": session_error_msg,
             })
             duration_ms = int((time.time() - start_time) * 1000)
             return {

@@ -490,7 +490,7 @@ func TestAllSpecificationTablesCreated(t *testing.T) {
 		"investigations", "anomalies", "findings", "evidence_items",
 		"timeline_events", "sectors_cache", "memory_nodes", "memory_edges",
 		"chat_sessions", "chat_messages", "suspension_records", "insider_filings",
-		"osint_cache",
+		"osint_cache", "telegram_chats",
 	}
 
 	for _, tbl := range expectedTables {
@@ -499,5 +499,73 @@ func TestAllSpecificationTablesCreated(t *testing.T) {
 		if err != nil || count == 0 {
 			t.Errorf("expected table '%s' to exist in database schema", tbl)
 		}
+	}
+}
+
+func TestTelegramChatSessionOperations(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "telegram_test.db")
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	chatID := int64(987654321)
+	userID := int64(12345)
+	username := "investor_idx"
+
+	// 1. First get or create - should create a new session
+	sessID1, err := database.GetOrCreateTelegramChatSession(chatID, userID, username)
+	if err != nil {
+		t.Fatalf("failed to get or create session: %v", err)
+	}
+	if sessID1 == "" {
+		t.Fatalf("expected non-empty session ID")
+	}
+
+	// Verify chat record exists
+	chatRecord, err := database.GetTelegramChat(chatID)
+	if err != nil {
+		t.Fatalf("failed to get telegram chat: %v", err)
+	}
+	if chatRecord == nil || chatRecord.CurrentSessionID != sessID1 {
+		t.Fatalf("expected chat record current_session_id %s, got %+v", sessID1, chatRecord)
+	}
+
+	// Verify chat_sessions record exists
+	chatSession, err := database.GetChatSession(sessID1)
+	if err != nil {
+		t.Fatalf("failed to get chat session: %v", err)
+	}
+	if chatSession == nil {
+		t.Fatalf("expected session %s in chat_sessions", sessID1)
+	}
+
+	// 2. Second call should return the SAME session ID
+	sessID2, err := database.GetOrCreateTelegramChatSession(chatID, userID, username)
+	if err != nil {
+		t.Fatalf("failed on second get or create: %v", err)
+	}
+	if sessID2 != sessID1 {
+		t.Errorf("expected same session ID %s, got %s", sessID1, sessID2)
+	}
+
+	// 3. Reset session - should generate a NEW session ID
+	sessID3, err := database.ResetTelegramChatSession(chatID, userID, username)
+	if err != nil {
+		t.Fatalf("failed to reset session: %v", err)
+	}
+	if sessID3 == sessID1 {
+		t.Errorf("expected new session ID after reset, got same %s", sessID3)
+	}
+
+	// Verify DB now maps chat to the new session
+	chatRecordAfterReset, err := database.GetTelegramChat(chatID)
+	if err != nil {
+		t.Fatalf("failed to get telegram chat after reset: %v", err)
+	}
+	if chatRecordAfterReset.CurrentSessionID != sessID3 {
+		t.Errorf("expected current session ID %s, got %s", sessID3, chatRecordAfterReset.CurrentSessionID)
 	}
 }

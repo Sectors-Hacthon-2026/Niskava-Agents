@@ -542,3 +542,31 @@ def test_memory_auto_ddl_and_recency_decay(tmp_path):
     assert "days_ago" in edge
     assert edge["effective_weight"] <= edge["weight"]
 
+
+def test_memory_tool_definitions_are_english():
+    """Regression: All MCP memory tool description strings must be English per AGENTS.md Law (Bug #2D)."""
+    from engine.mcp.tools.memory import get_memory_tool_definitions
+
+    defs = get_memory_tool_definitions()
+    assert len(defs) == 5
+
+    import re
+    indonesian_markers = [
+        "Ambil", "relasi", "Simpan", "observasi", "Lacak", "Ekspor",
+        "berdasarkan", "terkait", "opsional", "Kedalaman",
+        "tujuan", "asal", "penyimpanan", "mandiri", "statistik", "topologi",
+    ]
+    for tool_def in defs:
+        desc = tool_def.get("description", "")
+        for marker in indonesian_markers:
+            assert not re.search(r"\b" + re.escape(marker) + r"\b", desc, re.IGNORECASE), (
+                f"Indonesian text '{marker}' in tool '{tool_def['name']}' description: '{desc}'"
+            )
+        for field_name, field_schema in tool_def.get("inputSchema", {}).get("properties", {}).items():
+            field_desc = field_schema.get("description", "")
+            for marker in indonesian_markers:
+                assert not re.search(r"\b" + re.escape(marker) + r"\b", field_desc, re.IGNORECASE), (
+                    f"Indonesian text '{marker}' in tool '{tool_def['name']}' field '{field_name}': '{field_desc}'"
+                )
+
+

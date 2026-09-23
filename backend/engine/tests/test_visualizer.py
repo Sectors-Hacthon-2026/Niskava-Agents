@@ -102,3 +102,30 @@ def test_institutional_theme_no_cyber_slop(populated_memory):
     assert "tnum" in html or "tabular-nums" in html
     assert "Dossier" in html
 
+
+def test_html_template_is_english(populated_memory):
+    """Regression: All user-facing strings in HTML visualizer must be English (Bug #2A)."""
+    viz = GraphVisualizer(memory=populated_memory)
+    html = viz.generate_html(title="Test English")
+
+    for expected in [
+        "Entity Search", "Node Classification", "Market Network Statistics",
+        "Refit Canvas", "Research Session:", "Loading graph statistics...",
+        "No active relations.",
+    ]:
+        assert expected in html, f"Expected English string '{expected}' not found in HTML"
+
+    for marker in [
+        "Pencarian Entitas", "Klasifikasi Simpul", "Statistik Jaringan Pasar",
+        "Posisikan Ulang Kanvas", "Sesi Riset:", "Memuat statistik graf",
+        "Pilih salah satu entitas", "Tidak ada relasi aktif", "Semua Sesi Aktif",
+        "Emiten Saham", "Anggota Bursa", "Sektor Industri", "Profil Riset Pengguna",
+        "Total Simpul", "Relasi Pasar", "Entitas Sentral",
+        "Waktu Observasi", "Derajat Relasi", "Katalog Relasi Bukti",
+        "Koneksi Kausalitas", "Kutipan Bukti", "Bobot Efektif", "Sesi Investigasi",
+    ]:
+        assert marker not in html, (
+            f"Indonesian UI string '{marker}' found in visualizer HTML — must be English."
+        )
+
+

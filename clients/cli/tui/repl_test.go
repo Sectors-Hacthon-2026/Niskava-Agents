@@ -2,6 +2,8 @@ package tui
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -484,5 +486,19 @@ func TestInterruptedFlagNoRace(t *testing.T) {
 	val := interrupted.Load()
 	if !val {
 		t.Error("expected interrupted to be true")
+	}
+}
+
+func TestFormatSSEStreamError(t *testing.T) {
+	eofErr := formatSSEStreamError(io.ErrUnexpectedEOF)
+	if !strings.Contains(eofErr.Error(), "stream disconnected unexpectedly") {
+		t.Fatalf("expected clean English disconnection message, got: %v", eofErr)
+	}
+	genericErr := formatSSEStreamError(fmt.Errorf("connection refused"))
+	if !strings.Contains(genericErr.Error(), "error reading SSE stream: connection refused") {
+		t.Fatalf("expected standard error wrap, got: %v", genericErr)
+	}
+	if formatSSEStreamError(nil) != nil {
+		t.Fatalf("expected nil for nil error")
 	}
 }
