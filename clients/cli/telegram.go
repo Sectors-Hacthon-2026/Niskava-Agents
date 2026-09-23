@@ -18,8 +18,9 @@ var (
 )
 
 var telegramCmd = &cobra.Command{
-	Use:   "telegram",
-	Short: "Start Telegram conversational bot runner",
+	Use:     "telegram",
+	Aliases: []string{"bot"},
+	Short:   "Start Telegram conversational bot runner",
 	Long: `Starts the Niskava Agent Telegram Bot using long-polling.
 Incoming messages are routed to the autonomous ReAct investigation pipeline
 and synchronized to the local SQLite database.`,
