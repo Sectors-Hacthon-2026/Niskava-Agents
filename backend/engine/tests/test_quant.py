@@ -132,3 +132,33 @@ def test_subsector_percentile_valuation():
     assert median == 16.0
     assert posture == "TRADING_AT_DISCOUNT"
 
+
+def test_volume_z_score_nan_inf_safety():
+    import numpy as np
+
+    # Test NaN and Inf inside historical array
+    volumes = np.array([100.0, np.nan, np.inf, -np.inf, 200.0])
+    mu, sigma, z = compute_volume_z_score(volumes, 150.0)
+    assert not np.isnan(mu) and not np.isinf(mu)
+    assert not np.isnan(sigma) and not np.isinf(sigma)
+    assert not np.isnan(z) and not np.isinf(z)
+
+    # Test None / NaN as current volume
+    mu2, sigma2, z2 = compute_volume_z_score(np.full(20, 1000.0), None)
+    assert z2 == 0.0
+
+
+def test_detect_historical_anomalies_zero_close_safety():
+    # 25 candles with zero/missing prev_close
+    daily_candles = []
+    for i in range(25):
+        daily_candles.append({
+            "date": f"2026-08-{i+1:02d}",
+            "close": 0.0 if i == 10 else 100.0,
+            "volume": 1000.0,
+        })
+    anomalies = detect_historical_anomalies(daily_candles)
+    # Should complete cleanly without zero division error or NaN returns
+    assert isinstance(anomalies, list)
+
+
