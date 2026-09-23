@@ -20,6 +20,14 @@ type Config struct {
 	Server      ServerConfig      `yaml:"server"`
 	Preferences PreferencesConfig `yaml:"preferences"`
 	Memory      MemoryConfig      `yaml:"memory"`
+	Telegram    TelegramConfig    `yaml:"telegram"`
+}
+
+// TelegramConfig stores parameters for the Telegram Bot integration.
+type TelegramConfig struct {
+	BotToken     string   `yaml:"bot_token"`
+	Enabled      bool     `yaml:"enabled"`
+	AllowedUsers []string `yaml:"allowed_users"`
 }
 
 // AuthConfig stores API keys and model parameters for external services.
@@ -242,6 +250,27 @@ func Load(customConfigPath string) (*Config, error) {
 	}
 	if val := os.Getenv("NISKAVA_LANG"); val != "" {
 		cfg.Preferences.Language = strings.ToLower(val)
+	}
+	if val := os.Getenv("NISKAVA_TELEGRAM_TOKEN"); val != "" {
+		cfg.Telegram.BotToken = val
+	}
+	if val := os.Getenv("TELEGRAM_BOT_TOKEN"); val != "" && cfg.Telegram.BotToken == "" {
+		cfg.Telegram.BotToken = val
+	}
+	if val := os.Getenv("NISKAVA_TELEGRAM_ENABLED"); val == "1" || strings.ToLower(val) == "true" {
+		cfg.Telegram.Enabled = true
+	}
+	if val := os.Getenv("NISKAVA_TELEGRAM_ALLOWED_USERS"); val != "" {
+		parts := strings.Split(val, ",")
+		var cleaned []string
+		for _, p := range parts {
+			if trimmed := strings.TrimSpace(p); trimmed != "" {
+				cleaned = append(cleaned, trimmed)
+			}
+		}
+		if len(cleaned) > 0 {
+			cfg.Telegram.AllowedUsers = cleaned
+		}
 	}
 
 	return cfg, nil

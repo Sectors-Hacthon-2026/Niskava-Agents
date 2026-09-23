@@ -88,6 +88,11 @@ type RunnerParams struct {
 	Language   string
 }
 
+// RunConversationStream spawns the Python runner for interactive or batch conversation turns.
+func RunConversationStream(ctx context.Context, params RunnerParams) (<-chan Event, <-chan error) {
+	return RunSubprocess(ctx, params)
+}
+
 // RunSubprocess spawns the Python runner and returns a channel of streaming events.
 func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-chan error) {
 	eventsChan := make(chan Event, 64)
