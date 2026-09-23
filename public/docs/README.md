@@ -1,58 +1,73 @@
-# 📚 Niskava Agent — Public Documentation & User Guide Hub
+# Niskava Agent Documentation Hub
 
-Welcome to the official documentation hub for **Niskava Agent** — an autonomous financial OSINT (*Open Source Intelligence*) and market intelligence orchestration platform for the **Indonesia Stock Exchange (IDX)**.
+Welcome to the public technical documentation for **Niskava Agent**, an autonomous financial Open Source Intelligence (OSINT) and market intelligence orchestration platform for the Indonesia Stock Exchange (IDX / Bursa Efek Indonesia).
 
-This documentation suite provides comprehensive installation instructions, system architecture overviews, CLI & TUI user guides, and troubleshooting manuals for financial analysts, equity researchers, and developers.
-
----
-
-## 🗂️ Documentation Sitemap
-
-| Documentation File | Description & Core Content |
-|---|---|
-| 📖 **[Installation Guide](installation.md)** | System prerequisites (Go 1.22+, Python 3.11+), virtual environment creation, API Key setup (`SECTORS_API_KEY`, `GEMINI_API_KEY`), interactive CLI wizard, and standalone binary compilation. |
-| 🎮 **[User Guide](user-guide.md)** | Complete interaction guide: **Terminal UI (TUI) HUD Launcher**, **Interactive REPL**, prompt history navigation (Up/Down arrows), slash commands (`/investigate`, `/screen`, etc.), headless CLI mode, **Web Canvas Workspace**, and **Telegram Bot**. |
-| 🏛️ **[Features & System Architecture](features-and-architecture.md)** | In-depth breakdown of the *Tripartite Hybrid Stack* (Go + Python + React), **The 6 Invariant Laws**, the **7-Stage Investigation Pipeline**, *NumPy Anomaly Engine*, and Evidence Verification Taxonomy. |
-| ❓ **[Troubleshooting & FAQ](troubleshooting-and-faq.md)** | Resolving common errors, Sectors API v2 credit budget conservation, offline deterministic mode (`--offline`), SQLite WAL database locks, and frequently asked questions. |
+This documentation hub provides guides, architectural specifications, operational manuals, and reference materials for developers, quantitative analysts, and financial researchers.
 
 ---
 
-## 🚀 Quick Start (3-Step Setup)
+## Documentation Index
 
-Want to try Niskava Agent immediately?
+| Document | Primary Focus | Target Audience |
+|---|---|---|
+| **[Project Concept & Vision](project-concept.md)** | Core thesis, IDX market inefficiency analysis, the Anti-Wrapper Manifesto, personas, and regulatory boundaries. | Analysts, researchers, contributors |
+| **[Installation & Setup Guide](installation.md)** | System prerequisites (Go, Python), platform setup (Linux, macOS, Windows), virtual environments, API keys, interactive setup wizard, and offline fixtures. | All users, DevOps, developers |
+| **[User Guide & Interfaces](user-guide.md)** | Comprehensive manual for all interaction modes: Terminal UI (TUI) REPL, headless CLI, Web Workspace, MCP server, knowledge graph export, and Telegram bot. | End users, analysts, traders |
+| **[Features & System Architecture](features-and-architecture.md)** | Technical breakdown of the Tripartite Hybrid Stack, 6 Invariant Laws, 7-Stage Investigation Pipeline, deterministic quantitative formulas, and verification rubric. | Architects, quants, developers |
+| **[Troubleshooting & FAQ](troubleshooting-and-faq.md)** | Diagnostic procedures, resolving SQLite WAL locks, API credit conservation, offline test fixtures, and frequently asked questions. | All users, system administrators |
 
-### 1. Clone Repository & Setup Environment
+---
+
+## Overview
+
+Traditional financial tools either present raw price charts without context or deploy generic large language model wrappers that hallucinate mathematical calculations and confuse correlation with causality.
+
+Niskava Agent enforces an **evidence-first investigative approach**:
+1. **Deterministic Before Generative (Law 1)**: Statistical metrics (moving averages, Volume Z-Scores, abnormal price returns, net foreign inflow significance) are calculated deterministically via NumPy before invoking an LLM.
+2. **Temporal-Aware OSINT**: News and public regulatory filings are collected within a strict chronological window ($T_{\text{anomaly}} \pm 2\text{ days}$) relative to the detected anomaly, preventing atemporal causality inversion.
+3. **Structured Verification Taxonomy**: Findings are classified into `SUPPORTED`, `UNCERTAIN`, or `CONTRADICTED` status, with discrete confidence scores based on verifiable source citations.
+4. **Local Data Sovereignty (Law 4)**: All investigation records, session history, memory graphs, and API caches reside locally on the host machine in SQLite (`~/.niskava/niskava.db`) using Write-Ahead Logging (WAL).
+5. **Credit Discipline (Law 5)**: Historical trading data is cached permanently in local SQLite storage, eliminating redundant API consumption against the Sectors API v2 grant.
+
+---
+
+## System Quick Start
+
+### 1. Prerequisites
+- **Go**: Version 1.22 or higher
+- **Python**: Version 3.11 or higher
+- **Git**: Version 2.30 or higher
+
+### 2. Clone and Configure
 ```bash
 git clone https://github.com/Sectors-Hacthon-2026/Niskava-Agents.git
 cd Niskava-Agents
-```
 
-### 2. Run Interactive Setup Wizard
-```bash
+# Run the interactive configuration wizard
 go run ./cmd/niskava setup
 ```
-> *The interactive wizard will guide you through setting up API keys, creating a Python virtual environment (`venv`), and verifying all dependencies automatically.*
+The wizard guides you through setting your Sectors Financial API key, choosing your AI provider (Google Gemini, Ollama, OpenRouter, or vLLM), and creating the Python virtual environment.
 
-### 3. Launch Interactive Terminal UI (TUI)
+### 3. Launch an Investigation
 ```bash
-go run ./cmd/niskava
-```
-Or compile into a single executable binary:
-```bash
-go build -o niskava.exe ./cmd/niskava
-.\niskava.exe
+# Compile standalone binary
+go build -o niskava ./cmd/niskava
+
+# Run interactive terminal HUD
+./niskava
+
+# Or execute a direct investigation on an IDX ticker
+./niskava investigate ANTM --days 30
+
+# Or launch the local Web Workspace
+./niskava serve --port 20128 --open
 ```
 
 ---
 
-## ⚖️ Strict Financial Non-Advisory Disclaimer (Law 2)
+## Regulatory Non-Advisory Notice
 
-> **⚠️ IMPORTANT DISCLAIMER:**  
-> Niskava Agent is an investigative market intelligence platform and is **NOT a licensed investment advisor**. Niskava **NEVER** issues direct BUY/SELL recommendations, price targets, or personalized financial advice. All findings are strictly objective, evidence-based OSINT findings classified within a 3-tier verification taxonomy (`SUPPORTED`, `UNCERTAIN`, `CONTRADICTED`).
-
----
-
-## 📬 Support & Repository
-
-- **GitHub Repository**: [Sectors-Hackathon-2026/Niskava-Agents](https://github.com/Sectors-Hacthon-2026/Niskava-Agents)
-- **Competition Target**: [Sectors Hackathon Indonesia 2026 — Track 1: AI Agents & Assistants](https://hackathon.sectors.app/)
+> **IMPORTANT DISCLAIMER**  
+> Niskava Agent is an automated market intelligence, OSINT, and empirical research platform. All outputs, anomaly indicators, and correlated evidence generated by the platform are derived from historical market data, official regulatory disclosures, and public news sources.
+>
+> Niskava Agent **DOES NOT** provide financial advice, personalized investment recommendations, price targets, or solicitations to purchase or sell any security. Niskava operates under a strict non-advisory policy in compliance with Capital Market regulations (POJK / IDX) and Sectors Hackathon Rule 12. Users are solely responsible for their independent investment evaluations and risk assessments.
