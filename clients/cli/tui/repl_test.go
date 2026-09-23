@@ -502,4 +502,3 @@ func TestFormatSSEStreamError(t *testing.T) {
 		t.Fatalf("expected nil for nil error")
 	}
 }
-

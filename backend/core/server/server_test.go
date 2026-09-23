@@ -591,4 +591,3 @@ func TestServerDoesNotEnforceReadTimeoutOnSSE(t *testing.T) {
 		t.Errorf("expected httpServer.ReadHeaderTimeout to be configured to protect Slowloris, got 0")
 	}
 }
-
