@@ -412,7 +412,7 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 		lower := strings.ToLower(input)
 		if lower == "/exit" || lower == "exit" || lower == "quit" || lower == ":q" {
 			fmt.Println(T("repl_exit_msg"))
-			return ""
+			return replBackSentinel
 		}
 
 		if lower == "/back" || lower == "back" {
