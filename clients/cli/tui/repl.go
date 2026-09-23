@@ -77,6 +77,7 @@ var (
 // SlashCommand represents a registered slash command in the interactive REPL.
 type SlashCommand struct {
 	Command     string
+	Category    string
 	Description string
 }
 
@@ -304,16 +305,22 @@ func (m ReplInputModel) View() string {
 			}
 
 			cmdStr := fmt.Sprintf("%-12s", sc.Command)
+			catBadge := ""
+			if sc.Category != "" {
+				catBadge = lipgloss.NewStyle().
+					Foreground(ColorMuted).
+					Render(fmt.Sprintf("[%s] ", sc.Category))
+			}
 			descStr := sc.Description
 
 			if i == m.SlashCursor {
 				cmdR := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(cmdStr)
 				descR := lipgloss.NewStyle().Foreground(ColorFg).Render(descStr)
-				popupLines = append(popupLines, fmt.Sprintf("%s%s %s", lipgloss.NewStyle().Foreground(ColorAccent).Render(cursor), cmdR, descR))
+				popupLines = append(popupLines, fmt.Sprintf("%s%s%s%s", lipgloss.NewStyle().Foreground(ColorAccent).Render(cursor), cmdR, catBadge, descR))
 			} else {
 				cmdR := lipgloss.NewStyle().Foreground(ColorAccent).Render(cmdStr)
 				descR := lipgloss.NewStyle().Foreground(ColorMuted).Render(descStr)
-				popupLines = append(popupLines, fmt.Sprintf("  %s %s", cmdR, descR))
+				popupLines = append(popupLines, fmt.Sprintf("  %s%s%s", cmdR, catBadge, descR))
 			}
 		}
 
