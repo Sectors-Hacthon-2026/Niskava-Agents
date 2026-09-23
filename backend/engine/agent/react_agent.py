@@ -20,7 +20,7 @@ from engine.sectors.tickers import extract_valid_tickers, is_valid_idx_ticker
 from engine.utils.resilience import RetryConfig, execute_with_retry
 
 # Configurable ReAct loop depth & resource bounds
-MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_MAX_REACT_ITERATIONS", "10"))
+MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_MAX_REACT_ITERATIONS", "15"))
 DEFAULT_MAX_TOKENS: int = int(os.environ.get("NISKAVA_MAX_TOKENS", "30000"))
 DEFAULT_LLM_TIMEOUT: float = float(os.environ.get("NISKAVA_LLM_TIMEOUT", "90.0"))
 
@@ -541,6 +541,12 @@ class NiskavaReActAgent:
                 conn.commit()
         except Exception:
             pass
+
+    def _extract_target_ticker(self, prompt: str) -> Optional[str]:
+        """Helper to extract primary target ticker from prompt if present."""
+        from engine.sectors.tickers import extract_valid_tickers
+        tickers = extract_valid_tickers(prompt or "")
+        return tickers[0] if tickers else None
 
     def chat(
         self,
@@ -1233,6 +1239,15 @@ class NiskavaReActAgent:
 
                 # Feed back to model
                 combined_obs = "\n\n".join(obs_parts)
+                # Graceful landing warning: when approaching iteration limit, instruct model to synthesize
+                remaining_steps = MAX_REACT_ITERATIONS - 1 - _
+                if 0 < remaining_steps <= 2:
+                    combined_obs += (
+                        f"\n\n[SYSTEM NOTICE: Hanya tersisa {remaining_steps} langkah penalaran. "
+                        "Data yang terkumpul sudah memadai. JANGAN panggil tool lagi. "
+                        "Segera rangkum dan sajikan analisis akhir lengkap Anda di dalam "
+                        "tag <response>...</response>.]"
+                    )
                 messages.append({"role": "assistant", "content": content})
                 messages.append({"role": "user", "content": f"<observation>\n{combined_obs}\n</observation>"})
                 continue
@@ -1292,18 +1307,35 @@ class NiskavaReActAgent:
                 )
                 session_error_msg = f"AI provider connection error ({model} @ {url}): {err_detail}"
             else:
-                error_title = "### ⏱️ ReAct Analysis Limit Reached"
+                detected_ticker = self._extract_target_ticker(user_prompt)
+                error_title = "### ⏱️ ReAct Analysis Limit Reached" if self.language == "en" else "### ⏱️ Batas Penalaran ReAct Tercapai"
+
+                if self.language == "en":
+                    suggestion_ticker = f"1. Refine query with a specific IDX ticker (e.g. `investigate {detected_ticker or 'ANTM'}`)."
+                    suggestion_data = f"2. Ask a focused question on specific market data."
+                    desc_text = "The agent reached its maximum reasoning depth before finalizing synthesis."
+                else:
+                    suggestion_ticker = f"1. Coba persepit pertanyaan untuk saham `{detected_ticker or 'ANTM'}` (misalnya: `cek net foreign flow {detected_ticker or 'ANTM'}`)."
+                    suggestion_data = f"2. Ajukan pertanyaan terfokus pada bagian spesifik data pasar."
+                    desc_text = "Agen membutuhkan lebih banyak langkah analisis dari batas yang tersedia untuk menyusun sintesis lengkap."
+
+                collected_summary = ""
+                if findings or anomalies:
+                    collected_summary = (
+                        f"\n\n💡 **Data Terkumpul:** {len(findings)} temuan dan {len(anomalies)} anomali kuantitatif "
+                        "telah berhasil diidentifikasi sebelum batas penalaran tercapai."
+                    )
+
                 error_markdown = (
                     f"{error_title}\n\n"
                     f"- **Model**: `{model}`\n"
                     f"- **Iterations Used**: {MAX_REACT_ITERATIONS}\n"
                     f"- **Details**: {err_detail}\n\n"
-                    f"Agen membutuhkan lebih banyak langkah analisis dari batas yang tersedia, "
-                    f"atau terjebak dalam pencarian data berulang.\n\n"
-                    f"**Saran:**\n"
-                    f"1. Coba pertanyaan yang lebih spesifik (misalnya menyebutkan ticker saham langsung: `analisis BBCA`).\n"
-                    f"2. Jalankan ulang query — masalah ini sering bersifat sementara.\n"
-                    f"3. Use offline mode (`--offline`) to run deterministic analysis without an LLM."
+                    f"{desc_text}{collected_summary}\n\n"
+                    f"**Saran Perbaikan / Actionable Steps:**\n"
+                    f"{suggestion_ticker}\n"
+                    f"{suggestion_data}\n"
+                    f"3. Gunakan mode offline (`--offline`) untuk analisis deterministik murni tanpa LLM."
                 )
                 session_error_msg = f"ReAct analysis limit reached ({model}): {err_detail}"
 
