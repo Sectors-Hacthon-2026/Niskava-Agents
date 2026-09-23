@@ -109,29 +109,32 @@ class DualEngineOSINTHarvester:
 
         items: List[OSINTItem] = []
         try:
-            feed = feedparser.parse(rss_url)
-            for entry in feed.entries[:8]:  # Limit top 8 freshest syndications
-                title = getattr(entry, "title", "").strip()
-                link = getattr(entry, "link", "")
-                published = getattr(entry, "published", "")
-                summary = getattr(entry, "summary", "")
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Niskava-Agent/1.0"}
+            resp = requests.get(rss_url, headers=headers, timeout=10)
+            if resp.status_code == 200:
+                feed = feedparser.parse(resp.content)
+                for entry in feed.entries[:8]:  # Limit top 8 freshest syndications
+                    title = getattr(entry, "title", "").strip()
+                    link = getattr(entry, "link", "")
+                    published = getattr(entry, "published", "")
+                    summary = getattr(entry, "summary", "")
 
-                source_name = "Google News"
-                if hasattr(entry, "source") and hasattr(entry.source, "title"):
-                    source_name = entry.source.title
+                    source_name = "Google News"
+                    if hasattr(entry, "source") and hasattr(entry.source, "title"):
+                        source_name = entry.source.title
 
-                is_disclosure = self._is_disclosure_headline(title)
-                items.append(
-                    OSINTItem(
-                        title=title,
-                        source_name=source_name,
-                        source_url=link,
-                        publication_date=published,
-                        snippet=summary,
-                        is_disclosure=is_disclosure,
-                        source_type="DISCLOSURE" if is_disclosure else "NEWS",
+                    is_disclosure = self._is_disclosure_headline(title)
+                    items.append(
+                        OSINTItem(
+                            title=title,
+                            source_name=source_name,
+                            source_url=link,
+                            publication_date=published,
+                            snippet=summary,
+                            is_disclosure=is_disclosure,
+                            source_type="DISCLOSURE" if is_disclosure else "NEWS",
+                        )
                     )
-                )
         except Exception:
             pass
 
@@ -141,26 +144,46 @@ class DualEngineOSINTHarvester:
         """Use Trafilatura to cleanly extract main article content without ads/boilerplate."""
         try:
             if html_or_url.startswith("http://") or html_or_url.startswith("https://"):
-                downloaded = trafilatura.fetch_url(html_or_url)
-                if not downloaded:
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Niskava-Agent/1.0"}
+                resp = requests.get(html_or_url, headers=headers, timeout=10)
+                if resp.status_code != 200 or not resp.text:
                     return None
-                return trafilatura.extract(downloaded, include_comments=False)
+                return trafilatura.extract(resp.text, include_comments=False)
             return trafilatura.extract(html_or_url, include_comments=False)
         except Exception:
             return None
 
+    def _sanitize_xml_text(self, text: str) -> str:
+        """Escape XML entities and neutralize prompt injection context boundaries."""
+        if not text:
+            return ""
+        escaped = (
+            text.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+            .replace("'", "&apos;")
+        )
+        return escaped
+
     def wrap_in_evidence_context(self, items: List[OSINTItem]) -> str:
         """Format harvested items into an isolated XML structure.
 
-        Mitiages indirect prompt injection by separating data context
-        from system instructions.
+        Mitigates indirect prompt injection by separating data context
+        from system instructions and escaping all embedded XML tags.
         """
         parts = ["<evidence_context>"]
         for idx, item in enumerate(items, 1):
+            san_title = self._sanitize_xml_text(item.title)
+            san_snippet = self._sanitize_xml_text(item.snippet)
+            san_source = self._sanitize_xml_text(item.source_name)
+            san_date = self._sanitize_xml_text(item.publication_date)
+            san_type = self._sanitize_xml_text(item.source_type)
+
             parts.append(
-                f'  <item id="{idx}" type="{item.source_type}" source="{item.source_name}" date="{item.publication_date}">\n'
-                f"    <headline>{item.title}</headline>\n"
-                f"    <snippet>{item.snippet}</snippet>\n"
+                f'  <item id="{idx}" type="{san_type}" source="{san_source}" date="{san_date}">\n'
+                f"    <headline>{san_title}</headline>\n"
+                f"    <snippet>{san_snippet}</snippet>\n"
                 f"  </item>"
             )
         parts.append("</evidence_context>")
