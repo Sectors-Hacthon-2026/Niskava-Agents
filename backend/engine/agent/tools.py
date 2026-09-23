@@ -94,14 +94,22 @@ class NiskavaToolRegistry:
         Raises:
             ValueError: If `domain` is not in _SECTORS_DOMAIN_MAP.
         """
+        clean_ticker = ticker.upper() if ticker else ""
+
+        # Intelligently default domain when omitted or empty to prevent ReAct loop crashes
+        if not domain:
+            if clean_ticker in _INDEX_TICKERS:
+                domain = "news"
+            else:
+                domain = "candles"
+
         method_name = _SECTORS_DOMAIN_MAP.get(domain)
         if not method_name:
             supported = ", ".join(sorted(_SECTORS_DOMAIN_MAP.keys()))
             raise ValueError(
-                f"Domain tidak dikenal: '{domain}'. Domain yang didukung: {supported}"
+                f"Unknown domain: '{domain}'. Supported domains: {supported}"
             )
 
-        clean_ticker = ticker.upper() if ticker else ticker
         client_method = getattr(self.sectors_client, method_name)
 
         # Domains with a non-ticker primary key
@@ -590,7 +598,7 @@ class NiskavaToolRegistry:
 
         handler = handlers.get(tool_name)
         if not handler:
-            raise ValueError(f"Tool '{tool_name}' tidak terdaftar di Niskava Tool Registry.")
+            raise ValueError(f"Tool '{tool_name}' is not registered in Niskava Tool Registry.")
 
         return handler(arguments)
 

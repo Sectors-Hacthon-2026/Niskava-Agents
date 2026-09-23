@@ -33,7 +33,7 @@ def extract_dialogue_observations(user_text: str) -> List[Dict[str, Any]]:
                     "relation": "EXITED_AT",
                     "target_label": f"Price: {price}",
                     "target_type": "PRICE_LEVEL",
-                    "context_snippet": f"Realisasi posisi {ticker} di level harga {price}",
+                    "context_snippet": f"Realized exit for {ticker} at price level {price}",
                 })
 
     # 2. Buy / Entry: e.g. "beli BBCA di 9800", "entry ANTM @ 1450"
@@ -54,7 +54,7 @@ def extract_dialogue_observations(user_text: str) -> List[Dict[str, Any]]:
                         "relation": "HOLDS_AT",
                         "target_label": f"Price: {price}",
                         "target_type": "PRICE_LEVEL",
-                        "context_snippet": f"Kepemilikan posisi modal {ticker} di level harga {price}",
+                        "context_snippet": f"Entry position {ticker} at cost basis {price}",
                     })
 
     # 3. Watchlist / Monitor: e.g. "pantau pergerakan saham ANTM", "tolong pantau BBRI"
@@ -74,7 +74,7 @@ def extract_dialogue_observations(user_text: str) -> List[Dict[str, Any]]:
                         "relation": "WATCHES",
                         "target_label": ticker,
                         "target_type": "TICKER",
-                        "context_snippet": f"Pengguna memantau pergerakan saham {ticker}",
+                        "context_snippet": f"User monitoring stock movement: {ticker}",
                     })
 
     return observations

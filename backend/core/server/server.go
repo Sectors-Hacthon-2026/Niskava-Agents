@@ -710,9 +710,10 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			return
 		}
 
-		// Disable write timeout for this streaming SSE connection
+		// Disable read and write deadlines for long-running SSE streaming sessions
 		rc := http.NewResponseController(w)
 		_ = rc.SetWriteDeadline(time.Time{})
+		_ = rc.SetReadDeadline(time.Time{})
 
 		// Create cancellable context for this chat execution
 		chatCtx, cancelChat := context.WithCancel(r.Context())
@@ -809,6 +810,17 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 					})
 					fmt.Fprintf(w, "event: session_error\ndata: %s\n\n", errPayload)
 					flusher.Flush()
+
+					if database != nil && assistantResponse.Len() > 0 {
+						_ = database.SaveChatMessage(&db.ChatMessage{
+							ID:        fmt.Sprintf("MSG-%d", time.Now().UnixNano()),
+							SessionID: sessionID,
+							Role:      "assistant",
+							Content:   assistantResponse.String() + "\n\n[Analysis interrupted due to upstream network issue]",
+							Status:    "FAILED",
+							CreatedAt: time.Now().UTC().Format(time.RFC3339),
+						})
+					}
 					return
 				}
 
@@ -1146,9 +1158,10 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 	s.URL = fmt.Sprintf("http://localhost:%d", actualPort)
 
 	s.httpServer = &http.Server{
-		Handler:      mux,
-		ReadTimeout:  60 * time.Second,
-		WriteTimeout: 0, // 0 disables global write deadline, essential for long-running SSE streaming sessions
+		Handler:           mux,
+		ReadHeaderTimeout: 30 * time.Second, // Protect against Slowloris attacks
+		ReadTimeout:       0,                // 0 disables connection-wide read deadline for SSE streaming
+		WriteTimeout:      0,                // 0 disables global write deadline, essential for long-running SSE streaming sessions
 	}
 
 	go func() {

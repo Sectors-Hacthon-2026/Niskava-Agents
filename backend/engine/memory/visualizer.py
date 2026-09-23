@@ -83,7 +83,7 @@ DEFAULT_NODE_STYLE = {
 }
 
 HTML_TEMPLATE = """<!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -303,8 +303,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <div class="brand-subtitle">Entity Network & Research Graph</div>
         </div>
 
-        <div class="section-title">Pencarian Entitas</div>
-        <input type="text" id="searchInput" class="search-box" placeholder="Cari emiten, broker, keterbukaan..." oninput="searchAndHighlight()">
+        <div class="section-title">Entity Search</div>
+        <input type="text" id="searchInput" class="search-box" placeholder="Search ticker, broker, disclosure..." oninput="searchAndHighlight()">
 
         <div class="section-title">Ego-Graph Radius</div>
         <div style="display: flex; gap: 8px;">
@@ -313,28 +313,28 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <button class="btn" style="flex:1" onclick="resetFilter()">Reset</button>
         </div>
 
-        <div class="section-title">Klasifikasi Simpul</div>
+        <div class="section-title">Node Classification</div>
         <div class="legend">
-            <div class="legend-item"><span class="legend-dot" style="background:#3B82F6"></span> Emiten Saham (TICKER)</div>
-            <div class="legend-item"><span class="legend-dot" style="background:#D97706"></span> Anggota Bursa (BROKER)</div>
-            <div class="legend-item"><span class="legend-dot" style="background:#6366F1"></span> Sektor Industri (SECTOR)</div>
-            <div class="legend-item"><span class="legend-dot" style="background:#059669"></span> Keterbukaan & Aksi Korporasi</div>
-            <div class="legend-item"><span class="legend-dot" style="background:#DC2626"></span> Outlier Volume & Arus Dana</div>
-            <div class="legend-item"><span class="legend-dot" style="background:#38BDF8"></span> Profil Riset Pengguna (USER)</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#3B82F6"></span> Stock Issuer (TICKER)</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#D97706"></span> Exchange Member (BROKER)</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#6366F1"></span> Industry Sector (SECTOR)</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#059669"></span> Disclosures & Corporate Actions</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#DC2626"></span> Volume Outlier & Fund Flow</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#38BDF8"></span> User Research Profile (USER)</div>
         </div>
 
-        <div class="section-title">Statistik Jaringan Pasar</div>
+        <div class="section-title">Market Network Statistics</div>
         <div class="stats-card" id="statsArea">
-            Memuat statistik graf...
+            Loading graph statistics...
         </div>
 
-        <button class="btn" style="margin-top: auto;" onclick="if(network) network.fit({animation: true})">Posisikan Ulang Kanvas</button>
+        <button class="btn" style="margin-top: auto;" onclick="if(network) network.fit({animation: true})">Refit Canvas</button>
     </div>
 
     <div class="canvas-area">
         <div class="top-bar">
             <div class="glass-pill">
-                <span>Sesi Riset:</span>
+                <span>Research Session:</span>
                 <strong style="color:var(--accent);">__SESSION_ID__</strong>
             </div>
             <div class="glass-pill">
@@ -349,7 +349,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="section-title">Intelligence Dossier</div>
         <div id="inspectorContent">
             <p style="color:var(--text-muted); font-size:13px; line-height:1.6;">
-                Pilih salah satu entitas atau relasi di kanvas untuk memeriksa kutipan keterbukaan resmi BEI, bobot temporal kebaruan, dan rincian metadata.
+                Select an entity or relation on canvas to inspect official IDX disclosure quotes, temporal recency weight, and metadata.
             </p>
         </div>
     </div>
@@ -409,12 +409,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const s = rawData.stats || {};
             const entities = (s.top_central_entities || []).map(function(e) {
                 const pr = e.pagerank ? ' [PR: ' + e.pagerank + ']' : '';
-                return '• <strong>' + e.label + '</strong> (' + e.connections + ' relasi)' + pr;
+                return '• <strong>' + e.label + '</strong> (' + e.connections + ' connections)' + pr;
             }).join('<br>') || '-';
 
-            const html = 'Total Simpul: <span class="stats-val">' + (s.total_nodes || allNodes.length) + '</span><br>' +
-                         'Relasi Pasar: <span class="stats-val">' + (s.total_edges || allEdges.length) + '</span><br>' +
-                         'Entitas Sentral & Poros: <br>' + entities;
+            const html = 'Total Nodes: <span class="stats-val">' + (s.total_nodes || allNodes.length) + '</span><br>' +
+                         'Market Relations: <span class="stats-val">' + (s.total_edges || allEdges.length) + '</span><br>' +
+                         'Central Entities & Hubs: <br>' + entities;
             document.getElementById('statsArea').innerHTML = html;
         }
 
@@ -431,7 +431,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 return '<div style="background:var(--surface-card); border:1px solid var(--border); padding:8px 10px; border-radius:6px; font-size:12px;">' +
                        '<strong>[' + e.relation + ']</strong> ' + connLabel + supersededBadge + '<br>' +
                        '<small style="color:var(--text-muted);">' + (e.context_snippet || '-') + '</small><br>' +
-                       '<span style="font-size:10px; color:var(--accent);">Bobot Efektif: ' + e.effective_weight + '</span>' +
+                       '<span style="font-size:10px; color:var(--accent);">Effective Weight: ' + e.effective_weight + '</span>' +
                        '</div>';
             }).join('');
 
@@ -439,24 +439,24 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 '<div class="inspector-badge" style="background:' + (node.color && node.color.background ? node.color.background : '#1E293B') + '">' + node.group + '</div>' +
                 '<div class="detail-row" style="margin-top:12px;">' +
                 '<span class="detail-label">Identifier</span><code>' + node.id + '</code></div>' +
-                '<div class="detail-row"><span class="detail-label">Waktu Observasi</span><span>' + (node.last_observed_at || '-') + '</span></div>' +
-                '<div class="detail-row"><span class="detail-label">Derajat Relasi</span><span class="stats-val">' + connectedEdges.length + '</span></div>' +
-                '<div class="section-title" style="margin-top:10px;">Katalog Relasi Bukti</div>' +
-                '<div style="display:flex; flex-direction:column; gap:8px;">' + (edgeHTML || '<p style="font-size:12px; color:var(--text-muted);">Tidak ada relasi aktif.</p>') + '</div>';
+                '<div class="detail-row"><span class="detail-label">Observation Time</span><span>' + (node.last_observed_at || '-') + '</span></div>' +
+                '<div class="detail-row"><span class="detail-label">Relation Degree</span><span class="stats-val">' + connectedEdges.length + '</span></div>' +
+                '<div class="section-title" style="margin-top:10px;">Evidence Relation Catalog</div>' +
+                '<div style="display:flex; flex-direction:column; gap:8px;">' + (edgeHTML || '<p style="font-size:12px; color:var(--text-muted);">No active relations.</p>') + '</div>';
         }
 
         function inspectEdge(edgeId) {
             const edge = allEdges.find(function(e) { return e.id === edgeId; });
             if (!edge) return;
             const panel = document.getElementById('inspectorContent');
-            const supersededInfo = edge.is_superseded ? '<div class="detail-row"><span class="detail-label" style="color:var(--accent-rose);">Status Validitas</span><span style="color:var(--accent-rose); font-weight:600;">SUPERSEDED (Fakta telah dianulir transaksi baru)</span></div>' : '';
+            const supersededInfo = edge.is_superseded ? '<div class="detail-row"><span class="detail-label" style="color:var(--accent-rose);">Validity Status</span><span style="color:var(--accent-rose); font-weight:600;">SUPERSEDED (Superseded by new transaction)</span></div>' : '';
             panel.innerHTML = '<div class="inspector-title">[' + edge.relation + ']</div>' +
                 '<div class="inspector-badge" style="background:#059669">RELATION</div>' +
-                '<div class="detail-row" style="margin-top:12px;"><span class="detail-label">Koneksi Kausalitas</span><span>' + edge.from + ' ➔ ' + edge.to + '</span></div>' +
-                '<div class="detail-row"><span class="detail-label">Kutipan Bukti / Dokumen</span><span>' + (edge.context_snippet || '-') + '</span></div>' +
-                '<div class="detail-row"><span class="detail-label">Bobot Efektif Temporal</span><span class="stats-val">' + edge.effective_weight + ' (Base: ' + edge.weight + ')</span></div>' +
+                '<div class="detail-row" style="margin-top:12px;"><span class="detail-label">Causality Connection</span><span>' + edge.from + ' ➔ ' + edge.to + '</span></div>' +
+                '<div class="detail-row"><span class="detail-label">Evidence Snippet / Document</span><span>' + (edge.context_snippet || '-') + '</span></div>' +
+                '<div class="detail-row"><span class="detail-label">Temporal Effective Weight</span><span class="stats-val">' + edge.effective_weight + ' (Base: ' + edge.weight + ')</span></div>' +
                 supersededInfo +
-                '<div class="detail-row"><span class="detail-label">Sesi Investigasi</span><code>' + (edge.session_id || '-') + '</code></div>';
+                '<div class="detail-row"><span class="detail-label">Investigation Session</span><code>' + (edge.session_id || '-') + '</code></div>';
         }
 
         function searchAndHighlight() {
@@ -478,7 +478,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         function filterHops(radius) {
             const selected = network.getSelectedNodes();
             if (selected.length === 0) {
-                alert("Pilih satu simpul (node) terlebih dahulu sebelum menerapkan filter Ego-Graph hop.");
+                alert("Please select one node before applying Ego-Graph hop filter.");
                 return;
             }
             const root = selected[0];
@@ -604,7 +604,7 @@ class GraphVisualizer:
         """Generate a complete, self-contained HTML page string."""
         data = self.export_graph_data(session_id=session_id)
         raw_json = json.dumps(data, ensure_ascii=False)
-        sess_str = session_id or "Semua Sesi Aktif"
+        sess_str = session_id or "All Active Sessions"
 
         html = HTML_TEMPLATE.replace("__TITLE__", title)
         html = html.replace("__SESSION_ID__", sess_str)

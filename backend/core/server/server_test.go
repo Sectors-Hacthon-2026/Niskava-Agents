@@ -573,3 +573,22 @@ func TestSSEErrorIsValidJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestServerDoesNotEnforceReadTimeoutOnSSE(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	srv, err := Start(ctx, 0, nil)
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	defer srv.httpServer.Close()
+
+	if srv.httpServer.ReadTimeout != 0 {
+		t.Errorf("expected httpServer.ReadTimeout to be 0 for SSE longevity, got %v", srv.httpServer.ReadTimeout)
+	}
+	if srv.httpServer.ReadHeaderTimeout == 0 {
+		t.Errorf("expected httpServer.ReadHeaderTimeout to be configured to protect Slowloris, got 0")
+	}
+}
+
