@@ -178,9 +178,19 @@ CREATE TABLE IF NOT EXISTS osint_cache (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS telegram_chats (
+    chat_id INTEGER PRIMARY KEY,
+    current_session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL DEFAULT 0,
+    username TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_suspensions_symbol ON suspension_records(symbol, suspension_date DESC);
 CREATE INDEX IF NOT EXISTS idx_insider_filings_symbol ON insider_filings(symbol, transaction_date DESC);
 CREATE INDEX IF NOT EXISTS idx_osint_cache_type ON osint_cache(source_type);
+CREATE INDEX IF NOT EXISTS idx_telegram_chats_session ON telegram_chats(current_session_id);
 `
 
 // DB wraps the SQL database pool and provides high-level domain operations.
@@ -1080,4 +1090,94 @@ func (d *DB) ClearMemoryGraph(sessionID ...string) error {
 		return fmt.Errorf("failed to clear memory nodes: %w", err)
 	}
 	return nil
+}
+
+// TelegramChat represents a persistent mapping between a Telegram chat and a Niskava chat session.
+type TelegramChat struct {
+	ChatID           int64  `json:"chat_id"`
+	CurrentSessionID string `json:"current_session_id"`
+	UserID           int64  `json:"user_id"`
+	Username         string `json:"username"`
+	CreatedAt        string `json:"created_at"`
+	UpdatedAt        string `json:"updated_at"`
+}
+
+// GetTelegramChat retrieves the telegram chat mapping by chatID.
+func (d *DB) GetTelegramChat(chatID int64) (*TelegramChat, error) {
+	query := `
+		SELECT chat_id, current_session_id, user_id, username, created_at, updated_at
+		FROM telegram_chats
+		WHERE chat_id = ?
+	`
+	var chat TelegramChat
+	err := d.conn.QueryRow(query, chatID).Scan(
+		&chat.ChatID,
+		&chat.CurrentSessionID,
+		&chat.UserID,
+		&chat.Username,
+		&chat.CreatedAt,
+		&chat.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get telegram chat %d: %w", chatID, err)
+	}
+	return &chat, nil
+}
+
+// GetOrCreateTelegramChatSession retrieves the active chat_sessions ID mapped to a Telegram chat,
+// or creates both a new chat_session and the mapping record if none exists.
+func (d *DB) GetOrCreateTelegramChatSession(chatID int64, userID int64, username string) (string, error) {
+	existing, err := d.GetTelegramChat(chatID)
+	if err != nil {
+		return "", err
+	}
+	if existing != nil && existing.CurrentSessionID != "" {
+		// Verify referenced session still exists
+		sess, sessErr := d.GetChatSession(existing.CurrentSessionID)
+		if sessErr == nil && sess != nil {
+			return existing.CurrentSessionID, nil
+		}
+	}
+
+	// Create new session
+	return d.ResetTelegramChatSession(chatID, userID, username)
+}
+
+// ResetTelegramChatSession creates a fresh chat_sessions record and updates the telegram_chats mapping.
+func (d *DB) ResetTelegramChatSession(chatID int64, userID int64, username string) (string, error) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	newSessionID := fmt.Sprintf("TELE-%s-%04d", time.Now().Format("20060102"), time.Now().UnixNano()%10000)
+
+	sessionTitle := "Sesi Telegram"
+	if username != "" {
+		sessionTitle = fmt.Sprintf("Telegram (@%s)", username)
+	}
+
+	sess := &ChatSession{
+		ID:     newSessionID,
+		Title:  sessionTitle,
+		Model:  "hermes",
+		Status: "IDLE",
+	}
+	if err := d.CreateChatSession(sess); err != nil {
+		return "", fmt.Errorf("failed to create chat session for telegram %d: %w", chatID, err)
+	}
+
+	upsertQuery := `
+		INSERT INTO telegram_chats (chat_id, current_session_id, user_id, username, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(chat_id) DO UPDATE SET
+			current_session_id = excluded.current_session_id,
+			user_id = excluded.user_id,
+			username = excluded.username,
+			updated_at = excluded.updated_at
+	`
+	if _, err := d.conn.Exec(upsertQuery, chatID, newSessionID, userID, username, now, now); err != nil {
+		return "", fmt.Errorf("failed to map telegram chat %d to session %s: %w", chatID, newSessionID, err)
+	}
+
+	return newSessionID, nil
 }
