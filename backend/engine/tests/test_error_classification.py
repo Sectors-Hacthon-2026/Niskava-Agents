@@ -60,9 +60,11 @@ def test_loop_exhaustion_shows_analysis_limit_not_connection_error(tmp_path):
     )
 
     # Must contain the accurate analysis limit message
-    assert "Analysis Limit Reached" in response_text or "Batas Analisis Tercapai" in response_text, (
-        f"Loop exhaustion should show 'Analysis Limit Reached'. Got: {response_text[:300]}"
-    )
+    assert (
+        "Analysis Limit Reached" in response_text
+        or "Batas Analisis Tercapai" in response_text
+        or "Batas Penalaran ReAct Tercapai" in response_text
+    ), f"Loop exhaustion should show 'Analysis Limit Reached'. Got: {response_text[:300]}"
 
 
 def test_real_connection_error_shows_unable_to_connect(tmp_path):

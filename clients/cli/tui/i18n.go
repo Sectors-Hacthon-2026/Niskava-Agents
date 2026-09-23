@@ -735,17 +735,17 @@ func GetLocalizedLauncherItems() []LauncherItem {
 // GetLocalizedSlashCommands returns slash commands localized according to ActiveLanguage.
 func GetLocalizedSlashCommands() []SlashCommand {
 	return []SlashCommand{
-		{Command: "/help", Description: T("slash_help_desc")},
-		{Command: "/back", Description: T("slash_back_desc")},
-		{Command: "/chats", Description: T("slash_chats_desc")},
-		{Command: "/resume", Description: T("slash_resume_desc")},
-		{Command: "/reset", Description: T("slash_reset_desc")},
-		{Command: "/graph", Description: T("slash_graph_desc")},
-		{Command: "/clear", Description: T("slash_clear_desc")},
-		{Command: "/web", Description: T("slash_web_desc")},
-		{Command: "/sessions", Description: T("slash_sessions_desc")},
-		{Command: "/health", Description: T("slash_health_desc")},
-		{Command: "/lang", Description: T("slash_lang_desc")},
-		{Command: "/exit", Description: T("slash_exit_desc")},
+		{Command: "/help", Category: "SYSTEM", Description: T("slash_help_desc")},
+		{Command: "/back", Category: "NAV", Description: T("slash_back_desc")},
+		{Command: "/chats", Category: "NAV", Description: T("slash_chats_desc")},
+		{Command: "/resume", Category: "INTEL", Description: T("slash_resume_desc")},
+		{Command: "/reset", Category: "SYSTEM", Description: T("slash_reset_desc")},
+		{Command: "/graph", Category: "INTEL", Description: T("slash_graph_desc")},
+		{Command: "/clear", Category: "SYSTEM", Description: T("slash_clear_desc")},
+		{Command: "/web", Category: "NAV", Description: T("slash_web_desc")},
+		{Command: "/sessions", Category: "INTEL", Description: T("slash_sessions_desc")},
+		{Command: "/health", Category: "SYSTEM", Description: T("slash_health_desc")},
+		{Command: "/lang", Category: "SYSTEM", Description: T("slash_lang_desc")},
+		{Command: "/exit", Category: "SYSTEM", Description: T("slash_exit_desc")},
 	}
 }
