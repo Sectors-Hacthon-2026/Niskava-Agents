@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -553,13 +552,11 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 	if usingDaemon {
 		eventsChan, errChan = StreamChatViaSSE(ctx, serverURL, sessionID, prompt)
 	} else {
-		pythonBin := cfg.Engine.PythonBin
-		if pythonBin == "python3" {
-			localVenv := filepath.Join(".venv", "bin", "python3")
-			if _, err := os.Stat(localVenv); err == nil {
-				pythonBin = localVenv
-			}
+		pythonBin := ""
+		if cfg != nil {
+			pythonBin = cfg.Engine.PythonBin
 		}
+		pythonBin = ipc.ResolvePythonBin(pythonBin)
 
 		wd, _ := os.Getwd()
 		runnerParams := ipc.RunnerParams{

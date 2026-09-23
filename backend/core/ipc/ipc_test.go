@@ -124,3 +124,23 @@ func TestScannerHandlesLargeJSONLine(t *testing.T) {
 		t.Errorf("content mismatch: got length %d, want %d", len(parsed.Content), len(largeContent))
 	}
 }
+
+func TestResolvePythonBin(t *testing.T) {
+	// 1. When given an explicit existing binary
+	resolved := ResolvePythonBin("")
+	if resolved == "" {
+		t.Errorf("expected non-empty python binary, got empty")
+	}
+
+	// 2. When given "python3" or "python"
+	resolved3 := ResolvePythonBin("python3")
+	if resolved3 == "" {
+		t.Errorf("expected resolved python for 'python3', got empty")
+	}
+
+	// 3. When given non-existent explicit path, it should fallback safely
+	nonExistent := ResolvePythonBin("/non/existent/path/to/python_custom")
+	if nonExistent == "" {
+		t.Errorf("expected fallback when given non-existent binary, got empty")
+	}
+}

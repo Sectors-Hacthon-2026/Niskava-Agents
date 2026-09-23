@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -93,6 +94,57 @@ func RunConversationStream(ctx context.Context, params RunnerParams) (<-chan Eve
 	return RunSubprocess(ctx, params)
 }
 
+// ResolvePythonBin dynamically resolves the best Python interpreter across Windows, macOS, and Linux.
+// Precedence:
+// 1. Explicit configured path if it exists on disk.
+// 2. Local virtualenv:
+//   - Windows: .venv\Scripts\python.exe
+//   - POSIX: .venv/bin/python3, .venv/bin/python
+//
+// 3. System LookPath:
+//   - On Windows: "python", "py", "python3"
+//   - On POSIX: "python3", "python"
+//
+// 4. Fallback to "python3" (POSIX) or "python" (Windows).
+func ResolvePythonBin(configuredBin string) string {
+	if configuredBin != "" && configuredBin != "python3" && configuredBin != "python" {
+		if _, err := os.Stat(configuredBin); err == nil {
+			return configuredBin
+		}
+	}
+
+	// Check local virtual environments first
+	venvCandidates := []string{
+		filepath.Join(".venv", "Scripts", "python.exe"), // Windows standard venv
+		filepath.Join(".venv", "bin", "python3"),        // POSIX standard venv
+		filepath.Join(".venv", "bin", "python"),         // POSIX alternative
+	}
+	for _, cand := range venvCandidates {
+		if _, err := os.Stat(cand); err == nil {
+			return cand
+		}
+	}
+
+	// System PATH lookups
+	var lookups []string
+	if runtime.GOOS == "windows" {
+		lookups = []string{"python", "py", "python3"}
+	} else {
+		lookups = []string{"python3", "python"}
+	}
+
+	for _, name := range lookups {
+		if path, err := exec.LookPath(name); err == nil {
+			return path
+		}
+	}
+
+	if runtime.GOOS == "windows" {
+		return "python"
+	}
+	return "python3"
+}
+
 // RunSubprocess spawns the Python runner and returns a channel of streaming events.
 func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-chan error) {
 	eventsChan := make(chan Event, 64)
@@ -102,16 +154,7 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 		defer close(eventsChan)
 		defer close(errChan)
 
-		pythonBin := params.PythonBin
-		if pythonBin == "" {
-			if path, err := exec.LookPath("python3"); err == nil {
-				pythonBin = path
-			} else if path, err := exec.LookPath("python"); err == nil {
-				pythonBin = path
-			} else {
-				pythonBin = "python"
-			}
-		}
+		pythonBin := ResolvePythonBin(params.PythonBin)
 
 		args := []string{
 			"-m", "engine.runner",
@@ -151,7 +194,11 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 		if existing := os.Getenv("PYTHONPATH"); existing != "" {
 			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
 		}
-		cmd.Env = append(cmd.Environ(), "PYTHONPATH="+pythonPath)
+		cmd.Env = append(cmd.Environ(),
+			"PYTHONPATH="+pythonPath,
+			"PYTHONIOENCODING=utf-8",
+			"PYTHONUTF8=1",
+		)
 		if params.Language != "" {
 			cmd.Env = append(cmd.Env, "NISKAVA_LANG="+params.Language)
 		}

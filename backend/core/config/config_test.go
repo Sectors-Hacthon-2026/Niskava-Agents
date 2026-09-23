@@ -99,3 +99,30 @@ func TestTelegramConfigParsing(t *testing.T) {
 		t.Errorf("unexpected allowed users: %v", cfg.Telegram.AllowedUsers)
 	}
 }
+
+func TestExpandHome_CrossPlatform(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("skipping test: UserHomeDir not available")
+	}
+
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"~", home},
+		{"~/", home},
+		{"~/.niskava", filepath.Join(home, ".niskava")},
+		{"~/.niskava/config.yaml", filepath.Join(home, ".niskava", "config.yaml")},
+		{`~\.niskava\config.yaml`, filepath.Join(home, ".niskava", "config.yaml")},
+		{"/var/log/niskava.log", "/var/log/niskava.log"},
+		{"relative/path.db", "relative/path.db"},
+	}
+
+	for _, tt := range tests {
+		got := ExpandHome(tt.input)
+		if got != tt.expected {
+			t.Errorf("ExpandHome(%q) = %q, want %q", tt.input, got, tt.expected)
+		}
+	}
+}

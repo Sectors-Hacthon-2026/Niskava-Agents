@@ -732,17 +732,14 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			}
 		}()
 
-		pythonBin := "python3"
-		localVenv := filepath.Join(".venv", "bin", "python3")
-		if _, err := os.Stat(localVenv); err == nil {
-			pythonBin = localVenv
-		}
+		pythonBin := ipc.ResolvePythonBin(os.Getenv("NISKAVA_PYTHON_BIN"))
 
 		dbPath := ""
 		if s.DB != nil && s.DB.Path != "" {
 			dbPath = s.DB.Path
 		} else {
-			dbPath = filepath.Join(os.Getenv("HOME"), ".niskava", "niskava.db")
+			homeDir, _ := os.UserHomeDir()
+			dbPath = filepath.Join(homeDir, ".niskava", "niskava.db")
 			if customDB := os.Getenv("NISKAVA_DB_PATH"); customDB != "" {
 				dbPath = customDB
 			}
@@ -884,17 +881,14 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 
 	// 6. Interactive Memory Graph View endpoint (serves full Cyber-OSINT visualizer)
 	mux.HandleFunc("/graph", func(w http.ResponseWriter, r *http.Request) {
-		pythonBin := "python3"
-		localVenv := filepath.Join(".venv", "bin", "python3")
-		if _, err := os.Stat(localVenv); err == nil {
-			pythonBin = localVenv
-		}
+		pythonBin := ipc.ResolvePythonBin(os.Getenv("NISKAVA_PYTHON_BIN"))
 
 		dbPath := ""
 		if s.DB != nil && s.DB.Path != "" {
 			dbPath = s.DB.Path
 		} else {
-			dbPath = filepath.Join(os.Getenv("HOME"), ".niskava", "niskava.db")
+			homeDir, _ := os.UserHomeDir()
+			dbPath = filepath.Join(homeDir, ".niskava", "niskava.db")
 			if customDB := os.Getenv("NISKAVA_DB_PATH"); customDB != "" {
 				dbPath = customDB
 			}
@@ -915,7 +909,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		if existing := os.Getenv("PYTHONPATH"); existing != "" {
 			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
 		}
-		cmd.Env = append(os.Environ(), "PYTHONPATH="+pythonPath)
+		cmd.Env = append(os.Environ(),
+			"PYTHONPATH="+pythonPath,
+			"PYTHONIOENCODING=utf-8",
+			"PYTHONUTF8=1",
+		)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to generate graph visualization: %v\nOutput: %s", err, string(out)), http.StatusInternalServerError)
 			return

@@ -301,8 +301,9 @@ class InvestigationPipeline:
         summary: str,
     ) -> None:
         """Persist session, anomalies, and findings into local SQLite database."""
-        if not os.path.exists(self.db_path):
-            return
+        db_dir = os.path.dirname(os.path.abspath(self.db_path))
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()

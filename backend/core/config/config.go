@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -81,6 +82,11 @@ func DefaultConfig() *Config {
 	homeDir, _ := os.UserHomeDir()
 	defaultDBPath := filepath.Join(homeDir, ".niskava", "niskava.db")
 
+	defaultPythonBin := "python3"
+	if runtime.GOOS == "windows" {
+		defaultPythonBin = "python"
+	}
+
 	return &Config{
 		Auth: AuthConfig{
 			AIProvider:      "gemini",
@@ -99,7 +105,7 @@ func DefaultConfig() *Config {
 			DBPath: defaultDBPath,
 		},
 		Engine: EngineConfig{
-			PythonBin:  "python3",
+			PythonBin:  defaultPythonBin,
 			EnginePath: "./backend/engine",
 		},
 		Server: ServerConfig{
@@ -119,15 +125,17 @@ func DefaultConfig() *Config {
 	}
 }
 
-// ExpandHome resolves a leading tilde (~) in file paths.
+// ExpandHome resolves a leading tilde (~) in file paths across POSIX and Windows.
 func ExpandHome(path string) string {
-	if strings.HasPrefix(path, "~/") || path == "~" {
+	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, `~\`) || path == "~" {
 		home, err := os.UserHomeDir()
 		if err == nil {
 			if path == "~" {
 				return home
 			}
-			return filepath.Join(home, path[2:])
+			sub := strings.ReplaceAll(path[2:], `\`, string(filepath.Separator))
+			sub = strings.ReplaceAll(sub, "/", string(filepath.Separator))
+			return filepath.Join(home, sub)
 		}
 	}
 	return path
