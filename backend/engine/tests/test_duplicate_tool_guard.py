@@ -101,7 +101,7 @@ def test_non_duplicate_calls_are_not_blocked(tmp_path):
         elif call_count == 2:
             content = (
                 '<thought>Get news</thought>'
-                '<tool_call>{"name": "search_osint", "arguments": {"ticker": "BBCA"}}</tool_call>'
+                '<tool_call>{"name": "search_news", "arguments": {"ticker": "BBCA"}}</tool_call>'
             )
         else:
             content = (

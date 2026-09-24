@@ -1,7 +1,7 @@
-# Niskava Agent — Financial OSINT & Intelligence Orchestration Platform
+# Niskava Agent — Financial Market Intelligence Orchestration Platform
 
 > **"Don't just answer questions. Investigate them."**  
-> Platform orkestrator investigasi finansial dan intelijen pasar otonom berbasis *evidence-first*, menggabungkan data fundamental/pasar **Sectors MCP** dengan sinyal eksternal **OSINT (News, Public Filings, Corporate Actions)**.
+> Platform orkestrator investigasi finansial dan intelijen pasar otonom berbasis *evidence-first*, menggabungkan data fundamental/pasar **Sectors MCP** dengan sinyal eksternal **Kualitatif (Sectors News, Filings, Corporate Actions)**.
 
 ---
 
@@ -11,7 +11,7 @@
 1. Menentukan metodologi investigasi (*Skills*).
 2. Menarik data kuantitatif dasar (*Sectors MCP*).
 3. Mendeteksi anomali pasar dan kesenjangan informasi (*Evidence Gap Detection*).
-4. Melakukan pencarian intelijen eksternal kontekstual (*Targeted OSINT*).
+4. Melakukan pencarian intelijen eksternal kontekstual (*Targeted News Harvest*).
 5. Mengkorelasikan bukti, menilai kausalitas, dan memvalidasi temuan (*Evidence Layer*).
 6. Menyajikan hasil terverifikasi dalam dua antarmuka terpadu: **CLI Terminal** dan **Local Web Workspace**.
 
@@ -30,7 +30,7 @@
                      [1. Baseline Facts]           [2. Context & Gaps]
                               ▼                             ▼
                 ┌───────────────────────────┐ ┌───────────────────────────┐
-                │        SECTORS MCP        │ │   EXTERNAL OSINT ENGINE   │
+                │        SECTORS MCP        │ │   SECTORS NEWS ENGINE     │
                 │ Price, Volume, Financials │ │ News, Filings, Disclosures│
                 └─────────────┬─────────────┘ └─────────────┬─────────────┘
                               │                             │
@@ -83,7 +83,7 @@ Untuk memaksimalkan performa, *developer experience*, kapabilitas AI, dan esteti
 │                                                                        │
 │  ┌──────────────────────┐  ┌─────────────────┐  ┌───────────────────┐  │
 │  │ Quant Anomaly Engine │  │ Sectors Client  │  │  Agent Reasoning  │  │
-│  │ (Z-score, Bollinger) │  │  (MCP / REST)   │  │  & OSINT Scraper  │  │
+│  │ (Z-score, Bollinger) │  │  (MCP / REST)   │  │  & News Engine     │  │
 │  └──────────────────────┘  └─────────────────┘  └───────────────────┘  │
 └────────────────────────────────────────────────────────────────────────┘
 ```
@@ -107,7 +107,7 @@ Untuk memaksimalkan performa, *developer experience*, kapabilitas AI, dan esteti
   * **Layer 4: Cognitive ReAct Loop**: Mengelola alur penalaran bertahap (*Thought* $\to$ *Tool Call* $\to$ *Observation* $\to$ *Synthesis*) menggunakan Universal Model-Agnostic LLM endpoint (`NISKAVA_LLM_API_BASE`, kompatibel dengan 9router local proxy `http://localhost:20128/v1`, Ollama, OpenRouter, Gemini), pemetaan Ego-Graph memory, dan penyusunan temuan bukti.
   * **Layer 3: Modular Skills Registry**: Menyediakan SOP analisis terstandarisasi (`market-anomaly-recon`, `event-causality-audit`, `insider-bandarmology-forensic`, `financial-health-stress-test`).
   * **Layer 2: Deterministic Compute Gate**: Menghitung anomali teknikal & fundamental secara pasti via NumPy (Volume Z-Score, Abnormal Return, Foreign Flow Z-Score) sebelum LLM diaktifkan, memutus halusinasi angka secara total.
-  * **Layer 1: Sectors MCP & Dual-Engine OSINT**: Adapter data bursa terstandarisasi via Sectors MCP dan panen berita/keterbukaan informasi resmi BEI secara terarah pada jendela $T_{\text{anomaly}} \pm 2\text{ hari}$ dengan disk cache lokal.
+  * **Layer 1: Sectors MCP & News Engine**: Adapter data bursa terstandarisasi via Sectors MCP dan penarikan berita/keterbukaan informasi resmi bursa secara terarah pada jendela $T_{\text{anomaly}} \pm 2\text{ hari}$ via Sectors API v2 dengan disk cache lokal.
 
 ---
 
@@ -128,7 +128,7 @@ Niskava tidak langsung menelusuri web secara acak. Investigasi dilakukan secara 
         │
 4. EVIDENCE GAP     Agent bertanya: "Ada peristiwa apa seputar ANTM pada 10-12 September?"
         │
-5. OSINT HARVEST    Agent menjalankan pencarian terarah:
+5. NEWS HARVEST    Agent menjalankan pencarian terarah:
                     - Query: "ANTM corporate action nickel smelter Sept 2026"
                     - Ditemukan: Pengumuman peresmian smelter baru dan kontrak ekspor.
         │
@@ -195,7 +195,7 @@ $ niskava investigate ANTM
 [●] Initializing Investigation: ANTM (Aneka Tambang Tbk)
  ├── [1/4] Sectors Baseline Data .................... [OK] 30 trading days retrieved
  ├── [2/4] Quantitative Anomaly Detection ........... [ALERT] Volume surge (3.8σ) on Sep 12
- ├── [3/4] OSINT Contextual Gathering ............... [OK] 4 corporate filings & news found
+ ├── [3/4] News Contextual Gathering  ............... [OK] 4 corporate filings & news found
  └── [4/4] Cross-Verification & Correlation ......... [OK] 3 validated findings generated
 
 ─────────────────────────────────────────────────────────────────────────────
@@ -223,7 +223,7 @@ Untuk memastikan deliverable selesai tepat waktu dan memiliki daya pikat demo ma
 | Milestone | Deliverable | Keterangan |
 |---|---|---|
 | **Phase 1: Core Foundation** | • Skema SQLite lokal<br>• Integrasi Sectors API/MCP di Python<br>• Script deteksi anomali kuantitatif | Menghasilkan dataset anomali harga/volume yang valid untuk saham target (misal ANTM/BBRI). |
-| **Phase 2: Agent Orchestration** | • Pipeline Orchestrator Python<br>• Targeted OSINT search (Google News/Tavily/DuckDuckGo)<br>• Korelasi evidence & output JSON terstruktur | Agent mampu menjalankan satu siklus investigasi lengkap dan menyimpannya ke session DB. |
+| **Phase 2: Agent Orchestration** | • Pipeline Orchestrator Python<br>• Sectors News & Filings Retrieval (`/v2/news/`, corporate actions)<br>• Korelasi evidence & output JSON terstruktur | Agent mampu menjalankan satu siklus investigasi lengkap dan menyimpannya ke session DB. |
 | **Phase 3: Go CLI & Daemon** | • Binary CLI Go (`niskava investigate`, `niskava sessions`)<br>• REST API & SSE handler lokal di Go | CLI dapat memanggil engine Python dan menampilkan output streaming. |
 | **Phase 4: Web Dashboard** | • UI Vite + React + Tailwind + shadcn/ui<br>• Chart pergerakan saham & visual timeline bukti<br>• Bundle UI ke dalam binary Go (`//go:embed`) | Dashboard interaktif berjalan mulus di browser lokal. |
 | **Phase 5: Pitch & Demo Prep** | • Skenario demo "Golden Path" (Saham ANTM)<br>• Dokumentasi README & video demo | Presentasi fokus pada demo perbandingan: Chatbot biasa vs Niskava Investigator. |

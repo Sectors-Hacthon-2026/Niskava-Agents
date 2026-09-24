@@ -1,1 +1,1 @@
-"""Modular MCP tool registries for Sectors, OSINT, Quant, and Memory."""
+"""Modular MCP tool registries for Sectors News, Quant, and Memory."""

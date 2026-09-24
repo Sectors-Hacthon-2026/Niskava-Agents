@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from engine.osint.harvester import DualEngineOSINTHarvester
 from engine.sectors.client import SectorsAPIClient
+from engine.sectors.news_engine import NewsItem, SectorsNewsEngine
 from engine.skills.base import BaseSkill, SkillResult
 
 
@@ -50,10 +50,10 @@ class EventCausalityAuditSkill(BaseSkill):
             mock_mode = context.get("mock_mode", False)
             client = SectorsAPIClient(db_path=db_path, mock_mode=mock_mode)
 
-        harvester: Optional[DualEngineOSINTHarvester] = context.get("osint_harvester")
+        harvester = context.get("news_harvester") or context.get("osint_harvester") or context.get("news_engine")
         if not harvester:
             mock_mode = context.get("mock_mode", False)
-            harvester = DualEngineOSINTHarvester(mock_mode=mock_mode)
+            harvester = SectorsNewsEngine(sectors_client=client, mock_mode=mock_mode)
 
         # 1. Fetch Suspensions & UMA notices
         suspensions = client.get_suspensions(ticker)
@@ -65,7 +65,7 @@ class EventCausalityAuditSkill(BaseSkill):
         report = client.get_company_report(ticker)
         company_name = report.get("company_name", ticker) if isinstance(report, dict) else ticker
         sectors_news = client.get_news(ticker)
-        osint_items = harvester.harvest(ticker=ticker, company_name=company_name, sectors_news_items=sectors_news)
+        news_items = harvester.harvest(ticker=ticker, company_name=company_name, sectors_news_items=sectors_news)
 
         # 4. Temporal Precedence Evaluation
         evidence = []
@@ -105,8 +105,8 @@ class EventCausalityAuditSkill(BaseSkill):
                 causality_label = "LIKELY_CATALYST"
                 confidence_score = 1.00
 
-        # Check OSINT News items
-        for item in osint_items:
+        # Check harvested news items
+        for item in news_items:
             evidence.append({
                 "type": "FINANCIAL_MEDIA_NEWS",
                 "title": item.title,

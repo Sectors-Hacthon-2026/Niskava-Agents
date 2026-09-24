@@ -211,7 +211,10 @@ class SectorsAPIClient:
     def get_news(self, symbol: Optional[str] = None) -> List[Dict[str, Any]]:
         """Fetch curated financial news."""
         endpoint = "/news/"
-        params = {"symbol": symbol.upper()} if symbol else {}
+        params: Dict[str, Any] = {}
+        if symbol:
+            clean = symbol.upper()
+            params = {"symbol": clean, "ticker": clean}
         raw = self._request(endpoint, params, ttl_seconds=3600)
         return self._normalize_list_response(raw)
 

@@ -1223,7 +1223,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 			// Law 2: Strict Financial Non-Advisory Boundary
 			md.WriteString("> [!IMPORTANT]\n")
 			md.WriteString("> **DISCLAIMER (Non-Advisory Market Intelligence):**\n")
-			md.WriteString("> Niskava Agent adalah platform intelijen dan OSINT pasar modal otonom untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi atau broker berizin. Seluruh temuan, skor anomali, dan korelasi bukti disajikan secara deskriptif untuk tujuan riset dan verifikasi fakta, serta BUKAN merupakan rekomendasi beli/jual atau target harga investasi.\n\n")
+			md.WriteString("> Niskava Agent adalah platform intelijen dan riset pasar modal otonom untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi atau broker berizin. Seluruh temuan, skor anomali, dan korelasi bukti disajikan secara deskriptif untuk tujuan riset dan verifikasi fakta, serta BUKAN merupakan rekomendasi beli/jual atau target harga investasi.\n\n")
 
 			md.WriteString("## Transkrip Percakapan & Temuan Riset\n\n")
 			for idx, msg := range messages {
@@ -1705,7 +1705,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 		_ = json.NewEncoder(w).Encode(stats)
 	})
 
-	// 6. Interactive Memory Graph View endpoint (serves full Cyber-OSINT visualizer)
+	// 6. Interactive Memory Graph View endpoint (serves full Market Intelligence visualizer)
 	mux.HandleFunc("/graph", func(w http.ResponseWriter, r *http.Request) {
 		pythonBin := ipc.ResolvePythonBin(os.Getenv("NISKAVA_PYTHON_BIN"))
 
@@ -1857,7 +1857,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 
     <div class="main-content">
         <div class="header">
-            <div class="header-title">Autonomous Financial OSINT Research Assistant (Bursa Efek Indonesia)</div>
+            <div class="header-title">Autonomous Market Intelligence Assistant (Bursa Efek Indonesia)</div>
             <div style="font-size: 13px; color: var(--text-muted);">Port: <code>%d</code></div>
         </div>
 

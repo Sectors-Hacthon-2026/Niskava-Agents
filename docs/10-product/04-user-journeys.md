@@ -21,7 +21,7 @@ Dokumen ini memetakan alur interaksi pengguna ujung-ke-ujung (*end-to-end user j
 [2] CLI menampilkan animated spinner & progress bar:
     - Menarik data Sectors v2 (0.3s)
     - Menghitung anomali matematis deterministik (0.05s) -> Alert: Volume Z-Score 3.84x
-    - Mengaktifkan OSINT Harvester terarah (2.1s) -> 4 dokumen ditemukan
+    - Mengaktifkan News Harvester terarah (2.1s) -> 4 dokumen ditemukan
     - Menyusun korelasi waktu & validasi bukti (1.8s)
 
 [3] Terminal mencetak ringkasan bukti terverifikasi:

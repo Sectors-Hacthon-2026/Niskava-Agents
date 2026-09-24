@@ -10,10 +10,10 @@
 
 ## 1. Ringkasan Eksekutif & Problem Statement
 
-**Niskava Agent** adalah platform orkestrasi investigasi finansial dan intelijen pasar modal Indonesia (IDX) otonom berbasis *evidence-first*, menggabungkan data kuantitatif **Sectors Financial API v2** dengan intelijen kualitatif eksternal **OSINT (News, Public Filings, Corporate Actions)**.
+**Niskava Agent** adalah platform orkestrasi investigasi finansial dan intelijen pasar modal Indonesia (IDX) otonom berbasis *evidence-first*, menggabungkan data kuantitatif **Sectors Financial API v2** dengan intelijen kualitatif eksternal **Kualitatif (Sectors News, Corporate Actions, Filings)**.
 
 ### 📌 1-Sentence Problem Statement (Resmi Submisi)
-> *"Pelaku pasar modal Indonesia kehilangan momentum dan modal karena lambat memverifikasi penyebab lonjakan saham tidak wajar akibat terpisahnya data kuantitatif bursa (Sectors API) dengan konteks keterbukaan informasi dan berita pasar modal (OSINT)."*
+> *"Pelaku pasar modal Indonesia kehilangan momentum dan modal karena lambat memverifikasi penyebab lonjakan saham tidak wajar akibat terpisahnya data kuantitatif bursa (Sectors API) dengan konteks keterbukaan informasi dan berita pasar modal ."*
 
 Slogan inti: **"Don't just answer questions. Investigate them."**
 

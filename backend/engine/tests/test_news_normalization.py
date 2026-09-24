@@ -1,9 +1,9 @@
-"""Targeted tests for Sectors News normalization and DualEngineOSINTHarvester defense."""
+"""Targeted tests for Sectors News normalization and SectorsNewsEngine defense."""
 
 from unittest.mock import MagicMock
 import pytest
 from engine.sectors.client import SectorsAPIClient
-from engine.osint.harvester import DualEngineOSINTHarvester
+from engine.sectors.news_engine import SectorsNewsEngine
 
 
 def test_sectors_client_get_news_dict_with_results(tmp_path):
@@ -62,9 +62,8 @@ def test_sectors_client_get_news_malformed(tmp_path):
 
 
 def test_harvester_with_dict_payload():
-    """Verify DualEngineOSINTHarvester handles sectors_news_items passed as dict without 'str' object error."""
-    harvester = DualEngineOSINTHarvester(mock_mode=False)
-    harvester._fetch_google_news_rss = MagicMock(return_value=[])
+    """Verify SectorsNewsEngine handles sectors_news_items passed as dict without 'str' object error."""
+    harvester = SectorsNewsEngine(mock_mode=False)
 
     dict_payload = {
         "results": [
@@ -86,9 +85,8 @@ def test_harvester_with_dict_payload():
 
 
 def test_harvester_with_malformed_items():
-    """Verify DualEngineOSINTHarvester skips strings and non-dict items inside sectors_news_items."""
-    harvester = DualEngineOSINTHarvester(mock_mode=False)
-    harvester._fetch_google_news_rss = MagicMock(return_value=[])
+    """Verify SectorsNewsEngine skips strings and non-dict items inside sectors_news_items."""
+    harvester = SectorsNewsEngine(mock_mode=False)
 
     corrupted_list = [
         "just_a_string_headline",

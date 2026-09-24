@@ -121,7 +121,7 @@ Pengguna NPM tidak boleh dibebani kompilasi Python manual.
    {
      "name": "niskava",
      "version": "1.0.0",
-     "description": "Autonomous Financial OSINT & Market Intelligence Orchestration Platform for IDX",
+     "description": "Autonomous Financial Market Intelligence Orchestration Platform for IDX",
      "author": "Niskava Team",
      "license": "MIT",
      "homepage": "https://github.com/Sectors-Hacthon-2026/Niskava-Agents",
@@ -132,7 +132,7 @@ Pengguna NPM tidak boleh dibebani kompilasi Python manual.
      "keywords": [
        "idx",
        "stock-market",
-       "financial-osint",
+       "financial-intelligence",
        "ai-agent",
        "sectors-api",
        "autonomous-research",

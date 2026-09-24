@@ -6,7 +6,7 @@
 
 ## 1. System Identity & Mission
 
-**Niskava Agent** is an autonomous financial OSINT and market intelligence orchestration platform designed specifically for the **Indonesia Stock Exchange (IDX)**. It bridges the critical gap between quantitative market facts (provided by Sectors Financial API v2) and external qualitative intelligence (company disclosures, regulatory filings, news, and market signals).
+**Niskava Agent** is an autonomous financial market intelligence orchestration platform designed specifically for the **Indonesia Stock Exchange (IDX)**. It bridges the critical gap between quantitative market facts (provided by Sectors Financial API v2) and external qualitative intelligence (company disclosures, regulatory filings, news, and market signals).
 
 * **Core Motto:** *"Don't just answer questions. Investigate them."*
 * **Competition Target:** [Sectors Hackathon Indonesia 2026](https://hackathon.sectors.app/) — **Track 1: AI Agents & Assistants**.
@@ -83,15 +83,15 @@ The codebase follows the Tripartite Hybrid Stack (01-hybrid-stack-go-python-reac
 │  [Layer 2: Deterministic Compute Gate (NumPy Firewall)]     │
 │  - Anomaly Math: MA20, Z-Scores (Vz, Fz), Abnormal Returns  │
 │                              │                              │
-│  [Layer 1: MCP & OSINT Primitives]                          │
+│  [Layer 1: Sectors MCP & News Engine Primitives]             │
 │  - Sectors Financial API v2 Client & MCP Server Adapter     │
-│  - Dual-Engine Targeted OSINT (Unified News + Google RSS)   │
+│  - Curated Sectors News & Corporate Filings Engine          │
 └──────────────────────────────┬──────────────────────────────┘
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │               REACT SPA WEB WORKSPACE (Vite)                │
-│  - Visual Cyber-OSINT / Bloomberg Terminal Aesthetic        │
+│  - Visual Market Intelligence / Bloomberg Terminal Aesthetic │
 │  - Conversational AI Assistant Canvas with Live SSE Stream  │
 │  - TradingView / Recharts Candlestick Anomaly Markers       │
 │  - Interactive Evidence Matrix & Timeline Graph             │
@@ -115,7 +115,7 @@ Whenever writing agent workflow logic, strictly adhere to the sequential 7-Stage
 2. **Stage 2: SECTORS_BASELINE** — Check `sectors_cache`, pull 30–90 days daily OHLCV from `/v2/daily/{symbol}/`, fetch company report with sections from `/v2/company/report/{symbol}/`, retrieve Net Foreign Inflow from `/v2/foreign-flow/{symbol}/`, corporate actions from `/v2/corporate-actions/{symbol}/`, and suspension notices from `/v2/suspensions/`.
 3. **Stage 3: QUANT_ANOMALY** — NumPy deterministic evaluation: calculate MA20 volume, Volume Z-Score ($V_z$), Abnormal Return ($R_t$), Sector Divergence ($D_t$), and Foreign Flow Inflow Z-Score ($F_z$). If $V_z \ge 2.5$, $|R_t| \ge 5\%$, or $|F_z| \ge 2.5$, trigger anomaly record. If not, route to fundamental baseline (Stage 4b).
 4. **Stage 4: GAP_DETECTION** — Formulate targeted temporal investigation hypothesis around $T_{\text{anomaly}} \pm 2\text{ days}$.
-5. **Stage 5: OSINT_HARVEST** — Execute parallel Dual-Engine collection (07-resilient-dual-engine-osint-architecture): pull curated news from Sectors v2 Unified News API (`/v2/news/`) and run unblocked targeted boolean dorking on Google News RSS for syndicated IDX disclosures and financial media (Kontan, Bisnis, CNBC). Sanitize via `trafilatura`, isolate context in XML tags (`<evidence_context>`), and extract candidate evidence items.
+5. **Stage 5: NEWS_HARVEST** — Retrieve curated news and corporate disclosures directly from Sectors Financial API v2 (`/v2/news/` and corporate action feeds). Sanitize content, isolate context in XML tags (`<evidence_context>`) to neutralize prompt injection risks, and extract candidate evidence items.
 6. **Stage 6: EVIDENCE_CORRELATION** — Assess temporal precedence:
    - News before volume surge $\to$ `LIKELY_CATALYST`
    - Volume surge before news release $\to$ `PRECEDED_ANNOUNCEMENT`
@@ -152,7 +152,7 @@ Never assign arbitrary continuous confidence floats (such as 0.50). Always use t
 
 * **Zero Hardcoded Secrets:** NEVER commit API keys (`SECTORS_API_KEY`, `GEMINI_API_KEY`) into git. Use environment variables or local `~/.niskava/config.yaml` (`0600` permissions).
 * **Git Branch Protection Invariant (dev -> main):** Direct push to `main` is strictly prohibited. All feature development (`feat/*`), bugfixes (`fix/*`), and documentation (`docs/*`) MUST branch from `dev` and merge into `dev` first. `main` only accepts stabilized, verified merges from `dev` after all automated tests, builds, and quality gates pass.
-* **Submission Freeze Rule:** The project freezes permanently upon submission or on **30 September 2026 at 23:59 WIB**. No commits or bug fixes are allowed after freeze under penalty of disqualification.
+* **Submission Freeze Rule:** The project freezes permanently upon submission or on **8 October 2026 at 23:59 WIB**. No commits or bug fixes are allowed after freeze under penalty of disqualification.
 * **Public Repository Retention:** The repository MUST remain public for at least 90 days after winners are announced (through January 2027).
 
 ---
@@ -170,7 +170,7 @@ When asked to work on specific aspects of the system, navigate directly to these
 | **SQLite Schema & Persistence** | `docs/20-architecture/02-database-schema.md` | `backend/core/db/`, `backend/engine/memory/` |
 | **Sectors v2 API Integration** | `docs/20-architecture/03-sectors-v2-api.md` | `backend/engine/sectors/` |
 | **Quantitative Anomaly Math** | `docs/20-architecture/05-anomaly-detection-math.md` | `backend/engine/quant/` |
-| **OSINT Engine & Disclosures** | `docs/20-architecture/06-osint-engine.md` | `backend/engine/osint/` |
+| **Sectors News Engine & Disclosures** | `docs/20-architecture/06-news-engine.md` | `backend/engine/sectors/news_engine.py` |
 | **7-Stage Investigation Pipeline** | `docs/30-agent/01-investigation-pipeline.md` | `backend/engine/agent/pipeline.py` |
 | **Conversational Graph Memory** | `docs/30-agent/05-conversational-memory-engine.md` | `backend/engine/memory/graph_memory.py` |
 | **Web Workspace & Visual UI** | `docs/10-product/03-product-scope-and-surfaces.md` | `clients/web/src/` |

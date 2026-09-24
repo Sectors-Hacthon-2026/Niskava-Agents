@@ -26,8 +26,8 @@ var (
 // RootCmd represents the base command when called without any subcommands.
 var RootCmd = &cobra.Command{
 	Use:   "niskava",
-	Short: "Niskava Agent — Autonomous IDX Market Intelligence & OSINT",
-	Long: `Niskava Agent is an autonomous financial OSINT and market intelligence
+	Short: "Niskava Agent — Autonomous IDX Market Intelligence Platform",
+	Long: `Niskava Agent is an autonomous financial market intelligence and equity research
 orchestration platform designed specifically for the Indonesia Stock Exchange (IDX).
 Bridges the gap between quantitative market facts (Sectors Financial API v2)
 and qualitative market disclosures/news.`,

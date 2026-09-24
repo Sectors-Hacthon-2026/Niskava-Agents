@@ -67,7 +67,7 @@ Setiap error non-2xx mengembalikan format JSON standar:
 | | `GET` | `/api/chat/search` | Pencarian teks pesan lintas sesi |
 | **Investigation Pipeline** | `GET` | `/api/investigations` | Mengambil daftar riwayat investigasi kuantitatif |
 | | `POST` | `/api/investigations` | Menjalankan investigasi otonom 7-Stage pipeline |
-| | `GET` | `/api/investigations/{id}` | Detail dossier temuan, anomali, dan bukti OSINT |
+| | `GET` | `/api/investigations/{id}` | Detail dossier temuan, anomali, dan bukti berita bursa |
 
 ---
 
@@ -485,7 +485,7 @@ data: <JSON_PAYLOAD>
    ```json
    { "event": "tool_call_start", "tool": "quant_compute_anomalies", "input": {"ticker": "ANTM"} }
    ```
-4. `event: tool_call_result`: Hasil eksekusi tool kuantitatif atau OSINT.
+4. `event: tool_call_result`: Hasil eksekusi tool kuantitatif atau News.
 5. `event: agent_message_chunk`: Fragmen teks token narasi jawaban analisis (streaming Markdown).
    ```json
    { "event": "agent_message_chunk", "chunk": "Berdasarkan evaluasi statistik, " }
@@ -692,7 +692,7 @@ Mengambil dossier lengkap suatu sesi investigasi, mencakup:
 * Metadata investigasi
 * Daftar anomali statistik kuantitatif (`anomalies`)
 * Temuan dan verifikasi 3-tier taxonomy (`findings`)
-* Item bukti dan kutipan berita OSINT (`evidence_items`)
+* Item bukti dan kutipan berita bursa (`evidence_items`)
 * Garis waktu kronologis (`timeline_events`)
 
 * **Response Headers:** `200 OK`

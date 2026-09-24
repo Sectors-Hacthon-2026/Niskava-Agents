@@ -1,6 +1,6 @@
 """Unified Model Context Protocol (MCP) Engine for Niskava Agent.
 
-Exposes IDX market data, OSINT intelligence, deterministic quant math,
+Exposes IDX market data, Sectors news intelligence, deterministic quant math,
 and graph memory to AI agents (Claude Desktop, Cursor, Antigravity, Niskava).
 """
 

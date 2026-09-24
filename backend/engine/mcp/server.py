@@ -3,7 +3,7 @@
 Implements standard MCP JSON-RPC 2.0 (stdio) protocol version 2024-11-05
 exposing:
 - Sectors Financial API v2 Market Data Primitives (9 tools)
-- Dual-Engine OSINT Harvester & Content Sanitizer (2 tools)
+- Sectors News Engine & Content Sanitizer (2 tools)
 - Deterministic Quantitative Math Calculations (1 tool)
 - Associative Local Graph Memory & Recall (2 tools)
 - MCP Resources (System status & Cache metrics)
@@ -26,14 +26,14 @@ from typing import Any, Dict, List, Optional
 from engine.mcp.prompts import get_prompt_definitions, get_prompt_messages
 from engine.mcp.resources import get_resource_definitions, read_resource
 from engine.mcp.tools.memory import execute_memory_tool, get_memory_tool_definitions
-from engine.mcp.tools.osint import execute_osint_tool, get_osint_tool_definitions
+from engine.mcp.tools.news import execute_news_tool, get_news_tool_definitions
 from engine.mcp.tools.quant import execute_quant_tool, get_quant_tool_definitions
 from engine.mcp.tools.sectors import (
     execute_sectors_tool,
     get_sectors_tool_definitions,
 )
-from engine.osint.harvester import DualEngineOSINTHarvester
 from engine.sectors.client import SectorsAPIClient
+from engine.sectors.news_engine import SectorsNewsEngine
 
 MCP_TOOL_TIMEOUT_SECONDS: int = int(os.environ.get("MCP_TOOL_TIMEOUT_SECONDS", "30"))
 
@@ -51,7 +51,7 @@ class UnifiedMCPServer:
         api_key: Optional[str] = None,
         mock_mode: Optional[bool] = None,
         client: Optional[SectorsAPIClient] = None,
-        harvester: Optional[DualEngineOSINTHarvester] = None,
+        harvester: Optional[Any] = None,
     ):
         resolved_db = db_path or os.environ.get("NISKAVA_DB_PATH", "~/.niskava/niskava.db")
         self.db_path = os.path.expanduser(resolved_db)
@@ -61,15 +61,17 @@ class UnifiedMCPServer:
             api_key=api_key,
             mock_mode=mock_mode,
         )
-        self.harvester = harvester or DualEngineOSINTHarvester(
-            mock_mode=mock_mode
+        self.harvester = harvester or SectorsNewsEngine(
+            sectors_client=self.client,
+            db_path=self.db_path,
+            mock_mode=mock_mode,
         )
 
     def get_tool_definitions(self) -> List[Dict[str, Any]]:
-        """Return all unified MCP tool schemas (Sectors, OSINT, Quant, Memory)."""
+        """Return all unified MCP tool schemas (Sectors, News, Quant, Memory)."""
         tools: List[Dict[str, Any]] = []
         tools.extend(get_sectors_tool_definitions())
-        tools.extend(get_osint_tool_definitions())
+        tools.extend(get_news_tool_definitions())
         tools.extend(get_quant_tool_definitions())
         tools.extend(get_memory_tool_definitions())
         return tools
@@ -79,8 +81,8 @@ class UnifiedMCPServer:
         def _dispatch() -> Any:
             if name.startswith("sectors_"):
                 return execute_sectors_tool(self.client, name, arguments)
-            if name.startswith("osint_"):
-                return execute_osint_tool(self.harvester, self.client, name, arguments)
+            if name.startswith("news_") or name.startswith("osint_"):
+                return execute_news_tool(self.harvester, self.client, name, arguments)
             if name.startswith("quant_"):
                 return execute_quant_tool(self.client, name, arguments)
             if name.startswith("memory_"):
