@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"path/filepath"
 	"testing"
 	"time"
@@ -490,7 +491,7 @@ func TestAllSpecificationTablesCreated(t *testing.T) {
 		"investigations", "anomalies", "findings", "evidence_items",
 		"timeline_events", "sectors_cache", "memory_nodes", "memory_edges",
 		"chat_sessions", "chat_messages", "suspension_records", "insider_filings",
-		"osint_cache", "telegram_chats",
+		"news_cache", "telegram_chats",
 	}
 
 	for _, tbl := range expectedTables {
@@ -672,3 +673,49 @@ func TestSectorsCacheStatsAndClean(t *testing.T) {
 		t.Fatalf("expected 1 cleaned item, got %d", cleaned)
 	}
 }
+
+func TestLegacyOSINTCacheMigration(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "migration_test.db")
+
+	// First create legacy database with osint_cache table
+	rawConn, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("failed to open raw sqlite: %v", err)
+	}
+	_, err = rawConn.Exec(`
+		CREATE TABLE osint_cache (
+			cache_key TEXT PRIMARY KEY,
+			source_type TEXT NOT NULL,
+			query_or_url TEXT NOT NULL,
+			content_text TEXT NOT NULL,
+			metadata_json TEXT,
+			expires_at TEXT,
+			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+		INSERT INTO osint_cache (cache_key, source_type, query_or_url, content_text)
+		VALUES ('test_key', 'news', 'https://example.com', 'test content');
+	`)
+	if err != nil {
+		t.Fatalf("failed to seed legacy table: %v", err)
+	}
+	rawConn.Close()
+
+	// Now open using DB wrapper Open(), which triggers migration
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("Open failed on legacy database: %v", err)
+	}
+	defer database.Close()
+
+	// Verify news_cache exists and contains the migrated data
+	var count int
+	err = database.conn.QueryRow("SELECT count(*) FROM news_cache WHERE cache_key = 'test_key'").Scan(&count)
+	if err != nil {
+		t.Fatalf("query on news_cache failed: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("expected 1 row in news_cache, got %d", count)
+	}
+}
+

@@ -168,7 +168,7 @@ CREATE TABLE IF NOT EXISTS insider_filings (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS osint_cache (
+CREATE TABLE IF NOT EXISTS news_cache (
     cache_key TEXT PRIMARY KEY,
     source_type TEXT NOT NULL,
     query_or_url TEXT NOT NULL,
@@ -189,7 +189,7 @@ CREATE TABLE IF NOT EXISTS telegram_chats (
 
 CREATE INDEX IF NOT EXISTS idx_suspensions_symbol ON suspension_records(symbol, suspension_date DESC);
 CREATE INDEX IF NOT EXISTS idx_insider_filings_symbol ON insider_filings(symbol, transaction_date DESC);
-CREATE INDEX IF NOT EXISTS idx_osint_cache_type ON osint_cache(source_type);
+CREATE INDEX IF NOT EXISTS idx_news_cache_type ON news_cache(source_type);
 CREATE INDEX IF NOT EXISTS idx_telegram_chats_session ON telegram_chats(current_session_id);
 `
 
@@ -253,6 +253,9 @@ func Open(dbPath string) (*DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open sqlite database at %s: %w", absPath, err)
 	}
+
+	// Migration: rename legacy osint_cache -> news_cache if exists
+	_, _ = conn.Exec("ALTER TABLE osint_cache RENAME TO news_cache;")
 
 	// Run migration DDL
 	if _, err := conn.Exec(SchemaDDL); err != nil {
