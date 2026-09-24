@@ -452,99 +452,129 @@
             line-height: 1.5;
         }
 
-        /* History (RIWAYAT) Section */
+        /* History (Recents) Section */
         .sidebar-section-divider {
             height: 1px;
-            background: var(--border-subtle);
-            margin: 8px 0 16px 0;
+            background: rgba(255, 255, 255, 0.06);
+            margin: 10px 0 14px 0;
         }
         .sidebar-section-header {
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            padding: 0 8px;
-            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #8E9BAE;
+            text-transform: none;
+            letter-spacing: normal;
+            padding: 0 10px;
+            margin-bottom: 6px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
+        .sidebar-section-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: #8E9BAE;
+        }
         .history-list {
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 1px;
             flex: 1;
             overflow-y: auto;
             min-height: 100px;
-            margin-bottom: 14px;
+            margin-bottom: 10px;
+            padding: 2px 4px;
+        }
+        .history-list::-webkit-scrollbar {
+            width: 4px;
+        }
+        .history-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
         }
         .history-item {
-            padding: 8px 10px;
-            border-radius: 8px;
-            font-size: 12.5px;
-            color: var(--text-secondary);
+            padding: 7px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #E2E8F0;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             cursor: pointer;
-            transition: all 0.12s ease;
+            transition: background 0.12s ease, color 0.12s ease;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             width: 100%;
             border: 1px solid transparent;
+            position: relative;
         }
         .history-item:hover {
-            background: var(--bg-card-hover);
-            color: var(--text-primary);
-            border-color: var(--border-subtle);
+            background: rgba(255, 255, 255, 0.06);
+            color: #FFFFFF;
         }
         .history-item.active {
-            background: var(--bg-card);
-            border-color: var(--border-subtle);
-            color: var(--primary);
-            font-weight: 600;
+            background: rgba(255, 255, 255, 0.12);
+            color: #FFFFFF;
+            font-weight: 500;
         }
-        .history-item-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--border-strong);
+        .history-item-label {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+            min-width: 0;
+            text-align: left;
+            font-size: 13px;
+            color: inherit;
+        }
+        .history-item-del {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            color: #64748B;
+            opacity: 0;
+            transition: opacity 0.15s ease, color 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             flex-shrink: 0;
+            background: transparent;
+            border: none;
+            cursor: pointer;
         }
-        .history-item.active .history-item-dot {
-            background: var(--primary);
+        .history-item:hover .history-item-del {
+            opacity: 0.8;
         }
-
-        
+        .history-item-del:hover {
+            opacity: 1;
+            color: #EF4444;
+            background: rgba(239, 68, 68, 0.15);
+        }
 
         /* User Profile Row */
         .sidebar-profile {
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 10px 8px;
-            border-radius: 10px;
-            border: 1px solid var(--border-subtle);
-            background: var(--bg-card);
+            padding: 12px 6px 4px 6px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            background: transparent;
+            margin-top: auto;
         }
         .profile-avatar {
             width: 32px;
             height: 32px;
             border-radius: 50%;
-            background: rgba(252, 213, 53, 0.2);
-            color: #1E2329;
+            background: #0284C7;
+            color: #FFFFFF;
             font-size: 12px;
             font-weight: 700;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-        }
-        html[data-theme="dark"] .profile-avatar {
-            background: rgba(252, 213, 53, 0.15);
-            color: #FCD535;
+            letter-spacing: 0.5px;
         }
         .profile-info {
             display: flex;
@@ -553,26 +583,33 @@
             min-width: 0;
         }
         .profile-name {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+            color: #F1F5F9;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         .profile-badge {
-            font-size: 10.5px;
-            color: var(--text-muted);
+            font-size: 11px;
+            color: #94A3B8;
         }
-        .profile-settings-btn {
-            width: 28px;
-            height: 28px;
-            border-radius: 6px;
-            color: var(--text-muted);
+        .profile-upgrade-btn {
+            background: #27272A;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #E2E8F0;
+            font-size: 11.5px;
+            font-weight: 500;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
         }
-        .profile-settings-btn:hover {
-            color: var(--text-primary);
-            background: var(--bg-card-hover);
+        .profile-upgrade-btn:hover {
+            background: #3F3F46;
+            color: #FFFFFF;
+            border-color: rgba(255, 255, 255, 0.22);
         }
 
         /* 2. MAIN WORKSPACE (Center) */
@@ -1758,6 +1795,9 @@
             height: 100%;
             border: none;
             background: transparent;
+            overflow: hidden;
+            border-radius: 8px;
+            display: block;
         }
 
         /* Modal Styles (Settings & System) */
@@ -1982,28 +2022,26 @@
 
             <!-- History Section -->
             <div class="sidebar-section-header">
-                <span>RIWAYAT</span>
+                <span class="sidebar-section-title">Recents</span>
                 <div style="display:flex; align-items:center; gap:6px;">
-                    <span id="historyCount">0</span>
+                    <span id="historyCount" class="history-count-badge" style="font-size:11px; color:#64748B;">0</span>
                     <button class="sidebar-reset-btn" id="btnResetHistory" title="Reset Semua Riwayat" aria-label="Reset Semua Riwayat">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                     </button>
                 </div>
             </div>
             <div class="history-list" id="historyList">
-                <!-- Dynamically loaded & categorized: HARI INI, KEMARIN, BEBERAPA MINGGU LALU -->
+                <!-- Dynamically loaded recents -->
             </div>
 
             <!-- User Profile Row -->
-            <div class="sidebar-profile">
-                <div class="profile-avatar">G</div>
+            <div class="sidebar-profile" id="sidebarProfile">
+                <div class="profile-avatar">IN</div>
                 <div class="profile-info">
-                    <span class="profile-name">Guest</span>
-                    <span class="profile-badge">Analis Pasar Modal</span>
+                    <span class="profile-name">ikhsan novrians...</span>
+                    <span class="profile-badge">Free</span>
                 </div>
-                <button class="profile-settings-btn" id="btnSettings" aria-label="Pengaturan akun" title="Pengaturan">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                </button>
+                <button class="profile-upgrade-btn" id="btnSettings" aria-label="Upgrade dan Pengaturan" title="Pengaturan">Upgrade</button>
             </div>
         </aside>
 
@@ -2142,7 +2180,7 @@
                             <span class="graph-stat-num" id="statTopHub" style="font-size:15px; font-weight:700;">-</span>
                         </div>
                         <div class="graph-stat-card">
-                            <span class="graph-stat-label">Sesi Aktif</span>
+                            <span class="graph-stat-label">Cakupan Graf</span>
                             <span class="graph-stat-num" id="statActiveSession" style="font-size:13px; font-weight:700; word-break:break-all;">-</span>
                         </div>
                     </div>
@@ -2262,54 +2300,15 @@
                         <a id="btnOpenGraphFull" href="/graph" target="_blank" title="Buka Graf OSINT Interaktif Layar Penuh" style="text-decoration:none; color:var(--text-muted); display:flex; align-items:center; padding:2px 4px; border-radius:4px; font-size:11px;">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                         </a>
-                        <span class="panel-card-badge" id="graphifyFocusBadge">ANTM</span>
+                        <span class="panel-card-badge" id="graphifyFocusBadge">-</span>
                     </div>
                 </div>
 
                 <div class="graphify-container">
                     <svg class="graphify-svg" id="graphifySvg" viewBox="0 0 350 200">
-                        <!-- Edges -->
-                        <line x1="175" y1="100" x2="90" y2="45" class="graph-edge"></line>
-                        <line x1="175" y1="100" x2="260" y2="45" class="graph-edge"></line>
-                        <line x1="175" y1="100" x2="70" y2="135" class="graph-edge"></line>
-                        <line x1="175" y1="100" x2="275" y2="135" class="graph-edge"></line>
-                        <line x1="175" y1="100" x2="175" y2="175" class="graph-edge"></line>
-
-                        <!-- Satellite Node 1: Nikel (Komoditas) -->
-                        <g class="graph-node" data-node="nikel" transform="translate(90, 45)">
-                            <circle r="18" fill="#FFFBEB" stroke="#F59E0B" stroke-width="1.8"></circle>
-                            <text text-anchor="middle" dy="4" font-size="9" font-weight="700" fill="#B45309">Nikel</text>
-                        </g>
-
-                        <!-- Satellite Node 2: Foreign Flow (Institusi) -->
-                        <g class="graph-node" data-node="foreign" transform="translate(260, 45)">
-                            <circle r="18" fill="#ECFDF5" stroke="#10B981" stroke-width="1.8"></circle>
-                            <text text-anchor="middle" dy="4" font-size="8.5" font-weight="700" fill="#047857">Foreign</text>
-                        </g>
-
-                        <!-- Satellite Node 3: Sektor (Basic Materials) -->
-                        <g class="graph-node" data-node="sektor" transform="translate(70, 135)">
-                            <circle r="18" fill="rgba(252, 213, 53, 0.15)" stroke="#F0B90B" stroke-width="1.8"></circle>
-                            <text text-anchor="middle" dy="4" font-size="8.5" font-weight="700" fill="#946300">Sektor</text>
-                        </g>
-
-                        <!-- Satellite Node 4: INCO (Peers) -->
-                        <g class="graph-node" data-node="inco" transform="translate(275, 135)">
-                            <circle r="18" fill="#FAF5FF" stroke="#8B5CF6" stroke-width="1.8"></circle>
-                            <text text-anchor="middle" dy="4" font-size="9" font-weight="700" fill="#6B21A8">INCO</text>
-                        </g>
-
-                        <!-- Satellite Node 5: Berita (IDXnet) -->
-                        <g class="graph-node" data-node="berita" transform="translate(175, 175)">
-                            <circle r="15" fill="#F1F5F9" stroke="#64748B" stroke-width="1.8"></circle>
-                            <text text-anchor="middle" dy="3.5" font-size="8" font-weight="700" fill="#334155">Berita</text>
-                        </g>
-
-                        <!-- Center Focus Node: ANTM -->
-                        <g class="graph-node active" data-node="antm" transform="translate(175, 100)">
-                            <circle r="26" fill="#FCD535" stroke="#1E2329" stroke-width="2.5" filter="drop-shadow(0 4px 10px rgba(252, 213, 53, 0.45))"></circle>
-                            <text text-anchor="middle" dy="4" font-size="11" font-weight="800" fill="#1E2329">ANTM</text>
-                        </g>
+                        <rect width="100%" height="100%" fill="transparent"/>
+                        <text x="175" y="95" text-anchor="middle" fill="#64748B" font-size="11" font-family="sans-serif">Belum ada relasi aktif untuk sesi ini</text>
+                        <text x="175" y="115" text-anchor="middle" fill="#475569" font-size="9" font-family="sans-serif">Ketik emiten (cth: ANTM, BBRI) di chat untuk mulai</text>
                     </svg>
                     <div class="graph-tooltip" id="graphTooltip">
                         <span>Pilih node relasi untuk detail</span>
@@ -2587,6 +2586,18 @@
                 }
             }
 
+            function formatSessionTitle(s) {
+                let title = (s.title || '').trim();
+                if (!title || title === 'Sesi Riset Pasar' || title.startsWith('CHAT-') || title.startsWith('WEB-')) {
+                    title = (s.last_message_preview || s.first_message || '').trim();
+                }
+                if (!title) {
+                    title = s.id || s.session_id || 'Percakapan Riset';
+                }
+                title = title.replace(/^#+\s*/, '').replace(/^[•\-\*]\s*/, '').replace(/[\r\n]+/g, ' ').trim();
+                return title;
+            }
+
             function renderChatHistoryGroups(sessions) {
                 historyList.innerHTML = '';
                 const historyCountEl = document.getElementById('historyCount');
@@ -2597,78 +2608,37 @@
                     return;
                 }
 
-                const now = new Date();
-                const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-                const yesterdayStart = todayStart - 86400000;
-
-                const groups = {
-                    today: [],
-                    yesterday: [],
-                    older: []
-                };
-
                 sessions.forEach(s => {
-                    let dtStr = s.updated_at || s.created_at || '';
-                    let dt = new Date(dtStr);
-                    if (isNaN(dt.getTime())) {
-                        dt = new Date(dtStr.replace(' ', 'T') + 'Z');
+                    const sId = s.id || s.session_id;
+                    const fullTitle = formatSessionTitle(s);
+                    let displayTitle = fullTitle;
+                    if (displayTitle.length > 36) {
+                        displayTitle = displayTitle.slice(0, 33) + '...';
                     }
-                    const time = isNaN(dt.getTime()) ? Date.now() : dt.getTime();
 
-                    if (time >= todayStart) {
-                        groups.today.push(s);
-                    } else if (time >= yesterdayStart) {
-                        groups.yesterday.push(s);
-                    } else {
-                        groups.older.push(s);
-                    }
-                });
+                    const itemEl = document.createElement('div');
+                    itemEl.className = 'history-item' + (sId === currentSessionId ? ' active' : '');
+                    itemEl.setAttribute('data-session-id', sId);
 
-                const categoryLabels = [
-                    { key: 'today', title: 'HARI INI' },
-                    { key: 'yesterday', title: 'KEMARIN' },
-                    { key: 'older', title: 'BEBERAPA MINGGU LALU' }
-                ];
+                    itemEl.innerHTML = `
+                        <span class="history-item-label" title="${escapeHtml(fullTitle)}">${escapeHtml(displayTitle)}</span>
+                        <button class="history-item-del" title="Hapus sesi" aria-label="Hapus sesi">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    `;
 
-                categoryLabels.forEach(cat => {
-                    const list = groups[cat.key];
-                    if (list && list.length > 0) {
-                        const headerEl = document.createElement('div');
-                        headerEl.className = 'history-group-header';
-                        headerEl.textContent = cat.title;
-                        historyList.appendChild(headerEl);
+                    itemEl.addEventListener('click', (e) => {
+                        if (e.target.closest('.history-item-del')) return;
+                        switchSession(sId, fullTitle);
+                    });
 
-                        list.forEach(s => {
-                            const sId = s.id || s.session_id;
-                            let titleText = s.title || s.first_message || s.last_message_preview || sId;
-                            if (titleText.length > 34) titleText = titleText.slice(0, 31) + '...';
+                    const delBtn = itemEl.querySelector('.history-item-del');
+                    delBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        await deleteSession(sId);
+                    });
 
-                            const itemEl = document.createElement('div');
-                            itemEl.className = 'history-item' + (sId === currentSessionId ? ' active' : '');
-                            itemEl.setAttribute('data-session-id', sId);
-
-                            itemEl.innerHTML = `
-                                <span class="history-item-dot"></span>
-                                <span class="history-item-label" title="${(s.title || s.first_message || sId).replace(/"/g, '&quot;')}">${escapeHtml(titleText)}</span>
-                                <button class="history-item-del" title="Hapus sesi" aria-label="Hapus sesi">
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                </button>
-                            `;
-
-                            itemEl.addEventListener('click', (e) => {
-                                if (e.target.closest('.history-item-del')) return;
-                                switchSession(sId, s.title || s.first_message || sId);
-                            });
-
-                            const delBtn = itemEl.querySelector('.history-item-del');
-                            delBtn.addEventListener('click', async (e) => {
-                                e.stopPropagation();
-                                await deleteSession(sId);
-                            });
-
-                            historyList.appendChild(itemEl);
-                        });
-                    }
+                    historyList.appendChild(itemEl);
                 });
             }
 
@@ -2771,7 +2741,7 @@
             function updateSendButtonState() {
                 const btnOpenGraphFull = document.getElementById('btnOpenGraphFull');
                 if (btnOpenGraphFull) {
-                    btnOpenGraphFull.href = `${API_BASE}/graph?session_id=${encodeURIComponent(currentSessionId)}`;
+                    btnOpenGraphFull.href = `${API_BASE}/graph`;
                 }
 
                 if (isGenerating) {
@@ -2870,16 +2840,20 @@
             const initialGraphSvgHtml = document.getElementById('graphifySvg') ? document.getElementById('graphifySvg').innerHTML : '';
 
             async function loadLiveGraph(sessionId) {
-                if (!sessionId) return;
+                if (!sessionId) {
+                    renderDynamicGraph([], []);
+                    return;
+                }
                 try {
                     const res = await fetch(`${API_BASE}/api/graph/data?session_id=${encodeURIComponent(sessionId)}`);
-                    if (!res.ok) return;
+                    if (!res.ok) {
+                        renderDynamicGraph([], []);
+                        return;
+                    }
                     const data = await res.json();
                     const nodes = data.nodes || [];
                     const edges = data.edges || [];
-                    if (nodes.length > 0) {
-                        renderDynamicGraph(nodes, edges);
-                    }
+                    renderDynamicGraph(nodes, edges);
                 } catch (e) {
                     console.warn('loadLiveGraph warning:', e);
                 }
@@ -2892,8 +2866,12 @@
                 if (!svg) return;
 
                 if (!nodes || nodes.length === 0) {
-                    svg.innerHTML = initialGraphSvgHtml;
-                    attachInitialGraphListeners();
+                    svg.innerHTML = `
+                        <rect width="100%" height="100%" fill="transparent"/>
+                        <text x="175" y="95" text-anchor="middle" fill="#64748B" font-size="11" font-family="sans-serif">Belum ada relasi aktif untuk sesi ini</text>
+                        <text x="175" y="115" text-anchor="middle" fill="#475569" font-size="9" font-family="sans-serif">Ketik emiten (cth: ANTM, BBRI) di chat untuk mulai</text>
+                    `;
+                    if (badge) badge.textContent = '-';
                     return;
                 }
 
@@ -3596,15 +3574,28 @@
                     const nodeTypes = graphFilterNodeType ? graphFilterNodeType.value : '';
 
                     const params = new URLSearchParams();
-                    if (currentSessionId) params.set('session_id', currentSessionId);
+                    // NOTE: currentSessionId intentionally NOT forwarded (Law 6 — global cumulative graph)
                     if (ticker) params.set('ticker', ticker);
                     if (depth) params.set('depth', depth);
                     if (nodeTypes) params.set('node_types', nodeTypes);
 
-                    const frameUrl = `${API_BASE}/graph?${params.toString()}`;
+                    // Standalone URL for opening in a new tab without embed mode
+                    const externalUrl = `${API_BASE}/graph?${params.toString()}`;
+                    if (btnOpenGraphExternal) btnOpenGraphExternal.href = externalUrl;
+
+                    // Embedded iframe URL with embed=true to eliminate duplicate header/sidebar
+                    const embedParams = new URLSearchParams(params);
+                    embedParams.set('embed', 'true');
+                    const frameUrl = `${API_BASE}/graph?${embedParams.toString()}`;
                     if (graphFrame) graphFrame.src = frameUrl;
-                    if (btnOpenGraphExternal) btnOpenGraphExternal.href = frameUrl;
-                    if (statActiveSession) statActiveSession.textContent = currentSessionId || 'Global';
+
+                    if (statActiveSession) {
+                        if (ticker) {
+                            statActiveSession.textContent = `Ego: ${ticker}`;
+                        } else {
+                            statActiveSession.textContent = 'Global Graf';
+                        }
+                    }
 
                     try {
                         const res = await fetch(`${API_BASE}/api/graph/stats?${params.toString()}`);
@@ -3617,7 +3608,7 @@
                                     const top = stats.top_hub_nodes[0];
                                     statTopHub.textContent = `${top.label || top.id} (${top.degree || 0})`;
                                 } else {
-                                    statTopHub.textContent = ticker || 'Belum Ada';
+                                    statTopHub.textContent = ticker || '-';
                                 }
                             }
                         }
