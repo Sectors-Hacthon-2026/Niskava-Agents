@@ -20,7 +20,7 @@ from engine.sectors.tickers import extract_valid_tickers, is_valid_idx_ticker
 from engine.utils.resilience import RetryConfig, execute_with_retry
 
 # Configurable ReAct loop depth & resource bounds
-MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_MAX_REACT_ITERATIONS", "15"))
+MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_MAX_REACT_ITERATIONS", "30"))
 DEFAULT_MAX_TOKENS: int = int(os.environ.get("NISKAVA_MAX_TOKENS", "30000"))
 DEFAULT_LLM_TIMEOUT: float = float(os.environ.get("NISKAVA_LLM_TIMEOUT", "90.0"))
 
@@ -415,12 +415,14 @@ class NiskavaReActAgent:
         max_tokens: Optional[int] = None,
         llm_timeout: Optional[float] = None,
         append_followup_chips: Optional[bool] = None,
+        max_iterations: Optional[int] = None,
     ):
         self.tools = tool_registry
         self.memory = getattr(tool_registry, "memory", None)
         self.emitter = emitter or (lambda ev: None)
         self.db_path = getattr(tool_registry, "db_path", os.path.expanduser("~/.niskava/niskava.db"))
         self.language = (language or os.environ.get("NISKAVA_LANG") or "id").lower()
+        self._custom_max_iterations = max_iterations
         self.append_followup_chips = (
             append_followup_chips
             if append_followup_chips is not None
@@ -486,6 +488,11 @@ class NiskavaReActAgent:
         else:
             self.mock_mode = False
             self.ai_provider = "universal"
+
+    @property
+    def max_iterations(self) -> int:
+        """Maximum ReAct loop iterations (custom override or MAX_REACT_ITERATIONS)."""
+        return self._custom_max_iterations if self._custom_max_iterations is not None else MAX_REACT_ITERATIONS
 
     def _emit(self, event_data: Dict[str, Any]) -> None:
         self.emitter(event_data)
@@ -1010,7 +1017,8 @@ class NiskavaReActAgent:
         _prev_tool_signature: str = ""
         _dup_streak: int = 0
         _MAX_DUP_STREAK: int = 2  # Force synthesis after 2 consecutive identical calls
-        for _ in range(MAX_REACT_ITERATIONS):
+        max_iter = self.max_iterations
+        for _ in range(max_iter):
             payload = {
                 "model": model,
                 "messages": messages,
@@ -1292,8 +1300,8 @@ class NiskavaReActAgent:
                 # Feed back to model
                 combined_obs = "\n\n".join(obs_parts)
                 # Graceful landing warning: when approaching iteration limit, instruct model to synthesize
-                remaining_steps = MAX_REACT_ITERATIONS - 1 - _
-                if 0 < remaining_steps <= 2:
+                remaining_steps = max_iter - 1 - _
+                if 0 < remaining_steps <= 3:
                     combined_obs += (
                         f"\n\n[SYSTEM NOTICE: Only {remaining_steps} reasoning step(s) remaining. "
                         "Sufficient evidence has been collected. Do NOT invoke additional tools. "
@@ -1302,6 +1310,43 @@ class NiskavaReActAgent:
                     )
                 messages.append({"role": "assistant", "content": content})
                 messages.append({"role": "user", "content": f"<observation>\n{combined_obs}\n</observation>"})
+
+                if remaining_steps == 0:
+                    # Final graceful synthesis turn: synthesize all collected observations instead of discarding
+                    final_payload = {
+                        "model": model,
+                        "messages": messages,
+                        "temperature": 0.2,
+                        "max_tokens": self.max_tokens,
+                        "stream": False,
+                    }
+                    try:
+                        final_resp = execute_with_retry(
+                            lambda: requests.post(url, headers=headers, json=final_payload, timeout=self.llm_timeout),
+                            config=retry_cfg,
+                            on_retry_callback=on_llm_retry,
+                        )
+                        if final_resp.status_code == 200:
+                            f_raw = final_resp.text.strip()
+                            if "data: [DONE]" in f_raw:
+                                f_raw = f_raw.split("data: [DONE]")[0].strip()
+                            fb = f_raw.find("{")
+                            lb = f_raw.rfind("}")
+                            if fb != -1 and lb != -1:
+                                f_data = json.loads(f_raw[fb : lb + 1])
+                                final_content = str(f_data.get("choices", [{}])[0].get("message", {}).get("content") or "").strip()
+                                final_matches = re.findall(r"<response>(.*?)</response>", final_content, re.DOTALL)
+                                if final_matches:
+                                    final_response = final_matches[0].strip()
+                                    break
+                                else:
+                                    final_cleaned = re.sub(r"<thought>.*?</thought>", "", final_content, flags=re.DOTALL)
+                                    final_cleaned = re.sub(r"<tool_call>.*?</tool_call>", "", final_cleaned, flags=re.DOTALL).strip()
+                                    if final_cleaned:
+                                        final_response = final_cleaned
+                                        break
+                    except Exception:
+                        pass
                 continue
 
             # Check for final response
@@ -1381,7 +1426,7 @@ class NiskavaReActAgent:
                 error_markdown = (
                     f"{error_title}\n\n"
                     f"- **Model**: `{model}`\n"
-                    f"- **Iterations Used**: {MAX_REACT_ITERATIONS}\n"
+                    f"- **Iterations Used**: {max_iter}\n"
                     f"- **Details**: {err_detail}\n\n"
                     f"{desc_text}{collected_summary}\n\n"
                     f"**Saran Perbaikan / Actionable Steps:**\n"
