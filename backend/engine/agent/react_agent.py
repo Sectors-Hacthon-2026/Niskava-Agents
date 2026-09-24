@@ -464,12 +464,13 @@ class NiskavaReActAgent:
 
         # Transparent adapter for Google API keys (speaks standard OpenAI protocol)
         if not resolved_base_url:
-            if os.environ.get("GEMINI_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
+            raw_prov = (ai_provider or os.environ.get("AI_PROVIDER", "")).lower()
+            if (raw_prov == "gemini" or os.environ.get("GEMINI_API_KEY")) and not os.environ.get("OPENAI_BASE_URL"):
                 resolved_base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
                 if not model and not os.environ.get("NISKAVA_MODEL") and not os.environ.get("OPENAI_MODEL"):
                     self.model = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
             else:
-                resolved_base_url = "http://localhost:20128/v1"
+                resolved_base_url = os.environ.get("OPENAI_BASE_URL", "http://localhost:20128/v1")
 
         self.base_url = resolved_base_url.rstrip("/")
         # Backward compatibility aliases
@@ -589,10 +590,10 @@ class NiskavaReActAgent:
                 cursor.execute(
                     """
                     INSERT INTO chat_sessions (id, title, model, status, message_count, last_message_preview, is_pinned, created_at, updated_at)
-                    VALUES (?, ?, 'hermes', 'IDLE', 0, '', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    VALUES (?, ?, ?, 'IDLE', 0, '', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     ON CONFLICT(id) DO UPDATE SET title = excluded.title
                     """,
-                    (session_id, title),
+                    (session_id, title, self.model or "hermes"),
                 )
                 conn.commit()
         except Exception:
@@ -2090,7 +2091,7 @@ Berdasarkan analisis deterministik kuantitatif dan penelusuran OSINT keterbukaan
         try:
             import requests
 
-            base_url = (self.openai_base_url or "http://localhost:20128/v1").rstrip("/")
+            base_url = (getattr(self, "base_url", None) or getattr(self, "openai_base_url", None) or "http://localhost:20128/v1").rstrip("/")
             url = f"{base_url}/chat/completions"
             headers = {"Content-Type": "application/json"}
             if self.openai_api_key:

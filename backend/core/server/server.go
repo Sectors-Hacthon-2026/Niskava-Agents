@@ -1845,11 +1845,14 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
         </div>
 
         <div class="section-title" style="margin-top: auto;">Sistem & Persistensi</div>
-        <p style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
-            • Model: <code>9router / hermes</code><br>
-            • Database: <code>SQLite WAL Active</code><br>
-            • Hukum 1 & 2 Kepatuhan Penuh
+        <p style="font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-bottom: 12px;">
+            • Model: <code id="lblActiveModel" style="color:var(--accent);">Memuat...</code><br>
+            • Sectors: <code id="lblSectorsMode" style="color:var(--success);">Memuat...</code><br>
+            • Storage: <code>SQLite WAL Active</code>
         </p>
+        <button class="prompt-chip" onclick="openSettingsModal()" style="width:100%%; border-color:var(--accent); color:var(--accent); font-weight:700; background:rgba(0, 229, 255, 0.08); text-align:center;">
+            ⚙️ Pengaturan Provider
+        </button>
     </div>
 
     <div class="main-content">
@@ -1957,12 +1960,210 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
             }
         }
 
+        let activeSystemSettings = null;
+
+        async function loadSystemSettings() {
+            try {
+                const res = await fetch('/api/settings');
+                if (!res.ok) return;
+                activeSystemSettings = await res.json();
+                updateSettingsUI(activeSystemSettings);
+            } catch (e) {}
+        }
+
+        function updateSettingsUI(cfg) {
+            if (!cfg || !cfg.auth) return;
+            const prov = cfg.auth.ai_provider || 'openai';
+            let modelName = cfg.auth.openai_model || 'deepseek/deepseek-chat';
+            if (prov === 'gemini' && cfg.auth.gemini_model) {
+                modelName = cfg.auth.gemini_model;
+            }
+            const lblModel = document.getElementById('lblActiveModel');
+            if (lblModel) lblModel.innerText = prov + ' / ' + modelName;
+
+            const lblSectors = document.getElementById('lblSectorsMode');
+            if (lblSectors) {
+                if (cfg.preferences && cfg.preferences.offline_mode) {
+                    lblSectors.innerText = 'Mock Mode (Offline)';
+                    lblSectors.style.color = '#F59E0B';
+                } else if (cfg.auth.has_sectors_key) {
+                    lblSectors.innerText = 'Live API Active';
+                    lblSectors.style.color = '#10B981';
+                } else {
+                    lblSectors.innerText = 'Belum Ada Key';
+                    lblSectors.style.color = '#EF4444';
+                }
+            }
+        }
+
+        function openSettingsModal() {
+            const modal = document.getElementById('settingsModal');
+            if (!modal) return;
+            modal.style.display = 'flex';
+            const resBox = document.getElementById('testConnResult');
+            if (resBox) resBox.style.display = 'none';
+
+            if (activeSystemSettings && activeSystemSettings.auth) {
+                const prov = activeSystemSettings.auth.ai_provider || 'openai';
+                document.getElementById('cfgAIProvider').value = prov;
+                document.getElementById('cfgBaseURL').value = activeSystemSettings.auth.openai_base_url || '';
+                document.getElementById('cfgModel').value = prov === 'gemini' ? (activeSystemSettings.auth.gemini_model || '') : (activeSystemSettings.auth.openai_model || '');
+                onProviderChange();
+            }
+        }
+
+        function closeSettingsModal() {
+            const modal = document.getElementById('settingsModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function onProviderChange() {
+            const prov = document.getElementById('cfgAIProvider').value;
+            const groupBase = document.getElementById('groupBaseURL');
+            const modelInput = document.getElementById('cfgModel');
+            if (prov === 'gemini') {
+                if (groupBase) groupBase.style.display = 'none';
+                if (!modelInput.value || modelInput.value.includes('deepseek') || modelInput.value.includes('gpt')) {
+                    modelInput.value = 'gemini-2.0-flash';
+                }
+            } else {
+                if (groupBase) groupBase.style.display = 'block';
+                if (!modelInput.value || modelInput.value.includes('gemini')) {
+                    modelInput.value = 'deepseek/deepseek-chat';
+                }
+            }
+        }
+
+        async function testCurrentConnection() {
+            const resBox = document.getElementById('testConnResult');
+            resBox.style.display = 'block';
+            resBox.style.background = 'rgba(245, 158, 11, 0.15)';
+            resBox.style.color = '#F59E0B';
+            resBox.innerText = 'Menguji koneksi ke endpoint...';
+
+            const prov = document.getElementById('cfgAIProvider').value;
+            const key = document.getElementById('cfgAPIKey').value.trim();
+            const baseURL = document.getElementById('cfgBaseURL').value.trim();
+            const target = prov === 'gemini' ? 'gemini' : 'openai';
+
+            try {
+                const resp = await fetch('/api/settings/test-connection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target: target, api_key: key, base_url: baseURL })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    resBox.style.background = 'rgba(16, 185, 129, 0.15)';
+                    resBox.style.color = '#10B981';
+                    resBox.innerText = '✓ Terhubung! ' + (data.message || '') + (data.latency_ms ? ' (' + data.latency_ms + 'ms)' : '');
+                } else {
+                    resBox.style.background = 'rgba(239, 68, 68, 0.15)';
+                    resBox.style.color = '#EF4444';
+                    resBox.innerText = '✗ Gagal: ' + (data.message || 'Koneksi ditolak');
+                }
+            } catch (err) {
+                resBox.style.background = 'rgba(239, 68, 68, 0.15)';
+                resBox.style.color = '#EF4444';
+                resBox.innerText = '✗ Error jaringan: ' + err.message;
+            }
+        }
+
+        async function saveSettingsFromModal() {
+            const prov = document.getElementById('cfgAIProvider').value;
+            const key = document.getElementById('cfgAPIKey').value.trim();
+            const baseURL = document.getElementById('cfgBaseURL').value.trim();
+            const model = document.getElementById('cfgModel').value.trim();
+            const sectorsKey = document.getElementById('cfgSectorsKey').value.trim();
+
+            const payload = {
+                auth: {
+                    ai_provider: prov,
+                }
+            };
+            if (prov === 'gemini') {
+                if (key) payload.auth.gemini_api_key = key;
+                if (model) payload.auth.gemini_model = model;
+            } else {
+                if (key) payload.auth.openai_api_key = key;
+                if (baseURL) payload.auth.openai_base_url = baseURL;
+                if (model) payload.auth.openai_model = model;
+            }
+            if (sectorsKey) {
+                payload.auth.sectors_api_key = sectorsKey;
+            }
+
+            try {
+                const resp = await fetch('/api/settings', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (resp.ok) {
+                    activeSystemSettings = await resp.json();
+                    updateSettingsUI(activeSystemSettings);
+                    closeSettingsModal();
+                    alert('✓ Konfigurasi berhasil disimpan dan disinkronkan ke ~/.niskava/config.yaml!');
+                } else {
+                    alert('Gagal menyimpan konfigurasi.');
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', loadSystemSettings);
+
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.innerText = text || '';
             return div.innerHTML;
         }
     </script>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.75); z-index:9999; align-items:center; justify-content:center;">
+        <div style="background:var(--surface); border:1px solid var(--accent); border-radius:12px; width:520px; max-width:92vw; padding:24px; box-shadow:0 8px 32px rgba(0,0,0,0.6);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h3 style="font-size:16px; color:var(--accent); font-weight:700;">⚙️ Konfigurasi Model AI & Provider</h3>
+                <button onclick="closeSettingsModal()" style="background:none; border:none; color:var(--text-muted); font-size:18px; cursor:pointer;">✕</button>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:12px; font-size:13px;">
+                <div>
+                    <label style="color:var(--text-muted); display:block; margin-bottom:4px; font-weight:600;">Penyedia AI (Provider):</label>
+                    <select id="cfgAIProvider" class="input-box" style="width:100%%;" onchange="onProviderChange()">
+                        <option value="openai">External Router / OpenAI (OpenRouter, DeepSeek, Groq, 9router, dll)</option>
+                        <option value="gemini">Google Gemini Cloud (Google AI Studio)</option>
+                    </select>
+                </div>
+                <div id="groupBaseURL">
+                    <label style="color:var(--text-muted); display:block; margin-bottom:4px; font-weight:600;">Endpoint Base URL:</label>
+                    <input type="text" id="cfgBaseURL" class="input-box" style="width:100%%;" placeholder="https://openrouter.ai/api/v1 atau http://localhost:20128/v1" />
+                </div>
+                <div>
+                    <label style="color:var(--text-muted); display:block; margin-bottom:4px; font-weight:600;">API Key (Token):</label>
+                    <input type="password" id="cfgAPIKey" class="input-box" style="width:100%%;" placeholder="Masukkan API Key baru atau biarkan kosong jika tidak diubah" />
+                </div>
+                <div>
+                    <label style="color:var(--text-muted); display:block; margin-bottom:4px; font-weight:600;">Nama Model:</label>
+                    <input type="text" id="cfgModel" class="input-box" style="width:100%%;" placeholder="deepseek/deepseek-chat, gemini-2.0-flash, gpt-4o-mini, dll" />
+                </div>
+                <div>
+                    <label style="color:var(--text-muted); display:block; margin-bottom:4px; font-weight:600;">Sectors Financial API Key:</label>
+                    <input type="password" id="cfgSectorsKey" class="input-box" style="width:100%%;" placeholder="Biarkan kosong untuk Offline Mock Mode" />
+                </div>
+                <div id="testConnResult" style="display:none; padding:8px 12px; border-radius:6px; font-size:12px; font-weight:600;"></div>
+                <div style="display:flex; justify-content:space-between; gap:10px; margin-top:8px;">
+                    <button type="button" class="btn-send" onclick="testCurrentConnection()" style="background:var(--surface-card); color:var(--text-main); border:1px solid var(--border); padding:8px 16px;">
+                        ⚡ Test Koneksi
+                    </button>
+                    <button type="button" class="btn-send" onclick="saveSettingsFromModal()" style="padding:8px 20px;">
+                        💾 Simpan & Sinkronkan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>`, s.Port)
 	})

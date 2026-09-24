@@ -44,6 +44,7 @@ Katalog lengkap seluruh dokumen arsitektur, produk, logika agen, dan keputusan t
 | [`20-architecture/07-non-functional-requirements.md`](20-architecture/07-non-functional-requirements.md) | Standar NFR: Latency budget, ukuran biner, penggunaan memori, dan kapabilitas offline. | `ACCEPTED` |
 | [`20-architecture/08-security-and-compliance.md`](20-architecture/08-security-and-compliance.md) | Manajemen kunci API lokal, proteksi prompt injection dari web, dan kepatuhan terhadap UU Pasar Modal. | `ACCEPTED` |
 | [`20-architecture/09-git-workflow-and-branching-strategy.md`](20-architecture/09-git-workflow-and-branching-strategy.md) | Standarisasi Git branching flow, proteksi cabang `main` & `dev`, SOP penggabungan, dan Quality Gates. | `ACCEPTED` |
+| [`20-architecture/10-npm-distribution-and-packaging-spec.md`](20-architecture/10-npm-distribution-and-packaging-spec.md) | Spesifikasi distribusi & packaging NPM (`npx niskava`), Node launcher wrapper, dan otomasi runtime hybrid. | `PROPOSED` |
 
 ---
 
