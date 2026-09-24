@@ -141,8 +141,8 @@ func ResolvePythonBin(configuredBin string) string {
 		filepath.Join("venv", "Scripts", "python.exe"),  // Windows alternative
 		filepath.Join(".venv", "bin", "python3"),        // POSIX standard venv
 		filepath.Join(".venv", "bin", "python"),         // POSIX alternative
-		filepath.Join("venv", "bin", "python3"),        // POSIX venv
-		filepath.Join("venv", "bin", "python"),         // POSIX venv
+		filepath.Join("venv", "bin", "python3"),         // POSIX venv
+		filepath.Join("venv", "bin", "python"),          // POSIX venv
 	}
 	for _, cand := range venvCandidates {
 		if _, err := os.Stat(cand); err == nil {
