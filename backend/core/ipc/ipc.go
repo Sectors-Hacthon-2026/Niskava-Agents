@@ -96,28 +96,53 @@ func RunConversationStream(ctx context.Context, params RunnerParams) (<-chan Eve
 
 // ResolvePythonBin dynamically resolves the best Python interpreter across Windows, macOS, and Linux.
 // Precedence:
-// 1. Explicit configured path if it exists on disk.
-// 2. Local virtualenv:
-//   - Windows: .venv\Scripts\python.exe
-//   - POSIX: .venv/bin/python3, .venv/bin/python
+// 1. Explicit configured path if it exists on disk or in PATH.
+// 2. Environment variable overrides (NISKAVA_PYTHON_BIN, NISKAVA_PYTHON).
+// 3. Local virtualenv:
+//   - Windows: .venv\Scripts\python.exe, venv\Scripts\python.exe
+//   - POSIX: .venv/bin/python3, .venv/bin/python, venv/bin/python3, venv/bin/python
 //
-// 3. System LookPath:
+// 4. System LookPath:
 //   - On Windows: "python", "py", "python3"
 //   - On POSIX: "python3", "python"
 //
-// 4. Fallback to "python3" (POSIX) or "python" (Windows).
+// 5. Fallback to "python3" (POSIX) or "python" (Windows).
 func ResolvePythonBin(configuredBin string) string {
 	if configuredBin != "" && configuredBin != "python3" && configuredBin != "python" {
 		if _, err := os.Stat(configuredBin); err == nil {
 			return configuredBin
+		}
+		if path, err := exec.LookPath(configuredBin); err == nil {
+			return path
+		}
+	}
+
+	// Environment variable overrides
+	if custom := os.Getenv("NISKAVA_PYTHON_BIN"); custom != "" {
+		if _, err := os.Stat(custom); err == nil {
+			return custom
+		}
+		if path, err := exec.LookPath(custom); err == nil {
+			return path
+		}
+	}
+	if custom := os.Getenv("NISKAVA_PYTHON"); custom != "" {
+		if _, err := os.Stat(custom); err == nil {
+			return custom
+		}
+		if path, err := exec.LookPath(custom); err == nil {
+			return path
 		}
 	}
 
 	// Check local virtual environments first
 	venvCandidates := []string{
 		filepath.Join(".venv", "Scripts", "python.exe"), // Windows standard venv
+		filepath.Join("venv", "Scripts", "python.exe"),  // Windows alternative
 		filepath.Join(".venv", "bin", "python3"),        // POSIX standard venv
 		filepath.Join(".venv", "bin", "python"),         // POSIX alternative
+		filepath.Join("venv", "bin", "python3"),         // POSIX venv
+		filepath.Join("venv", "bin", "python"),          // POSIX venv
 	}
 	for _, cand := range venvCandidates {
 		if _, err := os.Stat(cand); err == nil {
@@ -143,6 +168,11 @@ func ResolvePythonBin(configuredBin string) string {
 		return "python"
 	}
 	return "python3"
+}
+
+// FindPythonBinary provides backward compatibility for callers expecting FindPythonBinary.
+func FindPythonBinary() string {
+	return ResolvePythonBin("")
 }
 
 // RunSubprocess spawns the Python runner and returns a channel of streaming events.

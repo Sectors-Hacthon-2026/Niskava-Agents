@@ -876,6 +876,27 @@ func (d *DB) DeleteChatSession(id string) error {
 	return tx.Commit()
 }
 
+// ClearAllChatSessions permanently deletes all chat sessions, messages, and associated session memory edges.
+func (d *DB) ClearAllChatSessions() error {
+	tx, err := d.conn.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("DELETE FROM chat_messages"); err != nil {
+		return fmt.Errorf("failed to clear chat_messages: %w", err)
+	}
+	if _, err := tx.Exec("DELETE FROM memory_edges WHERE session_id IS NOT NULL"); err != nil {
+		return fmt.Errorf("failed to clear session memory_edges: %w", err)
+	}
+	if _, err := tx.Exec("DELETE FROM chat_sessions"); err != nil {
+		return fmt.Errorf("failed to clear chat_sessions: %w", err)
+	}
+
+	return tx.Commit()
+}
+
 // ForkChatSession clones conversation history up to upToMessageID into a new branched session (OpenCode pattern).
 func (d *DB) ForkChatSession(sourceID, newID, newTitle, upToMessageID string) error {
 	tx, err := d.conn.Begin()

@@ -35,6 +35,7 @@ _SECTORS_DOMAIN_MAP: dict[str, str] = {
     "subsector_peers": "get_subsector_peers",
     "mining_detail": "get_mining_detail",
     "news": "get_news",
+    "subsectors": "get_subsectors",
 }
 
 
@@ -93,7 +94,7 @@ class NiskavaToolRegistry:
             domain: One of the keys in _SECTORS_DOMAIN_MAP
                     ('candles', 'fundamentals', 'foreign_flow', 'suspensions',
                     'filings', 'broker_summary', 'corporate_actions',
-                    'subsector_peers', 'mining_detail', 'news').
+                    'subsector_peers', 'mining_detail', 'news', 'subsectors').
             ticker: IDX 4-letter ticker (case-insensitive, auto-uppercased).
             params: Optional domain-specific extra parameters
                     (e.g. {'slug': '...'} for mining_detail).
@@ -106,30 +107,31 @@ class NiskavaToolRegistry:
         """
         clean_ticker = ticker.upper() if ticker else ""
 
+        if clean_ticker in _INDEX_TICKERS and domain in ("candles", ""):
+            # Return enriched market overview instead of raw news list
+            # to prevent model confusion and duplicate tool call loops
+            news = self.sectors_client.get_news(None)
+            context_parts = [
+                f"Data pasar umum IDX per hari ini.",
+                f"Jumlah artikel berita terkini: {len(news)}.",
+            ]
+            if news:
+                top_headlines = [n.get("title", "") for n in news[:3] if isinstance(n, dict)]
+                if top_headlines:
+                    context_parts.append(
+                        "Headline: " + "; ".join(top_headlines)
+                    )
+            return {
+                "type": "market_overview",
+                "ticker": clean_ticker,
+                "status": "active",
+                "news": news,
+                "market_context": " ".join(context_parts),
+            }
+
         # Intelligently default domain when omitted or empty to prevent ReAct loop crashes
         if not domain:
-            if clean_ticker in _INDEX_TICKERS:
-                # Return enriched market overview instead of raw news list
-                # to prevent model confusion and duplicate tool call loops
-                news = self.sectors_client.get_news(None)
-                context_parts = [
-                    f"Data pasar umum IDX per hari ini.",
-                    f"Jumlah artikel berita terkini: {len(news)}.",
-                ]
-                if news:
-                    top_headlines = [n.get("title", "") for n in news[:3] if isinstance(n, dict)]
-                    if top_headlines:
-                        context_parts.append(
-                            "Headline: " + "; ".join(top_headlines)
-                        )
-                return {
-                    "type": "market_overview",
-                    "ticker": clean_ticker,
-                    "news": news,
-                    "market_context": " ".join(context_parts),
-                }
-            else:
-                domain = "candles"
+            domain = "candles"
 
         method_name = _SECTORS_DOMAIN_MAP.get(domain)
         if not method_name:
@@ -139,6 +141,9 @@ class NiskavaToolRegistry:
             )
 
         client_method = getattr(self.sectors_client, method_name)
+
+        if domain == "subsectors":
+            return client_method()
 
         # Domains with a non-ticker primary key
         if domain == "subsector_peers":
@@ -171,6 +176,7 @@ class NiskavaToolRegistry:
                 ticker="IHSG",
                 company_name="Pasar Modal Indonesia",
                 sectors_news_items=sectors_news,
+                query=query,
             )
             return [item.model_dump() for item in items]
 
@@ -181,6 +187,7 @@ class NiskavaToolRegistry:
             ticker=clean_ticker,
             company_name=company_name,
             sectors_news_items=sectors_news,
+            query=query,
         )
         return [item.model_dump() for item in items]
 
@@ -403,7 +410,8 @@ class NiskavaToolRegistry:
                     "corporate_actions (cash dividends, stock splits, rights issues), "
                     "subsector_peers (subsector peer comparison and valuation multiples), "
                     "mining_detail (operational mining concessions, IUP permits, and smelter assets), "
-                    "news (curated financial news from Sectors API)."
+                    "news (curated financial news from Sectors API), "
+                    "subsectors (official list of IDX sectors and subsectors)."
                 ),
                 "parameters": {
                     "type": "object",
@@ -414,12 +422,12 @@ class NiskavaToolRegistry:
                                 "Sectors API dataset domain. Required. Choose one: "
                                 "candles | fundamentals | foreign_flow | suspensions | "
                                 "filings | broker_summary | corporate_actions | "
-                                "subsector_peers | mining_detail | news."
+                                "subsector_peers | mining_detail | news | subsectors."
                             ),
                         },
                         "ticker": {
                             "type": "string",
-                            "description": "4-letter IDX stock ticker symbol (e.g. ANTM, BBCA). Case-insensitive.",
+                            "description": "4-letter IDX stock ticker symbol (e.g. ANTM, BBCA). Case-insensitive. Optional or empty string for subsectors domain or macro index overview.",
                         },
                         "params": {
                             "type": "object",
@@ -450,7 +458,7 @@ class NiskavaToolRegistry:
                         },
                         "query": {
                             "type": "string",
-                            "description": "Optional keyword or context filter.",
+                            "description": "Optional search keyword or sector filtering query.",
                         },
                     },
                     "required": ["ticker"],
@@ -579,6 +587,8 @@ class NiskavaToolRegistry:
             "sectors_get_subsector_peers": lambda args: self.get_subsector_peers(
                 subsector=args.get("subsector", ""),
             ),
+            "get_subsectors": lambda args: self.sectors_client.get_subsectors(),
+            "sectors_get_subsectors": lambda args: self.sectors_client.get_subsectors(),
             "get_mining_detail": lambda args: self.get_mining_detail(
                 slug=args.get("slug", ""),
             ),
