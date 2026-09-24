@@ -718,3 +718,26 @@ func TestLegacyOSINTCacheMigration(t *testing.T) {
 		t.Errorf("expected 1 row in news_cache, got %d", count)
 	}
 }
+
+func TestPruneMockTestData(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "prune_test.db")
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open test db: %v", err)
+	}
+	defer database.Close()
+
+	// Insert mock eval records
+	_, _ = database.conn.Exec("INSERT INTO memory_nodes (id, label, node_type, last_observed_at) VALUES ('mock:node1', 'Mock 1', 'TICKER', CURRENT_TIMESTAMP)")
+	_, _ = database.conn.Exec("INSERT INTO memory_nodes (id, label, node_type, last_observed_at) VALUES ('mock:node2', 'Mock 2', 'CATALYST_EVENT', CURRENT_TIMESTAMP)")
+	_, _ = database.conn.Exec("INSERT INTO memory_edges (source_id, target_id, relation, session_id, last_observed_at) VALUES ('mock:node1', 'mock:node2', 'RELATES', 'EVAL-TEST-01', CURRENT_TIMESTAMP)")
+
+	pruned, err := database.PruneMockTestData()
+	if err != nil {
+		t.Fatalf("PruneMockTestData failed: %v", err)
+	}
+	if pruned < 1 {
+		t.Errorf("Expected at least 1 pruned edge, got %d", pruned)
+	}
+}
