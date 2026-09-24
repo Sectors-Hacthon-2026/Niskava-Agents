@@ -1752,7 +1752,30 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 			return
 		}
 
-		stats, err := database.GetMemoryGraphStats()
+		sessionID := r.URL.Query().Get("session_id")
+		ticker := r.URL.Query().Get("ticker")
+		depthStr := r.URL.Query().Get("depth")
+		nodeTypesStr := r.URL.Query().Get("node_types")
+
+		filter := db.MemoryGraphFilter{
+			SessionID: sessionID,
+			Ticker:    ticker,
+		}
+		if depthStr != "" {
+			if d, err := strconv.Atoi(depthStr); err == nil {
+				filter.Depth = d
+			}
+		}
+		if nodeTypesStr != "" {
+			parts := strings.Split(nodeTypesStr, ",")
+			for _, p := range parts {
+				if trimmed := strings.TrimSpace(p); trimmed != "" {
+					filter.NodeTypes = append(filter.NodeTypes, trimmed)
+				}
+			}
+		}
+
+		stats, err := database.GetMemoryGraphStats(filter)
 		if err != nil {
 			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
 			return
@@ -1776,11 +1799,28 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 		}
 
 		sessionID := r.URL.Query().Get("session_id")
+		ticker := r.URL.Query().Get("ticker")
+		depth := r.URL.Query().Get("depth")
+		nodeTypes := r.URL.Query().Get("node_types")
+		isEmbed := r.URL.Query().Get("embed") == "true"
+
 		tmpFile := filepath.Join(os.TempDir(), fmt.Sprintf("niskava_graph_%d.html", time.Now().UnixNano()))
 
 		args := []string{"-m", "engine.runner", "--db-path", dbPath, "--export-graph-html", tmpFile}
 		if sessionID != "" {
 			args = append(args, "--session", sessionID)
+		}
+		if ticker != "" {
+			args = append(args, "--ticker", ticker)
+		}
+		if depth != "" {
+			args = append(args, "--depth", depth)
+		}
+		if nodeTypes != "" {
+			args = append(args, "--node-types", nodeTypes)
+		}
+		if isEmbed {
+			args = append(args, "--embed")
 		}
 
 		wd, _ := os.Getwd()

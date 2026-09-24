@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -580,6 +581,7 @@ func (d *DB) SaveChatMessage(msg *ChatMessage) error {
 		INSERT INTO chat_sessions (id, title, model, status, message_count, last_message_preview, is_pinned, created_at, updated_at)
 		VALUES (?, ?, 'hermes', 'IDLE', 1, ?, 0, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
+			title = CASE WHEN title = 'Sesi Riset Pasar' OR title = '' OR title IS NULL THEN excluded.title ELSE title END,
 			message_count = message_count + 1,
 			last_message_preview = excluded.last_message_preview,
 			updated_at = excluded.updated_at
@@ -1319,8 +1321,42 @@ func (d *DB) GetFilteredMemoryGraph(filter MemoryGraphFilter) ([]MemoryNode, []M
 	return resultNodes, resultEdges, nil
 }
 
-// GetMemoryGraphStats computes aggregate metrics across the graph memory.
-func (d *DB) GetMemoryGraphStats() (*MemoryGraphStats, error) {
+// GetMemoryGraphStats computes aggregate metrics across the graph memory, optionally scoped by filter.
+func (d *DB) GetMemoryGraphStats(filter ...MemoryGraphFilter) (*MemoryGraphStats, error) {
+	if len(filter) > 0 && (filter[0].SessionID != "" || filter[0].Ticker != "" || len(filter[0].NodeTypes) > 0) {
+		nodes, edges, err := d.GetFilteredMemoryGraph(filter[0])
+		if err != nil {
+			return nil, err
+		}
+		stats := &MemoryGraphStats{
+			TotalNodes:  len(nodes),
+			TotalEdges:  len(edges),
+			NodeTypes:   make(map[string]int),
+			TopHubNodes: []HubNode{},
+		}
+		degMap := make(map[string]int)
+		for _, e := range edges {
+			degMap[e.SourceID]++
+			degMap[e.TargetID]++
+		}
+		for _, n := range nodes {
+			stats.NodeTypes[n.NodeType]++
+			stats.TopHubNodes = append(stats.TopHubNodes, HubNode{
+				ID:       n.ID,
+				Label:    n.Label,
+				NodeType: n.NodeType,
+				Degree:   degMap[n.ID],
+			})
+		}
+		sort.Slice(stats.TopHubNodes, func(i, j int) bool {
+			return stats.TopHubNodes[i].Degree > stats.TopHubNodes[j].Degree
+		})
+		if len(stats.TopHubNodes) > 10 {
+			stats.TopHubNodes = stats.TopHubNodes[:10]
+		}
+		return stats, nil
+	}
+
 	stats := &MemoryGraphStats{
 		NodeTypes:   make(map[string]int),
 		TopHubNodes: []HubNode{},
@@ -1393,6 +1429,37 @@ func (d *DB) ClearMemoryGraph(sessionID ...string) error {
 		return fmt.Errorf("failed to clear memory nodes: %w", err)
 	}
 	return nil
+}
+
+// PruneMockTestData deletes test benchmark sessions (EVAL-*) and associated orphan nodes/edges.
+func (d *DB) PruneMockTestData() (int64, error) {
+	tx, err := d.conn.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	// 1. Delete mock edges
+	res, err := tx.Exec("DELETE FROM memory_edges WHERE session_id LIKE 'EVAL-%'")
+	if err != nil {
+		return 0, err
+	}
+	deletedEdges, _ := res.RowsAffected()
+
+	// 2. Delete mock investigations & cascades
+	_, _ = tx.Exec("DELETE FROM investigations WHERE id LIKE 'EVAL-%'")
+
+	// 3. Delete orphan nodes that have no edges and are not user:default
+	_, _ = tx.Exec(`
+		DELETE FROM memory_nodes 
+		WHERE id != 'user:default'
+		  AND id NOT IN (SELECT source_id FROM memory_edges UNION SELECT target_id FROM memory_edges)
+	`)
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return deletedEdges, nil
 }
 
 // TelegramChat represents a persistent mapping between a Telegram chat and a Niskava chat session.
