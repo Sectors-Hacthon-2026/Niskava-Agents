@@ -718,4 +718,3 @@ func TestLegacyOSINTCacheMigration(t *testing.T) {
 		t.Errorf("expected 1 row in news_cache, got %d", count)
 	}
 }
-
