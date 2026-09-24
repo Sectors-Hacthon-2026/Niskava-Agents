@@ -7,7 +7,7 @@ import (
 
 const (
 	// StandardDisclaimer is the mandatory non-advisory disclaimer for Niskava Agent.
-	StandardDisclaimer = "*Disclaimer: Niskava Agent adalah platform intelijen dan OSINT pasar modal otonom IDX, BUKAN penasihat investasi atau broker. Analisis disajikan untuk riset dan verifikasi fakta.*"
+	StandardDisclaimer = "*Disclaimer: Niskava Agent adalah platform intelijen dan riset pasar modal otonom IDX, BUKAN penasihat investasi atau broker. Analisis disajikan untuk riset dan verifikasi fakta.*"
 
 	// DisclaimerSuffix is appended to responses that don't already contain the disclaimer.
 	DisclaimerSuffix = "\n\n---\n" + StandardDisclaimer

@@ -99,7 +99,7 @@ func (s *BotService) authMiddleware() telebot.MiddlewareFunc {
 func (s *BotService) handleStart(c telebot.Context) error {
 	welcomeMsg := `🔍 *Niskava Agent — IDX Autonomous Financial Intelligence*
 
-Selamat datang! Niskava Agent adalah platform intelijen dan OSINT pasar modal otonom khusus Bursa Efek Indonesia (IDX). Sistem menjembatani fakta kuantitatif Sectors Financial API v2 dengan bukti keterbukaan informasi dan berita emiten.
+Selamat datang! Niskava Agent adalah platform intelijen dan riset pasar modal otonom khusus Bursa Efek Indonesia (IDX). Sistem menjembatani fakta kuantitatif Sectors Financial API v2 dengan bukti keterbukaan informasi dan berita emiten.
 
 *Perintah Tersedia:*
 • /start atau /help — Menampilkan panduan dan bantuan penggunaan bot
@@ -240,7 +240,7 @@ func formatExportDocument(sessionID, model string, history []db.ChatMessage) str
 	sb.WriteString(fmt.Sprintf("- **Waktu Ekspor:** %s\n\n", time.Now().UTC().Format(time.RFC3339)))
 
 	sb.WriteString("> **Pemberitahuan Kepatuhan (Law 2 — Non-Advisory Boundary):**\n")
-	sb.WriteString("> Niskava Agent adalah platform intelijen dan OSINT pasar modal otonom IDX, BUKAN penasihat investasi atau broker terdaftar. Seluruh data, analisis anomali, dan korelasi bukti disajikan secara independen semata-mata untuk verifikasi fakta dan riset pasar modal. Tidak ada bagian dari laporan ini yang merupakan rekomendasi beli/jual atau nasihat investasi keuangan berlisensi.\n\n")
+	sb.WriteString("> Niskava Agent adalah platform intelijen dan riset pasar modal otonom IDX, BUKAN penasihat investasi atau broker terdaftar. Seluruh data, analisis anomali, dan korelasi bukti disajikan secara independen semata-mata untuk verifikasi fakta dan riset pasar modal. Tidak ada bagian dari laporan ini yang merupakan rekomendasi beli/jual atau nasihat investasi keuangan berlisensi.\n\n")
 	sb.WriteString("---\n\n")
 	sb.WriteString("## Riwayat Percakapan & Investigasi\n\n")
 

@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Lipgloss Color Palette for NISKAVA-HUD (Binance Dark Financial OSINT Aesthetic)
+// Lipgloss Color Palette for NISKAVA-HUD (Binance Dark Financial Intelligence Aesthetic)
 var (
 	// Palette Aliases for HUD
 	hudTitleStyle = lipgloss.NewStyle().
@@ -183,7 +183,7 @@ func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 	return b.String()
 }
 
-// PrintHealthDiagnostics renders the system health check screen with the Binance Dark OSINT palette and HUD ASCII header.
+// PrintHealthDiagnostics renders the system health check screen with the Binance Dark Financial Intelligence palette and HUD ASCII header.
 func PrintHealthDiagnostics(cfg *config.Config, serverURL string) {
 	if cfg == nil {
 		return
@@ -302,7 +302,7 @@ func PrintHealthDiagnostics(cfg *config.Config, serverURL string) {
 	fmt.Println(dividerStyle.Render("─────────────────────────────────────────────────────────────────────────────"))
 }
 
-// PrintWebWorkspaceLaunchScreen renders a styled, rich Web Workspace launcher card using the Binance Dark OSINT palette.
+// PrintWebWorkspaceLaunchScreen renders a styled, rich Web Workspace launcher card using the Binance Dark Financial Intelligence palette.
 func PrintWebWorkspaceLaunchScreen(serverURL string) {
 	if serverURL == "" {
 		serverURL = "http://localhost:8080"
@@ -341,7 +341,7 @@ func PrintWebWorkspaceLaunchScreen(serverURL string) {
 		Foreground(ColorMuted)
 
 	var b strings.Builder
-	b.WriteString(headerStyle.Render("🌐 NISKAVA WEB WORKSPACE (VISUAL CYBER-OSINT CANVAS)") + "\n\n")
+	b.WriteString(headerStyle.Render("🌐 NISKAVA WEB WORKSPACE (VISUAL MARKET INTELLIGENCE CANVAS)") + "\n\n")
 	b.WriteString(fmt.Sprintf("• %s : %s %s\n", lblStyle.Render("Local Server Status"), statusStyle.Render("[ONLINE]"), mutedStyle.Render("(Go SSE Gateway + React SPA)")))
 	b.WriteString(fmt.Sprintf("• %s : %s\n", lblStyle.Render("Browser Access URL "), urlStyle.Render(serverURL)))
 	b.WriteString(fmt.Sprintf("• %s : %s\n", lblStyle.Render("Canvas Features    "), valStyle.Render("TradingView Anomaly Markers, ReAct SSE Stream, Evidence Matrix")))

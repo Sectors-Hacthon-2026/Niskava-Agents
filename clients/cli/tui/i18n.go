@@ -102,8 +102,8 @@ var TUIStrings = map[string]map[string]string{
 		"id": "Skor Keyakinan",
 	},
 	"financial_disclaimer": {
-		"en": "FINANCIAL DISCLAIMER (NON-ADVISORY - LAW 2 & RULE 12):\nNiskava Agent is an autonomous market intelligence and OSINT platform, NOT an investment advisor.\nThe system NEVER provides BUY/SELL recommendations or security price targets.",
-		"id": "DISCLAIMER FINANSIAL (NON-ADVISORY - LAW 2 & ATURAN 12):\nNiskava Agent adalah platform intelijen pasar dan OSINT otonom, BUKAN penasihat investasi.\nSistem TIDAK PERNAH memberikan rekomendasi BELI/JUAL atau target harga sekuritas apa pun.",
+		"en": "FINANCIAL DISCLAIMER (NON-ADVISORY - LAW 2 & RULE 12):\nNiskava Agent is an autonomous market intelligence and equity research platform, NOT an investment advisor.\nThe system NEVER provides BUY/SELL recommendations or security price targets.",
+		"id": "DISCLAIMER FINANSIAL (NON-ADVISORY - LAW 2 & ATURAN 12):\nNiskava Agent adalah platform intelijen pasar dan riset pasar modal otonom, BUKAN penasihat investasi.\nSistem TIDAK PERNAH memberikan rekomendasi BELI/JUAL atau target harga sekuritas apa pun.",
 	},
 	"session_saved_hint": {
 		"en": "Session saved: %s (%s)\nType 'niskava serve --open' to open interactive web workspace in browser.\n",
@@ -194,8 +194,8 @@ var TUIStrings = map[string]map[string]string{
 		"id": "Mulai sesi obrolan baru & bersihkan memory graph",
 	},
 	"slash_graph_desc": {
-		"en": "Open visual Cyber-OSINT Knowledge Graph in browser",
-		"id": "Buka visualisasi Cyber-OSINT Knowledge Graph di browser",
+		"en": "Open visual Market Intelligence Knowledge Graph in browser",
+		"id": "Buka visualisasi Market Intelligence Knowledge Graph di browser",
 	},
 	"slash_clear_desc": {
 		"en": "Clear terminal screen & redraw HUD banner",
@@ -234,8 +234,8 @@ var TUIStrings = map[string]map[string]string{
 		"id": "  <KODE EMITEN>        Ketik langsung 4 huruf kode emiten untuk analisis cepat (contoh: ANTM, BBCA, BUMI)",
 	},
 	"help_graph_desc": {
-		"en": "  /graph               Open visual Cyber-OSINT Knowledge Graph in browser",
-		"id": "  /graph               Buka visualisasi Cyber-OSINT Knowledge Graph di browser",
+		"en": "  /graph               Open visual Market Intelligence Knowledge Graph in browser",
+		"id": "  /graph               Buka visualisasi Market Intelligence Knowledge Graph di browser",
 	},
 	"help_reset_desc": {
 		"en": "  /reset               Start new conversation session & clear memory graph",
@@ -298,8 +298,8 @@ var TUIStrings = map[string]map[string]string{
 		"id": "Bahasa Indonesia [ID]",
 	},
 	"hud_purpose_val": {
-		"en": "market intelligence & financial osint",
-		"id": "intelijen pasar & osint keuangan",
+		"en": "market intelligence & equity research",
+		"id": "intelijen pasar & riset pasar modal",
 	},
 	"banner_hint": {
 		"en": "  [HINT: /help guide · /chats resume session · /back to menu · /reset new chat · /exit quit]",

@@ -524,7 +524,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 
 class GraphVisualizer:
-    """Cyber-OSINT and Market Intelligence Graph Visualizer."""
+    """Market Intelligence Graph Visualizer."""
 
     def __init__(self, memory: Optional[LocalGraphMemory] = None):
         self.memory = memory or LocalGraphMemory()
