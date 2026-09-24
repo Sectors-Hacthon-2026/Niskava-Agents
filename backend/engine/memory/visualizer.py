@@ -9,9 +9,26 @@ from datetime import datetime, timezone
 import json
 import math
 import os
+import textwrap
 from typing import Any, Dict, List, Optional
 
 from engine.memory.graph_memory import LocalGraphMemory
+
+
+def format_node_label(text: str, max_chars_per_line: int = 22, max_lines: int = 3) -> str:
+    """Break long financial headlines or entity anomalies into balanced multi-line cards."""
+    if not text:
+        return ""
+    clean_text = " ".join(str(text).split())
+    if not clean_text:
+        return ""
+    lines = textwrap.wrap(
+        clean_text,
+        width=max_chars_per_line,
+        max_lines=max_lines,
+        placeholder="...",
+    )
+    return "\n".join(lines)
 
 
 # Institutional financial node styling (Clean, dignified, non-cyber)
@@ -21,27 +38,31 @@ NODE_TYPE_STYLES = {
         "font": {"color": "#FFFFFF", "face": "monospace", "size": 13, "bold": True},
         "shape": "box",
         "margin": 10,
+        "widthConstraint": {"maximum": 150, "minimum": 80},
         "size": 22,
     },
     "SECTOR": {
         "color": {"background": "#312E81", "border": "#6366F1", "highlight": {"background": "#4F46E5", "border": "#C7D2FE"}},
         "font": {"color": "#FFFFFF", "face": "sans-serif", "size": 12, "bold": True},
         "shape": "box",
-        "margin": 8,
+        "margin": 10,
+        "widthConstraint": {"maximum": 150, "minimum": 80},
         "size": 20,
     },
     "BROKER": {
         "color": {"background": "#78350F", "border": "#D97706", "highlight": {"background": "#B45309", "border": "#FDE68A"}},
         "font": {"color": "#FFFFFF", "face": "monospace", "size": 12, "bold": True},
         "shape": "box",
-        "margin": 8,
+        "margin": 10,
+        "widthConstraint": {"maximum": 150, "minimum": 80},
         "size": 20,
     },
     "PERSON": {
         "color": {"background": "#1F2937", "border": "#4B5563", "highlight": {"background": "#374151", "border": "#E5E7EB"}},
         "font": {"color": "#F9FAFB", "face": "sans-serif", "size": 12},
         "shape": "box",
-        "margin": 8,
+        "margin": 10,
+        "widthConstraint": {"maximum": 150, "minimum": 80},
         "size": 18,
     },
     "CATALYST_EVENT": {
@@ -49,13 +70,15 @@ NODE_TYPE_STYLES = {
         "font": {"color": "#ECFDF5", "face": "sans-serif", "size": 11, "bold": True},
         "shape": "box",
         "margin": 10,
+        "widthConstraint": {"maximum": 150, "minimum": 80},
         "size": 18,
     },
     "ANOMALY_METRIC": {
         "color": {"background": "#7F1D1D", "border": "#DC2626", "highlight": {"background": "#EF4444", "border": "#FECACA"}},
         "font": {"color": "#FEF2F2", "face": "monospace", "size": 11, "bold": True},
         "shape": "box",
-        "margin": 8,
+        "margin": 10,
+        "widthConstraint": {"maximum": 150, "minimum": 80},
         "size": 20,
     },
     "USER": {
@@ -63,13 +86,15 @@ NODE_TYPE_STYLES = {
         "font": {"color": "#F8FAFC", "face": "sans-serif", "size": 13, "bold": True},
         "shape": "box",
         "margin": 10,
+        "widthConstraint": {"maximum": 150, "minimum": 80},
         "size": 24,
     },
     "PRICE_LEVEL": {
         "color": {"background": "#1E293B", "border": "#64748B", "highlight": {"background": "#334155", "border": "#CBD5E1"}},
         "font": {"color": "#F8FAFC", "face": "monospace", "size": 12},
         "shape": "box",
-        "margin": 8,
+        "margin": 10,
+        "widthConstraint": {"maximum": 150, "minimum": 80},
         "size": 18,
     },
 }
@@ -78,7 +103,8 @@ DEFAULT_NODE_STYLE = {
     "color": {"background": "#1E293B", "border": "#475569", "highlight": {"background": "#334155", "border": "#CBD5E1"}},
     "font": {"color": "#F1F5F9", "face": "sans-serif", "size": 12},
     "shape": "box",
-    "margin": 8,
+    "margin": 10,
+    "widthConstraint": {"maximum": 150, "minimum": 80},
     "size": 18,
 }
 
@@ -368,7 +394,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const options = {
                 nodes: {
                     borderWidth: 1,
-                    shadow: false
+                    shadow: false,
+                    margin: 10,
+                    widthConstraint: { maximum: 150, minimum: 80 }
                 },
                 edges: {
                     smooth: { type: 'cubicBezier', forceDirection: 'none', roundness: 0.15 },
@@ -435,7 +463,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                        '</div>';
             }).join('');
 
-            panel.innerHTML = '<div class="inspector-title">' + node.label + '</div>' +
+            panel.innerHTML = '<div class="inspector-title">' + (node.raw_label || node.label) + '</div>' +
                 '<div class="inspector-badge" style="background:' + (node.color && node.color.background ? node.color.background : '#1E293B') + '">' + node.group + '</div>' +
                 '<div class="detail-row" style="margin-top:12px;">' +
                 '<span class="detail-label">Identifier</span><code>' + node.id + '</code></div>' +
@@ -529,54 +557,78 @@ class GraphVisualizer:
     def __init__(self, memory: Optional[LocalGraphMemory] = None):
         self.memory = memory or LocalGraphMemory()
 
-    def export_graph_data(self, session_id: Optional[str] = None) -> Dict[str, Any]:
-        """Convert in-memory graph to Vis.js DataSet format with colors and weights."""
-        G = self.memory.load_graph()
+    def export_graph_data(
+        self,
+        session_id: Optional[str] = None,
+        ticker: Optional[str] = None,
+        depth: int = 1,
+        node_types: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Convert in-memory graph to Vis.js DataSet format with colors, width constraints, and weights."""
         stats = self.memory.get_graph_stats()
 
-        nodes = []
-        for n, data in G.nodes(data=True):
-            ntype = data.get("node_type", "ENTITY").upper()
-            style = NODE_TYPE_STYLES.get(ntype, DEFAULT_NODE_STYLE)
+        candidate_nodes: List[Dict[str, Any]] = []
+        candidate_edges: List[Dict[str, Any]] = []
 
-            nodes.append({
-                "id": n,
-                "label": data.get("label", n),
-                "title": f"[{ntype}] {data.get('label', n)}",
-                "group": ntype,
-                "color": style["color"],
-                "font": style["font"],
-                "shape": style["shape"],
-                "size": style.get("size", 18),
-                "margin": style.get("margin", 8),
-                "last_observed_at": data.get("last_observed_at", ""),
-                "metadata": data.get("metadata", {}),
-            })
+        if ticker:
+            ego = self.memory.retrieve_ego_subgraph(ticker, radius=depth)
+            candidate_nodes = ego.get("nodes", [])
+            candidate_edges = ego.get("edges", [])
+        else:
+            G = self.memory.load_graph()
+            for n, data in G.nodes(data=True):
+                candidate_nodes.append({
+                    "id": n,
+                    "label": data.get("label", n),
+                    "node_type": data.get("node_type", "ENTITY"),
+                    "last_observed_at": data.get("last_observed_at", ""),
+                    "metadata": data.get("metadata", {}),
+                })
 
-        edges = []
-        now = datetime.now(timezone.utc)
-        for u, v, data in G.edges(data=True):
-            if session_id and data.get("session_id") != session_id:
+            now = datetime.now(timezone.utc)
+            for u, v, data in G.edges(data=True):
+                observed_str = data.get("last_observed_at", "")
+                delta_days = 0.0
+                try:
+                    dt = datetime.fromisoformat(observed_str.replace("Z", "+00:00"))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    delta_days = max(0.0, (now - dt).total_seconds() / 86400.0)
+                except Exception:
+                    delta_days = 0.0
+
+                base_w = float(data.get("weight", 1.0))
+                decay_factor = math.exp(-0.05 * delta_days)
+                eff_w = round(base_w * decay_factor, 2)
+                candidate_edges.append({
+                    "source_id": u,
+                    "target_id": v,
+                    "relation": data.get("relation", "RELATES_TO"),
+                    "context_snippet": data.get("context_snippet", ""),
+                    "session_id": data.get("session_id", ""),
+                    "weight": base_w,
+                    "effective_weight": eff_w,
+                    "last_observed_at": observed_str,
+                    "is_superseded": data.get("is_superseded", False),
+                })
+
+        retained_edges: List[Dict[str, Any]] = []
+        for edge in candidate_edges:
+            edge_session = edge.get("session_id", "")
+            if session_id and edge_session != session_id:
                 continue
 
-            observed_str = data.get("last_observed_at", "")
-            delta_days = 0.0
-            try:
-                dt = datetime.fromisoformat(observed_str.replace("Z", "+00:00"))
-                if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
-                delta_days = max(0.0, (now - dt).total_seconds() / 86400.0)
-            except Exception:
-                delta_days = 0.0
+            u = edge.get("source_id") or edge.get("from")
+            v = edge.get("target_id") or edge.get("to")
+            if not u or not v:
+                continue
 
-            base_w = float(data.get("weight", 1.0))
-            decay_factor = math.exp(-0.05 * delta_days)
-            eff_w = round(base_w * decay_factor, 2)
-            rel = data.get("relation", "RELATES_TO")
-
+            rel = edge.get("relation", "RELATES_TO")
+            base_w = float(edge.get("weight", 1.0))
+            eff_w = float(edge.get("effective_weight", base_w))
             edge_width = min(6, max(1, int(eff_w * 2)))
 
-            edges.append({
+            retained_edges.append({
                 "id": f"{u}_{rel}_{v}",
                 "from": u,
                 "to": v,
@@ -588,40 +640,124 @@ class GraphVisualizer:
                 "width": edge_width,
                 "weight": base_w,
                 "effective_weight": eff_w,
-                "context_snippet": data.get("context_snippet", ""),
-                "session_id": data.get("session_id", ""),
-                "last_observed_at": observed_str,
+                "context_snippet": edge.get("context_snippet", ""),
+                "session_id": edge_session,
+                "last_observed_at": edge.get("last_observed_at", ""),
+                "is_superseded": edge.get("is_superseded", False),
             })
+
+        active_node_ids = set()
+        for e in retained_edges:
+            if e.get("from"):
+                active_node_ids.add(e["from"])
+            if e.get("to"):
+                active_node_ids.add(e["to"])
+
+        scoped = bool(session_id or ticker)
+        allowed_types = {t.upper() for t in node_types} if node_types is not None else None
+
+        nodes: List[Dict[str, Any]] = []
+        for node_data in candidate_nodes:
+            node_id = node_data.get("id")
+            if not node_id:
+                continue
+
+            if scoped and node_id not in active_node_ids:
+                continue
+
+            ntype = str(node_data.get("node_type", "ENTITY")).upper()
+            if allowed_types is not None and ntype not in allowed_types:
+                continue
+
+            raw_label = str(node_data.get("label") or node_id)
+            formatted_label = format_node_label(raw_label)
+            style = NODE_TYPE_STYLES.get(ntype, DEFAULT_NODE_STYLE)
+
+            nodes.append({
+                "id": node_id,
+                "label": formatted_label,
+                "raw_label": raw_label,
+                "title": f"[{ntype}] {raw_label}",
+                "group": ntype,
+                "color": style["color"],
+                "font": style["font"],
+                "shape": style["shape"],
+                "size": style.get("size", 18),
+                "margin": style.get("margin", 10),
+                "widthConstraint": style.get("widthConstraint", {"maximum": 150, "minimum": 80}),
+                "last_observed_at": node_data.get("last_observed_at", ""),
+                "metadata": node_data.get("metadata", {}),
+            })
+
+        retained_node_ids = {n["id"] for n in nodes}
+        final_edges = [
+            e for e in retained_edges
+            if e["from"] in retained_node_ids and e["to"] in retained_node_ids
+        ]
 
         return {
             "nodes": nodes,
-            "edges": edges,
+            "edges": final_edges,
             "stats": stats,
             "generated_at": datetime.now(timezone.utc).isoformat() + "Z",
         }
 
-    def generate_html(self, session_id: Optional[str] = None, title: str = "Niskava Agent Market Intelligence") -> str:
+    def generate_html(
+        self,
+        session_id: Optional[str] = None,
+        ticker: Optional[str] = None,
+        depth: int = 1,
+        node_types: Optional[List[str]] = None,
+        embed: bool = False,
+        title: str = "Niskava Agent Market Intelligence",
+    ) -> str:
         """Generate a complete, self-contained HTML page string."""
-        data = self.export_graph_data(session_id=session_id)
+        data = self.export_graph_data(
+            session_id=session_id,
+            ticker=ticker,
+            depth=depth,
+            node_types=node_types,
+        )
         raw_json = json.dumps(data, ensure_ascii=False)
-        sess_str = session_id or "All Active Sessions"
+        if session_id:
+            sess_str = session_id
+        elif ticker:
+            sess_str = f"Ego Graph: {ticker}"
+        else:
+            sess_str = "All Active Sessions"
 
         html = HTML_TEMPLATE.replace("__TITLE__", title)
         html = html.replace("__SESSION_ID__", sess_str)
         html = html.replace("__RAW_JSON__", raw_json)
+
+        if embed:
+            embed_css = "<style>.sidebar { display: none !important; } .top-bar { display: none !important; } .canvas-area { width: 100vw; height: 100vh; }</style>"
+            html = html.replace("</head>", f"    {embed_css}\n</head>")
+
         return html
 
     def export_to_file(
         self,
         output_path: str = "~/.niskava/graph.html",
         session_id: Optional[str] = None,
+        ticker: Optional[str] = None,
+        depth: int = 1,
+        node_types: Optional[List[str]] = None,
+        embed: bool = False,
         title: str = "Niskava Agent Market Intelligence",
     ) -> str:
         """Generate and save interactive HTML to disk."""
         path = os.path.expanduser(output_path)
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
 
-        html_content = self.generate_html(session_id=session_id, title=title)
+        html_content = self.generate_html(
+            session_id=session_id,
+            ticker=ticker,
+            depth=depth,
+            node_types=node_types,
+            embed=embed,
+            title=title,
+        )
         with open(path, "w", encoding="utf-8") as f:
             f.write(html_content)
 

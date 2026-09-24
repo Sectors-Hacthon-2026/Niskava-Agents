@@ -8,10 +8,11 @@ Verifies:
 """
 
 import os
+import sqlite3
 import pytest
 
 from engine.memory.graph_memory import LocalGraphMemory
-from engine.memory.visualizer import GraphVisualizer
+from engine.memory.visualizer import GraphVisualizer, format_node_label
 
 
 @pytest.fixture
@@ -54,6 +55,9 @@ def test_export_graph_data(populated_memory):
     assert antm_node["group"] == "TICKER"
     assert antm_node["shape"] == "box"
     assert antm_node["color"]["background"] == "#1E3A8A"
+    assert antm_node["raw_label"] == "ANTM"
+    assert antm_node["widthConstraint"] == {"maximum": 150, "minimum": 80}
+    assert antm_node["margin"] == 10
 
     # Check edge properties
     edge = data["edges"][0]
@@ -127,5 +131,138 @@ def test_html_template_is_english(populated_memory):
         assert marker not in html, (
             f"Indonesian UI string '{marker}' found in visualizer HTML — must be English."
         )
+
+
+def test_format_node_label_wraps_long_text():
+    """Verify that format_node_label wraps long headlines into balanced multi-line cards."""
+    # Empty or None string handling
+    assert format_node_label("") == ""
+    assert format_node_label(None) == ""
+
+    # Short label stays unchanged on one line
+    short = format_node_label("ANTM")
+    assert short == "ANTM"
+    assert "\n" not in short
+
+    # Long headline wraps into balanced lines (default max_chars_per_line=22, max_lines=3)
+    long_headline = "PT Aneka Tambang Tbk Resmikan Smelter Haltim dengan Kapasitas Produksi Feronikel 13.500 TNi per Tahun"
+    formatted = format_node_label(long_headline, max_chars_per_line=22, max_lines=3)
+    lines = formatted.split("\n")
+    assert 1 < len(lines) <= 3
+    for line in lines:
+        assert len(line) <= 22
+    assert "..." in lines[-1]
+
+    # Custom constraints: max_lines=2, max_chars_per_line=15
+    two_lines = format_node_label("Alpha Beta Gamma Delta Epsilon Zeta Eta Theta", max_chars_per_line=15, max_lines=2)
+    two_lines_list = two_lines.split("\n")
+    assert len(two_lines_list) <= 2
+    for line in two_lines_list:
+        assert len(line) <= 15
+
+
+def test_export_graph_data_excludes_orphan_nodes_when_filtered(tmp_path):
+    """Verify scoped export excludes orphan nodes with 0 active edges."""
+    db_file = str(tmp_path / "test_orphan_filter.db")
+    memory = LocalGraphMemory(db_path=db_file)
+
+    # Session S1 observation: ANTM -> Smelter Haltim
+    memory.store_observation(
+        source_label="ANTM",
+        source_type="TICKER",
+        relation="OPERATES",
+        target_label="Smelter Haltim",
+        target_type="FACILITY",
+        session_id="S1",
+    )
+    # Session S2 observation: BBCA -> BCA Finance
+    memory.store_observation(
+        source_label="BBCA",
+        source_type="TICKER",
+        relation="OWNS",
+        target_label="BCA Finance",
+        target_type="FACILITY",
+        session_id="S2",
+    )
+
+    # Directly insert an orphan node with 0 edges into SQLite memory_nodes
+    with sqlite3.connect(memory.db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO memory_nodes (id, label, node_type, metadata_json, last_observed_at)
+            VALUES (?, ?, ?, ?, datetime('now'))
+            """,
+            ("isolated:orphan", "Isolated Orphan Entity", "ENTITY", "{}"),
+        )
+
+    viz = GraphVisualizer(memory=memory)
+
+    # Unscoped export includes all nodes in the graph including the orphan
+    unscoped_data = viz.export_graph_data()
+    unscoped_ids = {n["id"] for n in unscoped_data["nodes"]}
+    assert "isolated:orphan" in unscoped_ids
+    assert "ticker:antm" in unscoped_ids
+    assert "ticker:bbca" in unscoped_ids
+    assert len(unscoped_data["nodes"]) == 5
+
+    # Scoped by session_id='S1': ONLY nodes in active edges for S1 are included (no orphan, no S2 nodes)
+    s1_data = viz.export_graph_data(session_id="S1")
+    s1_node_ids = {n["id"] for n in s1_data["nodes"]}
+    assert s1_node_ids == {"ticker:antm", "facility:smelter_haltim"}
+    assert "isolated:orphan" not in s1_node_ids
+    assert "ticker:bbca" not in s1_node_ids
+    assert len(s1_data["edges"]) == 1
+
+    # Scoped by ticker='ANTM': centers ego-subgraph on ANTM and excludes orphan & S2 nodes
+    ticker_data = viz.export_graph_data(ticker="ANTM", depth=1)
+    ticker_node_ids = {n["id"] for n in ticker_data["nodes"]}
+    assert "ticker:antm" in ticker_node_ids
+    assert "facility:smelter_haltim" in ticker_node_ids
+    assert "isolated:orphan" not in ticker_node_ids
+    assert "ticker:bbca" not in ticker_node_ids
+
+    # Node types filtering
+    ticker_only = viz.export_graph_data(node_types=["TICKER"])
+    assert all(n["group"] == "TICKER" for n in ticker_only["nodes"])
+    assert "ticker:antm" in {n["id"] for n in ticker_only["nodes"]}
+    assert "facility:smelter_haltim" not in {n["id"] for n in ticker_only["nodes"]}
+
+    # Verify node payload formatting
+    for node in s1_data["nodes"]:
+        assert "label" in node
+        assert "raw_label" in node
+        assert "widthConstraint" in node
+        assert node["widthConstraint"] == {"maximum": 150, "minimum": 80}
+        assert "color" in node
+        assert node["margin"] == 10
+
+
+def test_generate_html_embed_mode(populated_memory, tmp_path):
+    """Verify embed mode CSS injection and parameter propagation."""
+    viz = GraphVisualizer(memory=populated_memory)
+
+    # Standard mode (embed=False): sidebar and top-bar are visible, no override style
+    html_standard = viz.generate_html(embed=False)
+    assert "<!DOCTYPE html>" in html_standard
+    assert ".sidebar { display: none !important; }" not in html_standard
+
+    # Embed mode (embed=True): injects CSS to hide sidebar & top-bar and expand canvas
+    html_embed = viz.generate_html(embed=True)
+    expected_css = "<style>.sidebar { display: none !important; } .top-bar { display: none !important; } .canvas-area { width: 100vw; height: 100vh; }</style>"
+    assert expected_css in html_embed
+
+    # Verify parameters propagation to export_to_file
+    out_file = str(tmp_path / "embed_test.html")
+    saved = viz.export_to_file(
+        output_path=out_file,
+        ticker="ANTM",
+        depth=1,
+        embed=True,
+    )
+    assert os.path.exists(saved)
+    with open(saved, "r", encoding="utf-8") as f:
+        saved_content = f.read()
+    assert expected_css in saved_content
+    assert "ANTM" in saved_content
 
 
