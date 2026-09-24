@@ -62,8 +62,8 @@ class TestLeanSystemPrompt:
                 "parameters": {"type": "object", "properties": {"domain": {}, "ticker": {}}, "required": ["domain", "ticker"]},
             },
             {
-                "name": "search_osint",
-                "description": "Router OSINT Dual-Engine.",
+                "name": "search_news",
+                "description": "Router berita dan keterbukaan informasi bursa.",
                 "parameters": {"type": "object", "properties": {"ticker": {}}, "required": ["ticker"]},
             },
             {
@@ -86,7 +86,7 @@ class TestLeanSystemPrompt:
         from engine.agent.react_agent import get_system_prompt
         defs = self._make_gateway_defs()
         prompt = get_system_prompt("id", available_tools=defs)
-        for gateway in ["execute_skill", "query_sectors", "search_osint", "query_memory"]:
+        for gateway in ["execute_skill", "query_sectors", "search_news", "query_memory"]:
             assert f"`{gateway}`" in prompt, f"Gateway `{gateway}` not found in prompt"
 
     def test_old_atomic_tool_names_not_in_prompt(self):
@@ -398,15 +398,15 @@ def test_memory_graph_no_crash_when_memory_is_none(tmp_path):
 
 
 def test_compact_tool_observation_limits_length():
-    """Verify bulky tool observations (OSINT news, sectors reports) are compacted to <= 1600 chars."""
+    """Verify bulky tool observations (Sectors news, reports) are compacted to <= 1600 chars."""
     from engine.agent.react_agent import _compact_tool_observation
 
-    # Simulate large OSINT news payload (> 8KB)
+    # Simulate large news payload (> 8KB)
     large_news = [
         {"title": f"News Headline {i}", "snippet": "A" * 500, "date": "2026-09-20", "source": "Reuters"}
         for i in range(10)
     ]
-    compacted = _compact_tool_observation("search_osint", large_news, max_len=1500)
+    compacted = _compact_tool_observation("search_news", large_news, max_len=1500)
     assert len(compacted) <= 1600
     assert "News Headline 0" in compacted
     assert "summarized" in compacted or "items" in compacted

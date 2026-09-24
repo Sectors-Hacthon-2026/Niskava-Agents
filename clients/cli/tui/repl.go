@@ -25,7 +25,7 @@ const ReplBackSentinel = "__back__"
 const replBackSentinel = ReplBackSentinel
 
 var (
-	// Terminal Color Styles (Binance Dark Financial OSINT Aesthetic)
+	// Terminal Color Styles (Binance Dark Financial Intelligence Aesthetic)
 	promptBoxStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(ColorAccent)
@@ -753,8 +753,12 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				if ev.Args != nil {
 					argsJSON = fmt.Sprintf(" %v", ev.Args)
 				}
-				fmt.Printf("⚡ %s%s\n", toolCallStyle.Render("[TOOL CALL: "+ev.Tool+"]"), argsJSON)
-				tMsg := strings.TrimPrefix(TF("tool_executing", ev.Tool), "  ⠋ ")
+				toolName := ev.Tool
+				if toolName == "search_osint" {
+					toolName = "search_news"
+				}
+				fmt.Printf("⚡ %s%s\n", toolCallStyle.Render("[TOOL CALL: "+toolName+"]"), argsJSON)
+				tMsg := strings.TrimPrefix(TF("tool_executing", toolName), "  ⠋ ")
 				statusText.Store(tMsg)
 
 			case ipc.EventAgentObservation:

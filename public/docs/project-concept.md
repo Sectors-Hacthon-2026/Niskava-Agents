@@ -2,7 +2,7 @@
 
 ## 1. Executive Summary
 
-Niskava Agent is an autonomous financial Open Source Intelligence (OSINT) and market intelligence orchestration platform designed specifically for the Indonesia Stock Exchange (IDX / Bursa Efek Indonesia).
+Niskava Agent is an autonomous financial market intelligence and equity research orchestration platform designed specifically for the Indonesia Stock Exchange (IDX / Bursa Efek Indonesia).
 
 Unlike conventional financial analytics dashboards that only present raw charts, or generic chatbot wrappers that hallucinate calculations, Niskava operates under an **evidence-first investigative paradigm**. It automatically bridges the gap between structured quantitative facts (provided by the Sectors Financial API v2) and unstructured qualitative disclosures (IDX regulatory filings, corporate announcements, and syndicated financial news).
 
@@ -33,7 +33,7 @@ Many tools marketed as "Financial AI" are simple thin wrappers built on top of c
 |---|---|
 | **1. Raw JSON Dump & Prompt Stuffing**<br>Dumping hundreds of raw candlestick rows directly into a prompt exhausts token limits and introduces noise that degrades reasoning. | **Two-Phase Compute Gate:** Raw time series data is processed locally by deterministic NumPy algorithms; only summarized anomaly indicators are exposed to the reasoning model. |
 | **2. Mental Math & Numerical Hallucination**<br>Allowing an LLM to calculate percentage returns, moving averages, or standard deviations leads to confident numerical hallucinations. | **Law 1 (Deterministic Before Generative):** LLMs are strictly forbidden from performing mathematical calculations. All statistics, Z-scores, and divergence metrics are computed by NumPy. |
-| **3. Atemporal Semantic Search (Causality Inversion)**<br>Standard vector similarity search retrieves articles based on topical similarity without temporal constraints, frequently attributing price surges to news published days *after* the event. | **Temporal-Aware OSINT Anchoring:** Web harvesting is anchored strictly around the anomaly event date ($T_{\text{anomaly}} \pm 2\text{ days}$) to preserve chronological causality. |
+| **3. Atemporal Semantic Search (Causality Inversion)**<br>Standard vector similarity search retrieves articles based on topical similarity without temporal constraints, frequently attributing price surges to news published days *after* the event. | **Temporal-Aware News Anchoring:** Web harvesting is anchored strictly around the anomaly event date ($T_{\text{anomaly}} \pm 2\text{ days}$) to preserve chronological causality. |
 | **4. Monolithic Prompt Architecture**<br>Stuffing all instructions into a single massive system prompt prevents modular problem solving, auditable steps, and skill-specific reasoning. | **4-Layer Agent Hierarchy:** Strict separation between MCP I/O primitives, deterministic math, modular analytical skills (SOPs), and the cognitive ReAct loop. |
 | **5. Unregulated Financial Advice**<br>Generic models frequently produce unsolicited buy/sell recommendations or speculative price targets, violating securities regulations. | **Law 2 (Strict Non-Advisory Boundary):** Niskava produces only evidence-backed intelligence classified into a 3-tier verification taxonomy (`SUPPORTED`, `UNCERTAIN`, `CONTRADICTED`). |
 
@@ -75,9 +75,9 @@ Niskava adopts an evidence-first philosophy inspired by open investigative workf
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ Layer 1: MCP & OSINT Data Primitives                        │
+│ Layer 1: MCP & News Data Primitives                        │
 │ - Sectors Financial API v2 (OHLCV, Financials, Flow)        │
-│ - Dual-Engine OSINT (Sectors News + Google News RSS Dorks)  │
+│ - Sectors News Engine (Sectors News + Google News RSS Dorks)  │
 │ - Trafilatura HTML Sanitization                             │
 └──────────────────────────────┬──────────────────────────────┘
                                │

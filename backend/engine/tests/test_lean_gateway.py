@@ -1,6 +1,6 @@
 """Tests for Task 1: Gateway Primitive Methods in NiskavaToolRegistry.
 
-Verifies that query_sectors, search_osint, and query_memory correctly
+Verifies that query_sectors, search_news, and query_memory correctly
 route to the underlying client/harvester/memory layer using mocks.
 """
 
@@ -21,7 +21,7 @@ def registry(tmp_path) -> NiskavaToolRegistry:
     reg = NiskavaToolRegistry(
         db_path=db,
         sectors_client=MagicMock(),
-        osint_harvester=MagicMock(),
+        news_harvester=MagicMock(),
         skills_registry=MagicMock(),
         memory=MagicMock(),
     )
@@ -81,20 +81,20 @@ class TestQuerySectors:
 
 
 # ---------------------------------------------------------------------------
-# search_osint tests
+# search_news tests
 # ---------------------------------------------------------------------------
 
-class TestSearchOsint:
+class TestSearchNews:
     def test_harvest_is_called_with_ticker(self, registry):
         registry.sectors_client.get_news.return_value = []
         registry.sectors_client.get_company_report.return_value = {"company_name": "Aneka Tambang"}
         mock_item = MagicMock()
         mock_item.model_dump.return_value = {"title": "ANTM news", "url": "http://example.com"}
-        registry.osint_harvester.harvest.return_value = [mock_item]
+        registry.news_harvester.harvest.return_value = [mock_item]
 
-        result = registry.search_osint(ticker="ANTM")
+        result = registry.search_news(ticker="ANTM")
 
-        registry.osint_harvester.harvest.assert_called_once()
+        registry.news_harvester.harvest.assert_called_once()
         assert len(result) == 1
         assert result[0]["title"] == "ANTM news"
 
@@ -102,17 +102,28 @@ class TestSearchOsint:
         registry.sectors_client.get_news.return_value = []
         mock_item = MagicMock()
         mock_item.model_dump.return_value = {"title": "Market headlines"}
-        registry.osint_harvester.harvest.return_value = [mock_item]
+        registry.news_harvester.harvest.return_value = [mock_item]
 
-        result = registry.search_osint(ticker="")
+        result = registry.search_news(ticker="")
 
-        registry.osint_harvester.harvest.assert_called_once()
-        call_kwargs = registry.osint_harvester.harvest.call_args
+        registry.news_harvester.harvest.assert_called_once()
+        call_kwargs = registry.news_harvester.harvest.call_args
         # General market harvest uses IHSG as ticker
         assert (
             call_kwargs.kwargs.get("ticker") == "IHSG"
             or (call_kwargs.args and call_kwargs.args[0] == "IHSG")
         )
+
+    def test_backward_compat_alias_search_osint(self, registry):
+        registry.sectors_client.get_news.return_value = []
+        registry.sectors_client.get_company_report.return_value = {"company_name": "Aneka Tambang"}
+        mock_item = MagicMock()
+        mock_item.model_dump.return_value = {"title": "ANTM news", "url": "http://example.com"}
+        registry.news_harvester.harvest.return_value = [mock_item]
+
+        result = registry.search_osint(ticker="ANTM")
+        assert len(result) == 1
+        assert result[0]["title"] == "ANTM news"
 
 
 # ---------------------------------------------------------------------------

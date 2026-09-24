@@ -14,7 +14,7 @@ Kedua antarmuka ditenagai oleh satu binary biner Go yang sama dan membaca databa
 
 ## 1. Surface A: Terminal CLI & Conversational REPL (`niskava`)
 
-Dibangun menggunakan Go (`spf13/cobra`, `charmbracelet/bubbletea` untuk TUI interaktif, `charmbracelet/lipgloss`, dan `charmbracelet/glamour` untuk rendering Markdown bergaya Bloomberg Terminal / Cyber-OSINT):
+Dibangun menggunakan Go (`spf13/cobra`, `charmbracelet/bubbletea` untuk TUI interaktif, `charmbracelet/lipgloss`, dan `charmbracelet/glamour` untuk rendering Markdown bergaya Bloomberg Terminal / Market Intelligence):
 
 ### Perintah Utama (CLI Commands)
 ```bash
@@ -54,7 +54,7 @@ niskava investigate ANTM --offline
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │               NISKAVA FINANCIAL AGENT v1.0.0               │
-│      Autonomous IDX Market Intelligence & OSINT REPL        │
+│      Autonomous IDX Market Intelligence REPL        │
 │       Provider: 9router (hermes) | Storage: Local SQLite    │
 └─────────────────────────────────────────────────────────────┘
 
@@ -65,19 +65,19 @@ niskava [hermes] > Kenapa saham ANTM volumenya melonjak tinggi baru-baru ini?
     compute_quant_anomalies untuk menghitung statistik deterministik terlebih dahulu.
   ▶ Tool Call: compute_quant_anomalies(symbol="ANTM", days=30)
   ✔ Observation: Volume Z-Score 3.84σ (184.5M lembar) terdeteksi pada 12 Sep 2026.
-  ▶ Tool Call: harvest_osint_news(symbol="ANTM", query="ANTM lonjakan volume")
+  ▶ Tool Call: harvest_market_news(symbol="ANTM", query="ANTM lonjakan volume")
   ✔ Observation: Ditemukan 4 berita dan keterbukaan informasi smelter Halmahera Timur.
 
 # Ringkasan Intelijen: Lonjakan Volume ANTM
 
-Berdasarkan investigasi kuantitatif deterministik dan penelusuran OSINT:
+Berdasarkan investigasi kuantitatif deterministik dan penelusuran berita bursa:
 
 * **Deteksi Kuantitatif (Sectors v2):**
   Pada 12 September 2026, terjadi lonjakan volume abnormal sebesar **184.5M lembar**
   (rata-rata 20 hari: 48.2M lembar), menghasilkan **Volume Z-Score +3.84σ**
   dan pergerakan harga abnormal **+8.25%** dengan net buy investor asing **Rp111,3 Miliar**.
 
-* **Korelasi Kausalitas Berita (OSINT):**
+* **Korelasi Kausalitas Berita (News):**
   - `[SUPPORTED]` (Conf: 0.95): Keterbukaan informasi resmi BEI terkait peresmian ekspansi
     smelter nikel Halmahera Timur dirilis pada 12 September pagi.
   - `[UNCERTAIN]` (Conf: 0.65): Beredar rumor akuisisi konsesi tambang tambahan di forum ritel.
@@ -94,7 +94,7 @@ Frontend Single Page Application (SPA) modern yang dibangun dengan **Vite + Reac
 ### Komponen Kunci Web Dashboard:
 1. **Interactive AI Assistant Canvas (`/api/chat`)**:
    * Antarmuka percakapan interaktif dengan dukungan Server-Sent Events (SSE) real-time.
-   * Menampilkan kartu *Thinking Step*, *Tool Invocation* (Quant / OSINT), dan *Evidence Synthesis*.
+   * Menampilkan kartu *Thinking Step*, *Tool Invocation* (Quant / News), dan *Evidence Synthesis*.
    * Mempertahankan riwayat multi-turn chat secara persisten melalui SQLite (`chat_messages`).
 2. **Header & Status Banner**: Menampilkan status koneksi agent/model provider, waktu investigasi, ticker aktif, dan tombol ekspor laporan (Markdown / JSON).
 3. **Metrics & Anomaly Strip**: Kartu ringkasan cepat:

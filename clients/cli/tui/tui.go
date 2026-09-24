@@ -1,5 +1,5 @@
 // Package tui provides an interactive Terminal User Interface for Niskava Agent,
-// featuring live thought streaming, dynamic tool execution badges, and Bloomberg/OSINT audit trail cards.
+// featuring live thought streaming, dynamic tool execution badges, and Bloomberg-style audit trail cards.
 package tui
 
 import (
@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Aesthetic styles using lipgloss (Binance Dark Financial OSINT Theme)
+// Aesthetic styles using lipgloss (Binance Dark Financial Intelligence Theme)
 var (
 	// Base Palette Definitions
 	ColorBg      = lipgloss.Color("#1E2329") // Dark Slate

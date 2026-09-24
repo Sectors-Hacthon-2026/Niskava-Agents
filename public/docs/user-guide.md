@@ -208,7 +208,7 @@ Add Niskava to your Claude Desktop configuration file:
   - `compute_quant_anomalies`: Calculates Volume Z-scores, abnormal returns, and sector divergence.
   - `get_sectors_daily`: Retrieves cached daily candlestick time-series data.
   - `get_sectors_company_report`: Fetches comprehensive company profiles and financial metrics.
-  - `harvest_targeted_osint`: Executes temporal-aware news and regulatory filing dorking.
+  - `harvest_market_news`: Executes temporal-aware news and regulatory filing dorking.
   - `query_graph_memory`: Queries local associative memory nodes and relationships.
 - **Resources**: System cache statistics and local database health.
 - **Prompts**: Standardized multi-step investigative research workflows.

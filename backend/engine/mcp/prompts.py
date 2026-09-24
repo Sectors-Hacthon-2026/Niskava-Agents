@@ -90,7 +90,7 @@ def get_prompt_messages(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
                             f"Langkah-langkah yang harus dilakukan:\n"
                             f"1. Panggil `sectors_get_daily_candles` untuk mendapatkan data candlestick.\n"
                             f"2. Panggil `quant_compute_anomalies` untuk mendeteksi lonjakan volume Z-score dan return abnormal.\n"
-                            f"3. Jika ada anomali, panggil `osint_harvest_market_news` untuk mencari pengumuman resmi atau berita katalis.\n"
+                            f"3. Jika ada anomali, panggil `news_harvest_market_news` untuk mencari pengumuman resmi atau berita katalis.\n"
                             f"4. Panggil `sectors_get_foreign_flow` dan `sectors_get_suspensions` untuk memverifikasi data pendukung.\n"
                             f"5. Susun sintesis investigasi dengan Taksonomi Tiga Tingkat (SUPPORTED / UNCERTAIN / CONTRADICTED) "
                             f"dan sertakan disclaimer non-advisori finansial."

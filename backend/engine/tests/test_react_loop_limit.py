@@ -205,10 +205,10 @@ def test_agent_final_iteration_graceful_synthesis(tmp_path):
 
     # Ketika max_iterations diset 2:
     # Call 1: model panggil tool get_daily_candles (remaining_steps = 1)
-    # Call 2: model panggil tool search_osint di langkah terakhir (remaining_steps = 0)
+    # Call 2: model panggil tool search_news di langkah terakhir (remaining_steps = 0)
     # Call 3: prompt sintesis final dijalankan otomatis dan model memberikan <response>
     t1 = '<thought>Tool 1</thought><tool_call>{"name": "query_sectors", "arguments": {"domain": "candles", "ticker": "ANTM"}}</tool_call>'
-    t2 = '<thought>Tool 2</thought><tool_call>{"name": "search_osint", "arguments": {"ticker": "ANTM"}}</tool_call>'
+    t2 = '<thought>Tool 2</thought><tool_call>{"name": "search_news", "arguments": {"ticker": "ANTM"}}</tool_call>'
     t3 = '<thought>Synthesizing</thought><response>Analisis multi-langkah ANTM berhasil disintesis.</response>'
 
     responses = [

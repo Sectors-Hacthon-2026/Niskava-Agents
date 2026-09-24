@@ -149,14 +149,14 @@ def _compact_tool_observation(tool_name: str, tool_res: Any, max_len: int = 1500
         return "{}"
 
     if isinstance(tool_res, list):
-        if tool_name in ("search_osint", "harvest_market_news"):
+        if tool_name in ("search_news", "search_osint", "harvest_market_news"):
             # Extract only title, date, and brief snippet for top 3 articles
             compact_items = []
             for item in tool_res[:3]:
                 if isinstance(item, dict):
                     compact_items.append({
                         "title": item.get("title", ""),
-                        "date": item.get("date") or item.get("published_at", ""),
+                        "date": item.get("publication_date") or item.get("publish_date") or item.get("date") or item.get("published_at", ""),
                         "snippet": (item.get("snippet") or item.get("content", ""))[:180],
                     })
                 else:
@@ -298,7 +298,7 @@ def get_system_prompt(
             req_str = ", ".join(req) if req else "none"
             tools_section += f"- `{t['name']}`: {t.get('description', '')} [required: {req_str}]\n"
 
-    return f"""You are Niskava Agent, an autonomous financial OSINT and market intelligence specialist for the Indonesia Stock Exchange (IDX). You help equity analysts, financial journalists, and retail traders with rigorous, evidence-based market investigations.
+    return f"""You are Niskava Agent, an autonomous market intelligence and equity research specialist for the Indonesia Stock Exchange (IDX). You help equity analysts, financial journalists, and retail traders with rigorous, evidence-based market investigations.
 
 === TARGET USER LANGUAGE ===
 === CONVERSATIONAL LANGUAGE & MIRRORING PROTOCOL ===
@@ -317,7 +317,7 @@ def get_system_prompt(
 4. TOOL SELECTION SOP:
    - Deep investigation: call `execute_skill` with the appropriate skill_id.
    - Raw market data: call `query_sectors` with the appropriate domain.
-   - News & catalysts: call `search_osint`.
+   - News & catalysts: call `search_news`.
    - Session memory recall: call `query_memory` before starting fresh investigations.
    - General concepts (PER, PBV, IDX trading hours): answer directly in <response>.
 5. RESPONSE GATING: Communicate with user ONLY inside <response>...</response> AFTER observing factual tool data.
@@ -325,6 +325,7 @@ def get_system_prompt(
 === OPERATIONAL LAWS ===
 LAW 1 (Deterministic Before Generative): NEVER calculate Z-scores, moving averages, or abnormal returns in your head. Always call `execute_skill` or `query_sectors` and use the returned computed values.
 LAW 2 (Non-Advisory Boundary): You are an investigative intelligence platform, NOT an investment advisor. NEVER output BUY/SELL recommendations or price targets. Classify all findings as [SUPPORTED], [UNCERTAIN], or [CONTRADICTED]. Always include the non-advisory disclaimer on stock investigations.
+LAW 3 (Professional Sourcing & Terminology): Always refer to your analysis as market intelligence ('intelijen pasar') or equity research ('riset pasar modal'). NEVER use the word or acronym 'OSINT' in your responses, thoughts, or disclaimers. State clearly that data and news are sourced from official Sectors Financial API v2 and IDX regulatory disclosures.
 
 === REACTION PROTOCOL & 1-SHOT DEMONSTRATION ===
 Example:
@@ -464,12 +465,13 @@ class NiskavaReActAgent:
 
         # Transparent adapter for Google API keys (speaks standard OpenAI protocol)
         if not resolved_base_url:
-            if os.environ.get("GEMINI_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
+            raw_prov = (ai_provider or os.environ.get("AI_PROVIDER", "")).lower()
+            if (raw_prov == "gemini" or os.environ.get("GEMINI_API_KEY")) and not os.environ.get("OPENAI_BASE_URL"):
                 resolved_base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
                 if not model and not os.environ.get("NISKAVA_MODEL") and not os.environ.get("OPENAI_MODEL"):
                     self.model = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
             else:
-                resolved_base_url = "http://localhost:20128/v1"
+                resolved_base_url = os.environ.get("OPENAI_BASE_URL", "http://localhost:20128/v1")
 
         self.base_url = resolved_base_url.rstrip("/")
         # Backward compatibility aliases
@@ -589,10 +591,10 @@ class NiskavaReActAgent:
                 cursor.execute(
                     """
                     INSERT INTO chat_sessions (id, title, model, status, message_count, last_message_preview, is_pinned, created_at, updated_at)
-                    VALUES (?, ?, 'hermes', 'IDLE', 0, '', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    VALUES (?, ?, ?, 'IDLE', 0, '', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     ON CONFLICT(id) DO UPDATE SET title = excluded.title
                     """,
-                    (session_id, title),
+                    (session_id, title, self.model or "hermes"),
                 )
                 conn.commit()
         except Exception:
@@ -978,7 +980,7 @@ class NiskavaReActAgent:
             f"- Current Year: {now.year}\n"
             f"- Strict Temporal Rule: NEVER guess or refer to past years (like 2024 or early 2025) as 'hari ini' or 'recent'. Today is {current_date_str}.\n"
             f"- Anti-Hallucination Rule: NEVER fabricate stock prices, indices, or trading dates from your memory. Always call tools (e.g. 'get_daily_candles', 'compute_quant_anomalies', 'harvest_market_news') to obtain authentic data before citing numbers.\n"
-            f"- Provenance Rule: If the user asks where data came from ('itu data darimana?'), explicitly and transparently explain the real data pipelines used (Sectors Financial API v2 for official IDX candlestick & fundamental data, and Google News RSS / IDX disclosures for news).\n"
+            f"- Provenance Rule: If the user asks where data came from ('itu data darimana?'), explicitly and transparently explain the real data pipelines used (Sectors Financial API v2 for official IDX candlestick, fundamental metrics, corporate actions, and curated financial news).\n"
         )
 
         messages = self._prepare_chat_messages(
@@ -1301,7 +1303,14 @@ class NiskavaReActAgent:
                 combined_obs = "\n\n".join(obs_parts)
                 # Graceful landing warning: when approaching iteration limit, instruct model to synthesize
                 remaining_steps = max_iter - 1 - _
-                if 0 < remaining_steps <= 3:
+                if remaining_steps == 0:
+                    combined_obs += (
+                        "\n\n[SYSTEM NOTICE: Maximum reasoning steps reached. "
+                        "All necessary market data and evidence have been collected. Do NOT invoke any additional tools. "
+                        "Immediately synthesize and present your comprehensive final analysis inside "
+                        "<response>...</response> in the user's inquiry language.]"
+                    )
+                elif 0 < remaining_steps <= 3:
                     combined_obs += (
                         f"\n\n[SYSTEM NOTICE: Only {remaining_steps} reasoning step(s) remaining. "
                         "Sufficient evidence has been collected. Do NOT invoke additional tools. "
@@ -1344,6 +1353,10 @@ class NiskavaReActAgent:
                                     final_cleaned = re.sub(r"<tool_call>.*?</tool_call>", "", final_cleaned, flags=re.DOTALL).strip()
                                     if final_cleaned:
                                         final_response = final_cleaned
+                                        break
+                                    thoughts = re.findall(r"<thought>(.*?)</thought>", final_content, re.DOTALL)
+                                    if thoughts and len(thoughts[0].strip()) > 30:
+                                        final_response = thoughts[0].strip()
                                         break
                     except Exception:
                         pass
@@ -1767,7 +1780,7 @@ class NiskavaReActAgent:
             "summary": f"Ditemukan {len(anomalies)} anomali kuantitatif signifikan (Z-Score puncak: {highest_z:.2f}σ pada {anomaly_date}).",
         })
 
-        # Step 3: OSINT News Harvester with resilient error handling
+        # Step 3: Sectors News Harvester with resilient error handling
         self._emit({
             "event": "agent_tool_call",
             "session_id": session_id,
@@ -1823,7 +1836,7 @@ class NiskavaReActAgent:
 
         response_text = f"""### Laporan Investigasi Intelijen Pasar: **{ticker}** (Bursa Efek Indonesia)
 
-Berdasarkan analisis deterministik kuantitatif dan penelusuran OSINT keterbukaan informasi:
+Berdasarkan analisis kuantitatif deterministik dan penelusuran berita serta keterbukaan informasi bursa:
 
 1. **Temuan Anomali Transaksi (Law 1: NumPy Deterministic)**
    * **Volume Z-Score Puncak**: `{highest_z:.2f}σ` terdeteksi pada tanggal `{anomaly_date}`.
@@ -2052,7 +2065,7 @@ Berdasarkan analisis deterministik kuantitatif dan penelusuran OSINT keterbukaan
         """Live ReAct reasoning cycle powered by Gemini API."""
         prompt = (
             f"You are Niskava Agent. Provide a concise 1-2 sentence executive summary of the "
-            f"quantitative anomaly and OSINT investigation plan for ticker {ticker} over the past {days} days."
+            f"quantitative anomaly and market intelligence investigation plan for ticker {ticker} over the past {days} days."
         )
         thought_text = f"Connecting to Gemini ({self.model}). Initiating ReAct investigation cycle for ticker {ticker}."
         if self.api_key and not self.mock_mode:
@@ -2083,14 +2096,14 @@ Berdasarkan analisis deterministik kuantitatif dan penelusuran OSINT keterbukaan
         """Live ReAct reasoning cycle powered by 9router / OpenAI-compatible endpoint."""
         prompt = (
             f"You are Niskava Agent. Provide a concise 1-2 sentence executive summary of the "
-            f"quantitative anomaly and OSINT investigation plan for ticker {ticker} over the past {days} days."
+            f"quantitative anomaly and market intelligence investigation plan for ticker {ticker} over the past {days} days."
         )
         thought_text = f"Connecting to endpoint ({self.openai_model}). Initiating ReAct investigation cycle for ticker {ticker}."
 
         try:
             import requests
 
-            base_url = (self.openai_base_url or "http://localhost:20128/v1").rstrip("/")
+            base_url = (getattr(self, "base_url", None) or getattr(self, "openai_base_url", None) or "http://localhost:20128/v1").rstrip("/")
             url = f"{base_url}/chat/completions"
             headers = {"Content-Type": "application/json"}
             if self.openai_api_key:

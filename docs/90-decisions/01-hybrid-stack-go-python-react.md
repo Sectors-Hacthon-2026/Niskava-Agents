@@ -29,7 +29,7 @@ Menerapkan **arsitektur hybrid terpadu (Tripartite Hybrid Architecture)** dengan
   * **Web Workspace (`clients/web/`)**: Dibangun dengan Vite + React 18 + Tailwind CSS + shadcn/ui. Dikompilasi menjadi aset statis dan di-embed ke dalam biner Go (`//go:embed clients/web/dist`) atau di-serve terpisah selama perancangan UI.
 * **Backend Architecture (`backend/`)**:
   * **Go Core Daemon (`backend/core/` & `cmd/niskava/`)**: Berperan sebagai pintu masuk utama (*gateway*), server REST & SSE (`/api/chat/*`), persistensi SQLite murni Go (`modernc.org/sqlite` zero CGO), dan manajemen subprocess IPC.
-  * **Python Agent Engine (`backend/engine/`)**: Dijalankan sebagai stateless child process on-demand via Subprocess IPC (JSON Lines). Menangani Universal Model-Agnostic ReAct loop, komputasi deterministik anomali kuantitatif (NumPy), Sectors v2 API client, Dual-Engine OSINT, dan Local Graph Memory (`NetworkX`). Lokasi biner dan modul dapat dikonfigurasi dinamis via flag, env var, atau config file.
+  * **Python Agent Engine (`backend/engine/`)**: Dijalankan sebagai stateless child process on-demand via Subprocess IPC (JSON Lines). Menangani Universal Model-Agnostic ReAct loop, komputasi deterministik anomali kuantitatif (NumPy), Sectors v2 API client, Sectors News & Disclosure Engine, dan Local Graph Memory (`NetworkX`). Lokasi biner dan modul dapat dikonfigurasi dinamis via flag, env var, atau config file.
 
 ---
 
@@ -37,7 +37,7 @@ Menerapkan **arsitektur hybrid terpadu (Tripartite Hybrid Architecture)** dengan
 
 | Alternatif | Alasan Ditolak |
 |---|---|
-| **Full Python Monolith (CLI via Typer + Streamlit UI)** | Binary PyInstaller lambat startup-nya (>3 detik), konsumsi memori tinggi, Streamlit kurang fleksibel untuk custom OSINT dark-mode theme dan charting interaktif custom. |
+| **Full Python Monolith (CLI via Typer + Streamlit UI)** | Binary PyInstaller lambat startup-nya (>3 detik), konsumsi memori tinggi, Streamlit kurang fleksibel untuk custom dark-mode theme dan charting interaktif custom. |
 | **Full Go Stack (CLI + Web + AI SDK Go)** | Ekosistem quant data science di Go terbatas; prompt tooling dan evaluasi AI di Python jauh lebih matang untuk kebutuhan hackathon yang dinamis. |
 | **Electron Desktop App** | Terlalu berat (>150MB memory & disk), tidak ramah CLI bagi developer, berlawanan dengan filosofi single lightweight binary. |
 | **Strict Hardcoded Paths Monorepo** | Mengunci lokasi modul secara kaku menyebabkan broken build saat direktori direfaktor atau diuji di lingkungan OS/CI yang berbeda. |

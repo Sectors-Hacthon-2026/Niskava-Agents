@@ -2,7 +2,7 @@
 
 Verifies:
 - Standard JSON-RPC 2.0 protocol compliance (version 2024-11-05)
-- tools/list schema validation across all 14 tools (Sectors, OSINT, Quant, Memory)
+- tools/list schema validation across all 14 tools (Sectors, News, Quant, Memory)
 - tools/call execution across all domains
 - resources/list and resources/read functionality
 - prompts/list and prompts/get functionality
@@ -109,9 +109,9 @@ def test_unified_mcp_tools_list(mcp_server):
         "sectors_get_broker_summary",
         "sectors_get_subsector_peers",
         "sectors_get_mining_detail",
-        # OSINT tools (2)
-        "osint_harvest_market_news",
-        "osint_extract_article_content",
+        # News tools (2)
+        "news_harvest_market_news",
+        "news_extract_article_content",
         # Quant tools (1)
         "quant_compute_anomalies",
         # Memory tools (5)
@@ -149,14 +149,14 @@ def test_unified_mcp_sectors_tool_call(mcp_server):
     assert len(data) == 10
 
 
-def test_unified_mcp_osint_tool_calls(mcp_server):
-    # 1. Test osint_harvest_market_news
+def test_unified_mcp_news_tool_calls(mcp_server):
+    # 1. Test news_harvest_market_news
     req1 = {
         "jsonrpc": "2.0",
         "id": 5,
         "method": "tools/call",
         "params": {
-            "name": "osint_harvest_market_news",
+            "name": "news_harvest_market_news",
             "arguments": {"ticker": "ANTM", "company_name": "Aneka Tambang"},
         },
     }
@@ -167,14 +167,14 @@ def test_unified_mcp_osint_tool_calls(mcp_server):
     assert isinstance(items, list)
     assert len(items) > 0
 
-    # 2. Test osint_extract_article_content
+    # 2. Test news_extract_article_content
     sample_html = "<html><body><h1>Judul Berita</h1><p>Ini adalah isi berita saham yang bersih.</p></body></html>"
     req2 = {
         "jsonrpc": "2.0",
         "id": 6,
         "method": "tools/call",
         "params": {
-            "name": "osint_extract_article_content",
+            "name": "news_extract_article_content",
             "arguments": {"url_or_html": sample_html},
         },
     }

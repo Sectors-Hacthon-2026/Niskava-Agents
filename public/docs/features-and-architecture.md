@@ -40,16 +40,16 @@ Niskava Agent combines the low-latency systems capabilities of Go, the scientifi
 │  - Volume Z-Scores, Abnormal Returns, Sector Divergence         │
 │  - Foreign Inflow Z-Scores, Altman Z-Score Ratios               │
 │                                                                 │
-│  [Layer 1: MCP & OSINT Data Primitives]                         │
+│  [Layer 1: MCP & News Data Primitives]                         │
 │  - Sectors Financial API v2 MCP Server Adapter                  │
-│  - Dual-Engine Targeted OSINT (Sectors News + Google RSS Dorks) │
+│  - Dual-Engine Targeted News Harvest (Sectors News + Google RSS Dorks) │
 │  - Content Extraction & HTML Sanitization via Trafilatura       │
 └────────────────────────────────┬────────────────────────────────┘
                                  │
                                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                   REACT SPA WEB WORKSPACE                       │
-│  - Terminal / Cyber-OSINT Design Language                       │
+│  - Terminal / Market Intelligence Design Language                       │
 │  - Interactive Candlestick Charts & Anomaly Overlays            │
 │  - Real-Time Thinking Stream via Server-Sent Events (SSE)       │
 │  - Interactive Evidence Matrix & Causality Timeline Graph       │
@@ -111,7 +111,7 @@ Whenever a ticker investigation is initiated (e.g., `niskava investigate ANTM --
 [4. GAP_DETECTION]                                │
        │                                          │
        ▼                                          │
-[5. OSINT_HARVEST]                                │
+[5. NEWS_HARVEST]                                │
        │                                          │
        ▼                                          │
 [6. EVIDENCE_CORRELATION] ◀───────────────────────┘
@@ -142,7 +142,7 @@ Whenever a ticker investigation is initiated (e.g., `niskava investigate ANTM --
    - Formulates targeted temporal investigation hypotheses centered tightly around the anomaly window: $T_{\text{anomaly}} \pm 2\text{ days}$.
    - Generates structured search dork queries combining the company name, ticker, and exchange-specific disclosure terminology.
 
-5. **Stage 5: OSINT_HARVEST**
+5. **Stage 5: NEWS_HARVEST**
    - Executes parallel Dual-Engine intelligence harvesting:
      - **Curated News:** Fetches categorized market news from Sectors v2 Unified News API (`/v2/news/`).
      - **Targeted Media Dorking:** Queries Google News RSS with boolean operators for major Indonesian financial media (Kontan, Bisnis Indonesia, CNBC Indonesia, Investor Daily, IDXnet disclosures).
@@ -213,7 +213,7 @@ Where $F_t$ represents the Net Foreign Flow (in IDR) on trading session $t$.
 
 | Condition $V_z$ | Condition $|R_t|$ | Condition $|D_t|$ | Classification | Engine Action |
 |:---:|:---:|:---:|:---|:---|
-| $\ge 2.5$ | $\ge 5.0\%$ | $\ge 4.0\%$ | `IDIOSYNCRATIC_CATALYST` | Triggers high-priority `event_causality_audit` OSINT investigation. |
+| $\ge 2.5$ | $\ge 5.0\%$ | $\ge 4.0\%$ | `IDIOSYNCRATIC_CATALYST` | Triggers high-priority `event_causality_audit` news investigation. |
 | $\ge 2.5$ | $< 5.0\%$ | Any | `VOLUME_ACCUMULATION` | Activates `insider_bandarmology_forensic` for foreign/domestic flow tracking. |
 | $< 2.5$ | $\ge 5.0\%$ | $< 4.0\%$ | `SECTOR_BETA_RALLY` | Attributes movement to broader sector macro trends; suppresses false-alarm company alarms. |
 | $< 2.5$ | $< 5.0\%$ | Any | `NORMAL_VARIANCE` | Routes to fundamental health and valuation baseline screening. |

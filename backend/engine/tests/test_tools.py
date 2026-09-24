@@ -11,7 +11,7 @@ def test_tool_registry_definitions(tmp_path):
     assert len(defs) == 4
     assert "execute_skill" in tool_names
     assert "query_sectors" in tool_names
-    assert "search_osint" in tool_names
+    assert "search_news" in tool_names
     assert "query_memory" in tool_names
 
 
@@ -101,7 +101,7 @@ class TestLeanToolDefinitions:
         registry = NiskavaToolRegistry(db_path=str(tmp_path / "test.db"), mock_mode=True)
         defs = registry.get_tool_definitions()
         names = {d["name"] for d in defs}
-        assert names == {"execute_skill", "query_sectors", "search_osint", "query_memory"}
+        assert names == {"execute_skill", "query_sectors", "search_news", "query_memory"}
 
     def test_each_definition_has_required_schema_keys(self, tmp_path):
         registry = NiskavaToolRegistry(db_path=str(tmp_path / "test.db"), mock_mode=True)

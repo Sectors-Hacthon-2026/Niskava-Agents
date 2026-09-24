@@ -24,7 +24,7 @@ if available_tools:
 
 ### Konsekuensi Negatif dari Pendekatan "All-in-One Prompt":
 1. **Token Bloat & Biaya/Latensi Tinggi**:
-   * Ada 15+ tool Sectors & OSINT ditambah 6 Domain Skills. Bagian definisi tools memakan 800–1.200 token input **pada setiap single turn ReAct loop**.
+   * Ada 15+ tool Sectors & News ditambah 6 Domain Skills. Bagian definisi tools memakan 800–1.200 token input **pada setiap single turn ReAct loop**.
    * Latensi *Time-to-First-Token* (TTFT) membengkak menjadi 3–5 detik.
 2. **"Tool Confusion" & Parameter Hallucination**:
    * Model LLM (terutama model cepat seperti Gemini Flash atau 8B local models) sering kebingungan memilih antara tool atomik level rendah (misal: `get_daily_candles` vs `compute_quant_anomalies` vs `market_anomaly_recon`).
@@ -83,7 +83,7 @@ Niskava Agent mengadopsi **Arsitektur Progressive Skill Disclosure & Gateway Pri
          ▼                                                        ▼
 [ Panggilan Gateway Primitives ]               [ Aktivasi Domain Skill SOP ]
 • `query_sectors(endpoint, params)`            • `execute_skill(skill_id, args)`
-• `search_osint(ticker, query)`                                   │
+• `search_news(ticker, query)`                                   │
 • `query_memory(ticker_or_concept)`                               ▼
                                                ┌──────────────────────────────────┐
                                                │   Progressive Context Injection  │
@@ -107,8 +107,8 @@ Alih-alih mendaftarkan 15+ fungsi Sectors API ke dalam system prompt, LLM hanya 
      * `domain="suspensions"` $\to$ official exchange notices
      * `domain="filings"` $\to$ insider ownership disclosures
      * `domain="broker_summary"` $\to$ top buyers/sellers
-3. **`search_osint(ticker: str, query: str = "")`**:
-   * Universal router ke Dual-Engine OSINT (Sectors Curated News + Google News RSS) dengan isolasi konteks anti-injeksi.
+3. **`search_news(ticker: str, query: str = "")`**:
+   * Universal router ke Sectors News & Disclosure Engine (Sectors API v2 `/v2/news/`) dengan isolasi konteks anti-injeksi.
 4. **`query_memory(concept_or_ticker: str)`**:
    * Universal router ke graf memori lokal (SQLite `memory_nodes`/`memory_edges` + NetworkX ego-graph) untuk mengingat riwayat emiten atau relasi lintas sesi.
 
@@ -173,7 +173,7 @@ Di akhir giliran percakapan, agen tidak sekadar berhenti, melainkan menyertakan 
 ## 5. Rencana Penerapan Bertahap & Status Implementasi
 
 1. **Fase 1: Gateway Primitives di `tools.py`** — `[COMPLETED]`:
-   * Method universal `query_sectors`, `search_osint`, dan `query_memory` di [`NiskavaToolRegistry`](file:///home/ikhsan/orca/workspaces/Niskava-Agent/dev/backend/engine/agent/tools.py) selesai diimplementasikan.
+   * Method universal `query_sectors`, `search_news`, dan `query_memory` di [`NiskavaToolRegistry`](file:///home/ikhsan/orca/workspaces/Niskava-Agent/dev/backend/engine/agent/tools.py) selesai diimplementasikan.
    * Backwards-compatibility pada dispatch table `execute_tool()` tetap 100% utuh.
 2. **Fase 2: Lean System Prompt Refactoring di `react_agent.py`** — `[COMPLETED]`:
    * `get_system_prompt()` direfaktor menjadi 551 kata (~716 token) hanya dengan 4 gateway primitives dan ringkasan manifest 6 skills.

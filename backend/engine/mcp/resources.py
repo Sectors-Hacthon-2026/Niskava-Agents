@@ -22,7 +22,7 @@ def get_resource_definitions() -> List[Dict[str, Any]]:
         },
         {
             "uri": "niskava://cache-stats",
-            "name": "Sectors & OSINT Cache Statistics",
+            "name": "Sectors & News Cache Statistics",
             "description": "Local SQLite cache statistics in sectors_cache for credit conservation audit.",
             "mimeType": "application/json",
         },

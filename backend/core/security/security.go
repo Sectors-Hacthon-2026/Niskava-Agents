@@ -33,5 +33,5 @@ func GetNonAdvisoryDisclaimer(lang string) string {
 	if strings.ToLower(lang) == "en" {
 		return "DISCLAIMER: Niskava Agent is an autonomous market intelligence research platform for the Indonesia Stock Exchange (IDX), NOT a licensed investment advice or broker. All findings, anomaly scores, and evidence items are presented descriptively for factual research and DO NOT constitute buy/sell recommendations or price targets."
 	}
-	return "DISCLAIMER: Niskava Agent adalah platform intelijen dan OSINT pasar modal otonom untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi atau broker berizin. Seluruh temuan, skor anomali, dan korelasi bukti disajikan secara deskriptif untuk tujuan riset verifikasi fakta dan BUKAN merupakan rekomendasi beli/jual atau target harga investasi."
+	return "DISCLAIMER: Niskava Agent adalah platform intelijen dan riset pasar modal otonom untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi atau broker berizin. Seluruh temuan, skor anomali, dan korelasi bukti disajikan secara deskriptif untuk tujuan riset verifikasi fakta dan BUKAN merupakan rekomendasi beli/jual atau target harga investasi."
 }

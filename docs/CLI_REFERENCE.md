@@ -146,7 +146,7 @@ niskava investigate BBRI --days 90 --offline
 2. `SECTORS_BASELINE`: Pengambilan data historis OHLCV, foreign flow, laporan emiten, dan aksi korporasi.
 3. `QUANT_ANOMALY`: Perhitungan statistik deterministik NumPy ($V_z$, $F_z$, abnormal return $R_t$, dispersi sektor $D_t$).
 4. `GAP_DETECTION`: Formulasi hipotesis temporal di sekitar tanggal $T_{\text{anomaly}} \pm 2\text{ hari}$.
-5. `OSINT_HARVEST`: Panen berita curated Sectors v2 dan Google RSS IDX syndication.
+5. `NEWS_HARVEST`: Penarikan berita bursa terkurasi dan keterbukaan informasi emiten via Sectors API v2.
 6. `EVIDENCE_CORRELATION`: Penentuan urutan temporal (`LIKELY_CATALYST`, `PRECEDED_ANNOUNCEMENT`, `UNEXPLAINED_BY_NEWS`) dan status 3-tier (`SUPPORTED`, `UNCERTAIN`, `CONTRADICTED`).
 7. `SYNTHESIS`: Ringkasan dossier terstruktur dan penyimpanan permanen ke basis data.
 
@@ -281,7 +281,7 @@ niskava mcp [flags]
   * `sectors_get_daily_candles`: Pengambilan data candlestick OHLCV historis dari Sectors API v2.
   * `sectors_get_foreign_flow`: Pelacakan arus dana investor asing net inflow/outflow.
   * `sectors_get_company_report`: Laporan fundamental dan ikhtisar keuangan emiten.
-  * `osint_harvest_market_news`: Panen berita pasar terkurasi dan keterbukaan informasi.
+  * `news_harvest_market_news`: Panen berita pasar terkurasi dan keterbukaan informasi.
   * `memory_recall_context`: Pengambilan memori graf asosiatif masa lalu emiten.
 * **Resources:** Metrik cache lokal dan diagnostik kesehatan sistem.
 * **Prompts:** Template investigasi formal IDX 7-stage SOP.

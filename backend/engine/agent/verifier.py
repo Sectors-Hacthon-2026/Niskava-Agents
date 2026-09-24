@@ -23,14 +23,14 @@ PROHIBITED_ADVISORY_PATTERNS = [
 ]
 
 DISCLAIMER_TEXT_ID = (
-    "DISCLAIMER: Niskava Agent adalah platform OSINT dan intelijen pasar faktual, "
+    "DISCLAIMER: Niskava Agent adalah platform intelijen pasar dan riset pasar modal faktual, "
     "bukan penasihat investasi. Seluruh temuan bersifat investigatif dan tidak boleh "
     "dianggap sebagai rekomendasi beli/jual atau nasihat keuangan personal."
 )
 DISCLAIMER_TEXT = DISCLAIMER_TEXT_ID
 
 DISCLAIMER_TEXT_EN = (
-    "DISCLAIMER: Niskava Agent is an autonomous market intelligence and OSINT research platform, "
+    "DISCLAIMER: Niskava Agent is an autonomous market intelligence and equity research platform, "
     "not an investment advisor. All findings are purely investigative and do not constitute "
     "buy/sell recommendations, price targets, or personalized financial advice."
 )
@@ -135,7 +135,7 @@ class FactVerificationGate:
             if not has_matching_evidence:
                 status = "UNCERTAIN"
                 verified["verification_status"] = "UNCERTAIN"
-                verified["verification_note"] = "Downgraded to UNCERTAIN: No matching empirical text snippet found in OSINT or Quant context."
+                verified["verification_note"] = "Downgraded to UNCERTAIN: No matching empirical text snippet found in News or Quant context."
 
         # 3. Calibrate confidence score according to rubric
         initial_score = float(verified.get("confidence_score", 0.75))

@@ -1,9 +1,9 @@
 # 07 — Arsitektur OSINT Tangguh Berbasis Dual-Engine Precision Harvester
 
-**Status:** ACCEPTED  
-**Tanggal:** 2026-09-16  
+**Status:** SUPERSEDED (Diselaraskan dengan klarifikasi resmi panitia Hackathon 2026: Third-party data source disallowed, kini 100% dipusatkan pada Sectors API News Engine)  
+**Tanggal:** 2026-09-16 (Diperbarui 2026-09-24)  
 **Pengambil Keputusan:** Core Team  
-**Dokumen Terkait:** `docs/20-architecture/06-osint-engine.md`, `docs/30-agent/01-investigation-pipeline.md`, `docs/90-decisions/03-sectors-v2-and-credit-conservation.md`
+**Dokumen Terkait:** `docs/20-architecture/06-news-engine.md`, `docs/30-agent/01-investigation-pipeline.md`, `docs/90-decisions/03-sectors-v2-and-credit-conservation.md`
 
 ---
 

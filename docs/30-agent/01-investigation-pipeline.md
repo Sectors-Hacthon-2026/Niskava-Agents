@@ -22,7 +22,7 @@ Setiap sesi investigasi Niskava Agent dieksekusi melalui 7 tahapan terstruktur y
          ┌───────────────────┴───────────────────┐                                                         │
          ▼                                       ▼                                                         │
 [Skill: event-causality-audit]       [Skill: insider-bandarmology]                                         │
-[5. OSINT_HARVEST (Dual Engine)]     [5. FILINGS & BROKER RECON]                                           │
+[5. NEWS_HARVEST (Dual Engine)]     [5. FILINGS & BROKER RECON]                                           │
          │                                       │                                                         │
          └───────────────────┬───────────────────┘                                                         │
                              ▼                                                                             │
@@ -40,10 +40,10 @@ Arsitektur 7-Stage Pipeline dirancang secara khusus untuk memenuhi kriteria eval
 
 | Kriteria Resmi Track 1 | Peran dalam 7-Stage Pipeline Niskava |
 |---|---|
-| **Multi-step reasoning flows** | Pipeline mengeksekusi urutan logis berjenjang: Inisiasi $\to$ Baseline $\to$ Anomali $\to$ Kesenjangan Bukti $\to$ Panen OSINT $\to$ Korelasi Kausalitas $\to$ Sintesis Temuan. |
-| **Custom tool-use pipelines** | Memadukan modul komputasi kuantitatif deterministik NumPy, klien Sectors v2 API, dan crawler OSINT bertarget dalam satu alur terkoordinasi. |
+| **Multi-step reasoning flows** | Pipeline mengeksekusi urutan logis berjenjang: Inisiasi $\to$ Baseline $\to$ Anomali $\to$ Kesenjangan Bukti $\to$ Panen Berita & Keterbukaan $\to$ Korelasi Kausalitas $\to$ Sintesis Temuan. |
+| **Custom tool-use pipelines** | Memadukan modul komputasi kuantitatif deterministik NumPy, klien Sectors v2 API, dan penelusuran berita bursa bertarget dalam satu alur terkoordinasi. |
 | **Routing between data sources** | Membedakan secara tegas antara data angka primer (*Sectors Historical OHLCV & Financials*) dan konteks naratif eksternal (*IDXnet, Media Berita*). |
-| **Memory & state management** | Database SQLite lokal menyimpan status sesi, tabel anomali, dokumen OSINT, serta relasi graf bukti (*evidence nodes*). |
+| **Memory & state management** | Database SQLite lokal menyimpan status sesi, tabel anomali, dokumen berita & keterbukaan bursa, serta relasi graf bukti (*evidence nodes*). |
 | **Autonomous task execution** | Kueri pencarian berita dirumuskan secara mandiri oleh agen berdasarkan jendela tanggal anomali tanpa panduan manual pengguna. |
 | **Purpose-built interface** | Streaming progres investigasi tahap demi tahap secara langsung ke terminal TUI (`Bubbletea`) dan Web UI (`SSE`). |
 
@@ -79,17 +79,17 @@ Arsitektur 7-Stage Pipeline dirancang secara khusus untuk memenuhi kriteria eval
 * Agen merumuskan hipotesis investigasi spesifik pada jendela waktu temporal $T_{\text{anomaly}} \pm 2\text{ hari}$:
   > *"Terjadi anomali volume 3.84σ dan net buy asing +Rp111,3 Miliar pada 12 September 2026. Apakah terdapat aksi korporasi, transaksi insider, atau pengumuman resmi BEI di jendela waktu 10–13 September?"*
 
-### Stage 5: Penelusuran Intelijen Eksternal (`OSINT_HARVEST`)
+### Stage 5: Penelusuran Intelijen Berita & Keterbukaan Informasi (`NEWS_HARVEST`)
 * Agen membentuk kueri pencarian bertarget secara deterministik pada jendela waktu temporal $T_{\text{anomaly}} \pm 2\text{ hari}$.
-* Mengeksekusi penarikan bukti paralel via **Dual-Engine Harvester** ([`07-resilient-dual-engine-osint-architecture.md`](../90-decisions/07-resilient-dual-engine-osint-architecture.md)):
+* Mengeksekusi penarikan bukti via **Sectors News & Disclosure Engine** (`backend/engine/sectors/news_engine.py`):
   1. **Sectors API v2 Suite**:
-     * `GET /v2/news/?ticker={symbol}`: Berita pasar modal terkurasi.
-     * `GET /v2/filings/?symbol={symbol}`: Catatan transaksi kepemilikan orang dalam (*insiders*) di sekitar tanggal anomali.
-     * `GET /v2/suspensions/?symbol={symbol}`: Konfirmasi surat keputusan suspensi atau UMA bursa.
-  2. **Google News RSS Engine**: Mengeksekusi dorking terarah untuk menangkap pelaporan keterbukaan informasi BEI tersindikasi (*IDX Channel, Kontan, Bisnis*) dan isu komoditas/hukum tanpa risiko pemblokiran ISP lokal.
-* Mengekstrak isi teks artikel secara bersih menggunakan `trafilatura` (membuang elemen HTML bising/iklan).
-* Membungkus hasil ekstraksi ke dalam blok terisolasi `<evidence_context>` guna mencegah *Indirect Prompt Injection* sebelum disajikan ke LLM.
-* Menyimpan kandidat item bukti ke tabel `osint_cache` dan `evidence_items` pada database SQLite lokal.
+     * `GET /v2/news/?symbol={symbol}`: Berita pasar modal dan keterbukaan informasi emiten resmi terkurasi.
+     * `GET /v2/suspensions/?symbol={symbol}`: Konfirmasi surat keputusan suspensi atau UMA bursa resmi.
+     * `GET /v2/corporate-actions/{symbol}`: Jadwal aksi korporasi (dividen, rights issue, stock split).
+  2. **Sanitasi Konten & Anti-Injection Defense**:
+     * Mengekstrak isi teks artikel secara bersih menggunakan `trafilatura` jika artikel lengkap diperlukan.
+     * Membungkus hasil ekstraksi ke dalam blok terisolasi `<evidence_context>` guna mencegah *Indirect Prompt Injection* sebelum disajikan ke LLM.
+     * Menyimpan kandidat item bukti ke tabel `news_cache` dan `evidence_items` pada database SQLite lokal.
 
 ### Stage 6: Korelasi Bukti & Evaluasi Kausalitas (`EVIDENCE_CORRELATION`)
 * Agen mencocokkan stempel waktu (*timestamp*) dokumen berita, pengumuman bursa, dan transaksi insider terhadap waktu terjadinya lonjakan transaksi:
@@ -123,9 +123,9 @@ User Prompt ("Kenapa volume ANTM melonjak tinggi baru-baru ini?")
   ✔ Observation: Volume Z-Score +3.84σ pada 12 Sep 2026, return +8.25%
        │
        ▼
-[Panggilan Tool Data Fundamental & OSINT]
+[Panggilan Tool Data Fundamental & Berita]
   ▶ Tool: get_company_report(symbol="ANTM")
-  ▶ Tool: harvest_osint_news(symbol="ANTM", query="ANTM smelter nikel")
+  ▶ Tool: harvest_market_news(symbol="ANTM", query="ANTM smelter nikel")
   ✔ Observation: 4 berita terverifikasi terkait smelter Halmahera Timur
        │
        ▼
@@ -142,7 +142,7 @@ User Prompt ("Kenapa volume ANTM melonjak tinggi baru-baru ini?")
 |---|---|---|
 | **Stage 2: SECTORS_BASELINE** | `get_daily_candles`, `get_company_report` | Memeriksa cache lokal SQLite sebelum pemanggilan API Sectors (Hukum 5). |
 | **Stage 3: QUANT_ANOMALY** | `compute_quant_anomalies` | **Hukum 1 (Wajib):** Komputasi matematika $Z$-score dan moving average dieksekusi 100% oleh NumPy, bukan oleh LLM. |
-| **Stage 5: OSINT_HARVEST** | `harvest_osint_news` | Sanitasi teks via Trafilatura & isolasi konteks XML `<evidence_context>`. |
+| **Stage 5: NEWS_HARVEST** | `harvest_market_news` | Sanitasi teks via Trafilatura & isolasi konteks XML `<evidence_context>`. |
 | **Stage 6: EVIDENCE_CORRELATION** | Reasoning Engine ReAct | Menentukan kausalitas temporal tanpa rekomendasi beli/jual (Hukum 2). |
 | **Stage 7: SYNTHESIS** | Response Generator & SQLite Persistence | Menyimpan riwayat obrolan ke tabel `chat_messages` (Hukum 4). |
 

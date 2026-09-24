@@ -11,10 +11,13 @@ import os
 from typing import Any, Callable, Dict, List, Optional
 
 from engine.memory.graph_memory import LocalGraphMemory
-from engine.osint.harvester import DualEngineOSINTHarvester, OSINTItem
 from engine.quant.anomaly import AnomalyResult, detect_historical_anomalies
 from engine.sectors.client import SectorsAPIClient
+from engine.sectors.news_engine import NewsItem, SectorsNewsEngine
 from engine.skills.registry import SkillsRegistry
+
+# Backward compatibility alias
+OSINTItem = NewsItem
 
 # Ticker-ticker yang merepresentasikan indeks pasar, bukan emiten perusahaan individual.
 # Jika digunakan di harvest_market_news, harus di-route ke general market news.
@@ -42,7 +45,8 @@ class NiskavaToolRegistry:
         self,
         db_path: str,
         sectors_client: Optional[SectorsAPIClient] = None,
-        osint_harvester: Optional[DualEngineOSINTHarvester] = None,
+        osint_harvester: Optional[Any] = None,
+        news_harvester: Optional[Any] = None,
         mock_mode: Optional[bool] = None,
         skills_registry: Optional[SkillsRegistry] = None,
         memory: Optional[LocalGraphMemory] = None,
@@ -52,9 +56,14 @@ class NiskavaToolRegistry:
         self.sectors_client = sectors_client or SectorsAPIClient(
             db_path=self.db_path, mock_mode=self.mock_mode
         )
-        self.osint_harvester = osint_harvester or DualEngineOSINTHarvester(
-            mock_mode=self.mock_mode
+        self.news_engine = SectorsNewsEngine(
+            sectors_client=self.sectors_client,
+            db_path=self.db_path,
+            mock_mode=self.mock_mode,
         )
+        self.news_harvester = news_harvester or osint_harvester or self.news_engine
+        # Backward-compatible reference
+        self.osint_harvester = self.news_harvester
         self.skills_registry = skills_registry or SkillsRegistry()
         self.memory = memory or LocalGraphMemory(db_path=self.db_path)
 
@@ -62,6 +71,7 @@ class NiskavaToolRegistry:
         """Execute a Layer 3 Domain Skill and return structured findings dict."""
         context = {
             "sectors_client": self.sectors_client,
+            "news_harvester": self.news_harvester,
             "osint_harvester": self.osint_harvester,
             "db_path": self.db_path,
             "mock_mode": self.mock_mode,
@@ -140,24 +150,24 @@ class NiskavaToolRegistry:
 
         return client_method(clean_ticker)
 
-    def search_osint(self, ticker: str, query: str = "") -> List[Dict[str, Any]]:
-        """Universal gateway to the Dual-Engine OSINT harvester.
+    def search_news(self, ticker: str, query: str = "") -> List[Dict[str, Any]]:
+        """Universal gateway to the Sectors News and Corporate Disclosure engine.
 
-        Fetches curated Sectors news and targeted Google News RSS results for
-        the given ticker. Returns a list of OSINTItem dicts (sanitised, no raw HTML).
+        Fetches curated news and corporate disclosures directly from Sectors
+        Financial API v2 for the given ticker. Returns a list of sanitized news dicts.
 
         Args:
             ticker: IDX 4-letter ticker. Pass empty string for general market news.
-            query: Optional extra keyword to narrow Google News RSS dorking.
+            query: Optional search keyword or context filter.
 
         Returns:
-            List of dicts, each with keys: title, url, published_at, source, snippet.
+            List of dicts, each with keys: title, source_name, source_url, publication_date, snippet.
         """
         clean_ticker = ticker.upper() if ticker else ""
 
         if not clean_ticker or clean_ticker in _INDEX_TICKERS:
             sectors_news = self.sectors_client.get_news(None)
-            items: List[OSINTItem] = self.osint_harvester.harvest(
+            items: List[NewsItem] = self.news_harvester.harvest(
                 ticker="IHSG",
                 company_name="Pasar Modal Indonesia",
                 sectors_news_items=sectors_news,
@@ -167,12 +177,15 @@ class NiskavaToolRegistry:
         report = self.get_company_fundamentals(clean_ticker)
         company_name = report.get("company_name", clean_ticker)
         sectors_news = self.sectors_client.get_news(clean_ticker)
-        items = self.osint_harvester.harvest(
+        items = self.news_harvester.harvest(
             ticker=clean_ticker,
             company_name=company_name,
             sectors_news_items=sectors_news,
         )
         return [item.model_dump() for item in items]
+
+    # Backward-compatible alias
+    search_osint = search_news
 
     def query_memory(self, concept_or_ticker: str, radius: int = 2) -> Dict[str, Any]:
         """Universal gateway to the local conversational graph memory engine.
@@ -253,11 +266,11 @@ class NiskavaToolRegistry:
         ticker: Optional[str] = None,
         company_name: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Harvest curated news and targeted IDX regulatory filings via Dual-Engine OSINT."""
+        """Harvest curated news and corporate disclosures exclusively from Sectors Financial API v2."""
         if not ticker:
             # General market headlines when no specific ticker is provided
             sectors_news = self.sectors_client.get_news(None)
-            items: List[OSINTItem] = self.osint_harvester.harvest(
+            items: List[NewsItem] = self.news_harvester.harvest(
                 ticker="IHSG",
                 company_name="Pasar Modal Indonesia",
                 sectors_news_items=sectors_news,
@@ -270,7 +283,7 @@ class NiskavaToolRegistry:
             company_name = report.get("company_name", clean_ticker)
 
         sectors_news = self.sectors_client.get_news(clean_ticker)
-        items: List[OSINTItem] = self.osint_harvester.harvest(
+        items: List[NewsItem] = self.news_harvester.harvest(
             ticker=clean_ticker,
             company_name=company_name,
             sectors_news_items=sectors_news,
@@ -421,13 +434,12 @@ class NiskavaToolRegistry:
                 },
             },
             {
-                "name": "search_osint",
+                "name": "search_news",
                 "description": (
-                    "Universal router to Dual-Engine OSINT harvester. "
-                    "Fetches curated news from Sectors v2 API and executes targeted "
-                    "Google News RSS boolean dorking for syndicated IDXnet corporate disclosures, "
-                    "Kontan, Bisnis Indonesia, and CNBC Indonesia. "
-                    "Pass empty string for ticker to retrieve macro market news."
+                    "Universal router to Sectors Curated News & Corporate Disclosures Engine. "
+                    "Fetches verified financial news and official company announcements directly "
+                    "from Sectors Financial API v2 (/v2/news/). "
+                    "Pass empty string for ticker to retrieve macro IDX market news."
                 ),
                 "parameters": {
                     "type": "object",
@@ -438,7 +450,7 @@ class NiskavaToolRegistry:
                         },
                         "query": {
                             "type": "string",
-                            "description": "Optional keyword to narrow Google News RSS search.",
+                            "description": "Optional keyword or context filter.",
                         },
                     },
                     "required": ["ticker"],
@@ -600,7 +612,15 @@ class NiskavaToolRegistry:
                 ticker=args.get("ticker", ""),
                 params={k: v for k, v in args.items() if k not in ("domain", "ticker")},
             ),
-            "search_osint": lambda args: self.search_osint(
+            "search_news": lambda args: self.search_news(
+                ticker=args.get("ticker", ""),
+                query=args.get("query", ""),
+            ),
+            "search_osint": lambda args: self.search_news(
+                ticker=args.get("ticker", ""),
+                query=args.get("query", ""),
+            ),
+            "sectors_search_news": lambda args: self.search_news(
                 ticker=args.get("ticker", ""),
                 query=args.get("query", ""),
             ),
