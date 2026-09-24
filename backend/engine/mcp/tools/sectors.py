@@ -35,17 +35,17 @@ def get_sectors_tool_definitions() -> List[Dict[str, Any]]:
     return [
         {
             "name": "sectors_get_daily_candles",
-            "description": "Ambil deret waktu harga dan volume perdagangan harian (OHLCV) saham IDX dari Sectors API v2.",
+            "description": "Fetch daily OHLCV candlestick price and volume series from Sectors API v2.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "ticker": {
                         "type": "string",
-                        "description": "Kode ticker 4 huruf IDX (contoh: ANTM, BBRI)",
+                        "description": "4-letter IDX stock ticker symbol (e.g. ANTM, BBRI)",
                     },
                     "days": {
                         "type": "integer",
-                        "description": "Jendela observasi harian (default: 30)",
+                        "description": "Daily observation lookback window (default: 30)",
                         "default": 30,
                     },
                 },
@@ -54,17 +54,17 @@ def get_sectors_tool_definitions() -> List[Dict[str, Any]]:
         },
         {
             "name": "sectors_get_company_report",
-            "description": "Ambil profil fundamental, valuasi (PE, PBV, ROE), dan gambaran umum emiten dari Sectors API v2.",
+            "description": "Fetch company fundamental profile, valuation metrics (PE, PBV, ROE), and overview from Sectors API v2.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "ticker": {
                         "type": "string",
-                        "description": "Kode ticker 4 huruf IDX (contoh: ANTM)",
+                        "description": "4-letter IDX stock ticker symbol (e.g. ANTM)",
                     },
                     "sections": {
                         "type": "string",
-                        "description": "Bagian laporan yang diambil (default: 'valuation,financials,peers')",
+                        "description": "Report sections to retrieve (default: 'valuation,financials,peers')",
                         "default": "valuation,financials,peers",
                     },
                 },
@@ -73,13 +73,13 @@ def get_sectors_tool_definitions() -> List[Dict[str, Any]]:
         },
         {
             "name": "sectors_get_foreign_flow",
-            "description": "Ambil data akumulasi dan distribusi modal investor asing (Net Foreign Flow) per saham.",
+            "description": "Fetch foreign investor net capital accumulation and distribution flow (Net Foreign Flow).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "ticker": {
                         "type": "string",
-                        "description": "Kode ticker 4 huruf IDX",
+                        "description": "4-letter IDX stock ticker symbol",
                     },
                 },
                 "required": ["ticker"],
@@ -87,13 +87,13 @@ def get_sectors_tool_definitions() -> List[Dict[str, Any]]:
         },
         {
             "name": "sectors_get_suspensions",
-            "description": "Ambil catatan suspensi resmi bursa, pengumuman UMA, dan tautan surat pengumuman PDF resmi BEI.",
+            "description": "Fetch official IDX trading suspensions, Unusual Market Activity (UMA) notices, and regulatory announcement URLs.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "ticker": {
                         "type": "string",
-                        "description": "Kode ticker 4 huruf IDX",
+                        "description": "4-letter IDX stock ticker symbol",
                     },
                 },
                 "required": ["ticker"],
@@ -101,13 +101,13 @@ def get_sectors_tool_definitions() -> List[Dict[str, Any]]:
         },
         {
             "name": "sectors_get_corporate_actions",
-            "description": "Ambil jadwal aksi korporasi emiten (dividen, stock split, rights issue).",
+            "description": "Fetch corporate action schedules (cash dividends, stock splits, rights issues).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "ticker": {
                         "type": "string",
-                        "description": "Kode ticker 4 huruf IDX",
+                        "description": "4-letter IDX stock ticker symbol",
                     },
                 },
                 "required": ["ticker"],
@@ -115,13 +115,13 @@ def get_sectors_tool_definitions() -> List[Dict[str, Any]]:
         },
         {
             "name": "sectors_get_filings",
-            "description": "Ambil laporan transaksi kepemilikan orang dalam (insider trading) direksi dan komisaris.",
+            "description": "Fetch insider trading disclosures and ownership filings by directors and commissioners.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "ticker": {
                         "type": "string",
-                        "description": "Kode ticker 4 huruf IDX",
+                        "description": "4-letter IDX stock ticker symbol",
                     },
                 },
                 "required": ["ticker"],
@@ -129,13 +129,13 @@ def get_sectors_tool_definitions() -> List[Dict[str, Any]]:
         },
         {
             "name": "sectors_get_broker_summary",
-            "description": "Ambil ringkasan broker pembeli bersih (top buyers) dan penjual bersih (top sellers) teratas.",
+            "description": "Fetch top net buying and selling brokerage participants.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "ticker": {
                         "type": "string",
-                        "description": "Kode ticker 4 huruf IDX",
+                        "description": "4-letter IDX stock ticker symbol",
                     },
                 },
                 "required": ["ticker"],
@@ -143,13 +143,13 @@ def get_sectors_tool_definitions() -> List[Dict[str, Any]]:
         },
         {
             "name": "sectors_get_subsector_peers",
-            "description": "Ambil data komparasi emiten dan rata-rata industri subsektor untuk analisis divergensi.",
+            "description": "Fetch subsector industry peers and valuation multiples for divergence analysis.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "subsector": {
                         "type": "string",
-                        "description": "Slug subsektor industri (contoh: 'metals-and-minerals-mining')",
+                        "description": "Subsector industry slug (e.g. 'metals-and-minerals-mining')",
                     },
                 },
                 "required": ["subsector"],
@@ -157,13 +157,13 @@ def get_sectors_tool_definitions() -> List[Dict[str, Any]]:
         },
         {
             "name": "sectors_get_mining_detail",
-            "description": "Ambil detail operasional tambang, izin konsesi IUP, dan lokasi smelter emiten pertambangan.",
+            "description": "Fetch mining operational details, IUP concession permits, and smelter asset data.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "slug": {
                         "type": "string",
-                        "description": "Slug emiten tambang (contoh: 'aneka-tambang')",
+                        "description": "Mining company slug (e.g. 'aneka-tambang')",
                     },
                 },
                 "required": ["slug"],
