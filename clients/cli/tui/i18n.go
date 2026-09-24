@@ -545,6 +545,10 @@ var TUIStrings = map[string]map[string]string{
 		"en": "Tip: Run with --open flag or open directly in your browser:\n  file://%s\n",
 		"id": "Tip: Jalankan dengan flag --open atau buka langsung di browser Anda:\n  file://%s\n",
 	},
+	"graph_pruned_success": {
+		"en": "[✓] Successfully pruned %d mock evaluation records from local database.\n",
+		"id": "[✓] Berhasil membersihkan %d catatan evaluasi uji coba (mock) dari database lokal.\n",
+	},
 	"help_full_title": {
 		"en": "NISKAVA AGENT — SYSTEM INSTRUCTION & USAGE GUIDE",
 		"id": "NISKAVA AGENT — PANDUAN PENGGUNAAN & INSTRUKSI SISTEM",
