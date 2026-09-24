@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -88,6 +89,64 @@ type RunnerParams struct {
 	Language   string
 }
 
+// FindPythonBinary discovers the most suitable Python executable across operating systems.
+func FindPythonBinary() string {
+	// 1. Check environment variable override
+	if custom := os.Getenv("NISKAVA_PYTHON_BIN"); custom != "" {
+		if _, err := os.Stat(custom); err == nil {
+			return custom
+		}
+		if path, err := exec.LookPath(custom); err == nil {
+			return path
+		}
+	}
+	if custom := os.Getenv("NISKAVA_PYTHON"); custom != "" {
+		if _, err := os.Stat(custom); err == nil {
+			return custom
+		}
+		if path, err := exec.LookPath(custom); err == nil {
+			return path
+		}
+	}
+
+	// 2. Check virtualenv paths (.venv, venv)
+	venvCandidates := []string{
+		filepath.Join(".venv", "Scripts", "python.exe"), // Windows venv
+		filepath.Join("venv", "Scripts", "python.exe"),  // Windows venv
+		filepath.Join(".venv", "bin", "python3"),       // Unix venv
+		filepath.Join(".venv", "bin", "python"),        // Unix venv
+		filepath.Join("venv", "bin", "python3"),        // Unix venv
+		filepath.Join("venv", "bin", "python"),         // Unix venv
+	}
+	for _, venvPath := range venvCandidates {
+		if _, err := os.Stat(venvPath); err == nil {
+			return venvPath
+		}
+	}
+
+	// 3. System PATH lookup based on OS
+	if runtime.GOOS == "windows" {
+		if path, err := exec.LookPath("python.exe"); err == nil {
+			return path
+		}
+		if path, err := exec.LookPath("python"); err == nil {
+			return path
+		}
+		if path, err := exec.LookPath("py.exe"); err == nil {
+			return path
+		}
+	} else {
+		if path, err := exec.LookPath("python3"); err == nil {
+			return path
+		}
+		if path, err := exec.LookPath("python"); err == nil {
+			return path
+		}
+	}
+
+	return "python"
+}
+
 // RunSubprocess spawns the Python runner and returns a channel of streaming events.
 func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-chan error) {
 	eventsChan := make(chan Event, 64)
@@ -99,13 +158,7 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 
 		pythonBin := params.PythonBin
 		if pythonBin == "" {
-			if path, err := exec.LookPath("python3"); err == nil {
-				pythonBin = path
-			} else if path, err := exec.LookPath("python"); err == nil {
-				pythonBin = path
-			} else {
-				pythonBin = "python"
-			}
+			pythonBin = FindPythonBinary()
 		}
 
 		args := []string{
