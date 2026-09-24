@@ -11,7 +11,7 @@ def test_gateway_tool_definitions_are_pure_english(tmp_path):
     tool_names = [d["name"] for d in defs]
     assert "execute_skill" in tool_names
     assert "query_sectors" in tool_names
-    assert "search_osint" in tool_names
+    assert "search_news" in tool_names
     assert "query_memory" in tool_names
 
     for d in defs:

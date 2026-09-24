@@ -56,7 +56,7 @@ def test_transient_503_does_not_burn_react_iterations(tmp_path):
             mock_resp.text = json.dumps({
                 "choices": [{"message": {"content":
                     '<thought>Get data</thought>'
-                    '<tool_call>{"name": "search_osint", "arguments": {"ticker": ""}}</tool_call>'
+                    '<tool_call>{"name": "search_news", "arguments": {"ticker": ""}}</tool_call>'
                 }}]
             })
             return mock_resp
