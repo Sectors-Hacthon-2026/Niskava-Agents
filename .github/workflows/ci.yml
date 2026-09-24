@@ -130,7 +130,7 @@ jobs:
         run: |
           TOOLS_RESP=$(echo '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | ./bin/niskava mcp)
           echo "$TOOLS_RESP" | grep -q 'quant_compute_anomalies'
-          echo "$TOOLS_RESP" | grep -q 'osint_harvest_market_news'
+          echo "$TOOLS_RESP" | grep -q 'news_harvest_market_news'
           echo "$TOOLS_RESP" | grep -q 'sectors_get_daily_candles'
           echo "$TOOLS_RESP" | grep -q 'memory_recall_context'
 
