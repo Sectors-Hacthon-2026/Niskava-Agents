@@ -414,12 +414,18 @@ class NiskavaReActAgent:
         language: Optional[str] = None,
         max_tokens: Optional[int] = None,
         llm_timeout: Optional[float] = None,
+        append_followup_chips: Optional[bool] = None,
     ):
         self.tools = tool_registry
         self.memory = getattr(tool_registry, "memory", None)
         self.emitter = emitter or (lambda ev: None)
         self.db_path = getattr(tool_registry, "db_path", os.path.expanduser("~/.niskava/niskava.db"))
         self.language = (language or os.environ.get("NISKAVA_LANG") or "id").lower()
+        self.append_followup_chips = (
+            append_followup_chips
+            if append_followup_chips is not None
+            else os.environ.get("NISKAVA_FOLLOWUP_CHIPS", "0").lower() in ("1", "true", "yes")
+        )
         self.max_tokens = (
             max_tokens
             if max_tokens is not None
@@ -1455,14 +1461,15 @@ class NiskavaReActAgent:
             if t_candidates:
                 detected_ticker = t_candidates[0].upper()
 
-        chips = self._build_followup_chips(
-            final_response=final_response,
-            skills_executed=skills_executed,
-            ticker=detected_ticker,
-            language=effective_lang,
-        )
-        if chips:
-            final_response = final_response + chips
+        if self.append_followup_chips:
+            chips = self._build_followup_chips(
+                final_response=final_response,
+                skills_executed=skills_executed,
+                ticker=detected_ticker,
+                language=effective_lang,
+            )
+            if chips:
+                final_response = final_response + chips
 
         self._emit({
             "event": "agent_message_chunk",
