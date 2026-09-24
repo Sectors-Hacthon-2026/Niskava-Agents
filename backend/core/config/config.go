@@ -168,6 +168,19 @@ func loadDotEnv(paths ...string) {
 	}
 }
 
+// LoadFile parses a specific YAML configuration file directly without environment overrides.
+func LoadFile(path string) (*Config, error) {
+	data, err := os.ReadFile(ExpandHome(path))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file %s: %w", path, err)
+	}
+	cfg := DefaultConfig()
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse yaml config %s: %w", path, err)
+	}
+	return cfg, nil
+}
+
 // Load reads and merges configuration from defaults, ~/.niskava/config.yaml, and environment variables.
 func Load(customConfigPath string) (*Config, error) {
 	// 0. Auto-load .env files (project root and ~/.niskava/.env)
@@ -282,4 +295,115 @@ func Load(customConfigPath string) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// MaskSecret masks sensitive credentials showing only prefix and suffix.
+func MaskSecret(secret string) string {
+	s := strings.TrimSpace(secret)
+	if s == "" {
+		return ""
+	}
+	if len(s) <= 8 {
+		return "********"
+	}
+	return s[:4] + "****" + s[len(s)-4:]
+}
+
+// ConfigView represents the sanitized structure safe for serialization to web clients.
+type ConfigView struct {
+	Auth        AuthView          `json:"auth"`
+	Storage     StorageConfig     `json:"storage"`
+	Engine      EngineConfig      `json:"engine"`
+	Server      ServerConfig      `json:"server"`
+	Preferences PreferencesConfig `json:"preferences"`
+	Memory      MemoryConfig      `json:"memory"`
+	Telegram    TelegramView      `json:"telegram"`
+}
+
+type AuthView struct {
+	AIProvider      string `json:"ai_provider"`
+	SectorsAPIKey   string `json:"sectors_api_key"`
+	HasSectorsKey   bool   `json:"has_sectors_key"`
+	SectorsBaseURL  string `json:"sectors_base_url"`
+	GeminiAPIKey    string `json:"gemini_api_key"`
+	HasGeminiKey    bool   `json:"has_gemini_key"`
+	GeminiModel     string `json:"gemini_model"`
+	OpenAIAPIKey    string `json:"openai_api_key"`
+	HasOpenAIKey    bool   `json:"has_openai_key"`
+	OpenAIBaseURL   string `json:"openai_base_url"`
+	OpenAIModel     string `json:"openai_model"`
+	AnthropicAPIKey string `json:"anthropic_api_key"`
+	HasAnthropicKey bool   `json:"has_anthropic_key"`
+	OllamaBaseURL   string `json:"ollama_base_url"`
+	OllamaModel     string `json:"ollama_model"`
+}
+
+type TelegramView struct {
+	BotToken     string   `json:"bot_token"`
+	HasToken     bool     `json:"has_token"`
+	Enabled      bool     `json:"enabled"`
+	AllowedUsers []string `json:"allowed_users"`
+}
+
+// MaskedView returns a sanitized view of the config without exposing raw secrets.
+func (c *Config) MaskedView() ConfigView {
+	return ConfigView{
+		Auth: AuthView{
+			AIProvider:      c.Auth.AIProvider,
+			SectorsAPIKey:   MaskSecret(c.Auth.SectorsAPIKey),
+			HasSectorsKey:   c.Auth.SectorsAPIKey != "",
+			SectorsBaseURL:  c.Auth.SectorsBaseURL,
+			GeminiAPIKey:    MaskSecret(c.Auth.GeminiAPIKey),
+			HasGeminiKey:    c.Auth.GeminiAPIKey != "",
+			GeminiModel:     c.Auth.GeminiModel,
+			OpenAIAPIKey:    MaskSecret(c.Auth.OpenAIAPIKey),
+			HasOpenAIKey:    c.Auth.OpenAIAPIKey != "",
+			OpenAIBaseURL:   c.Auth.OpenAIBaseURL,
+			OpenAIModel:     c.Auth.OpenAIModel,
+			AnthropicAPIKey: MaskSecret(c.Auth.AnthropicAPIKey),
+			HasAnthropicKey: c.Auth.AnthropicAPIKey != "",
+			OllamaBaseURL:   c.Auth.OllamaBaseURL,
+			OllamaModel:     c.Auth.OllamaModel,
+		},
+		Storage:     c.Storage,
+		Engine:      c.Engine,
+		Server:      c.Server,
+		Preferences: c.Preferences,
+		Memory:      c.Memory,
+		Telegram: TelegramView{
+			BotToken:     MaskSecret(c.Telegram.BotToken),
+			HasToken:     c.Telegram.BotToken != "",
+			Enabled:      c.Telegram.Enabled,
+			AllowedUsers: c.Telegram.AllowedUsers,
+		},
+	}
+}
+
+// SaveConfig persists the active configuration to the specified YAML file or ~/.niskava/config.yaml with 0600 permissions.
+func SaveConfig(cfg *Config, targetPath ...string) error {
+	dest := ""
+	if len(targetPath) > 0 && targetPath[0] != "" {
+		dest = targetPath[0]
+	} else {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get user home dir: %w", err)
+		}
+		dest = filepath.Join(homeDir, ".niskava", "config.yaml")
+	}
+
+	dest = ExpandHome(dest)
+	if err := os.MkdirAll(filepath.Dir(dest), 0700); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config to yaml: %w", err)
+	}
+
+	if err := os.WriteFile(dest, data, 0600); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+	return nil
 }

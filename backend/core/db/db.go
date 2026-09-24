@@ -1006,6 +1006,68 @@ type MemoryEdge struct {
 	CreatedAt       string  `json:"created_at"`
 }
 
+// MemoryGraphFilter defines parameters for filtering nodes and edges.
+type MemoryGraphFilter struct {
+	SessionID string   `json:"session_id"`
+	Ticker    string   `json:"ticker"`
+	Depth     int      `json:"depth"`
+	NodeTypes []string `json:"node_types"`
+	MinWeight float64  `json:"min_weight"`
+}
+
+// HubNode represents a node with its degree in the memory graph.
+type HubNode struct {
+	ID       string `json:"id"`
+	Label    string `json:"label"`
+	NodeType string `json:"node_type"`
+	Degree   int    `json:"degree"`
+}
+
+// MemoryGraphStats provides high-level aggregation of memory nodes and edges.
+type MemoryGraphStats struct {
+	TotalNodes  int            `json:"total_nodes"`
+	TotalEdges  int            `json:"total_edges"`
+	NodeTypes   map[string]int `json:"node_types"`
+	TopHubNodes []HubNode      `json:"top_hub_nodes"`
+}
+
+// SaveMemoryNode inserts or updates a memory node.
+func (d *DB) SaveMemoryNode(node *MemoryNode) error {
+	query := `
+		INSERT INTO memory_nodes (id, label, node_type, metadata_json, last_observed_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			label = excluded.label,
+			node_type = excluded.node_type,
+			metadata_json = COALESCE(excluded.metadata_json, memory_nodes.metadata_json),
+			last_observed_at = excluded.last_observed_at
+	`
+	_, err := d.conn.Exec(query, node.ID, node.Label, node.NodeType, node.MetadataJSON, node.LastObservedAt)
+	if err != nil {
+		return fmt.Errorf("failed to save memory node: %w", err)
+	}
+	return nil
+}
+
+// SaveMemoryEdge inserts or updates a memory edge.
+func (d *DB) SaveMemoryEdge(edge *MemoryEdge) error {
+	query := `
+		INSERT INTO memory_edges (source_id, target_id, relation, context_snippet, session_id, weight, confidence_score, last_observed_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(source_id, target_id, relation) DO UPDATE SET
+			context_snippet = COALESCE(excluded.context_snippet, memory_edges.context_snippet),
+			session_id = COALESCE(excluded.session_id, memory_edges.session_id),
+			weight = excluded.weight,
+			confidence_score = excluded.confidence_score,
+			last_observed_at = excluded.last_observed_at
+	`
+	_, err := d.conn.Exec(query, edge.SourceID, edge.TargetID, edge.Relation, edge.ContextSnippet, edge.SessionID, edge.Weight, edge.ConfidenceScore, edge.LastObservedAt)
+	if err != nil {
+		return fmt.Errorf("failed to save memory edge: %w", err)
+	}
+	return nil
+}
+
 // GetMemoryGraph retrieves nodes and edges, optionally filtered by sessionID.
 func (d *DB) GetMemoryGraph(sessionID string) ([]MemoryNode, []MemoryEdge, error) {
 	nodeQuery := `
@@ -1066,6 +1128,223 @@ func (d *DB) GetMemoryGraph(sessionID string) ([]MemoryNode, []MemoryEdge, error
 	}
 
 	return nodes, edges, nil
+}
+
+// GetFilteredMemoryGraph retrieves memory nodes and edges filtered by ego-network, session, types, and weight.
+func (d *DB) GetFilteredMemoryGraph(filter MemoryGraphFilter) ([]MemoryNode, []MemoryEdge, error) {
+	// 1. Fetch all candidate edges
+	edgeQuery := `
+		SELECT source_id, target_id, relation, context_snippet, session_id,
+		       weight, COALESCE(confidence_score, 1.0), last_observed_at, created_at
+		FROM memory_edges
+		WHERE (? = '' OR session_id = ?) AND weight >= ?
+		ORDER BY weight DESC
+	`
+	edgeRows, err := d.conn.Query(edgeQuery, filter.SessionID, filter.SessionID, filter.MinWeight)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to query filtered memory edges: %w", err)
+	}
+	defer edgeRows.Close()
+
+	var allEdges []MemoryEdge
+	for edgeRows.Next() {
+		var e MemoryEdge
+		if err := edgeRows.Scan(&e.SourceID, &e.TargetID, &e.Relation, &e.ContextSnippet, &e.SessionID, &e.Weight, &e.ConfidenceScore, &e.LastObservedAt, &e.CreatedAt); err != nil {
+			return nil, nil, fmt.Errorf("failed to scan memory edge: %w", err)
+		}
+		allEdges = append(allEdges, e)
+	}
+
+	// 2. Fetch all nodes
+	nodeQuery := `
+		SELECT id, label, node_type, metadata_json, last_observed_at, created_at
+		FROM memory_nodes
+		ORDER BY last_observed_at DESC
+	`
+	nodeRows, err := d.conn.Query(nodeQuery)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to query memory nodes: %w", err)
+	}
+	defer nodeRows.Close()
+
+	nodesMap := make(map[string]MemoryNode)
+	for nodeRows.Next() {
+		var n MemoryNode
+		if err := nodeRows.Scan(&n.ID, &n.Label, &n.NodeType, &n.MetadataJSON, &n.LastObservedAt, &n.CreatedAt); err != nil {
+			return nil, nil, fmt.Errorf("failed to scan memory node: %w", err)
+		}
+		nodesMap[n.ID] = n
+	}
+
+	// 3. Filter by NodeTypes if provided
+	typeSet := make(map[string]bool)
+	for _, nt := range filter.NodeTypes {
+		if trimmed := strings.TrimSpace(nt); trimmed != "" {
+			typeSet[strings.ToUpper(trimmed)] = true
+		}
+	}
+
+	if len(typeSet) > 0 {
+		for id, n := range nodesMap {
+			if !typeSet[strings.ToUpper(n.NodeType)] {
+				delete(nodesMap, id)
+			}
+		}
+	}
+
+	// 4. If Ticker specified: Perform ego-network BFS expansion up to Depth
+	if filter.Ticker != "" {
+		tickerUpper := strings.ToUpper(strings.TrimSpace(filter.Ticker))
+		depth := filter.Depth
+		if depth <= 0 {
+			depth = 1
+		} else if depth > 2 {
+			depth = 2
+		}
+
+		visitedNodes := make(map[string]bool)
+		currentLevel := make(map[string]bool)
+
+		// Seed initial nodes
+		for id, n := range nodesMap {
+			if strings.EqualFold(n.Label, tickerUpper) || strings.EqualFold(n.ID, tickerUpper) ||
+				strings.HasSuffix(strings.ToUpper(n.ID), ":"+tickerUpper) || strings.HasPrefix(strings.ToUpper(n.ID), tickerUpper+":") {
+				currentLevel[id] = true
+				visitedNodes[id] = true
+			}
+		}
+
+		// Traverse hops
+		for hop := 0; hop < depth; hop++ {
+			nextLevel := make(map[string]bool)
+			for _, e := range allEdges {
+				if currentLevel[e.SourceID] {
+					if _, exists := nodesMap[e.TargetID]; exists && !visitedNodes[e.TargetID] {
+						visitedNodes[e.TargetID] = true
+						nextLevel[e.TargetID] = true
+					}
+				}
+				if currentLevel[e.TargetID] {
+					if _, exists := nodesMap[e.SourceID]; exists && !visitedNodes[e.SourceID] {
+						visitedNodes[e.SourceID] = true
+						nextLevel[e.SourceID] = true
+					}
+				}
+			}
+			currentLevel = nextLevel
+			if len(currentLevel) == 0 {
+				break
+			}
+		}
+
+		// Filter edges to only those connecting visited nodes
+		var resultEdges []MemoryEdge
+		for _, e := range allEdges {
+			if visitedNodes[e.SourceID] && visitedNodes[e.TargetID] {
+				resultEdges = append(resultEdges, e)
+			}
+		}
+
+		var resultNodes []MemoryNode
+		for id := range visitedNodes {
+			if n, ok := nodesMap[id]; ok {
+				resultNodes = append(resultNodes, n)
+			}
+		}
+		return resultNodes, resultEdges, nil
+	}
+
+	// 5. If SessionID specified without Ticker: return edges with endpoints
+	if filter.SessionID != "" {
+		activeNodeIDs := make(map[string]bool)
+		var resultEdges []MemoryEdge
+		for _, e := range allEdges {
+			if _, sOk := nodesMap[e.SourceID]; sOk {
+				if _, tOk := nodesMap[e.TargetID]; tOk {
+					resultEdges = append(resultEdges, e)
+					activeNodeIDs[e.SourceID] = true
+					activeNodeIDs[e.TargetID] = true
+				}
+			}
+		}
+		var resultNodes []MemoryNode
+		for id := range activeNodeIDs {
+			resultNodes = append(resultNodes, nodesMap[id])
+		}
+		return resultNodes, resultEdges, nil
+	}
+
+	// 6. Global graph or filtered by types/weights
+	var resultEdges []MemoryEdge
+	activeNodeIDs := make(map[string]bool)
+	for _, e := range allEdges {
+		if _, sOk := nodesMap[e.SourceID]; sOk {
+			if _, tOk := nodesMap[e.TargetID]; tOk {
+				resultEdges = append(resultEdges, e)
+				activeNodeIDs[e.SourceID] = true
+				activeNodeIDs[e.TargetID] = true
+			}
+		}
+	}
+	var resultNodes []MemoryNode
+	for id, n := range nodesMap {
+		if len(allEdges) == 0 || activeNodeIDs[id] || len(typeSet) > 0 {
+			resultNodes = append(resultNodes, n)
+		}
+	}
+	return resultNodes, resultEdges, nil
+}
+
+// GetMemoryGraphStats computes aggregate metrics across the graph memory.
+func (d *DB) GetMemoryGraphStats() (*MemoryGraphStats, error) {
+	stats := &MemoryGraphStats{
+		NodeTypes:   make(map[string]int),
+		TopHubNodes: []HubNode{},
+	}
+
+	// Total nodes
+	_ = d.conn.QueryRow("SELECT COUNT(*) FROM memory_nodes").Scan(&stats.TotalNodes)
+	// Total edges
+	_ = d.conn.QueryRow("SELECT COUNT(*) FROM memory_edges").Scan(&stats.TotalEdges)
+
+	// Node types breakdown
+	rows, err := d.conn.Query("SELECT node_type, COUNT(*) FROM memory_nodes GROUP BY node_type")
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var nt string
+			var count int
+			if err := rows.Scan(&nt, &count); err == nil {
+				stats.NodeTypes[nt] = count
+			}
+		}
+	}
+
+	// Hub nodes by degree
+	hubQuery := `
+		SELECT n.id, n.label, n.node_type, COUNT(e.node_id) as degree
+		FROM memory_nodes n
+		JOIN (
+			SELECT source_id as node_id FROM memory_edges
+			UNION ALL
+			SELECT target_id as node_id FROM memory_edges
+		) e ON n.id = e.node_id
+		GROUP BY n.id, n.label, n.node_type
+		ORDER BY degree DESC
+		LIMIT 10
+	`
+	hubRows, err := d.conn.Query(hubQuery)
+	if err == nil {
+		defer hubRows.Close()
+		for hubRows.Next() {
+			var h HubNode
+			if err := hubRows.Scan(&h.ID, &h.Label, &h.NodeType, &h.Degree); err == nil {
+				stats.TopHubNodes = append(stats.TopHubNodes, h)
+			}
+		}
+	}
+
+	return stats, nil
 }
 
 // ClearMemoryGraph removes memory edges and nodes (optionally for a specific session).
@@ -1180,4 +1459,82 @@ func (d *DB) ResetTelegramChatSession(chatID int64, userID int64, username strin
 	}
 
 	return newSessionID, nil
+}
+
+// SectorsCacheItem represents a cached HTTP response from the Sectors v2 API.
+type SectorsCacheItem struct {
+	CacheKey    string  `json:"cache_key"`
+	Endpoint    string  `json:"endpoint"`
+	PayloadJSON string  `json:"payload_json"`
+	CreatedAt   string  `json:"created_at"`
+	ExpiresAt   *string `json:"expires_at,omitempty"`
+}
+
+// SectorsCacheStats provides statistics on cache discipline for Law 5.
+type SectorsCacheStats struct {
+	TotalEntries     int `json:"total_entries"`
+	ExpiredEntries   int `json:"expired_entries"`
+	PermanentEntries int `json:"permanent_entries"`
+}
+
+// SetSectorsCache inserts or updates a cached Sectors API response.
+func (d *DB) SetSectorsCache(cacheKey, endpoint, payloadJSON string, expiresAt *time.Time) error {
+	query := `
+		INSERT INTO sectors_cache (cache_key, endpoint, payload_json, expires_at)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(cache_key) DO UPDATE SET
+			endpoint = excluded.endpoint,
+			payload_json = excluded.payload_json,
+			expires_at = excluded.expires_at,
+			created_at = CURRENT_TIMESTAMP
+	`
+	var expStr *string
+	if expiresAt != nil {
+		s := expiresAt.UTC().Format("2006-01-02 15:04:05")
+		expStr = &s
+	}
+	_, err := d.conn.Exec(query, cacheKey, endpoint, payloadJSON, expStr)
+	if err != nil {
+		return fmt.Errorf("failed to set sectors cache: %w", err)
+	}
+	return nil
+}
+
+// GetSectorsCache retrieves an unexpired cached response by key.
+func (d *DB) GetSectorsCache(cacheKey string) (string, error) {
+	query := `
+		SELECT payload_json FROM sectors_cache
+		WHERE cache_key = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+	`
+	var payload string
+	err := d.conn.QueryRow(query, cacheKey).Scan(&payload)
+	if err != nil {
+		return "", err
+	}
+	return payload, nil
+}
+
+// GetSectorsCacheStats returns aggregate cache numbers for credit discipline monitoring.
+func (d *DB) GetSectorsCacheStats() (*SectorsCacheStats, error) {
+	row := d.conn.QueryRow(`
+		SELECT
+			COUNT(*),
+			COALESCE(SUM(CASE WHEN expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END), 0)
+		FROM sectors_cache
+	`)
+	var stats SectorsCacheStats
+	if err := row.Scan(&stats.TotalEntries, &stats.ExpiredEntries, &stats.PermanentEntries); err != nil {
+		return nil, fmt.Errorf("failed to query sectors cache stats: %w", err)
+	}
+	return &stats, nil
+}
+
+// CleanExpiredCache deletes expired records from sectors_cache.
+func (d *DB) CleanExpiredCache() (int64, error) {
+	res, err := d.conn.Exec(`DELETE FROM sectors_cache WHERE expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to clean expired cache: %w", err)
+	}
+	return res.RowsAffected()
 }
