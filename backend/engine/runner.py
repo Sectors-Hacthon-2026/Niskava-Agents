@@ -51,7 +51,8 @@ def load_dotenv_fallback() -> None:
                         k, v = line.split("=", 1)
                         k = k.strip()
                         v = v.strip().strip("'\"")
-                        if k and k not in os.environ:
+                        # Only set non-empty values into os.environ so empty keys do not shadow valid ones
+                        if k and v and (k not in os.environ or not os.environ[k]):
                             os.environ[k] = v
             except OSError:
                 pass

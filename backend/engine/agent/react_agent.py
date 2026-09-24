@@ -150,9 +150,18 @@ def _compact_tool_observation(tool_name: str, tool_res: Any, max_len: int = 1500
 
     if isinstance(tool_res, list):
         if tool_name in ("search_news", "search_osint", "harvest_market_news"):
-            # Extract only title, date, and brief snippet for top 3 articles
+            # Sort descending by date so freshest / today's news is always in top 3
+            sorted_items = sorted(
+                [item for item in tool_res if isinstance(item, dict)],
+                key=lambda x: str(x.get("publication_date") or x.get("publish_date") or x.get("date") or ""),
+                reverse=True,
+            )
+            # If tool_res contained non-dict entries, preserve them
+            if not sorted_items and tool_res:
+                sorted_items = tool_res
+
             compact_items = []
-            for item in tool_res[:3]:
+            for item in sorted_items[:3]:
                 if isinstance(item, dict):
                     compact_items.append({
                         "title": item.get("title", ""),
@@ -316,8 +325,9 @@ def get_system_prompt(
 3. IMMEDIATE ACTION: For any IDX ticker inquiry, emit <tool_call> on your very first step.
 4. TOOL SELECTION SOP:
    - Deep investigation: call `execute_skill` with the appropriate skill_id.
-   - Raw market data: call `query_sectors` with the appropriate domain.
-   - News & catalysts: call `search_news`.
+   - Raw market data & sector overview: call `query_sectors` with the appropriate domain ('candles', 'subsectors', 'fundamentals', etc.).
+   - News & catalysts: call `search_news` (pass empty string for ticker and optional query keyword like 'perbankan' or 'tambang' for general market / sector news).
+   - Macro sector potential questions: call `search_news(ticker="", query=...)` or `query_sectors(domain="subsectors", ticker="")` first to gather sector landscape before drilling down.
    - Session memory recall: call `query_memory` before starting fresh investigations.
    - General concepts (PER, PBV, IDX trading hours): answer directly in <response>.
 5. RESPONSE GATING: Communicate with user ONLY inside <response>...</response> AFTER observing factual tool data.

@@ -40,11 +40,12 @@ class SectorsNewsEngine:
         self,
         ticker: Optional[str] = None,
         company_name: Optional[str] = None,
+        query: Optional[str] = None,
     ) -> List[NewsItem]:
         """Fetch curated news for a ticker or general market from Sectors API v2."""
         clean_ticker = ticker.strip().upper() if ticker and ticker.strip() else None
 
-        # In Sectors API v2, index symbols (IHSG, JCI, COMPOSITE) map to market-wide news (symbol=None)
+        # In Sectors API v2, index symbols (IHSG, JCI, IDX, COMPOSITE) map to market-wide news (symbol=None)
         if clean_ticker in ("IHSG", "JCI", "IDX", "COMPOSITE"):
             clean_ticker = None
 
@@ -74,6 +75,20 @@ class SectorsNewsEngine:
                 )
             )
 
+        # Sort newest-first based on publication_date
+        results.sort(key=lambda x: str(x.publication_date or ""), reverse=True)
+
+        # Apply keyword query filtering if provided
+        if query and query.strip():
+            terms = [t.lower() for t in query.strip().split() if len(t) >= 2]
+            if terms:
+                filtered = [
+                    item for item in results
+                    if any(t in item.title.lower() or t in item.snippet.lower() for t in terms)
+                ]
+                if filtered:
+                    return filtered
+
         return results
 
     def harvest(
@@ -81,6 +96,7 @@ class SectorsNewsEngine:
         ticker: str,
         company_name: Optional[str] = None,
         sectors_news_items: Optional[List[Dict[str, Any]]] = None,
+        query: Optional[str] = None,
     ) -> List[NewsItem]:
         """Backward-compatible alias for pipeline and skill consumers."""
         if sectors_news_items is not None:
@@ -112,9 +128,20 @@ class SectorsNewsEngine:
                         source_type="DISCLOSURE" if is_disc else "NEWS",
                     )
                 )
+
+            results.sort(key=lambda x: str(x.publication_date or ""), reverse=True)
+            if query and query.strip():
+                terms = [t.lower() for t in query.strip().split() if len(t) >= 2]
+                if terms:
+                    filtered = [
+                        item for item in results
+                        if any(t in item.title.lower() or t in item.snippet.lower() for t in terms)
+                    ]
+                    if filtered:
+                        return filtered
             return results
 
-        return self.fetch_news(ticker=ticker, company_name=company_name)
+        return self.fetch_news(ticker=ticker, company_name=company_name, query=query)
 
     def sanitize_article_text(self, html_or_url: str) -> Optional[str]:
         """Use Trafilatura to cleanly extract article content without ads/boilerplate."""

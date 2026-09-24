@@ -77,3 +77,45 @@ def test_fetch_news_handles_empty_and_malformed(tmp_path):
 
     assert len(items) == 1
     assert items[0].title == "Valid News"
+
+
+def test_fetch_news_recency_sorting_and_query_filter(tmp_path):
+    client = SectorsAPIClient(db_path=str(tmp_path / "cache.db"), api_key="test-key")
+    client.get_news = MagicMock(return_value=[
+        {
+            "title": "ANTM Laporan Lama",
+            "source": "Sectors News",
+            "url": "https://sectors.app/1",
+            "publish_date": "2026-09-10",
+            "snippet": "Laporan awal nikel",
+        },
+        {
+            "title": "IHSG Menguat Sektor Perbankan",
+            "source": "Sectors News",
+            "url": "https://sectors.app/2",
+            "publish_date": "2026-09-24",
+            "snippet": "Saham perbankan memimpin indeks",
+        },
+        {
+            "title": "ANTM Smelter Baru Selesai",
+            "source": "Sectors News",
+            "url": "https://sectors.app/3",
+            "publish_date": "2026-09-22",
+            "snippet": "Smelter baru siap uji coba",
+        },
+    ])
+
+    engine = SectorsNewsEngine(sectors_client=client)
+
+    # 1. Recency sorting: newest date first
+    items = engine.fetch_news(ticker=None)
+    assert len(items) == 3
+    assert items[0].publication_date == "2026-09-24"
+    assert items[1].publication_date == "2026-09-22"
+    assert items[2].publication_date == "2026-09-10"
+
+    # 2. Query filter: filter for "perbankan"
+    filtered = engine.fetch_news(ticker=None, query="perbankan")
+    assert len(filtered) == 1
+    assert "Perbankan" in filtered[0].title
+
