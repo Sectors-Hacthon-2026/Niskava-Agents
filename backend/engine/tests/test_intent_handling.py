@@ -51,6 +51,29 @@ class TestIntentHandling(unittest.TestCase):
         self.assertNotIn("skill_market_anomaly_recon", resp)
         self.assertNotIn("Three-Tier Verification Taxonomy", resp)
 
+    def test_greeting_intent_english_response(self):
+        """Prompt 'hi, who are you?' must return an English greeting, not Indonesian."""
+        self.events.clear()
+        result = self.agent.chat("hi, who are you?")
+
+        self.assertEqual(len(result["anomalies"]), 0)
+        resp = result["response"]
+        self.assertIn("Niskava Agent", resp)
+        self.assertTrue(
+            "Hello!" in resp or "Hi!" in resp or "assistant" in resp.lower(),
+            f"Expected English greeting, got: {resp}"
+        )
+        self.assertNotIn("Halo! Saya", resp)
+
+    def test_greeting_intent_indonesian_response(self):
+        """Prompt 'halo siapa kamu' must still return Indonesian greeting."""
+        self.events.clear()
+        result = self.agent.chat("halo siapa kamu")
+
+        self.assertEqual(len(result["anomalies"]), 0)
+        resp = result["response"]
+        self.assertIn("Halo! Saya **Niskava Agent**", resp)
+
     def test_genuine_stock_intent_triggers_quant_anomalies(self):
         """Prompt with genuine ticker like 'ANTM' must execute deterministic quant math."""
         self.events.clear()

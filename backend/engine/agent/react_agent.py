@@ -222,36 +222,72 @@ def sanitize_final_response(content: str) -> str:
     return candidate.strip()
 
 
+_ID_STOPWORDS = {
+    "yang", "dan", "di", "ke", "dari", "ini", "itu", "untuk", "pada", "adalah",
+    "dengan", "apa", "apakah", "siapa", "bagaimana", "kenapa", "mengapa", "kapan",
+    "bisa", "tolong", "cek", "analisis", "analisa", "saham", "emiten", "berita",
+    "hari", "ini", "dong", "gan", "halo", "hai", "selamat", "pagi", "siang",
+    "sore", "malam", "terkini", "terbaru", "rekomendasi", "laporan", "keuangan",
+    "kamu", "anda", "saya", "akankah", "saja",
+}
+
+_EN_STOPWORDS = {
+    "the", "and", "in", "to", "of", "this", "that", "for", "on", "is", "are",
+    "with", "what", "who", "how", "why", "when", "can", "please", "check",
+    "analyze", "analysis", "stock", "shares", "company", "news", "today",
+    "hi", "hello", "good", "morning", "afternoon", "evening", "latest",
+    "report", "financial", "overview", "sentiment", "which", "explain",
+    "you", "your", "me", "my",
+}
+
+
+def detect_prompt_language(text: str, fallback: str = "en") -> str:
+    """Detect whether a user prompt is predominantly English or Indonesian using lexical heuristics.
+
+    Returns:
+        'en', 'id', or fallback if indeterminate.
+    """
+    if not text or not text.strip():
+        return fallback
+
+    words = set(re.findall(r"\b[a-zA-Z]{2,}\b", text.lower()))
+    if not words:
+        return fallback
+
+    id_matches = len(words.intersection(_ID_STOPWORDS))
+    en_matches = len(words.intersection(_EN_STOPWORDS))
+
+    if en_matches > id_matches:
+        return "en"
+    if id_matches > en_matches:
+        return "id"
+
+    return fallback
+
 
 def get_system_prompt(
-    language: str = "id",
+    language: Optional[str] = None,
     available_tools: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
-    """Build the lean system prompt (~420 tokens) using Progressive Skill Disclosure.
+    """Build the lean system prompt (~450 tokens) using Progressive Skill Disclosure.
 
-    The LLM receives only 4 gateway primitive definitions — never the full list
-    of 15+ atomic Sectors API tools. Skills are presented as a compact 1-liner
-    manifest; full SOPs are injected by the Python engine when execute_skill
-    is called (ADR-11).
+    The prompt establishes an English-first analytical persona with a strict
+    Language Mirroring Protocol so the agent seamlessly converses in English,
+    Bahasa Indonesia, or any other user-preferred tongue.
 
     Args:
-        language: 'id' (Bahasa Indonesia) or 'en' (English).
+        language: Optional language hint ('id' or 'en').
         available_tools: List of 4 gateway tool definition dicts from
                          NiskavaToolRegistry.get_tool_definitions().
 
     Returns:
         Complete system prompt string for the LLM.
     """
-    lang = (language or "id").lower()
-    user_lang_instruction = (
-        "- The user prefers English. Respond in professional, engaging English."
-        if lang == "en"
-        else (
-            "- The user communicates in Bahasa Indonesia. "
-            "Provide all final answers, insights, tables, and narrative summaries "
-            "in fluent, professional, and clear Indonesian."
-        )
-    )
+    lang_hint = ""
+    if language == "en":
+        lang_hint = "- Active session preference: English requested.\n"
+    elif language == "id":
+        lang_hint = "- Active session preference: Bahasa Indonesia requested.\n"
 
     # Build compact gateway tools section — 4 gateways, not 15+ atomic tools
     tools_section = ""
@@ -265,8 +301,14 @@ def get_system_prompt(
     return f"""You are Niskava Agent, an autonomous financial OSINT and market intelligence specialist for the Indonesia Stock Exchange (IDX). You help equity analysts, financial journalists, and retail traders with rigorous, evidence-based market investigations.
 
 === TARGET USER LANGUAGE ===
-{user_lang_instruction}
-- Internal reasoning, tool calls, and XML tags MUST follow the English protocol below.
+=== CONVERSATIONAL LANGUAGE & MIRRORING PROTOCOL ===
+1. DEFAULT & INTERNAL PROTOCOL: All internal thoughts (<thought>), tool calling syntax (<tool_call>), and XML reasoning tags MUST be in English.
+2. DYNAMIC LANGUAGE MIRRORING: In your final <response>, ALWAYS mirror the exact language used by the user in their prompt:
+   - If the user writes in English -> Respond entirely in fluent, professional, engaging English.
+   - If the user writes in Bahasa Indonesia -> Respond entirely in fluent, natural Bahasa Indonesia.
+   - If the user writes in any other language -> Respond in that corresponding language.
+{lang_hint}3. EVIDENCE TRANSLATION & ANTI-CONTAMINATION: Even though retrieved raw market data, news articles (Kontan, Bisnis, CNBC), and IDX regulatory filings are in Bahasa Indonesia, you MUST translate and synthesize your analytical findings, tables, and narrative summaries into the user's prompt language (English when prompted in English). NEVER switch to Bahasa Indonesia simply because the source observations are in Indonesian.
+4. NEVER force Bahasa Indonesia when the user addresses you in English.
 
 === GOLDEN OPERATIONAL RULES ===
 1. ZERO PREAMBLE TO USER: Never output greetings or execution plans before calling tools. Act immediately.
@@ -286,18 +328,19 @@ LAW 2 (Non-Advisory Boundary): You are an investigative intelligence platform, N
 
 === REACTION PROTOCOL & 1-SHOT DEMONSTRATION ===
 Example:
-User: "analisis ANTM"
+User: "analyze ANTM"
 <thought>Need volume anomaly scan for ANTM. Will run market_anomaly_recon skill first.</thought>
 <tool_call>{{"name": "execute_skill", "arguments": {{"skill_id": "market_anomaly_recon", "arguments": {{"ticker": "ANTM"}}}}}}</tool_call>
 (System provides: <observation>Z-Score 3.84σ on 2026-09-12, Abnormal Return +6.2%</observation>)
-<thought>Significant anomaly detected. Ready to synthesize findings.</thought>
+<thought>Significant anomaly detected. Ready to synthesize findings in English.</thought>
 <response>
 [Evidence-based analytical synthesis in user's target language with data tables and disclaimer]
 </response>
 {tools_section}"""
 
 
-SYSTEM_PROMPT = get_system_prompt("id")
+SYSTEM_PROMPT = get_system_prompt()
+
 
 
 # ---------------------------------------------------------------------------
@@ -861,7 +904,8 @@ class NiskavaReActAgent:
         if not selected:
             return ""
 
-        lang = (language or self.language or "id").lower()
+        prompt_lang = detect_prompt_language(final_response, fallback=self.language or "en")
+        lang = (language or prompt_lang).lower()
         if lang == "en":
             header = "### 💡 Recommended Next Steps:"
             desc_map = _SKILL_CHIP_DESCRIPTIONS_EN
@@ -911,7 +955,9 @@ class NiskavaReActAgent:
             if self.tools and hasattr(self.tools, "get_tool_definitions")
             else []
         )
-        system_prompt_base = get_system_prompt(self.language, available_tools=tool_defs)
+        prompt_detected_lang = detect_prompt_language(user_prompt, fallback="")
+        effective_lang = prompt_detected_lang or self.language or "en"
+        system_prompt_base = get_system_prompt(effective_lang, available_tools=tool_defs)
         dynamic_system_prompt = (
             f"{system_prompt_base}\n\n"
             f"=== REAL-WORLD TEMPORAL CONTEXT ===\n"
@@ -1200,9 +1246,9 @@ class NiskavaReActAgent:
                                     "event": "finding_emitted",
                                     "session_id": session_id,
                                     "id": f"FND-AUTO-{len(findings) + 1:02d}",
-                                    "title": f"Anomali Volume {tool_args.get('ticker', '')}: {top_anomaly.get('metric_type', 'VOLUME_SPIKE')}",
+                                    "title": f"Volume Anomaly {tool_args.get('ticker', '')}: {top_anomaly.get('metric_type', 'VOLUME_SPIKE')}",
                                     "claim_text": (
-                                        f"Z-Score {top_anomaly.get('z_score', 0):.2f}σ pada "
+                                        f"Z-Score {top_anomaly.get('z_score', 0):.2f}σ on "
                                         f"{top_anomaly.get('date') or top_anomaly.get('anomaly_date', 'N/A')}."
                                     ),
                                     "verification_status": "SUPPORTED",
@@ -1243,10 +1289,10 @@ class NiskavaReActAgent:
                 remaining_steps = MAX_REACT_ITERATIONS - 1 - _
                 if 0 < remaining_steps <= 2:
                     combined_obs += (
-                        f"\n\n[SYSTEM NOTICE: Hanya tersisa {remaining_steps} langkah penalaran. "
-                        "Data yang terkumpul sudah memadai. JANGAN panggil tool lagi. "
-                        "Segera rangkum dan sajikan analisis akhir lengkap Anda di dalam "
-                        "tag <response>...</response>.]"
+                        f"\n\n[SYSTEM NOTICE: Only {remaining_steps} reasoning step(s) remaining. "
+                        "Sufficient evidence has been collected. Do NOT invoke additional tools. "
+                        "Immediately synthesize and present your comprehensive final analysis inside "
+                        "<response>...</response> in the user's inquiry language.]"
                     )
                 messages.append({"role": "assistant", "content": content})
                 messages.append({"role": "user", "content": f"<observation>\n{combined_obs}\n</observation>"})
@@ -1413,7 +1459,7 @@ class NiskavaReActAgent:
             final_response=final_response,
             skills_executed=skills_executed,
             ticker=detected_ticker,
-            language=self.language,
+            language=effective_lang,
         )
         if chips:
             final_response = final_response + chips
@@ -1477,6 +1523,8 @@ class NiskavaReActAgent:
 
         if not tickers:
             prompt_lower = user_prompt.lower()
+            detected_lang = detect_prompt_language(user_prompt, fallback=self.language or "en")
+
             # 1. Intent: General Market News / Macro Overview
             if any(w in prompt_lower for w in ["berita", "news", "kabar", "sentimen", "headline", "ihsg", "bursa"]):
                 self._emit({
@@ -1510,32 +1558,62 @@ class NiskavaReActAgent:
                 response_text = "\n".join(lines)
 
             # 2. Intent: Greeting / Sapaan
-            elif any(w in prompt_lower for w in ["halo", "hai", "pagi", "siang", "sore", "malam", "apa kabar", "assalamualaikum", "tes", "test"]):
-                response_text = (
-                    "Halo! Saya **Niskava Agent**, asisten riset dan intelijen pasar modal Indonesia (IDX).\n\n"
-                    "Ada yang bisa saya bantu hari ini? Anda dapat:\n"
-                    "- Menanyakan **berita dan sentimen pasar** (contoh: *\"Cek berita pasar hari ini\"*)\n"
-                    "- Menganalisis **anomali volume & transaksi saham** (contoh: *\"Cek anomali ANTM\"*, *\"Audit volume BBCA\"*)\n"
-                    "- Berdiskusi seputar **konsep finansial atau regulasi bursa** (contoh: *\"Apa itu rasio DER?\"*, *\"Bagaimana kriteria suspensi BEI?\"*)"
-                )
+            elif any(
+                w in prompt_lower
+                for w in [
+                    "halo", "hai", "pagi", "siang", "sore", "malam", "apa kabar",
+                    "assalamualaikum", "tes", "test", "hi", "hello", "hey",
+                    "who are you", "what are you", "introduce yourself", "help",
+                ]
+            ):
+                if detected_lang == "en":
+                    response_text = (
+                        "Hello! I am **Niskava Agent**, your autonomous financial market intelligence assistant for the Indonesia Stock Exchange (IDX).\n\n"
+                        "How can I assist your investigation today? You can:\n"
+                        "- Inquire about **market news and sentiment** (e.g., *\"Check today's market news\"*)\n"
+                        "- Analyze **volume spikes and order flow anomalies** (e.g., *\"Check ANTM volume anomaly\"*, *\"Audit BBCA accumulation\"*)\n"
+                        "- Discuss **financial concepts or exchange regulations** (e.g., *\"What is DER ratio?\"*, *\"Explain IDX suspension rules\"*)"
+                    )
+                    thought_text = "Received user greeting in English. Returning guidance and capabilities in English."
+                else:
+                    response_text = (
+                        "Halo! Saya **Niskava Agent**, asisten riset dan intelijen pasar modal Indonesia (IDX).\n\n"
+                        "Ada yang bisa saya bantu hari ini? Anda dapat:\n"
+                        "- Menanyakan **berita dan sentimen pasar** (contoh: *\"Cek berita pasar hari ini\"*)\n"
+                        "- Menganalisis **anomali volume & transaksi saham** (contoh: *\"Cek anomali ANTM\"*, *\"Audit volume BBCA\"*)\n"
+                        "- Berdiskusi seputar **konsep finansial atau regulasi bursa** (contoh: *\"Apa itu rasio DER?\"*, *\"Bagaimana kriteria suspensi BEI?\"*)"
+                    )
+                    thought_text = "Menerima sapaan pengguna. Menyapa kembali dan memberikan panduan interaksi."
+
                 self._emit({
                     "event": "agent_thought",
                     "session_id": session_id,
-                    "thought": "Menerima sapaan pengguna. Menyapa kembali dan memberikan panduan interaksi.",
+                    "thought": thought_text,
                 })
 
             # 3. Intent: General questions without ticker
             else:
-                response_text = (
-                    "Halo! Saya Niskava Agent, asisten riset pasar modal Indonesia (IDX).\n\n"
-                    "Saya tidak mendeteksi kode emiten saham IDX yang spesifik dalam pesan Anda.\n\n"
-                    "- Jika Anda ingin **menganalisis anomali transaksi atau keterbukaan informasi emiten**, silakan sebutkan kode sahamnya (contoh: **BBCA**, **ANTM**, **BBRI**, **GOTO**).\n"
-                    "- Jika Anda ingin **memantau berita pasar modal terkini**, ketik *\"cek berita hari ini\"*."
-                )
+                if detected_lang == "en":
+                    response_text = (
+                        "Hello! I am Niskava Agent, your IDX market intelligence assistant.\n\n"
+                        "I did not detect a specific IDX ticker symbol in your request.\n\n"
+                        "- If you wish to **analyze transaction anomalies or corporate disclosures**, please specify the ticker (e.g., **BBCA**, **ANTM**, **BBRI**, **GOTO**).\n"
+                        "- If you wish to **monitor recent market news**, type *\"check market news today\"*."
+                    )
+                    thought_text = "Prompt does not contain a specific ticker. Providing usage guidance in English."
+                else:
+                    response_text = (
+                        "Halo! Saya Niskava Agent, asisten riset pasar modal Indonesia (IDX).\n\n"
+                        "Saya tidak mendeteksi kode emiten saham IDX yang spesifik dalam pesan Anda.\n\n"
+                        "- Jika Anda ingin **menganalisis anomali transaksi atau keterbukaan informasi emiten**, silakan sebutkan kode sahamnya (contoh: **BBCA**, **ANTM**, **BBRI**, **GOTO**).\n"
+                        "- Jika Anda ingin **memantau berita pasar modal terkini**, ketik *\"cek berita hari ini\"*."
+                    )
+                    thought_text = "Prompt tidak memuat kode emiten spesifik. Memberikan panduan penggunaan."
+
                 self._emit({
                     "event": "agent_thought",
                     "session_id": session_id,
-                    "thought": "Prompt tidak memuat kode emiten spesifik. Memberikan panduan penggunaan.",
+                    "thought": thought_text,
                 })
 
             self._emit({
@@ -1921,10 +1999,10 @@ Berdasarkan analisis deterministik kuantitatif dan penelusuran OSINT keterbukaan
     ) -> Dict[str, Any]:
         """Live ReAct reasoning cycle powered by Gemini API."""
         prompt = (
-            f"Kamu adalah Niskava Agent. Berikan analisis singkat (1-2 kalimat) dalam bahasa Indonesia mengenai rencana "
-            f"investigasi kuantitatif dan OSINT untuk emiten {ticker} pada periode {days} hari terakhir."
+            f"You are Niskava Agent. Provide a concise 1-2 sentence executive summary of the "
+            f"quantitative anomaly and OSINT investigation plan for ticker {ticker} over the past {days} days."
         )
-        thought_text = f"Menghubungkan ke Gemini ({self.model}). Memulai siklus ReAct investigasi emiten {ticker}."
+        thought_text = f"Connecting to Gemini ({self.model}). Initiating ReAct investigation cycle for ticker {ticker}."
         if self.api_key and not self.mock_mode:
             try:
                 import requests
@@ -1952,10 +2030,10 @@ Berdasarkan analisis deterministik kuantitatif dan penelusuran OSINT keterbukaan
     ) -> Dict[str, Any]:
         """Live ReAct reasoning cycle powered by 9router / OpenAI-compatible endpoint."""
         prompt = (
-            f"Kamu adalah Niskava Agent. Berikan analisis singkat (1-2 kalimat) dalam bahasa Indonesia mengenai rencana "
-            f"investigasi kuantitatif dan OSINT untuk emiten {ticker} pada periode {days} hari terakhir."
+            f"You are Niskava Agent. Provide a concise 1-2 sentence executive summary of the "
+            f"quantitative anomaly and OSINT investigation plan for ticker {ticker} over the past {days} days."
         )
-        thought_text = f"Menghubungkan ke 9router ({self.openai_model}). Memulai siklus ReAct investigasi emiten {ticker}."
+        thought_text = f"Connecting to endpoint ({self.openai_model}). Initiating ReAct investigation cycle for ticker {ticker}."
 
         try:
             import requests
@@ -1971,7 +2049,7 @@ Berdasarkan analisis deterministik kuantitatif dan penelusuran OSINT keterbukaan
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are Niskava Agent, an elite financial intelligence investigator for IDX. Think step-by-step in Indonesian.",
+                        "content": "You are Niskava Agent, an elite financial intelligence investigator for the Indonesia Stock Exchange (IDX). Think step-by-step.",
                     },
                     {"role": "user", "content": prompt},
                 ],
