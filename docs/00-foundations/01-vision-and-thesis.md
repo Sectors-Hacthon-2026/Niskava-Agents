@@ -1,11 +1,11 @@
-# 01 — Visi & Tesis: Autonomous Financial OSINT Agent
+# 01 — Visi & Tesis: Autonomous Financial Market Intelligence Agent
 
 **Status:** LOCKED  
 **Versi Dokumen:** 1.0.0  
 **Terakhir Diperbarui:** 2026-09-16  
 
 > **"Don't just answer questions. Investigate them."**  
-> Niskava Agent adalah platform orkestrasi intelijen pasar modal dan investigasi finansial otonom berbasis *evidence-first*, menggabungkan data kuantitatif pasar **Sectors API v2** dengan sinyal eksternal **OSINT (News, Public Filings, Corporate Actions)**.
+> Niskava Agent adalah platform orkestrasi intelijen pasar modal dan investigasi finansial otonom berbasis *evidence-first*, menggabungkan data kuantitatif pasar **Sectors API v2** dengan sinyal eksternal **Kualitatif (Sectors News, Filings, Corporate Actions)**.
 
 ---
 
@@ -62,7 +62,7 @@ User Query ──▶ Layer 4: ReAct Cognitive Orchestrator
                Layer 2: Deterministic Compute Gate (NumPy Firewall: Vz, Rt, Fz)
                  │ Protokol I/O Data Bursa & Web
                  ▼
-               Layer 1: MCP & OSINT Primitives (Sectors MCP + Dual OSINT)
+               Layer 1: MCP & News Primitives (Sectors MCP + News Engine)
                  │
                  ▼
 Evidence Layer: Cross-Verification ──▶ Audit Trail [SUPPORTED | UNCERTAIN | CONTRADICTED]
@@ -72,7 +72,7 @@ Evidence Layer: Cross-Verification ──▶ Audit Trail [SUPPORTED | UNCERTAIN 
 1. **Quantitative Ground Truth (Sectors API v2 & MCP)**: Data harga harian, rasio valuasi, metrik fundamental, dan broker summary dari Sectors diperlakukan sebagai fakta dasar yang tak terbantahkan.
 2. **Deterministic Before Generative (Law 1)**: Perhitungan anomali statistik ($Z$-score volume, abnormal return, divergensi sektoral) dihitung secara pasti melalui matematika NumPy sebelum model bahasa (LLM) diaktifkan.
 3. **Modular Domain Skills**: Investigasi tidak dijalankan serampangan, melainkan mengikuti Standar Operasional Prosedur (SOP) analis ekuitas terisolasi (`market-anomaly-recon`, `event-causality-audit`, `insider-bandarmology-forensic`).
-4. **Targeted Temporal OSINT Harvesting**: Mesin pencarian mengunci jendela waktu anomali ($T_{anomaly} \pm 2\text{ hari}$) dengan kata kunci terstruktur untuk mencegah pembalikan kausalitas.
+4. **Targeted Temporal News Harvesting**: Mesin pencarian mengunci jendela waktu anomali ($T_{anomaly} \pm 2\text{ hari}$) dengan kata kunci terstruktur untuk mencegah pembalikan kausalitas.
 5. **Causality vs Correlation Awareness**: Agen secara ketat membedakan apakah suatu berita memicu pergerakan volume (*Likely Catalyst*) atau volume melonjak mendahului pengumuman resmi (*Preceded Announcement / Potential Leak*).
 
 ---
@@ -85,7 +85,7 @@ Evidence Layer: Cross-Verification ──▶ Audit Trail [SUPPORTED | UNCERTAIN 
 | **Arsitektur Tooling** | Fungsi Python monolitik di-hardcode ke prompt | **Layering 4 Tingkat:** MCP Primitives $\to$ Compute Gate $\to$ Skills $\to$ ReAct |
 | **Kalkulasi Numerik** | Dihitung di dalam pikiran LLM (*Mental Math*) | **Deterministic Gate (NumPy):** LLM dilarang berhitung (Law 1) |
 | **Konsumsi Token** | Memasukkan seluruh riwayat data mentah (boros token) | Hanya mengonsumsi metrik ringkas terverifikasi hasil gate |
-| **Pencarian Informasi** | Semantic vector search tanpa filter tanggal | **Temporal-Aware OSINT:** Jendela $T \pm 2$ hari + stempel waktu bursa |
+| **Pencarian Informasi** | Semantic vector search tanpa filter tanggal | **Temporal-Aware News:** Jendela $T \pm 2$ hari + stempel waktu bursa |
 | **Status Temuan** | Opini teks bebas tanpa klasifikasi pembuktian | **3-Tier Taxonomy:** `SUPPORTED`, `UNCERTAIN`, `CONTRADICTED` |
 | **Kepatuhan Regulasi** | Rentan terpeleset memberikan saran *Buy/Sell* ilegal | **Strict Non-Advisory (Law 2):** Platform intelijen & audit trail bukti |
 | **Antarmuka Pengguna** | Kotak chat sederhana | **Dual Surfaces:** Terminal REPL (TUI Glamour) + Local Web Workspace |

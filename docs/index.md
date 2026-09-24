@@ -14,7 +14,7 @@ Katalog lengkap seluruh dokumen arsitektur, produk, logika agen, dan keputusan t
 |---|---|---|
 | [`00-foundations/01-vision-and-thesis.md`](00-foundations/01-vision-and-thesis.md) | Visi inti *"Investigate, Don't Just Answer"*, masalah fragmentasi data IDX, dan matriks komparasi terhadap chatbot umum. | `LOCKED` |
 | [`00-foundations/02-principles-and-rules.md`](00-foundations/02-principles-and-rules.md) | 8 Prinsip operasional mutlak, disiplin pembuktian fakta, dan batasan kepatuhan regulasi finansial non-advisory. | `LOCKED` |
-| [`00-foundations/03-glossary.md`](00-foundations/03-glossary.md) | Kamus istilah resmi pasar modal Indonesia (IDX) dan rekayasa agen AI/OSINT. | `ACCEPTED` |
+| [`00-foundations/03-glossary.md`](00-foundations/03-glossary.md) | Kamus istilah resmi pasar modal Indonesia (IDX) dan rekayasa agen intelijen pasar AI. | `ACCEPTED` |
 
 ---
 
@@ -40,7 +40,7 @@ Katalog lengkap seluruh dokumen arsitektur, produk, logika agen, dan keputusan t
 | [`20-architecture/03-sectors-v2-api.md`](20-architecture/03-sectors-v2-api.md) | Spesifikasi lengkap Sectors v2 (7 domain endpoint: Transaksi, Fundamental, Suspensi, Insider Filings, Foreign Flow, Mining, Screener). | `ACCEPTED` |
 | [`20-architecture/04-ipc-and-api-contract.md`](20-architecture/04-ipc-and-api-contract.md) | Spesifikasi protokol Subprocess IPC (JSON Lines) dan REST/SSE server lokal. | `ACCEPTED` |
 | [`20-architecture/05-anomaly-detection-math.md`](20-architecture/05-anomaly-detection-math.md) | Formula matematis deterministik ($Z$-score volume, abnormal return, dan divergensi sektor). | `LOCKED` |
-| [`20-architecture/06-osint-engine.md`](20-architecture/06-osint-engine.md) | Arsitektur Dual-Engine OSINT (Sectors v2 + Google News RSS), Secondary Disclosure Dorking, dan isolasi konteks anti-injeksi. | `ACCEPTED` |
+| [`20-architecture/06-news-engine.md`](20-architecture/06-news-engine.md) | Arsitektur Sectors News & Disclosure Engine (Sectors v2 `/v2/news/`), Keterbukaan Emiten, dan isolasi konteks anti-injeksi. | `ACCEPTED` |
 | [`20-architecture/07-non-functional-requirements.md`](20-architecture/07-non-functional-requirements.md) | Standar NFR: Latency budget, ukuran biner, penggunaan memori, dan kapabilitas offline. | `ACCEPTED` |
 | [`20-architecture/08-security-and-compliance.md`](20-architecture/08-security-and-compliance.md) | Manajemen kunci API lokal, proteksi prompt injection dari web, dan kepatuhan terhadap UU Pasar Modal. | `ACCEPTED` |
 | [`20-architecture/09-git-workflow-and-branching-strategy.md`](20-architecture/09-git-workflow-and-branching-strategy.md) | Standarisasi Git branching flow, proteksi cabang `main` & `dev`, SOP penggabungan, dan Quality Gates. | `ACCEPTED` |
@@ -70,7 +70,7 @@ Katalog lengkap seluruh dokumen arsitektur, produk, logika agen, dan keputusan t
 | [`90-decisions/04-local-first-sqlite-storage.md`](90-decisions/04-local-first-sqlite-storage.md) | Menyimpan seluruh sesi investigasi secara lokal tanpa server cloud tersentralisasi. | `ACCEPTED` |
 | [`90-decisions/05-strict-financial-non-advisory-boundary.md`](90-decisions/05-strict-financial-non-advisory-boundary.md) | Membatasi agen pada intelijen faktual dan melarang keras sinyal trading spekulatif *Buy/Sell*. | `ACCEPTED` |
 | [`90-decisions/06-local-conversational-graph-memory.md`](90-decisions/06-local-conversational-graph-memory.md) | Mengadopsi graf memori lokal (SQLite + NetworkX) untuk retensi asosiasi entitas dan preferensi pengguna lintas sesi. | `ACCEPTED` |
-| [`90-decisions/07-resilient-dual-engine-osint-architecture.md`](90-decisions/07-resilient-dual-engine-osint-architecture.md) | Mengadopsi arsitektur Dual-Engine OSINT (Sectors v2 + Google News RSS) untuk mengatasi sensor ISP lokal dan proteksi WAF bursa. | `ACCEPTED` |
+| [`90-decisions/07-resilient-dual-engine-osint-architecture.md`](90-decisions/07-resilient-dual-engine-osint-architecture.md) | Mengadopsi arsitektur Dual-Engine OSINT (Sectors v2 + Google News RSS) — *Digantikan oleh pure Sectors News Engine*. | `SUPERSEDED` |
 | [`90-decisions/08-modular-skills-and-mcp-architecture.md`](90-decisions/08-modular-skills-and-mcp-architecture.md) | Mengadopsi arsitektur 4-layer pemisahan MCP primitives, compute gate, domain skills, dan cognitive ReAct loop. | `ACCEPTED` |
 | [`90-decisions/09-internationalization-and-dual-language-ux.md`](90-decisions/09-internationalization-and-dual-language-ux.md) | Mengadopsi standardisasi i18n dwibahasa (Bahasa Indonesia & English) pada TUI dan prompt synthesis. | `ACCEPTED` |
 | [`90-decisions/10-dual-surface-web-delivery-strategy.md`](90-decisions/10-dual-surface-web-delivery-strategy.md) | Mengadopsi strategi web delivery ganda: Embedded Go HTML Single-Binary Fallback + Vite React SPA. | `ACCEPTED` |

@@ -62,4 +62,4 @@ Sistem dilarang memasukkan ribuan baris data candlestick atau JSON bursa mentah 
 Setiap ekspor laporan, tampilan dashboard, dan ringkasan CLI wajib menyertakan klausul disclaimer berikut:
 
 > **Pemberitahuan Kepatuhan Hukum & Risiko Pasar:**  
-> *"Laporan investigasi ini dihasilkan secara otomatis oleh Niskava Agent untuk tujuan riset informasi, edukasi, dan intelijen data terbuka (OSINT). Niskava bukan merupakan penasihat investasi, manajer investasi, atau pialang efek berizin. Seluruh temuan dan korelasi data yang disajikan bukan merupakan ajakan, tawaran, atau rekomendasi untuk membeli atau menjual efek tertentu. Seluruh keputusan investasi sepenuhnya merupakan tanggung jawab mandiri setiap pengguna."*
+> *"Laporan investigasi ini dihasilkan secara otomatis oleh Niskava Agent untuk tujuan riset informasi, edukasi, dan intelijen pasar modal. Niskava bukan merupakan penasihat investasi, manajer investasi, atau pialang efek berizin. Seluruh temuan dan korelasi data yang disajikan bukan merupakan ajakan, tawaran, atau rekomendasi untuk membeli atau menjual efek tertentu. Seluruh keputusan investasi sepenuhnya merupakan tanggung jawab mandiri setiap pengguna."*

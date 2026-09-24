@@ -6,7 +6,7 @@ Panduan praktis pengoperasian dan integrasi antarmuka terminal (*Command Line In
 
 ## 1. Arsitektur Terminal & UX Design System
 
-Antarmuka CLI Niskava dirancang dengan prinsip **Institutional Cyber-OSINT / Bloomberg Terminal Dark Aesthetic**:
+Antarmuka CLI Niskava dirancang dengan prinsip **Institutional Market Intelligence / Bloomberg Terminal Dark Aesthetic**:
 * **Framework TUI:** [Charmbracelet Bubble Tea](https://github.com/charmbracelet/bubbletea) (The Elm Architecture untuk Go).
 * **Styling & Layout:** [Charmbracelet Lipgloss](https://github.com/charmbracelet/lipgloss).
 * **Markdown Renderer:** [Charmbracelet Glamour](https://github.com/charmbracelet/glamour) dengan tema dark terminal teroptimasi.
@@ -37,7 +37,7 @@ Niskava mendukung 3 pola interaksi yang disesuaikan dengan kebutuhan analisis:
 
 ## 3. Panduan Penggunaan Interactive REPL Terminal
 
-Mode REPL (*Read-Eval-Print Loop*) memberikan pengalaman terminal cerdas untuk berdialog dengan agen investigasi, mengevaluasi anomali kuantitatif, dan memanggil bukti OSINT.
+Mode REPL (*Read-Eval-Print Loop*) memberikan pengalaman terminal cerdas untuk berdialog dengan agen investigasi, mengevaluasi anomali kuantitatif, dan memanggil bukti berita & keterbukaan emiten.
 
 ### 3.1 Memulai Sesi REPL
 ```bash
@@ -106,7 +106,7 @@ Ketik karakter garis miring (`/`) pada baris input untuk menampilkan daftar peri
      Sumber: Sectors v2 Market Feeds (Confidence: 0.95 | LIKELY_CATALYST)
    ● [UNCERTAIN] Rumor akuisisi konsorsium baterai EV di media sosial belum diverifikasi
      melalui keterbukaan informasi resmi IDXnet.
-     Sumber: Kompilasi OSINT (Confidence: 0.65 | UNEXPLAINED_BY_NEWS)
+     Sumber: Kompilasi Berita Bursa (Confidence: 0.65 | UNEXPLAINED_BY_NEWS)
    ```
 
 ---

@@ -180,7 +180,7 @@ Jika pengguna membatalkan investigasi yang sedang berjalan:
 Modul graf memetakan hubungan antara emiten saham, broker transaksi, regulator, katalis komoditas, dan anomali pasar.
 
 ### 3.1 Skema Warna Tipe Entitas (UI Design System)
-Untuk konsistensi tema Cyber-OSINT / Bloomberg Terminal:
+Untuk konsistensi tema Market Intelligence / Bloomberg Terminal:
 
 | Tipe Node (`node_type`) | Label Tipe | Warna Utama Hex | Latar Belakang Node |
 |---|---|---|---|

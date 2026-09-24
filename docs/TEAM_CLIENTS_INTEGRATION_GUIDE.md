@@ -32,7 +32,7 @@ Semua komponen UI/CLI yang Anda buat **WAJIB** tunduk pada 6 Hukum Niskava & Atu
   * **DILARANG KERAS** menampilkan tombol, tag, atau label rekomendasi **BUY / SELL / HOLD** atau target harga.
   * Setiap bukti investigasi **WAJIB** diklasifikasikan ke dalam 3 tier: `[SUPPORTED]`, `[UNCERTAIN]`, atau `[CONTRADICTED]`.
   * Setiap layar (Web footer & CLI exit) **WAJIB** menampilkan teks disclaimer resmi:
-    > *"Niskava Agent adalah platform intelijen dan OSINT pasar modal otonom untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi atau broker berizin. Seluruh temuan disajikan secara deskriptif untuk tujuan riset verifikasi fakta dan BUKAN rekomendasi investasi."*
+    > *"Niskava Agent adalah platform intelijen pasar modal otonom untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi atau broker berizin. Seluruh temuan disajikan secara deskriptif untuk tujuan riset verifikasi fakta dan BUKAN rekomendasi investasi."*
 * **Law 3: Zero Broker Execution (Rule 06)**: Tidak ada fitur beli/jual atau integrasi akun sekuritas.
 * **Law 4: Local-First Sovereignty (P5)**: Backend berjalan lokal di mesin pengguna (`http://localhost:20128` secara default), database lokal di `~/.niskava/niskava.db`.
 
@@ -45,7 +45,7 @@ Status saat ini: `clients/web/src/App.tsx` masih berupa placeholder kosong (`ret
 ### A. Stack & Desain Estetika
 * **Framework**: React 18 + Vite + TypeScript.
 * **Styling**: Tailwind CSS + `shadcn/ui`.
-* **Theme / Palette**: **Cyber-OSINT / Bloomberg Terminal Dark Mode**:
+* **Theme / Palette**: **Market Intelligence / Bloomberg Terminal Dark Mode**:
   * Background Utama: `#090D16` / `#0B0F17` (Deep Cyber Black)
   * Card / Panel: `#111827` (Dark Slate) dengan border `#1E293B`
   * Accent Utama (Niskava Green): `#22C55E` / `#4ADE80` (Terminal Matrix)
@@ -172,7 +172,7 @@ Status saat ini: CLI sudah memiliki launcher (`clients/cli/tui/launcher.go`), he
 ### A. Stack & Arsitektur CLI
 * **Framework**: Go 1.24+ murni (Zero-CGO).
 * **TUI Libraries**: `github.com/charmbracelet/bubbletea`, `bubbles`, `lipgloss`, `glamour`.
-* **Theme**: Matrix / Cyber-OSINT Green (`#4ADE80`, `#22C55E`), Amber (`#FACC15`), Red (`#EF4444`).
+* **Theme**: Matrix / Market Intelligence Green (`#4ADE80`, `#22C55E`), Amber (`#FACC15`), Red (`#EF4444`).
 
 ---
 
@@ -251,7 +251,7 @@ Ketika menampilkan kartu temuan (*findings*) di Web Canvas (Nabil) maupun Termin
 - [ ] Disclaimer finansial non-advisory tampil jelas di footer.
 
 ### Untuk Agung (CLI):
-- [ ] `niskava` (interactive REPL) berjalan mulus dengan banner HUD Cyber-OSINT.
+- [ ] `niskava` (interactive REPL) berjalan mulus dengan banner HUD Market Intelligence.
 - [ ] Mengetik `/help`, `/reset`, `/graph`, `/web`, `/clear` berfungsi normal.
 - [ ] Tekan `Ctrl + C` saat agen berpikir $\to$ proses berhenti seketika dan prompt `USER > ` kembali aktif.
 - [ ] Output rendering markdown menggunakan Glamour rapi dan tidak merusak layout terminal.

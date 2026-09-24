@@ -11,7 +11,7 @@ Ensure your host environment meets the minimum software requirements before proc
 | Component | Minimum Version | Required By | Purpose |
 |---|---|---|---|
 | **Go** | `1.22` or higher | Go Core | CLI entry points, REST/SSE server, SQLite WAL persistence, IPC broker. |
-| **Python** | `3.11` or higher | Python Engine | Deterministic NumPy math, OSINT harvesting, ReAct reasoning agent loop. |
+| **Python** | `3.11` or higher | Python Engine | Deterministic NumPy math, News harvesting, ReAct reasoning agent loop. |
 | **Git** | `2.30` or higher | Source control | Cloning and updating repository files. |
 | **Node.js / npm** *(Optional)* | `18.0` or higher | Web Client | Only required if rebuilding or modifying the React SPA frontend. |
 
@@ -58,7 +58,7 @@ cd ..\..
 Core Python dependencies installed via `requirements.txt`:
 - `numpy`, `pandas`: Deterministic time-series and anomaly calculations.
 - `networkx`: In-memory directed graph modeling for conversational and market memory.
-- `trafilatura`, `beautifulsoup4`, `feedparser`: OSINT harvesting, web article parsing, and content sanitization.
+- `trafilatura`, `beautifulsoup4`, `feedparser`: News harvesting, web article parsing, and content sanitization.
 - `requests`, `urllib3`: HTTP client for external data ingestion.
 - `pydantic`: Strict data validation and schema serialization.
 - `pytest`: Unit testing framework.
