@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/server"
-	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/telegram"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/clients/cli/tui"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -40,7 +39,11 @@ for the Web Workspace and external clients on http://localhost:20128.`,
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-		srv, err := server.Start(ctx, port, appDB)
+		if telegramFlag && cfg != nil {
+			cfg.Telegram.Enabled = true
+		}
+
+		srv, err := server.Start(ctx, port, appDB, cfg)
 		if err != nil {
 			return fmt.Errorf("failed to start background daemon: %w", err)
 		}
@@ -59,21 +62,14 @@ for the Web Workspace and external clients on http://localhost:20128.`,
 		serverInfo := tui.TF("serve_online_box", srv.URL, dbPath)
 		fmt.Println("\n" + box.Render(serverInfo) + "\n")
 
-		// Optional Telegram Bot Daemon in background
-		if (telegramFlag || (cfg != nil && cfg.Telegram.Enabled)) && cfg != nil && cfg.Telegram.BotToken != "" {
-			sm := srv.SessionManager
-			botSvc, botErr := telegram.NewBotService(cfg, appDB, sm)
-			if botErr == nil {
-				if startErr := botSvc.Start(); startErr == nil {
-					defer botSvc.Stop()
-					teleBox := lipgloss.NewStyle().
-						Border(lipgloss.RoundedBorder()).
-						BorderForeground(lipgloss.Color("#2AABEE")).
-						Padding(0, 1).
-						Foreground(lipgloss.Color("#FFFFFF"))
-					fmt.Println(teleBox.Render("🤖 Telegram Bot Poller Active in background") + "\n")
-				}
-			}
+		// Optional Telegram Bot Daemon indicator if active
+		if srv.BotService != nil && srv.BotService.IsStarted() {
+			teleBox := lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#2AABEE")).
+				Padding(0, 1).
+				Foreground(lipgloss.Color("#FFFFFF"))
+			fmt.Println(teleBox.Render("🤖 Telegram Bot Poller Active in background") + "\n")
 		}
 
 		if openFlag {

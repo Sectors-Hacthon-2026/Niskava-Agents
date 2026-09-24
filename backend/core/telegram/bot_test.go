@@ -13,7 +13,6 @@ import (
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/db"
-	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/server"
 	"gopkg.in/telebot.v3"
 )
 
@@ -52,7 +51,7 @@ func TestNewBotServiceSuccessAndLifecycle(t *testing.T) {
 	}
 	defer database.Close()
 
-	sm := server.NewSessionManager()
+	sm := NewDefaultSessionManager()
 
 	service, err := NewBotService(cfg, database, sm)
 	if err != nil {
@@ -78,6 +77,50 @@ func TestNewBotServiceSuccessAndLifecycle(t *testing.T) {
 
 	// Stop bot service
 	service.Stop()
+}
+
+func TestBotLifecycleMethods(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Telegram.BotToken = "123456789:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+	cfg.Preferences.OfflineMode = true
+
+	tempDir := t.TempDir()
+	database, err := db.Open(filepath.Join(tempDir, "test_lifecycle.db"))
+	if err != nil {
+		t.Fatalf("failed to open test db: %v", err)
+	}
+	defer database.Close()
+
+	service, err := NewBotService(cfg, database, nil)
+	if err != nil {
+		t.Fatalf("failed to create bot service: %v", err)
+	}
+
+	// 1. Initially false
+	if service.IsStarted() {
+		t.Errorf("expected IsStarted to be false initially")
+	}
+
+	// 2. BotUsername check
+	if service.BotUsername() != "" {
+		t.Errorf("expected empty BotUsername in offline mode with no mock user, got %q", service.BotUsername())
+	}
+
+	// 3. True after Start()
+	if err := service.Start(); err != nil {
+		t.Fatalf("failed to start bot service: %v", err)
+	}
+
+	if !service.IsStarted() {
+		t.Errorf("expected IsStarted to be true after Start()")
+	}
+
+	// 4. False after Stop()
+	service.Stop()
+
+	if service.IsStarted() {
+		t.Errorf("expected IsStarted to be false after Stop()")
+	}
 }
 
 func TestIsAuthorized(t *testing.T) {
@@ -158,7 +201,7 @@ func TestCommandHandlersWithMockServer(t *testing.T) {
 	}
 	defer database.Close()
 
-	sm := server.NewSessionManager()
+	sm := NewDefaultSessionManager()
 
 	pref := telebot.Settings{
 		URL:     mockServer.URL,

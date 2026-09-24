@@ -569,3 +569,106 @@ func TestTelegramChatSessionOperations(t *testing.T) {
 		t.Errorf("expected current session ID %s, got %s", sessID3, chatRecordAfterReset.CurrentSessionID)
 	}
 }
+
+func TestFilteredMemoryGraphAndStats(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_graph_filter.db")
+
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	// Insert test nodes
+	nodes := []MemoryNode{
+		{ID: "node:ANTM", Label: "ANTM", NodeType: "TICKER", LastObservedAt: time.Now().Format(time.RFC3339)},
+		{ID: "node:NICKEL", Label: "Nickel Commodity", NodeType: "CATALYST", LastObservedAt: time.Now().Format(time.RFC3339)},
+		{ID: "node:INCO", Label: "INCO", NodeType: "TICKER", LastObservedAt: time.Now().Format(time.RFC3339)},
+	}
+	for _, n := range nodes {
+		if err := database.SaveMemoryNode(&n); err != nil {
+			t.Fatalf("failed to save node: %v", err)
+		}
+	}
+
+	// Insert test edges
+	sess1 := "sess-1"
+	sess2 := "sess-2"
+	edges := []MemoryEdge{
+		{SourceID: "node:ANTM", TargetID: "node:NICKEL", Relation: "EXPOSED_TO", Weight: 2.5, SessionID: &sess1, LastObservedAt: time.Now().Format(time.RFC3339)},
+		{SourceID: "node:INCO", TargetID: "node:NICKEL", Relation: "EXPOSED_TO", Weight: 1.0, SessionID: &sess2, LastObservedAt: time.Now().Format(time.RFC3339)},
+	}
+	for _, e := range edges {
+		if err := database.SaveMemoryEdge(&e); err != nil {
+			t.Fatalf("failed to save edge: %v", err)
+		}
+	}
+
+	// 1. Filter by ticker / ego network
+	fNodes, fEdges, err := database.GetFilteredMemoryGraph(MemoryGraphFilter{
+		Ticker: "ANTM",
+		Depth:  1,
+	})
+	if err != nil {
+		t.Fatalf("GetFilteredMemoryGraph failed: %v", err)
+	}
+	if len(fNodes) != 2 {
+		t.Fatalf("expected 2 nodes in ANTM ego graph, got %d", len(fNodes))
+	}
+	if len(fEdges) != 1 {
+		t.Fatalf("expected 1 edge in ANTM ego graph, got %d", len(fEdges))
+	}
+
+	// 2. Stats
+	stats, err := database.GetMemoryGraphStats()
+	if err != nil {
+		t.Fatalf("GetMemoryGraphStats failed: %v", err)
+	}
+	if stats.TotalNodes != 3 || stats.TotalEdges != 2 {
+		t.Fatalf("expected 3 nodes and 2 edges in stats, got %d nodes and %d edges", stats.TotalNodes, stats.TotalEdges)
+	}
+	if stats.NodeTypes["TICKER"] != 2 || stats.NodeTypes["CATALYST"] != 1 {
+		t.Fatalf("unexpected node type breakdown: %+v", stats.NodeTypes)
+	}
+}
+
+func TestSectorsCacheStatsAndClean(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_cache_stats.db")
+
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	// Insert permanent cache
+	err = database.SetSectorsCache("key1", "/v2/daily/BBCA", `{"ok":true}`, nil)
+	if err != nil {
+		t.Fatalf("SetSectorsCache failed: %v", err)
+	}
+
+	// Insert expired cache
+	past := time.Now().Add(-2 * time.Hour)
+	err = database.SetSectorsCache("key2", "/v2/company/BBCA", `{"ok":true}`, &past)
+	if err != nil {
+		t.Fatalf("SetSectorsCache failed: %v", err)
+	}
+
+	stats, err := database.GetSectorsCacheStats()
+	if err != nil {
+		t.Fatalf("GetSectorsCacheStats failed: %v", err)
+	}
+	if stats.TotalEntries != 2 || stats.ExpiredEntries != 1 || stats.PermanentEntries != 1 {
+		t.Fatalf("unexpected stats: %+v", stats)
+	}
+
+	cleaned, err := database.CleanExpiredCache()
+	if err != nil {
+		t.Fatalf("CleanExpiredCache failed: %v", err)
+	}
+	if cleaned != 1 {
+		t.Fatalf("expected 1 cleaned item, got %d", cleaned)
+	}
+}

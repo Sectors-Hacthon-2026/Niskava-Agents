@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -124,5 +125,43 @@ func TestExpandHome_CrossPlatform(t *testing.T) {
 		if got != tt.expected {
 			t.Errorf("ExpandHome(%q) = %q, want %q", tt.input, got, tt.expected)
 		}
+	}
+}
+
+func TestSaveConfigAndMaskedView(t *testing.T) {
+	origKey := os.Getenv("SECTORS_API_KEY")
+	_ = os.Unsetenv("SECTORS_API_KEY")
+	defer func() {
+		if origKey != "" {
+			_ = os.Setenv("SECTORS_API_KEY", origKey)
+		}
+	}()
+
+	tempDir := t.TempDir()
+	cfgPath := filepath.Join(tempDir, "config.yaml")
+
+	cfg := DefaultConfig()
+	cfg.Auth.SectorsAPIKey = "sec_test_key_12345"
+	cfg.Auth.GeminiAPIKey = "AIzaSyTestGeminiSecret"
+	cfg.Auth.AIProvider = "gemini"
+
+	if err := SaveConfig(cfg, cfgPath); err != nil {
+		t.Fatalf("failed to save config: %v", err)
+	}
+
+	loaded, err := LoadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("failed to reload config: %v", err)
+	}
+	if loaded.Auth.SectorsAPIKey != "sec_test_key_12345" {
+		t.Fatalf("expected saved key to match, got %s", loaded.Auth.SectorsAPIKey)
+	}
+
+	view := cfg.MaskedView()
+	if view.Auth.SectorsAPIKey == "sec_test_key_12345" {
+		t.Fatalf("SectorsAPIKey should be masked in view, got: %s", view.Auth.SectorsAPIKey)
+	}
+	if !strings.Contains(view.Auth.SectorsAPIKey, "****") {
+		t.Fatalf("expected mask pattern with ****, got: %s", view.Auth.SectorsAPIKey)
 	}
 }
