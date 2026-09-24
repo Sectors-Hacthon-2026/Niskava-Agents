@@ -1303,7 +1303,14 @@ class NiskavaReActAgent:
                 combined_obs = "\n\n".join(obs_parts)
                 # Graceful landing warning: when approaching iteration limit, instruct model to synthesize
                 remaining_steps = max_iter - 1 - _
-                if 0 < remaining_steps <= 3:
+                if remaining_steps == 0:
+                    combined_obs += (
+                        "\n\n[SYSTEM NOTICE: Maximum reasoning steps reached. "
+                        "All necessary market data and evidence have been collected. Do NOT invoke any additional tools. "
+                        "Immediately synthesize and present your comprehensive final analysis inside "
+                        "<response>...</response> in the user's inquiry language.]"
+                    )
+                elif 0 < remaining_steps <= 3:
                     combined_obs += (
                         f"\n\n[SYSTEM NOTICE: Only {remaining_steps} reasoning step(s) remaining. "
                         "Sufficient evidence has been collected. Do NOT invoke additional tools. "
@@ -1346,6 +1353,10 @@ class NiskavaReActAgent:
                                     final_cleaned = re.sub(r"<tool_call>.*?</tool_call>", "", final_cleaned, flags=re.DOTALL).strip()
                                     if final_cleaned:
                                         final_response = final_cleaned
+                                        break
+                                    thoughts = re.findall(r"<thought>(.*?)</thought>", final_content, re.DOTALL)
+                                    if thoughts and len(thoughts[0].strip()) > 30:
+                                        final_response = thoughts[0].strip()
                                         break
                     except Exception:
                         pass
