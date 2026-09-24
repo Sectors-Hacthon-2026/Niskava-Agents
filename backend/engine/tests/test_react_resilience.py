@@ -43,4 +43,4 @@ def test_react_agent_tool_dispatch_exception_does_not_cut_off(tmp_path):
     try:
         registry.execute_tool("non_existent_tool_xyz", {})
     except ValueError as exc:
-        assert "tidak terdaftar" in str(exc)
+        assert "not registered" in str(exc).lower() or "tidak terdaftar" in str(exc).lower()

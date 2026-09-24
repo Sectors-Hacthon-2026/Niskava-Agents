@@ -16,8 +16,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/db"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/telegram"
 )
 
 // SessionManager manages active running session streams and allows cancellation (OpenCode pattern).
@@ -82,6 +84,11 @@ type Server struct {
 	DB             *db.DB
 	URL            string
 	SessionManager *SessionManager
+	Config         *config.Config
+	ConfigPath     string
+	cfgMu          sync.RWMutex
+	BotService     *telegram.BotService
+	botMu          sync.Mutex
 }
 
 // ChatRequest represents the JSON payload for /api/chat.
@@ -111,20 +118,75 @@ type ForkSessionRequest struct {
 	UpToMessageID string `json:"up_to_message_id,omitempty"`
 }
 
+// UpdateSettingsRequest defines the payload structure for patching system configuration.
+type UpdateSettingsRequest struct {
+	Auth *struct {
+		AIProvider      *string `json:"ai_provider"`
+		SectorsAPIKey   *string `json:"sectors_api_key"`
+		SectorsBaseURL  *string `json:"sectors_base_url"`
+		GeminiAPIKey    *string `json:"gemini_api_key"`
+		GeminiModel     *string `json:"gemini_model"`
+		OpenAIAPIKey    *string `json:"openai_api_key"`
+		OpenAIBaseURL   *string `json:"openai_base_url"`
+		OpenAIModel     *string `json:"openai_model"`
+		AnthropicAPIKey *string `json:"anthropic_api_key"`
+		OllamaBaseURL   *string `json:"ollama_base_url"`
+		OllamaModel     *string `json:"ollama_model"`
+	} `json:"auth"`
+	Preferences *struct {
+		DefaultMarket *string `json:"default_market"`
+		OfflineMode   *bool   `json:"offline_mode"`
+		Language      *string `json:"language"`
+	} `json:"preferences"`
+	Storage *struct {
+		DBPath *string `json:"db_path"`
+	} `json:"storage"`
+	Engine *struct {
+		PythonBin  *string `json:"python_bin"`
+		EnginePath *string `json:"entrypoint"`
+	} `json:"engine"`
+	Memory *struct {
+		Enabled          *bool    `json:"enabled"`
+		DecayLambda      *float64 `json:"decay_lambda"`
+		EgoRadius        *int     `json:"ego_radius"`
+		MaxContextTokens *int     `json:"max_context_tokens"`
+	} `json:"memory"`
+	Telegram *struct {
+		BotToken     *string   `json:"bot_token"`
+		Enabled      *bool     `json:"enabled"`
+		AllowedUsers *[]string `json:"allowed_users"`
+	} `json:"telegram"`
+}
+
 // Start launches the background HTTP server on the specified port (or auto-finds free port).
-func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, error) {
+func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*config.Config) (*Server, error) {
 	mux := http.NewServeMux()
+
+	var activeCfg *config.Config
+	if len(cfgs) > 0 && cfgs[0] != nil {
+		activeCfg = cfgs[0]
+	} else {
+		activeCfg = config.DefaultConfig()
+	}
 
 	s := &Server{
 		Port:           requestedPort,
 		DB:             database,
 		SessionManager: NewSessionManager(),
+		Config:         activeCfg,
+	}
+
+	if activeCfg.Telegram.Enabled && strings.TrimSpace(activeCfg.Telegram.BotToken) != "" {
+		if botSvc, err := telegram.NewBotService(s.Config, s.DB, s.SessionManager); err == nil {
+			s.BotService = botSvc
+			_ = s.BotService.Start()
+		}
 	}
 
 	// Helper for CORS preflight and headers
 	enableCORS := func(w http.ResponseWriter, r *http.Request) bool {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
@@ -151,6 +213,720 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			"version":   "1.0.0",
 			"market":    "IDX",
 			"timestamp": time.Now().UTC().Format(time.RFC3339),
+		})
+	})
+
+	// Settings API endpoint (GET masked view, PATCH/PUT update & hot-reload)
+	mux.HandleFunc("/api/settings", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+
+		s.cfgMu.RLock()
+		activeCfg := s.Config
+		s.cfgMu.RUnlock()
+
+		if activeCfg == nil {
+			activeCfg = config.DefaultConfig()
+		}
+
+		if r.Method == http.MethodGet {
+			sendJSON(w, http.StatusOK, activeCfg.MaskedView())
+			return
+		}
+
+		if r.Method == http.MethodPatch || r.Method == http.MethodPut {
+			var req UpdateSettingsRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "invalid json: %v"}`, err), http.StatusBadRequest)
+				return
+			}
+
+			s.cfgMu.Lock()
+			if s.Config == nil {
+				s.Config = config.DefaultConfig()
+			}
+
+			if req.Auth != nil {
+				if req.Auth.AIProvider != nil && *req.Auth.AIProvider != "" {
+					s.Config.Auth.AIProvider = *req.Auth.AIProvider
+				}
+				if req.Auth.SectorsAPIKey != nil && *req.Auth.SectorsAPIKey != "" && !strings.Contains(*req.Auth.SectorsAPIKey, "****") {
+					s.Config.Auth.SectorsAPIKey = *req.Auth.SectorsAPIKey
+				}
+				if req.Auth.SectorsBaseURL != nil && *req.Auth.SectorsBaseURL != "" {
+					s.Config.Auth.SectorsBaseURL = *req.Auth.SectorsBaseURL
+				}
+				if req.Auth.GeminiAPIKey != nil && *req.Auth.GeminiAPIKey != "" && !strings.Contains(*req.Auth.GeminiAPIKey, "****") {
+					s.Config.Auth.GeminiAPIKey = *req.Auth.GeminiAPIKey
+				}
+				if req.Auth.GeminiModel != nil && *req.Auth.GeminiModel != "" {
+					s.Config.Auth.GeminiModel = *req.Auth.GeminiModel
+				}
+				if req.Auth.OpenAIAPIKey != nil && *req.Auth.OpenAIAPIKey != "" && !strings.Contains(*req.Auth.OpenAIAPIKey, "****") {
+					s.Config.Auth.OpenAIAPIKey = *req.Auth.OpenAIAPIKey
+				}
+				if req.Auth.OpenAIBaseURL != nil && *req.Auth.OpenAIBaseURL != "" {
+					s.Config.Auth.OpenAIBaseURL = *req.Auth.OpenAIBaseURL
+				}
+				if req.Auth.OpenAIModel != nil && *req.Auth.OpenAIModel != "" {
+					s.Config.Auth.OpenAIModel = *req.Auth.OpenAIModel
+				}
+				if req.Auth.AnthropicAPIKey != nil && *req.Auth.AnthropicAPIKey != "" && !strings.Contains(*req.Auth.AnthropicAPIKey, "****") {
+					s.Config.Auth.AnthropicAPIKey = *req.Auth.AnthropicAPIKey
+				}
+				if req.Auth.OllamaBaseURL != nil && *req.Auth.OllamaBaseURL != "" {
+					s.Config.Auth.OllamaBaseURL = *req.Auth.OllamaBaseURL
+				}
+				if req.Auth.OllamaModel != nil && *req.Auth.OllamaModel != "" {
+					s.Config.Auth.OllamaModel = *req.Auth.OllamaModel
+				}
+			}
+
+			if req.Preferences != nil {
+				if req.Preferences.DefaultMarket != nil && *req.Preferences.DefaultMarket != "" {
+					s.Config.Preferences.DefaultMarket = strings.ToUpper(*req.Preferences.DefaultMarket)
+				}
+				if req.Preferences.OfflineMode != nil {
+					s.Config.Preferences.OfflineMode = *req.Preferences.OfflineMode
+				}
+				if req.Preferences.Language != nil && *req.Preferences.Language != "" {
+					s.Config.Preferences.Language = strings.ToLower(*req.Preferences.Language)
+				}
+			}
+
+			if req.Storage != nil && req.Storage.DBPath != nil && *req.Storage.DBPath != "" {
+				s.Config.Storage.DBPath = *req.Storage.DBPath
+			}
+			if req.Engine != nil {
+				if req.Engine.PythonBin != nil && *req.Engine.PythonBin != "" {
+					s.Config.Engine.PythonBin = *req.Engine.PythonBin
+				}
+				if req.Engine.EnginePath != nil && *req.Engine.EnginePath != "" {
+					s.Config.Engine.EnginePath = *req.Engine.EnginePath
+				}
+			}
+			if req.Memory != nil {
+				if req.Memory.Enabled != nil {
+					s.Config.Memory.Enabled = *req.Memory.Enabled
+				}
+				if req.Memory.DecayLambda != nil {
+					s.Config.Memory.DecayLambda = *req.Memory.DecayLambda
+				}
+				if req.Memory.EgoRadius != nil {
+					s.Config.Memory.EgoRadius = *req.Memory.EgoRadius
+				}
+				if req.Memory.MaxContextTokens != nil {
+					s.Config.Memory.MaxContextTokens = *req.Memory.MaxContextTokens
+				}
+			}
+			if req.Telegram != nil {
+				if req.Telegram.BotToken != nil && *req.Telegram.BotToken != "" && !strings.Contains(*req.Telegram.BotToken, "****") {
+					s.Config.Telegram.BotToken = *req.Telegram.BotToken
+				}
+				if req.Telegram.Enabled != nil {
+					s.Config.Telegram.Enabled = *req.Telegram.Enabled
+				}
+				if req.Telegram.AllowedUsers != nil {
+					s.Config.Telegram.AllowedUsers = *req.Telegram.AllowedUsers
+				}
+			}
+
+			_ = config.SaveConfig(s.Config, s.ConfigPath)
+			view := s.Config.MaskedView()
+			s.cfgMu.Unlock()
+
+			sendJSON(w, http.StatusOK, view)
+			return
+		}
+
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	})
+
+	// Test Connection endpoint
+	mux.HandleFunc("/api/settings/test-connection", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			Target  string `json:"target"`
+			APIKey  string `json:"api_key,omitempty"`
+			BaseURL string `json:"base_url,omitempty"`
+			Model   string `json:"model,omitempty"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "invalid json: %v"}`, err), http.StatusBadRequest)
+			return
+		}
+
+		target := strings.ToLower(strings.TrimSpace(req.Target))
+		validTargets := map[string]bool{"sectors": true, "gemini": true, "openai": true, "ollama": true, "anthropic": true}
+		if !validTargets[target] {
+			http.Error(w, `{"error": "invalid target, must be one of: sectors, gemini, openai, ollama, anthropic"}`, http.StatusBadRequest)
+			return
+		}
+
+		start := time.Now()
+		type responseType struct {
+			Target    string `json:"target"`
+			Success   bool   `json:"success"`
+			Message   string `json:"message"`
+			LatencyMs int64  `json:"latency_ms"`
+		}
+		resp := responseType{
+			Target: target,
+		}
+
+		s.cfgMu.RLock()
+		cfg := s.Config
+		s.cfgMu.RUnlock()
+		if cfg == nil {
+			cfg = config.DefaultConfig()
+		}
+
+		switch target {
+		case "sectors":
+			key := req.APIKey
+			if key == "" || strings.Contains(key, "****") {
+				key = cfg.Auth.SectorsAPIKey
+			}
+			if key == "" && !cfg.Preferences.OfflineMode && os.Getenv("MOCK_SECTORS") != "1" {
+				resp.Success = false
+				resp.Message = "Sectors API key is not configured"
+				break
+			}
+			if cfg.Preferences.OfflineMode || os.Getenv("MOCK_SECTORS") == "1" {
+				resp.Success = true
+				resp.Message = "Sectors mock mode active (offline testing)"
+				break
+			}
+
+			client := &http.Client{Timeout: 5 * time.Second}
+			httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://api.sectors.app/v2/daily/BBCA/?format=json", nil)
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Failed to build request: %v", err)
+				break
+			}
+			httpReq.Header.Set("Authorization", key)
+			httpResp, err := client.Do(httpReq)
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Connection failed: %v", err)
+				break
+			}
+			defer httpResp.Body.Close()
+			if httpResp.StatusCode == http.StatusOK {
+				resp.Success = true
+				resp.Message = "Connected to Sectors v2 API successfully"
+			} else if httpResp.StatusCode == http.StatusUnauthorized || httpResp.StatusCode == http.StatusForbidden {
+				resp.Success = false
+				resp.Message = "Invalid Sectors API key (Unauthorized)"
+			} else {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Sectors API returned HTTP %d", httpResp.StatusCode)
+			}
+
+		case "ollama":
+			baseURL := req.BaseURL
+			if baseURL == "" {
+				baseURL = cfg.Auth.OllamaBaseURL
+			}
+			if baseURL == "" {
+				baseURL = "http://localhost:11434"
+			}
+			baseURL = strings.TrimRight(baseURL, "/")
+
+			client := &http.Client{Timeout: 3 * time.Second}
+			httpResp, err := client.Get(baseURL + "/api/tags")
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Failed to reach Ollama endpoint at %s: %v", baseURL, err)
+				break
+			}
+			defer httpResp.Body.Close()
+			if httpResp.StatusCode == http.StatusOK {
+				resp.Success = true
+				resp.Message = fmt.Sprintf("Ollama instance reached at %s", baseURL)
+			} else {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Ollama returned HTTP %d", httpResp.StatusCode)
+			}
+
+		case "gemini":
+			key := req.APIKey
+			if key == "" || strings.Contains(key, "****") {
+				key = cfg.Auth.GeminiAPIKey
+			}
+			if key == "" {
+				resp.Success = false
+				resp.Message = "Gemini API key is not configured"
+				break
+			}
+			if cfg.Preferences.OfflineMode {
+				resp.Success = true
+				resp.Message = "Offline mode active (mock verification)"
+				break
+			}
+			client := &http.Client{Timeout: 5 * time.Second}
+			testURL := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models?key=%s", key)
+			httpResp, err := client.Get(testURL)
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Connection to Gemini failed: %v", err)
+				break
+			}
+			defer httpResp.Body.Close()
+			if httpResp.StatusCode == http.StatusOK {
+				resp.Success = true
+				resp.Message = "Gemini API key verified successfully"
+			} else {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Gemini returned HTTP %d", httpResp.StatusCode)
+			}
+
+		case "openai":
+			key := req.APIKey
+			if key == "" || strings.Contains(key, "****") {
+				key = cfg.Auth.OpenAIAPIKey
+			}
+			baseURL := req.BaseURL
+			if baseURL == "" {
+				baseURL = cfg.Auth.OpenAIBaseURL
+			}
+			if baseURL == "" {
+				baseURL = "https://api.openai.com/v1"
+			}
+			baseURL = strings.TrimRight(baseURL, "/")
+			if cfg.Preferences.OfflineMode {
+				resp.Success = true
+				resp.Message = "Offline mode active (mock verification)"
+				break
+			}
+			client := &http.Client{Timeout: 5 * time.Second}
+			httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, baseURL+"/models", nil)
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Failed to build request: %v", err)
+				break
+			}
+			if key != "" {
+				httpReq.Header.Set("Authorization", "Bearer "+key)
+			}
+			httpResp, err := client.Do(httpReq)
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Connection failed: %v", err)
+				break
+			}
+			defer httpResp.Body.Close()
+			if httpResp.StatusCode == http.StatusOK {
+				resp.Success = true
+				resp.Message = "OpenAI compatible endpoint reached successfully"
+			} else {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Endpoint returned HTTP %d", httpResp.StatusCode)
+			}
+
+		case "anthropic":
+			key := req.APIKey
+			if key == "" || strings.Contains(key, "****") {
+				key = cfg.Auth.AnthropicAPIKey
+			}
+			if key == "" {
+				resp.Success = false
+				resp.Message = "Anthropic API key is not configured"
+				break
+			}
+			resp.Success = true
+			resp.Message = "Anthropic key format verified"
+		}
+
+		resp.LatencyMs = time.Since(start).Milliseconds()
+		sendJSON(w, http.StatusOK, resp)
+	})
+
+	// Telegram Settings endpoint (GET view, PATCH/PUT update)
+	mux.HandleFunc("/api/settings/telegram", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+
+		if r.Method == http.MethodGet {
+			s.cfgMu.RLock()
+			cfg := s.Config
+			var enabled bool
+			var hasToken bool
+			var allowedUsers []string
+			if cfg != nil {
+				enabled = cfg.Telegram.Enabled
+				hasToken = strings.TrimSpace(cfg.Telegram.BotToken) != ""
+				allowedUsers = cfg.Telegram.AllowedUsers
+			}
+			s.cfgMu.RUnlock()
+
+			if allowedUsers == nil {
+				allowedUsers = []string{}
+			}
+
+			s.botMu.Lock()
+			botRunning := s.BotService != nil && s.BotService.IsStarted()
+			var botUsername string
+			if s.BotService != nil {
+				botUsername = s.BotService.BotUsername()
+			}
+			s.botMu.Unlock()
+
+			status := "NOT_CONFIGURED"
+			if botRunning {
+				status = "RUNNING"
+			} else if hasToken {
+				status = "STOPPED"
+			}
+
+			sendJSON(w, http.StatusOK, map[string]interface{}{
+				"status":        status,
+				"bot_username":  botUsername,
+				"enabled":       enabled,
+				"allowed_users": allowedUsers,
+				"has_token":     hasToken,
+			})
+			return
+		}
+
+		if r.Method == http.MethodPatch || r.Method == http.MethodPut {
+			var req struct {
+				BotToken     *string       `json:"bot_token"`
+				Enabled      *bool         `json:"enabled"`
+				AllowedUsers []interface{} `json:"allowed_users"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "invalid json: %v"}`, err), http.StatusBadRequest)
+				return
+			}
+
+			s.cfgMu.Lock()
+			if s.Config == nil {
+				s.Config = config.DefaultConfig()
+			}
+			if req.BotToken != nil && *req.BotToken != "" && !strings.Contains(*req.BotToken, "****") {
+				s.Config.Telegram.BotToken = *req.BotToken
+			}
+			if req.Enabled != nil {
+				s.Config.Telegram.Enabled = *req.Enabled
+			}
+			if req.AllowedUsers != nil {
+				var users []string
+				for _, u := range req.AllowedUsers {
+					switch val := u.(type) {
+					case string:
+						trimmed := strings.TrimSpace(val)
+						if trimmed != "" {
+							users = append(users, trimmed)
+						}
+					case float64:
+						users = append(users, fmt.Sprintf("%.0f", val))
+					}
+				}
+				s.Config.Telegram.AllowedUsers = users
+			}
+			_ = config.SaveConfig(s.Config, s.ConfigPath)
+
+			enabled := s.Config.Telegram.Enabled
+			hasToken := strings.TrimSpace(s.Config.Telegram.BotToken) != ""
+			allowedUsers := s.Config.Telegram.AllowedUsers
+			s.cfgMu.Unlock()
+
+			if allowedUsers == nil {
+				allowedUsers = []string{}
+			}
+
+			s.botMu.Lock()
+			botRunning := s.BotService != nil && s.BotService.IsStarted()
+			var botUsername string
+			if s.BotService != nil {
+				botUsername = s.BotService.BotUsername()
+			}
+			s.botMu.Unlock()
+
+			status := "NOT_CONFIGURED"
+			if botRunning {
+				status = "RUNNING"
+			} else if hasToken {
+				status = "STOPPED"
+			}
+
+			sendJSON(w, http.StatusOK, map[string]interface{}{
+				"status":        status,
+				"bot_username":  botUsername,
+				"enabled":       enabled,
+				"allowed_users": allowedUsers,
+				"has_token":     hasToken,
+			})
+			return
+		}
+
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	})
+
+	// Telegram Daemon Lifecycle Start endpoint
+	mux.HandleFunc("/api/telegram/start", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		s.cfgMu.RLock()
+		token := ""
+		if s.Config != nil {
+			token = strings.TrimSpace(s.Config.Telegram.BotToken)
+		}
+		s.cfgMu.RUnlock()
+
+		if token == "" {
+			sendJSON(w, http.StatusBadRequest, map[string]interface{}{
+				"error":  "telegram bot token is not configured",
+				"status": "NOT_CONFIGURED",
+			})
+			return
+		}
+
+		s.botMu.Lock()
+		defer s.botMu.Unlock()
+
+		if s.BotService == nil || !s.BotService.IsStarted() {
+			svc, err := telegram.NewBotService(s.Config, s.DB, s.SessionManager)
+			if err != nil {
+				sendJSON(w, http.StatusInternalServerError, map[string]interface{}{
+					"error":  fmt.Sprintf("failed to initialize telegram bot: %v", err),
+					"status": "STOPPED",
+				})
+				return
+			}
+			s.BotService = svc
+			if err := s.BotService.Start(); err != nil {
+				sendJSON(w, http.StatusInternalServerError, map[string]interface{}{
+					"error":  fmt.Sprintf("failed to start telegram bot: %v", err),
+					"status": "STOPPED",
+				})
+				return
+			}
+		}
+
+		s.cfgMu.Lock()
+		if s.Config != nil {
+			s.Config.Telegram.Enabled = true
+			_ = config.SaveConfig(s.Config, s.ConfigPath)
+		}
+		s.cfgMu.Unlock()
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"status":       "RUNNING",
+			"bot_username": s.BotService.BotUsername(),
+			"message":      "telegram bot started successfully",
+		})
+	})
+
+	// Telegram Daemon Lifecycle Stop endpoint
+	mux.HandleFunc("/api/telegram/stop", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		s.botMu.Lock()
+		if s.BotService != nil && s.BotService.IsStarted() {
+			s.BotService.Stop()
+		}
+		s.botMu.Unlock()
+
+		s.cfgMu.Lock()
+		if s.Config != nil {
+			s.Config.Telegram.Enabled = false
+			_ = config.SaveConfig(s.Config, s.ConfigPath)
+		}
+		s.cfgMu.Unlock()
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"status":  "STOPPED",
+			"message": "telegram bot stopped successfully",
+		})
+	})
+
+	// Telegram Test Message endpoint
+	mux.HandleFunc("/api/telegram/test", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			ChatID interface{} `json:"chat_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "invalid json: %v"}`, err), http.StatusBadRequest)
+			return
+		}
+
+		var chatID int64
+		switch v := req.ChatID.(type) {
+		case float64:
+			chatID = int64(v)
+		case string:
+			parsed, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64)
+			if err == nil {
+				chatID = parsed
+			}
+		}
+
+		if chatID == 0 {
+			http.Error(w, `{"error": "chat_id is required"}`, http.StatusBadRequest)
+			return
+		}
+
+		s.cfgMu.RLock()
+		isOffline := false
+		if s.Config != nil {
+			isOffline = s.Config.Preferences.OfflineMode
+		}
+		s.cfgMu.RUnlock()
+
+		if isOffline || os.Getenv("TELEGRAM_OFFLINE") == "1" {
+			sendJSON(w, http.StatusOK, map[string]interface{}{
+				"status":  "ok",
+				"mock":    true,
+				"chat_id": chatID,
+				"message": "test message delivered (mock offline mode)",
+			})
+			return
+		}
+
+		s.botMu.Lock()
+		active := s.BotService != nil && s.BotService.IsStarted()
+		svc := s.BotService
+		s.botMu.Unlock()
+
+		if !active || svc == nil {
+			http.Error(w, `{"error": "telegram bot is not running", "status": "STOPPED"}`, http.StatusBadRequest)
+			return
+		}
+
+		testMsg := "🔔 Niskava Agent: Koneksi Telegram Bot berhasil diverifikasi."
+		if err := svc.SendTestMessage(chatID, testMsg); err != nil {
+			sendJSON(w, http.StatusInternalServerError, map[string]interface{}{
+				"error":   fmt.Sprintf("failed to send telegram test message: %v", err),
+				"chat_id": chatID,
+			})
+			return
+		}
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"status":  "ok",
+			"chat_id": chatID,
+			"message": "test message sent successfully",
+		})
+	})
+
+	// System: Sectors API Credit & Cache Usage endpoint (Law 5 compliance)
+	mux.HandleFunc("/api/system/sectors-usage", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+
+		stats, err := database.GetSectorsCacheStats()
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+			return
+		}
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"total_entries":          stats.TotalEntries,
+			"expired_entries":        stats.ExpiredEntries,
+			"permanent_entries":      stats.PermanentEntries,
+			"estimated_credit_saved": stats.TotalEntries,
+			"status":                 "HEALTHY",
+		})
+	})
+
+	// System: Diagnostics and runtime health metrics
+	mux.HandleFunc("/api/system/diagnostics", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+
+		dbPath := ""
+		var dbSizeBytes int64
+		if database != nil && database.Path != "" {
+			dbPath = database.Path
+			if fi, err := os.Stat(dbPath); err == nil {
+				dbSizeBytes = fi.Size()
+			}
+		}
+
+		totalSessions := 0
+		if database != nil {
+			_, total, err := database.ListChatSessions(1, 0, "")
+			if err == nil {
+				totalSessions = total
+			}
+		}
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"status":              "OK",
+			"app":                 "Niskava Agent",
+			"go_version":          runtime.Version(),
+			"os":                  runtime.GOOS,
+			"arch":                runtime.GOARCH,
+			"num_cpu":             runtime.NumCPU(),
+			"database_path":       dbPath,
+			"database_size_bytes": dbSizeBytes,
+			"total_sessions":      totalSessions,
+			"timestamp":           time.Now().UTC().Format(time.RFC3339),
+		})
+	})
+
+	// System: Clean expired cache entries
+	mux.HandleFunc("/api/system/cache/clean", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+
+		cleaned, err := database.CleanExpiredCache()
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "failed to clean expired cache: %v"}`, err), http.StatusInternalServerError)
+			return
+		}
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"status":          "ok",
+			"cleaned_entries": cleaned,
+			"timestamp":       time.Now().UTC().Format(time.RFC3339),
 		})
 	})
 
@@ -765,9 +1541,10 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			return
 		}
 
-		// Disable write timeout for this streaming SSE connection
+		// Disable read and write deadlines for long-running SSE streaming sessions
 		rc := http.NewResponseController(w)
 		_ = rc.SetWriteDeadline(time.Time{})
+		_ = rc.SetReadDeadline(time.Time{})
 
 		// Create cancellable context for this chat execution
 		chatCtx, cancelChat := context.WithCancel(r.Context())
@@ -786,13 +1563,14 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			}
 		}()
 
-		pythonBin := ipc.FindPythonBinary()
+		pythonBin := ipc.ResolvePythonBin(os.Getenv("NISKAVA_PYTHON_BIN"))
 
 		dbPath := ""
 		if s.DB != nil && s.DB.Path != "" {
 			dbPath = s.DB.Path
 		} else {
-			dbPath = filepath.Join(os.Getenv("HOME"), ".niskava", "niskava.db")
+			homeDir, _ := os.UserHomeDir()
+			dbPath = filepath.Join(homeDir, ".niskava", "niskava.db")
 			if customDB := os.Getenv("NISKAVA_DB_PATH"); customDB != "" {
 				dbPath = customDB
 			}
@@ -860,6 +1638,17 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 					})
 					fmt.Fprintf(w, "event: session_error\ndata: %s\n\n", errPayload)
 					flusher.Flush()
+
+					if database != nil && assistantResponse.Len() > 0 {
+						_ = database.SaveChatMessage(&db.ChatMessage{
+							ID:        fmt.Sprintf("MSG-%d", time.Now().UnixNano()),
+							SessionID: sessionID,
+							Role:      "assistant",
+							Content:   assistantResponse.String() + "\n\n[Analysis interrupted due to upstream network issue]",
+							Status:    "FAILED",
+							CreatedAt: time.Now().UTC().Format(time.RFC3339),
+						})
+					}
 					return
 				}
 
@@ -897,6 +1686,9 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 
 	// 5. Memory Graph JSON endpoint (registered on both /api/graph and /api/graph/data for web workspace compatibility)
 	graphHandler := func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		if database == nil {
 			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
@@ -904,7 +1696,35 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		}
 
 		sessionID := r.URL.Query().Get("session_id")
-		nodes, edges, err := database.GetMemoryGraph(sessionID)
+		ticker := r.URL.Query().Get("ticker")
+		depthStr := r.URL.Query().Get("depth")
+		minWeightStr := r.URL.Query().Get("min_weight")
+		nodeTypesStr := r.URL.Query().Get("node_types")
+
+		filter := db.MemoryGraphFilter{
+			SessionID: sessionID,
+			Ticker:    ticker,
+		}
+		if depthStr != "" {
+			if d, err := strconv.Atoi(depthStr); err == nil {
+				filter.Depth = d
+			}
+		}
+		if minWeightStr != "" {
+			if mw, err := strconv.ParseFloat(minWeightStr, 64); err == nil {
+				filter.MinWeight = mw
+			}
+		}
+		if nodeTypesStr != "" {
+			parts := strings.Split(nodeTypesStr, ",")
+			for _, p := range parts {
+				if trimmed := strings.TrimSpace(p); trimmed != "" {
+					filter.NodeTypes = append(filter.NodeTypes, trimmed)
+				}
+			}
+		}
+
+		nodes, edges, err := database.GetFilteredMemoryGraph(filter)
 		if err != nil {
 			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
 			return
@@ -921,15 +1741,35 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 	mux.HandleFunc("/api/graph", graphHandler)
 	mux.HandleFunc("/api/graph/data", graphHandler)
 
+	// Memory Graph Stats endpoint
+	mux.HandleFunc("/api/graph/stats", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+
+		stats, err := database.GetMemoryGraphStats()
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(stats)
+	})
+
 	// 6. Interactive Memory Graph View endpoint (serves full Cyber-OSINT visualizer)
 	mux.HandleFunc("/graph", func(w http.ResponseWriter, r *http.Request) {
-		pythonBin := ipc.FindPythonBinary()
+		pythonBin := ipc.ResolvePythonBin(os.Getenv("NISKAVA_PYTHON_BIN"))
 
 		dbPath := ""
 		if s.DB != nil && s.DB.Path != "" {
 			dbPath = s.DB.Path
 		} else {
-			dbPath = filepath.Join(os.Getenv("HOME"), ".niskava", "niskava.db")
+			homeDir, _ := os.UserHomeDir()
+			dbPath = filepath.Join(homeDir, ".niskava", "niskava.db")
 			if customDB := os.Getenv("NISKAVA_DB_PATH"); customDB != "" {
 				dbPath = customDB
 			}
@@ -950,7 +1790,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		if existing := os.Getenv("PYTHONPATH"); existing != "" {
 			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
 		}
-		cmd.Env = append(os.Environ(), "PYTHONPATH="+pythonPath)
+		cmd.Env = append(os.Environ(),
+			"PYTHONPATH="+pythonPath,
+			"PYTHONIOENCODING=utf-8",
+			"PYTHONUTF8=1",
+		)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to generate graph visualization: %v\nOutput: %s", err, string(out)), http.StatusInternalServerError)
 			return
@@ -986,9 +1830,10 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 	s.URL = fmt.Sprintf("http://localhost:%d", actualPort)
 
 	s.httpServer = &http.Server{
-		Handler:      mux,
-		ReadTimeout:  60 * time.Second,
-		WriteTimeout: 0, // 0 disables global write deadline, essential for long-running SSE streaming sessions
+		Handler:           mux,
+		ReadHeaderTimeout: 30 * time.Second, // Protect against Slowloris attacks
+		ReadTimeout:       0,                // 0 disables connection-wide read deadline for SSE streaming
+		WriteTimeout:      0,                // 0 disables global write deadline, essential for long-running SSE streaming sessions
 	}
 
 	go func() {
@@ -1000,6 +1845,12 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		_ = s.httpServer.Shutdown(shutdownCtx)
+
+		s.botMu.Lock()
+		if s.BotService != nil && s.BotService.IsStarted() {
+			s.BotService.Stop()
+		}
+		s.botMu.Unlock()
 	}()
 
 	return s, nil

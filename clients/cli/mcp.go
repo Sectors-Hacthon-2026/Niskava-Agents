@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
 	"github.com/spf13/cobra"
 )
 
@@ -42,19 +43,12 @@ Example Claude Desktop configuration (~/.config/Claude/claude_desktop_config.jso
   }
 }`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Determine Python binary: CLI flag > Config file / Env > Virtual env fallback > python3
+		// Determine Python binary: CLI flag > Config file / Env > Virtual env fallback
 		pythonBin := mcpPyBinFlag
 		if pythonBin == "" && cfg != nil {
 			pythonBin = cfg.Engine.PythonBin
 		}
-		if pythonBin == "" || pythonBin == "python3" {
-			localVenv := filepath.Join(".venv", "bin", "python3")
-			if _, err := os.Stat(localVenv); err == nil {
-				pythonBin = localVenv
-			} else {
-				pythonBin = "python3"
-			}
-		}
+		pythonBin = ipc.ResolvePythonBin(pythonBin)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -81,7 +75,12 @@ Example Claude Desktop configuration (~/.config/Claude/claude_desktop_config.jso
 		if existing := os.Getenv("PYTHONPATH"); existing != "" {
 			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
 		}
-		proc.Env = append(proc.Env, "PYTHONPATH="+pythonPath, "PYTHONUNBUFFERED=1")
+		proc.Env = append(proc.Env,
+			"PYTHONPATH="+pythonPath,
+			"PYTHONUNBUFFERED=1",
+			"PYTHONIOENCODING=utf-8",
+			"PYTHONUTF8=1",
+		)
 		if cfg != nil {
 			proc.Env = append(proc.Env, fmt.Sprintf("NISKAVA_DB_PATH=%s", cfg.Storage.DBPath))
 			if cfg.Auth.SectorsAPIKey != "" {

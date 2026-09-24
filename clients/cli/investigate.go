@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -48,19 +47,12 @@ var investigateCmd = &cobra.Command{
 			// Non-fatal if session already exists, continue
 		}
 
-		// Determine Python binary: CLI flag > Config file / Env > Virtual env fallback > python3
+		// Determine Python binary: CLI flag > Config file / Env > Virtual env fallback
 		pythonBin := pyBinFlag
-		if pythonBin == "" {
+		if pythonBin == "" && cfg != nil {
 			pythonBin = cfg.Engine.PythonBin
 		}
-
-		// If python3 default, check if local .venv exists
-		if pythonBin == "python3" {
-			localVenv := filepath.Join(".venv", "bin", "python3")
-			if _, err := os.Stat(localVenv); err == nil {
-				pythonBin = localVenv
-			}
-		}
+		pythonBin = ipc.ResolvePythonBin(pythonBin)
 
 		isOffline := offlineFlag || cfg.Preferences.OfflineMode
 

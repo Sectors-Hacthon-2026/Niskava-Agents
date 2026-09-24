@@ -87,26 +87,18 @@ and qualitative market disclosures/news.`,
 				tui.PromptPressEscToReturn()
 
 			case "terminal":
-				// RunLiveREPL returns ReplBackSentinel if user typed /back.
-				// If user typed /exit (or double-pressed Esc/Ctrl+C), it returns "" -> exit to shell.
-				ret := tui.RunLiveREPL(cfg, appDB, srv.URL)
-				if ret != tui.ReplBackSentinel {
-					return nil
-				}
+				// RunLiveREPL returns control to launcher menu when user exits or types /back or /exit
+				_ = tui.RunLiveREPL(cfg, appDB, srv.URL)
 
 			case "sessions":
 				// Show saved sessions with interactive resume option
 				selectedSessionID := runSessionsInteractive(cmd, appDB)
 				if selectedSessionID != "" {
-					ret := tui.RunLiveREPL(cfg, appDB, srv.URL, selectedSessionID)
-					if ret != tui.ReplBackSentinel {
-						return nil
-					}
+					_ = tui.RunLiveREPL(cfg, appDB, srv.URL, selectedSessionID)
 				}
 
 			case "help":
 				tui.PrintFullHelpGuide()
-				tui.PromptPressEscToReturn()
 
 			case "health":
 				tui.PrintHealthDiagnostics(cfg, srv.URL)

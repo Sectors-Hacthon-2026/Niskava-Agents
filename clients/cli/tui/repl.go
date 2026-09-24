@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -78,6 +77,7 @@ var (
 // SlashCommand represents a registered slash command in the interactive REPL.
 type SlashCommand struct {
 	Command     string
+	Category    string
 	Description string
 }
 
@@ -85,7 +85,7 @@ func getDefaultSlashCommands() []SlashCommand {
 	return GetLocalizedSlashCommands()
 }
 
-// ReplInputModel is the Bubbletea interactive text input model with OpenCode-style slash popup.
+// ReplInputModel is the Bubbletea interactive text input model with OpenCode-style slash popup and prompt history navigation.
 type ReplInputModel struct {
 	TextInput        textinput.Model
 	PromptPrefix     string
@@ -97,10 +97,19 @@ type ReplInputModel struct {
 	Quitting         bool
 	LastExitTime     time.Time
 	ExitWarning      bool
+	History          []string
+	HistoryIndex     int
+	DraftValue       string
+	NavigatingHist   bool
 }
 
 // NewReplInputModel initializes the interactive REPL prompt input.
 func NewReplInputModel(promptPrefix string) ReplInputModel {
+	return NewReplInputModelWithHistory(promptPrefix, nil)
+}
+
+// NewReplInputModelWithHistory initializes prompt input with existing prompt history.
+func NewReplInputModelWithHistory(promptPrefix string, history []string) ReplInputModel {
 	ti := textinput.New()
 	ti.Prompt = promptBoxStyle.Render(promptPrefix + " ")
 	ti.Placeholder = T("prompt_placeholder")
@@ -112,6 +121,8 @@ func NewReplInputModel(promptPrefix string) ReplInputModel {
 		PromptPrefix:     promptPrefix,
 		SlashCommands:    cmds,
 		FilteredCommands: cmds,
+		History:          history,
+		HistoryIndex:     len(history),
 	}
 }
 
@@ -138,6 +149,8 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.TextInput.SetCursor(0)
 				m.ExitWarning = false
 				m.LastExitTime = time.Time{}
+				m.NavigatingHist = false
+				m.HistoryIndex = len(m.History)
 				return m, nil
 			}
 
@@ -161,6 +174,20 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			}
+			// OpenCode-style prompt history navigation (Up Arrow)
+			if !m.SlashActive && len(m.History) > 0 {
+				if !m.NavigatingHist {
+					m.DraftValue = m.TextInput.Value()
+					m.NavigatingHist = true
+					m.HistoryIndex = len(m.History)
+				}
+				if m.HistoryIndex > 0 {
+					m.HistoryIndex--
+					m.TextInput.SetValue(m.History[m.HistoryIndex])
+					m.TextInput.SetCursor(len(m.TextInput.Value()))
+				}
+				return m, nil
+			}
 
 		case tea.KeyDown:
 			if m.SlashActive && len(m.FilteredCommands) > 0 {
@@ -168,6 +195,20 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.SlashCursor++
 				} else {
 					m.SlashCursor = 0
+				}
+				return m, nil
+			}
+			// OpenCode-style prompt history navigation (Down Arrow)
+			if !m.SlashActive && m.NavigatingHist {
+				if m.HistoryIndex < len(m.History)-1 {
+					m.HistoryIndex++
+					m.TextInput.SetValue(m.History[m.HistoryIndex])
+					m.TextInput.SetCursor(len(m.TextInput.Value()))
+				} else if m.HistoryIndex == len(m.History)-1 {
+					m.HistoryIndex = len(m.History)
+					m.TextInput.SetValue(m.DraftValue)
+					m.TextInput.SetCursor(len(m.TextInput.Value()))
+					m.NavigatingHist = false
 				}
 				return m, nil
 			}
@@ -264,16 +305,22 @@ func (m ReplInputModel) View() string {
 			}
 
 			cmdStr := fmt.Sprintf("%-12s", sc.Command)
+			catBadge := ""
+			if sc.Category != "" {
+				catBadge = lipgloss.NewStyle().
+					Foreground(ColorMuted).
+					Render(fmt.Sprintf("[%s] ", sc.Category))
+			}
 			descStr := sc.Description
 
 			if i == m.SlashCursor {
 				cmdR := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(cmdStr)
 				descR := lipgloss.NewStyle().Foreground(ColorFg).Render(descStr)
-				popupLines = append(popupLines, fmt.Sprintf("%s%s %s", lipgloss.NewStyle().Foreground(ColorAccent).Render(cursor), cmdR, descR))
+				popupLines = append(popupLines, fmt.Sprintf("%s%s%s%s", lipgloss.NewStyle().Foreground(ColorAccent).Render(cursor), cmdR, catBadge, descR))
 			} else {
 				cmdR := lipgloss.NewStyle().Foreground(ColorAccent).Render(cmdStr)
 				descR := lipgloss.NewStyle().Foreground(ColorMuted).Render(descStr)
-				popupLines = append(popupLines, fmt.Sprintf("  %s %s", cmdR, descR))
+				popupLines = append(popupLines, fmt.Sprintf("  %s%s%s", cmdR, catBadge, descR))
 			}
 		}
 
@@ -337,9 +384,11 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 
 	promptPrefix := fmt.Sprintf("niskava [%s] >", modelLabel)
 
+	var promptHistory []string
+
 	for {
-		// Run interactive Bubbletea prompt input with live OpenCode slash popup
-		inputModel := NewReplInputModel(promptPrefix)
+		// Run interactive Bubbletea prompt input with live OpenCode slash popup and prompt history
+		inputModel := NewReplInputModelWithHistory(promptPrefix, promptHistory)
 		p := tea.NewProgram(inputModel)
 		m, err := p.Run()
 		if err != nil {
@@ -352,11 +401,18 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 			continue
 		}
 
+		// Save non-slash prompts to history
+		if !strings.HasPrefix(input, "/") {
+			if len(promptHistory) == 0 || promptHistory[len(promptHistory)-1] != input {
+				promptHistory = append(promptHistory, input)
+			}
+		}
+
 		// Handle Slash Commands
 		lower := strings.ToLower(input)
 		if lower == "/exit" || lower == "exit" || lower == "quit" || lower == ":q" {
 			fmt.Println(T("repl_exit_msg"))
-			return ""
+			return replBackSentinel
 		}
 
 		if lower == "/back" || lower == "back" {
@@ -501,6 +557,40 @@ func renderBanner(modelLabel, serverURL, sessionID, dbPath string) {
 	fmt.Printf("\n%s\n", helpHint)
 }
 
+func startLiveSpinner(ctx context.Context, getStatus func() string) func() {
+	spinnerCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+		idx := 0
+		ticker := time.NewTicker(80 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-spinnerCtx.Done():
+				fmt.Print("\r\033[K")
+				return
+			case <-ticker.C:
+				frame := frames[idx%len(frames)]
+				idx++
+				status := getStatus()
+				if status != "" {
+					spinnerLine := lipgloss.NewStyle().Foreground(ColorAccent).Render(fmt.Sprintf("  %s %s", frame, status))
+					fmt.Print("\r\033[K" + spinnerLine + "\r")
+				}
+			}
+		}
+	}()
+
+	return func() {
+		cancel()
+		<-done
+	}
+}
+
 func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, appDB *db.DB) {
 	usingDaemon := IsDaemonAlive(serverURL)
 
@@ -553,13 +643,11 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 	if usingDaemon {
 		eventsChan, errChan = StreamChatViaSSE(ctx, serverURL, sessionID, prompt)
 	} else {
-		pythonBin := cfg.Engine.PythonBin
-		if pythonBin == "python3" {
-			localVenv := filepath.Join(".venv", "bin", "python3")
-			if _, err := os.Stat(localVenv); err == nil {
-				pythonBin = localVenv
-			}
+		pythonBin := ""
+		if cfg != nil {
+			pythonBin = cfg.Engine.PythonBin
 		}
+		pythonBin = ipc.ResolvePythonBin(pythonBin)
 
 		wd, _ := os.Getwd()
 		runnerParams := ipc.RunnerParams{
@@ -591,12 +679,23 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 		}
 	}
 
-	fmt.Print("\n" + lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(TF("thinking_init", modelLabel)) + "\r")
+	var statusText atomic.Value
+	initStatus := strings.TrimPrefix(TF("thinking_init", modelLabel), "  ⠋ ")
+	statusText.Store(initStatus)
+
+	stopSpinner := startLiveSpinner(ctx, func() string {
+		if val := statusText.Load(); val != nil {
+			return val.(string)
+		}
+		return ""
+	})
+	defer stopSpinner()
 
 	activeErrChan := errChan
 	for {
 		select {
 		case <-ctx.Done():
+			stopSpinner()
 			if interrupted.Load() {
 				fmt.Print("\r\033[K")
 				fmt.Print(T("repl_execution_cancelled"))
@@ -609,13 +708,15 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				continue
 			}
 			if err != nil {
+				stopSpinner()
 				fmt.Print("\r\033[K")
-				fmt.Printf("\n[Error Subprocess]: %v\n", err)
+				fmt.Printf("\n[Subprocess Error]: %v\n", err)
 				return
 			}
 
 		case ev, ok := <-eventsChan:
 			if !ok {
+				stopSpinner()
 				// Process finished: clear spinner and render final markdown
 				fmt.Print("\r\033[K")
 				renderFinalMarkdown(assistantResponse.String())
@@ -643,7 +744,8 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				lastThought = ev.Thought
 				fmt.Print("\r\033[K")
 				fmt.Printf("💭 %s\n", thoughtStyle.Render(ev.Thought))
-				fmt.Print(lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(TF("thinking_verify", modelLabel)) + "\r")
+				vMsg := strings.TrimPrefix(TF("thinking_verify", modelLabel), "  ⠋ ")
+				statusText.Store(vMsg)
 
 			case ipc.EventAgentToolCall:
 				fmt.Print("\r\033[K")
@@ -652,12 +754,14 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 					argsJSON = fmt.Sprintf(" %v", ev.Args)
 				}
 				fmt.Printf("⚡ %s%s\n", toolCallStyle.Render("[TOOL CALL: "+ev.Tool+"]"), argsJSON)
-				fmt.Print(lipgloss.NewStyle().Foreground(ColorAccent).Italic(true).Render(TF("tool_executing", ev.Tool)) + "\r")
+				tMsg := strings.TrimPrefix(TF("tool_executing", ev.Tool), "  ⠋ ")
+				statusText.Store(tMsg)
 
 			case ipc.EventAgentObservation:
 				fmt.Print("\r\033[K")
 				fmt.Printf("🔎 %s\n", observationStyle.Render(ev.Summary))
-				fmt.Print(lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(TF("thinking_synthesize", modelLabel)) + "\r")
+				sMsg := strings.TrimPrefix(TF("thinking_synthesize", modelLabel), "  ⠋ ")
+				statusText.Store(sMsg)
 
 			case ipc.EventAnomalyDetected:
 				fmt.Print("\r\033[K")
@@ -706,7 +810,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 						BorderForeground(ColorDanger).
 						Padding(0, 1).
 						Foreground(ColorFg).
-						Render(fmt.Sprintf("❌ [ERROR SESSION]: %s", ev.Error))
+						Render(fmt.Sprintf("❌ [SESSION ERROR]: %s", ev.Error))
 					assistantResponse.WriteString(errBox)
 				}
 			}

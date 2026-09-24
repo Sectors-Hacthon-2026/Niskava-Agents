@@ -84,7 +84,7 @@ class TestConversationalAgent(unittest.TestCase):
         self.assertEqual(len(result.get("findings", [])), 0)
 
         # Must report explicit error diagnostic, not fake ANTM anomalies
-        self.assertIn("Gagal Terhubung ke Provider AI", result["response"])
+        self.assertIn("Unable to Connect to AI Provider", result["response"])
         self.assertIn("http://127.0.0.1:59999/v1", result["response"])
         self.assertNotIn("35.71", result["response"])
 

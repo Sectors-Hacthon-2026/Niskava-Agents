@@ -300,7 +300,7 @@ class LocalGraphMemory:
             relation="INVESTIGATED",
             target_label=ticker,
             target_type="TICKER",
-            context_snippet=f"Investigasi otonom sesi {session_id}",
+            context_snippet=f"Autonomous investigation session {session_id}",
             session_id=session_id,
             confidence_score=1.0,
         )
@@ -314,7 +314,7 @@ class LocalGraphMemory:
                 relation="BELONGS_TO_SECTOR",
                 target_label=sector,
                 target_type="SECTOR",
-                context_snippet=f"Sektor industri {sector}",
+                context_snippet=f"Industry sector: {sector}",
                 session_id=session_id,
                 confidence_score=1.0,
             )
@@ -335,7 +335,7 @@ class LocalGraphMemory:
                     relation="TRIGGERED_ANOMALY",
                     target_label=anom_label,
                     target_type="ANOMALY_METRIC",
-                    context_snippet=desc or f"Lonjakan {metric} sebesar {z:.2f} sigma pada {date_str}",
+                    context_snippet=desc or f"{metric} spike {z:.2f}σ above MA20 baseline on {date_str}",
                     session_id=session_id,
                     confidence_score=1.0,
                 )
@@ -567,7 +567,7 @@ class LocalGraphMemory:
             ctx = e["context_snippet"]
             ctx_part = f" — {ctx}" if ctx else ""
             days = e.get("days_ago", 0.0)
-            recency = f" [{days:.0f}h lalu]" if days > 0 else " [hari ini]"
+            recency = f" [{days:.0f}d ago]" if days > 0 else " [today]"
             lines.append(f"- ({src}) --[{rel}]--> ({tgt}){ctx_part}{recency}")
             if len(lines) >= max_edges:
                 break
@@ -578,7 +578,7 @@ class LocalGraphMemory:
         body = "\n".join(lines)
         return (
             "<investigative_memory>\n"
-            f"# Rekam memori graf lokal untuk '{entity_query}':\n"
+            f"# Local graph memory recall for '{entity_query}':\n"
             f"{body}\n"
             "</investigative_memory>"
         )

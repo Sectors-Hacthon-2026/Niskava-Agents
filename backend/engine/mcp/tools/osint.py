@@ -17,17 +17,17 @@ def get_osint_tool_definitions() -> List[Dict[str, Any]]:
     return [
         {
             "name": "osint_harvest_market_news",
-            "description": "Ambil berita bursa terkurasi dan keterbukaan informasi emiten via Dual-Engine OSINT (Sectors v2 News + Google News RSS Secondary Disclosure Dorking).",
+            "description": "Harvest curated exchange news and corporate disclosures via Dual-Engine OSINT (Sectors v2 News + Google News RSS Secondary Disclosure Dorking).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "ticker": {
                         "type": "string",
-                        "description": "Kode ticker 4 huruf IDX (contoh: ANTM, BBRI)",
+                        "description": "4-letter IDX stock ticker symbol (e.g. ANTM, BBRI)",
                     },
                     "company_name": {
                         "type": "string",
-                        "description": "Nama resmi emiten (opsional, contoh: 'Aneka Tambang')",
+                        "description": "Official company name (optional, e.g. 'Aneka Tambang')",
                     },
                 },
                 "required": ["ticker"],
@@ -35,13 +35,13 @@ def get_osint_tool_definitions() -> List[Dict[str, Any]]:
         },
         {
             "name": "osint_extract_article_content",
-            "description": "Ekstrak teks artikel bersih dari URL atau HTML mentah menggunakan Trafilatura, dibungkus dalam isolasi <evidence_context> untuk pertahanan anti-prompt injection.",
+            "description": "Extract clean article text from URL or raw HTML using Trafilatura, isolated inside <evidence_context> tags for anti-prompt injection defense.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "url_or_html": {
                         "type": "string",
-                        "description": "URL artikel web atau string HTML mentah yang akan dibersihkan",
+                        "description": "Web article URL or raw HTML string to clean",
                     },
                 },
                 "required": ["url_or_html"],

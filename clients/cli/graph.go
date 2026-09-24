@@ -6,7 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/server"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/clients/cli/tui"
 	"github.com/spf13/cobra"
@@ -29,33 +32,26 @@ Example:
   niskava graph --open
   niskava graph --session INV-2026-0042 -o ./audit_graph.html --open`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		pythonBin := "python3"
-		if cfg != nil && cfg.Engine.PythonBin != "" {
+		pythonBin := ""
+		if cfg != nil {
 			pythonBin = cfg.Engine.PythonBin
 		}
-		if pythonBin == "" || pythonBin == "python3" {
-			localVenv := filepath.Join(".venv", "bin", "python3")
-			if _, err := os.Stat(localVenv); err == nil {
-				pythonBin = localVenv
-			}
-		}
+		pythonBin = ipc.ResolvePythonBin(pythonBin)
 
-		dbPath := filepath.Join(os.Getenv("HOME"), ".niskava", "niskava.db")
+		homeDir, _ := os.UserHomeDir()
+		dbPath := filepath.Join(homeDir, ".niskava", "niskava.db")
 		if cfg != nil && cfg.Storage.DBPath != "" {
-			dbPath = cfg.Storage.DBPath
+			dbPath = config.ExpandHome(cfg.Storage.DBPath)
 		}
 		if customDB := os.Getenv("NISKAVA_DB_PATH"); customDB != "" {
-			dbPath = customDB
+			dbPath = config.ExpandHome(customDB)
 		}
 
 		outputPath := graphOutputFlag
 		if outputPath == "" {
-			outputPath = filepath.Join(os.Getenv("HOME"), ".niskava", "graph.html")
+			outputPath = filepath.Join(homeDir, ".niskava", "graph.html")
 		}
-		expandedOutput := filepath.Clean(outputPath)
-		if len(outputPath) > 0 && outputPath[0] == '~' {
-			expandedOutput = filepath.Join(os.Getenv("HOME"), outputPath[1:])
-		}
+		expandedOutput := filepath.Clean(config.ExpandHome(outputPath))
 
 		wd, _ := os.Getwd()
 		execArgs := []string{
@@ -75,7 +71,11 @@ Example:
 		if existing := os.Getenv("PYTHONPATH"); existing != "" {
 			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
 		}
-		proc.Env = append(os.Environ(), "PYTHONPATH="+pythonPath)
+		proc.Env = append(os.Environ(),
+			"PYTHONPATH="+pythonPath,
+			"PYTHONIOENCODING=utf-8",
+			"PYTHONUTF8=1",
+		)
 		out, err := proc.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("gagal mengekspor visualisasi graf: %w\nOutput: %s", err, string(out))
@@ -84,7 +84,11 @@ Example:
 		fmt.Printf(tui.T("graph_exported_success"), expandedOutput)
 
 		if graphOpenFlag {
-			fileURL := fmt.Sprintf("file://%s", expandedOutput)
+			absOutput, errAbs := filepath.Abs(expandedOutput)
+			if errAbs == nil {
+				expandedOutput = absOutput
+			}
+			fileURL := "file:///" + strings.TrimPrefix(filepath.ToSlash(expandedOutput), "/")
 			fmt.Printf(tui.T("graph_opening_browser"), fileURL)
 			_ = server.OpenBrowser(fileURL)
 		} else {

@@ -17,19 +17,19 @@ def get_resource_definitions() -> List[Dict[str, Any]]:
         {
             "uri": "niskava://status",
             "name": "Niskava Agent System Status",
-            "description": "Informasi status daemon, basis data SQLite, dan ketersediaan API key.",
+            "description": "System daemon runtime status, SQLite database connectivity, and API key availability.",
             "mimeType": "application/json",
         },
         {
             "uri": "niskava://cache-stats",
             "name": "Sectors & OSINT Cache Statistics",
-            "description": "Statistik jumlah entri cache lokal di sectors_cache untuk audit disiplin kredit.",
+            "description": "Local SQLite cache statistics in sectors_cache for credit conservation audit.",
             "mimeType": "application/json",
         },
         {
             "uri": "niskava://graph-stats",
             "name": "Local Conversational Graph Memory Statistics",
-            "description": "Statistik topologi graf memori percakapan, jumlah simpul entitas, relasi, dan entitas sentral.",
+            "description": "Conversational memory graph topology statistics, entity nodes, relations, and central hub entities.",
             "mimeType": "application/json",
         },
     ]

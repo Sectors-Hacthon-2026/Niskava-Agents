@@ -39,10 +39,25 @@ def compute_volume_z_score(
     if len(historical_volumes) == 0:
         return 0.0, 0.0, 0.0
 
-    mu = float(np.mean(historical_volumes))
-    sigma = float(np.std(historical_volumes))
-    z = (current_volume - mu) / sigma if sigma > 0 else 0.0
-    return mu, sigma, z
+    clean_volumes = np.nan_to_num(historical_volumes, nan=0.0, posinf=0.0, neginf=0.0)
+    mu = float(np.mean(clean_volumes))
+    sigma = float(np.std(clean_volumes))
+
+    curr_v = 0.0 if (current_volume is None or np.isnan(current_volume) or np.isinf(current_volume)) else float(current_volume)
+
+    if sigma > 0 and not np.isnan(sigma) and not np.isinf(sigma):
+        z = (curr_v - mu) / sigma
+    else:
+        z = 0.0
+
+    if np.isnan(z) or np.isinf(z):
+        z = 0.0
+
+    return (
+        0.0 if np.isnan(mu) or np.isinf(mu) else mu,
+        0.0 if np.isnan(sigma) or np.isinf(sigma) else sigma,
+        z,
+    )
 
 
 def compute_foreign_flow_z_score(
@@ -57,10 +72,25 @@ def compute_foreign_flow_z_score(
     if len(historical_flows) == 0:
         return 0.0, 0.0, 0.0
 
-    mu = float(np.mean(historical_flows))
-    sigma = float(np.std(historical_flows))
-    z = (current_flow - mu) / sigma if sigma > 0 else 0.0
-    return mu, sigma, z
+    clean_flows = np.nan_to_num(historical_flows, nan=0.0, posinf=0.0, neginf=0.0)
+    mu = float(np.mean(clean_flows))
+    sigma = float(np.std(clean_flows))
+
+    curr_f = 0.0 if (current_flow is None or np.isnan(current_flow) or np.isinf(current_flow)) else float(current_flow)
+
+    if sigma > 0 and not np.isnan(sigma) and not np.isinf(sigma):
+        z = (curr_f - mu) / sigma
+    else:
+        z = 0.0
+
+    if np.isnan(z) or np.isinf(z):
+        z = 0.0
+
+    return (
+        0.0 if np.isnan(mu) or np.isinf(mu) else mu,
+        0.0 if np.isnan(sigma) or np.isinf(sigma) else sigma,
+        z,
+    )
 
 
 def detect_historical_anomalies(
@@ -91,21 +121,34 @@ def detect_historical_anomalies(
     anomalies: List[AnomalyResult] = []
     sector_map = sector_return_map or {}
 
+    def _safe_float(val: Any, default: float = 0.0) -> float:
+        try:
+            res = float(val)
+            return default if (np.isnan(res) or np.isinf(res)) else res
+        except (ValueError, TypeError):
+            return default
+
     for i in range(rolling_window, len(daily_candles)):
         window = daily_candles[i - rolling_window : i]
         current_day = daily_candles[i]
         prev_day = daily_candles[i - 1]
 
-        volumes = np.array([float(d.get("volume", 0.0)) for d in window], dtype=np.float64)
-        v_t = float(current_day.get("volume", 0.0))
+        volumes = np.array([_safe_float(d.get("volume", 0.0)) for d in window], dtype=np.float64)
+        v_t = _safe_float(current_day.get("volume", 0.0))
         mu_20, sigma_20, v_z = compute_volume_z_score(volumes, v_t)
 
-        curr_close = float(current_day.get("close", 0.0))
-        prev_close = float(prev_day.get("close", 0.0))
-        r_t = ((curr_close - prev_close) / prev_close) * 100.0 if prev_close > 0 else 0.0
+        curr_close = _safe_float(current_day.get("close", 0.0))
+        prev_close = _safe_float(prev_day.get("close", 0.0))
+
+        if prev_close > 0:
+            r_t = ((curr_close - prev_close) / prev_close) * 100.0
+            if np.isnan(r_t) or np.isinf(r_t):
+                r_t = 0.0
+        else:
+            r_t = 0.0
 
         target_date = str(current_day.get("date", ""))
-        sec_ret = sector_map.get(target_date, 0.0)
+        sec_ret = _safe_float(sector_map.get(target_date, 0.0))
         divergence = r_t - sec_ret
 
         is_volume_anomaly = v_z >= volume_z_threshold

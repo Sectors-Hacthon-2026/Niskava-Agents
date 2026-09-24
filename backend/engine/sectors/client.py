@@ -99,8 +99,9 @@ class SectorsAPIClient:
         data: Any,
         ttl_seconds: Optional[int] = None,
     ) -> None:
-        if not os.path.exists(self.db_path):
-            os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        db_dir = os.path.dirname(os.path.abspath(self.db_path))
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
         try:
             payload_json = json.dumps(data)
             with sqlite3.connect(self.db_path) as conn:

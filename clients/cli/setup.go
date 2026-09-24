@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -185,6 +186,11 @@ func RunInteractiveSetup() error {
 	}
 
 	// 4. Generate .env content
+	defaultPythonBin := ".venv/bin/python3"
+	if runtime.GOOS == "windows" {
+		defaultPythonBin = `.venv\Scripts\python.exe`
+	}
+
 	envContent := fmt.Sprintf(`# =============================================================================
 # NISKAVA AGENT — ENVIRONMENT CONFIGURATION (.env)
 # Generated automatically via 'niskava setup' on %s
@@ -210,7 +216,7 @@ NISKAVA_OFFLINE=%s
 
 # 3. LOCAL STORAGE & ENGINE (Law 4: Local-First SQLite WAL)
 NISKAVA_DB_PATH=~/.niskava/niskava.db
-NISKAVA_PYTHON_BIN=.venv/bin/python3
+NISKAVA_PYTHON_BIN=%s
 NISKAVA_ENGINE_PATH=./backend/engine
 NISKAVA_DEFAULT_MARKET=IDX
 NISKAVA_PORT=8080
@@ -234,6 +240,7 @@ NEWS_TIMEOUT_SECONDS=10
 			}
 			return "0"
 		}(),
+		defaultPythonBin,
 	)
 
 	// Write to .env with 0600 permissions
