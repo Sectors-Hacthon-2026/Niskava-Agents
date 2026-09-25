@@ -47,6 +47,7 @@ for the Web Workspace and external clients on http://localhost:20128.`,
 		if err != nil {
 			return fmt.Errorf("failed to start background daemon: %w", err)
 		}
+		srv.ConfigPath = cfgFile
 
 		box := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -87,7 +88,7 @@ for the Web Workspace and external clients on http://localhost:20128.`,
 
 func init() {
 	serveCmd.Flags().IntVarP(&portFlag, "port", "p", 20128, "server port (default: 20128)")
-	serveCmd.Flags().BoolVarP(&openFlag, "open", "o", false, "open web dashboard in browser automatically")
+	serveCmd.Flags().BoolVarP(&openFlag, "open", "o", true, "open web dashboard in browser automatically (use --open=false for headless)")
 	serveCmd.Flags().BoolVar(&telegramFlag, "telegram", false, "enable Telegram bot long-poller alongside the web server")
 	RootCmd.AddCommand(serveCmd)
 }

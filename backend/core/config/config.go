@@ -3,6 +3,7 @@
 package config
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -89,14 +90,14 @@ func DefaultConfig() *Config {
 
 	return &Config{
 		Auth: AuthConfig{
-			AIProvider:      "gemini",
+			AIProvider:      "openai",
 			SectorsAPIKey:   "",
 			SectorsBaseURL:  "https://api.sectors.app/v2",
 			GeminiAPIKey:    "",
 			GeminiModel:     "gemini-2.0-flash",
 			OpenAIAPIKey:    "",
-			OpenAIBaseURL:   "https://api.openai.com/v1",
-			OpenAIModel:     "gpt-4o-mini",
+			OpenAIBaseURL:   "http://localhost:20128/v1",
+			OpenAIModel:     "hermes",
 			AnthropicAPIKey: "",
 			OllamaBaseURL:   "http://localhost:11434",
 			OllamaModel:     "deepseek-r1:8b",
@@ -379,17 +380,21 @@ func (c *Config) MaskedView() ConfigView {
 	}
 }
 
-// SaveConfig persists the active configuration to the specified YAML file or ~/.niskava/config.yaml with 0600 permissions.
-func SaveConfig(cfg *Config, targetPath ...string) error {
+// SaveDotEnv persists the configuration as .env key-value pairs to the destination path (default ~/.niskava/.env).
+// This serves as the primary Single Source of Truth (SSoT) across CLI, Web, and Python Engine.
+func SaveDotEnv(cfg *Config, targetPath ...string) error {
 	dest := ""
 	if len(targetPath) > 0 && targetPath[0] != "" {
 		dest = targetPath[0]
 	} else {
+		if flag.Lookup("test.v") != nil {
+			return nil
+		}
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
 			return fmt.Errorf("failed to get user home dir: %w", err)
 		}
-		dest = filepath.Join(homeDir, ".niskava", "config.yaml")
+		dest = filepath.Join(homeDir, ".niskava", ".env")
 	}
 
 	dest = ExpandHome(dest)
@@ -397,13 +402,171 @@ func SaveConfig(cfg *Config, targetPath ...string) error {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	data, err := yaml.Marshal(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to marshal config to yaml: %w", err)
+	// Prepare mapping of all environment variables from cfg
+	envMap := make(map[string]string)
+	envMap["AI_PROVIDER"] = cfg.Auth.AIProvider
+	envMap["OPENAI_BASE_URL"] = cfg.Auth.OpenAIBaseURL
+	envMap["OPENAI_API_KEY"] = cfg.Auth.OpenAIAPIKey
+	envMap["OPENAI_MODEL"] = cfg.Auth.OpenAIModel
+	envMap["GEMINI_API_KEY"] = cfg.Auth.GeminiAPIKey
+	envMap["GEMINI_MODEL"] = cfg.Auth.GeminiModel
+	envMap["SECTORS_API_KEY"] = cfg.Auth.SectorsAPIKey
+	envMap["SECTORS_BASE_URL"] = cfg.Auth.SectorsBaseURL
+	envMap["ANTHROPIC_API_KEY"] = cfg.Auth.AnthropicAPIKey
+	envMap["OLLAMA_BASE_URL"] = cfg.Auth.OllamaBaseURL
+	envMap["OLLAMA_MODEL"] = cfg.Auth.OllamaModel
+	envMap["NISKAVA_DB_PATH"] = cfg.Storage.DBPath
+	envMap["NISKAVA_PYTHON_BIN"] = cfg.Engine.PythonBin
+	envMap["NISKAVA_ENGINE_PATH"] = cfg.Engine.EnginePath
+	envMap["NISKAVA_DEFAULT_MARKET"] = cfg.Preferences.DefaultMarket
+	envMap["NISKAVA_PORT"] = strconv.Itoa(cfg.Server.Port)
+	envMap["NISKAVA_LANG"] = cfg.Preferences.Language
+	if cfg.Preferences.OfflineMode {
+		envMap["NISKAVA_OFFLINE"] = "1"
+	} else {
+		envMap["NISKAVA_OFFLINE"] = "0"
+	}
+	envMap["NISKAVA_TELEGRAM_TOKEN"] = cfg.Telegram.BotToken
+	if cfg.Telegram.Enabled {
+		envMap["NISKAVA_TELEGRAM_ENABLED"] = "1"
+	} else {
+		envMap["NISKAVA_TELEGRAM_ENABLED"] = "0"
+	}
+	envMap["NISKAVA_TELEGRAM_ALLOWED_USERS"] = strings.Join(cfg.Telegram.AllowedUsers, ",")
+
+	// Also update current process environment so in-memory state is synchronized
+	for k, v := range envMap {
+		_ = os.Setenv(k, v)
 	}
 
-	if err := os.WriteFile(dest, data, 0600); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
+	// Read existing file if present to preserve structure/comments
+	existingContent, err := os.ReadFile(dest)
+	var outputLines []string
+	updatedKeys := make(map[string]bool)
+
+	if err == nil {
+		lines := strings.Split(string(existingContent), "\n")
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+				outputLines = append(outputLines, line)
+				continue
+			}
+			parts := strings.SplitN(trimmed, "=", 2)
+			if len(parts) == 2 {
+				key := strings.TrimSpace(parts[0])
+				if newVal, exists := envMap[key]; exists {
+					outputLines = append(outputLines, fmt.Sprintf("%s=%s", key, newVal))
+					updatedKeys[key] = true
+				} else {
+					outputLines = append(outputLines, line)
+				}
+			} else {
+				outputLines = append(outputLines, line)
+			}
+		}
+	} else {
+		outputLines = append(outputLines, "# =============================================================================")
+		outputLines = append(outputLines, "# NISKAVA AGENT — SINGLE SOURCE OF TRUTH (.env)")
+		outputLines = append(outputLines, "# =============================================================================")
 	}
-	return nil
+
+	// Append any keys not yet present
+	keyOrder := []string{
+		"AI_PROVIDER", "OPENAI_BASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL",
+		"GEMINI_API_KEY", "GEMINI_MODEL",
+		"SECTORS_API_KEY", "SECTORS_BASE_URL",
+		"ANTHROPIC_API_KEY", "OLLAMA_BASE_URL", "OLLAMA_MODEL",
+		"NISKAVA_DB_PATH", "NISKAVA_PYTHON_BIN", "NISKAVA_ENGINE_PATH",
+		"NISKAVA_PORT", "NISKAVA_DEFAULT_MARKET", "NISKAVA_LANG", "NISKAVA_OFFLINE",
+		"NISKAVA_TELEGRAM_TOKEN", "NISKAVA_TELEGRAM_ENABLED", "NISKAVA_TELEGRAM_ALLOWED_USERS",
+	}
+	for _, key := range keyOrder {
+		if !updatedKeys[key] {
+			if val, exists := envMap[key]; exists {
+				outputLines = append(outputLines, fmt.Sprintf("%s=%s", key, val))
+			}
+		}
+	}
+
+	content := strings.Join(outputLines, "\n")
+	if !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+
+	return os.WriteFile(dest, []byte(content), 0600)
+}
+
+// SaveConfig persists configuration to the specified destination.
+// If the destination ends in .yaml or .yml, it writes YAML for backward compatibility.
+// Otherwise, it persists directly to .env as the authoritative Single Source of Truth.
+func SaveConfig(cfg *Config, targetPath ...string) error {
+	dest := ""
+	if len(targetPath) > 0 && targetPath[0] != "" {
+		dest = targetPath[0]
+	}
+	if dest != "" && (strings.HasSuffix(dest, ".yaml") || strings.HasSuffix(dest, ".yml")) {
+		dest = ExpandHome(dest)
+		if err := os.MkdirAll(filepath.Dir(dest), 0700); err != nil {
+			return fmt.Errorf("failed to create config directory: %w", err)
+		}
+		data, err := yaml.Marshal(cfg)
+		if err != nil {
+			return fmt.Errorf("failed to marshal config to yaml: %w", err)
+		}
+		return os.WriteFile(dest, data, 0600)
+	}
+	return SaveDotEnv(cfg, targetPath...)
+}
+
+// BuildSubprocessEnv extracts active authentication and preferences into dynamic environment variables for child processes.
+func (c *Config) BuildSubprocessEnv() map[string]string {
+	env := make(map[string]string)
+	if c == nil {
+		return env
+	}
+
+	if c.Auth.AIProvider != "" {
+		env["AI_PROVIDER"] = c.Auth.AIProvider
+	}
+	if c.Auth.SectorsAPIKey != "" {
+		env["SECTORS_API_KEY"] = c.Auth.SectorsAPIKey
+	}
+	if c.Auth.SectorsBaseURL != "" {
+		env["SECTORS_BASE_URL"] = c.Auth.SectorsBaseURL
+	}
+	if c.Auth.GeminiAPIKey != "" {
+		env["GEMINI_API_KEY"] = c.Auth.GeminiAPIKey
+	}
+	if c.Auth.GeminiModel != "" {
+		env["GEMINI_MODEL"] = c.Auth.GeminiModel
+	}
+	if c.Auth.OpenAIAPIKey != "" {
+		env["OPENAI_API_KEY"] = c.Auth.OpenAIAPIKey
+	}
+	if c.Auth.OpenAIBaseURL != "" {
+		env["OPENAI_BASE_URL"] = c.Auth.OpenAIBaseURL
+	}
+	if c.Auth.OpenAIModel != "" {
+		env["OPENAI_MODEL"] = c.Auth.OpenAIModel
+	}
+	if c.Auth.AnthropicAPIKey != "" {
+		env["ANTHROPIC_API_KEY"] = c.Auth.AnthropicAPIKey
+	}
+	if c.Auth.OllamaBaseURL != "" {
+		env["OLLAMA_BASE_URL"] = c.Auth.OllamaBaseURL
+	}
+	if c.Auth.OllamaModel != "" {
+		env["OLLAMA_MODEL"] = c.Auth.OllamaModel
+	}
+	if c.Preferences.Language != "" {
+		env["NISKAVA_LANG"] = c.Preferences.Language
+	}
+	if c.Preferences.OfflineMode {
+		env["NISKAVA_OFFLINE"] = "1"
+	}
+	if c.Preferences.DefaultMarket != "" {
+		env["DEFAULT_MARKET"] = c.Preferences.DefaultMarket
+	}
+	return env
 }

@@ -165,3 +165,34 @@ func TestSaveConfigAndMaskedView(t *testing.T) {
 		t.Fatalf("expected mask pattern with ****, got: %s", view.Auth.SectorsAPIKey)
 	}
 }
+
+func TestSaveDotEnv_SSoT(t *testing.T) {
+	tempDir := t.TempDir()
+	envPath := filepath.Join(tempDir, ".env")
+
+	cfg := DefaultConfig()
+	cfg.Auth.AIProvider = "openai"
+	cfg.Auth.OpenAIBaseURL = "http://localhost:20128/v1"
+	cfg.Auth.OpenAIModel = "hermes"
+	cfg.Auth.OpenAIAPIKey = "sk-custom-test-123"
+
+	if err := SaveDotEnv(cfg, envPath); err != nil {
+		t.Fatalf("SaveDotEnv failed: %v", err)
+	}
+
+	content, err := os.ReadFile(envPath)
+	if err != nil {
+		t.Fatalf("failed to read written .env: %v", err)
+	}
+	strContent := string(content)
+
+	if !strings.Contains(strContent, "OPENAI_BASE_URL=http://localhost:20128/v1") {
+		t.Errorf("expected OPENAI_BASE_URL in .env, got:\n%s", strContent)
+	}
+	if !strings.Contains(strContent, "OPENAI_MODEL=hermes") {
+		t.Errorf("expected OPENAI_MODEL in .env, got:\n%s", strContent)
+	}
+	if !strings.Contains(strContent, "OPENAI_API_KEY=sk-custom-test-123") {
+		t.Errorf("expected OPENAI_API_KEY in .env, got:\n%s", strContent)
+	}
+}

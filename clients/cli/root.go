@@ -55,10 +55,11 @@ and qualitative market disclosures/news.`,
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		srv, err := server.Start(ctx, cfg.Server.Port, appDB)
+		srv, err := server.Start(ctx, cfg.Server.Port, appDB, cfg)
 		if err != nil {
 			return fmt.Errorf("failed to start background daemon: %w", err)
 		}
+		srv.ConfigPath = cfgFile
 
 		// If explicit --session flag provided, bypass launcher and jump directly into REPL
 		if sessionFlag != "" {

@@ -60,16 +60,25 @@ var investigateCmd = &cobra.Command{
 		defer cancel()
 
 		wd, _ := os.Getwd()
+		resolvedRoot := ipc.ResolveRepoRoot(wd)
+
+		customEngine := enginePath
+		if customEngine == "" && cfg != nil {
+			customEngine = cfg.Engine.EnginePath
+		}
+		resolvedEngine := ipc.ResolveEnginePath(resolvedRoot, customEngine)
 
 		runnerParams := ipc.RunnerParams{
-			PythonBin: pythonBin,
-			WorkDir:   wd,
-			DBPath:    cfg.Storage.DBPath,
-			Ticker:    ticker,
-			Days:      daysFlag,
-			SessionID: sessionID,
-			Offline:   isOffline,
-			Language:  cfg.Preferences.Language,
+			PythonBin:  pythonBin,
+			WorkDir:    resolvedRoot,
+			EnginePath: resolvedEngine,
+			DBPath:     cfg.Storage.DBPath,
+			Ticker:     ticker,
+			Days:       daysFlag,
+			SessionID:  sessionID,
+			Offline:      isOffline,
+			Language:     cfg.Preferences.Language,
+			EnvOverrides: cfg.BuildSubprocessEnv(),
 		}
 
 		eventsChan, errChan := ipc.RunSubprocess(ctx, runnerParams)
@@ -90,6 +99,13 @@ func init() {
 	investigateCmd.Flags().BoolVarP(&interactiveFlag, "interactive", "i", false, "run in interactive conversational investigation mode")
 	investigateCmd.Flags().StringVar(&pyBinFlag, "python-bin", "", "path to python binary")
 	investigateCmd.Flags().StringVar(&enginePath, "engine-path", "", "path to python engine directory")
+
+	investigateCmd.ValidArgs = []string{
+		"BBCA", "BBRI", "BMRI", "BBNI", "TLKM",
+		"ANTM", "ASII", "ICBP", "INDF", "GOTO",
+		"ADRO", "PTBA", "UNTR", "BRIS", "AMMN",
+		"KLBF", "MDKA", "TPIA", "CPIN", "PGAS",
+	}
 
 	RootCmd.AddCommand(investigateCmd)
 }
