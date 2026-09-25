@@ -861,6 +861,25 @@ func TestTelegramEndpoints(t *testing.T) {
 		t.Errorf("expected mock true in offline mode test, got %v", testResult["mock"])
 	}
 
+	// 4b. Test Hot-Reload: change token while running
+	hotPatchPayload := map[string]interface{}{
+		"bot_token": "reloaded-token-9999",
+	}
+	hotPatchBody, _ := json.Marshal(hotPatchPayload)
+	hotReq, _ := http.NewRequest(http.MethodPatch, srv.URL+"/api/settings/telegram", bytes.NewReader(hotPatchBody))
+	hotReq.Header.Set("Content-Type", "application/json")
+	hotResp, err := http.DefaultClient.Do(hotReq)
+	if err != nil {
+		t.Fatalf("PATCH hot-reload token failed: %v", err)
+	}
+	defer hotResp.Body.Close()
+	if srv.BotService == nil || !srv.BotService.IsStarted() {
+		t.Errorf("expected bot to stay running after hot-reload")
+	}
+	if srv.BotService.Token() != "reloaded-token-9999" {
+		t.Errorf("expected bot token reloaded-token-9999, got %s", srv.BotService.Token())
+	}
+
 	// 5. POST /api/telegram/stop -> stop bot daemon
 	stopReq, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/telegram/stop", nil)
 	stopResp, err := http.DefaultClient.Do(stopReq)
@@ -967,5 +986,82 @@ func TestSystemEndpoints(t *testing.T) {
 	}
 	if clean["status"] != "ok" {
 		t.Errorf("expected clean status 'ok', got %v", clean["status"])
+	}
+}
+
+func TestDynamicSettingsAndSubprocessEnv(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	tempDir := t.TempDir()
+	cfgPath := filepath.Join(tempDir, "config.yaml")
+
+	cfg := config.DefaultConfig()
+	cfg.Auth.AIProvider = "gemini"
+	cfg.Auth.GeminiAPIKey = "initial_gemini_key"
+	cfg.Auth.SectorsAPIKey = "initial_sectors_key"
+	_ = config.SaveConfig(cfg, cfgPath)
+
+	srv, err := Start(ctx, 0, nil, cfg)
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	srv.ConfigPath = cfgPath
+
+	time.Sleep(50 * time.Millisecond)
+
+	// 1. Initial buildSubprocessEnv check
+	env := srv.buildSubprocessEnv()
+	if env["GEMINI_API_KEY"] != "initial_gemini_key" {
+		t.Errorf("expected initial_gemini_key, got %s", env["GEMINI_API_KEY"])
+	}
+	if env["SECTORS_API_KEY"] != "initial_sectors_key" {
+		t.Errorf("expected initial_sectors_key, got %s", env["SECTORS_API_KEY"])
+	}
+
+	// 2. PATCH /api/settings with new keys
+	patchBody := `{"auth":{"sectors_api_key":"new_sectors_key_777","gemini_api_key":"new_gemini_key_888","ai_provider":"gemini"},"preferences":{"language":"id","offline_mode":true}}`
+	req, _ := http.NewRequest(http.MethodPatch, srv.URL+"/api/settings", strings.NewReader(patchBody))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("PATCH /api/settings failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+
+	// 3. Verify hot-reloaded env in buildSubprocessEnv
+	updatedEnv := srv.buildSubprocessEnv()
+	if updatedEnv["SECTORS_API_KEY"] != "new_sectors_key_777" {
+		t.Errorf("expected new_sectors_key_777, got %s", updatedEnv["SECTORS_API_KEY"])
+	}
+	if updatedEnv["GEMINI_API_KEY"] != "new_gemini_key_888" {
+		t.Errorf("expected new_gemini_key_888, got %s", updatedEnv["GEMINI_API_KEY"])
+	}
+	if updatedEnv["NISKAVA_LANG"] != "id" {
+		t.Errorf("expected NISKAVA_LANG 'id', got %s", updatedEnv["NISKAVA_LANG"])
+	}
+	if updatedEnv["NISKAVA_OFFLINE"] != "1" {
+		t.Errorf("expected NISKAVA_OFFLINE '1', got %s", updatedEnv["NISKAVA_OFFLINE"])
+	}
+
+	// 4. Test clearing key with empty string
+	clearBody := `{"auth":{"gemini_api_key":""}}`
+	req2, _ := http.NewRequest(http.MethodPatch, srv.URL+"/api/settings", strings.NewReader(clearBody))
+	req2.Header.Set("Content-Type", "application/json")
+	resp2, err := http.DefaultClient.Do(req2)
+	if err != nil {
+		t.Fatalf("PATCH clear failed: %v", err)
+	}
+	defer resp2.Body.Close()
+	if resp2.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp2.StatusCode)
+	}
+
+	clearedEnv := srv.buildSubprocessEnv()
+	if clearedEnv["GEMINI_API_KEY"] != "" {
+		t.Errorf("expected empty GEMINI_API_KEY after clear, got %s", clearedEnv["GEMINI_API_KEY"])
 	}
 }

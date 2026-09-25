@@ -147,6 +147,16 @@ func (s *BotService) BotUsername() string {
 	return ""
 }
 
+// Token returns the active Telegram bot token used by this instance.
+func (s *BotService) Token() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.bot != nil {
+		return s.bot.Token
+	}
+	return ""
+}
+
 // Start registers all endpoint handlers and starts the bot in a managed background goroutine.
 func (s *BotService) Start() error {
 	s.mu.Lock()

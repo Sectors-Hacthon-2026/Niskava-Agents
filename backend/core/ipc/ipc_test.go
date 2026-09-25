@@ -144,3 +144,49 @@ func TestResolvePythonBin(t *testing.T) {
 		t.Errorf("expected fallback when given non-existent binary, got empty")
 	}
 }
+
+func TestRunSubprocessEnvOverrides(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working dir: %v", err)
+	}
+	curr := wd
+	rootDir := ""
+	for {
+		if _, err := os.Stat(filepath.Join(curr, "go.mod")); err == nil {
+			rootDir = curr
+			break
+		}
+		parent := filepath.Dir(curr)
+		if parent == curr {
+			break
+		}
+		curr = parent
+	}
+
+	pythonBin := ResolvePythonBin("")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_env.db")
+
+	params := RunnerParams{
+		PythonBin: pythonBin,
+		WorkDir:   rootDir,
+		DBPath:    dbPath,
+		Ticker:    "BBCA",
+		Days:      5,
+		Offline:   true,
+		EnvOverrides: map[string]string{
+			"TEST_CUSTOM_KEY": "custom_value_42",
+		},
+	}
+
+	eventsChan, errChan := RunSubprocess(ctx, params)
+	for range eventsChan {
+	}
+	if err := <-errChan; err != nil {
+		t.Fatalf("subprocess with EnvOverrides failed: %v", err)
+	}
+}

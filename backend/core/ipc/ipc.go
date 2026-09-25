@@ -77,16 +77,17 @@ type Event struct {
 
 // RunnerParams defines parameters to invoke the Python engine.
 type RunnerParams struct {
-	PythonBin  string
-	EnginePath string
-	WorkDir    string
-	DBPath     string
-	Ticker     string
-	Days       int
-	SessionID  string
-	Offline    bool
-	Prompt     string
-	Language   string
+	PythonBin    string
+	EnginePath   string
+	WorkDir      string
+	DBPath       string
+	Ticker       string
+	Days         int
+	SessionID    string
+	Offline      bool
+	Prompt       string
+	Language     string
+	EnvOverrides map[string]string
 }
 
 // RunConversationStream spawns the Python runner for interactive or batch conversation turns.
@@ -231,6 +232,14 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 		)
 		if params.Language != "" {
 			cmd.Env = append(cmd.Env, "NISKAVA_LANG="+params.Language)
+		}
+		if len(params.EnvOverrides) > 0 {
+			for k, v := range params.EnvOverrides {
+				trimmedKey := strings.TrimSpace(k)
+				if trimmedKey != "" {
+					cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", trimmedKey, v))
+				}
+			}
 		}
 
 		stdout, err := cmd.StdoutPipe()

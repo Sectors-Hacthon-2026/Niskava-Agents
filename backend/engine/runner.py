@@ -58,8 +58,48 @@ def load_dotenv_fallback() -> None:
                 pass
 
 
+def load_config_yaml_fallback() -> None:
+    """Optional fallback to load credentials from ~/.niskava/config.yaml if not set in os.environ."""
+    config_path = os.path.expanduser("~/.niskava/config.yaml")
+    if not os.path.exists(config_path):
+        return
+    try:
+        import yaml
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+            if not isinstance(cfg, dict):
+                return
+            auth = cfg.get("auth", {})
+            if isinstance(auth, dict):
+                mapping = {
+                    "SECTORS_API_KEY": auth.get("sectors_api_key"),
+                    "SECTORS_BASE_URL": auth.get("sectors_base_url"),
+                    "AI_PROVIDER": auth.get("ai_provider"),
+                    "GEMINI_API_KEY": auth.get("gemini_api_key"),
+                    "GEMINI_MODEL": auth.get("gemini_model"),
+                    "OPENAI_API_KEY": auth.get("openai_api_key"),
+                    "OPENAI_BASE_URL": auth.get("openai_base_url"),
+                    "OPENAI_MODEL": auth.get("openai_model"),
+                    "ANTHROPIC_API_KEY": auth.get("anthropic_api_key"),
+                    "OLLAMA_BASE_URL": auth.get("ollama_base_url"),
+                    "OLLAMA_MODEL": auth.get("ollama_model"),
+                }
+                for k, v in mapping.items():
+                    if v and isinstance(v, str) and (k not in os.environ or not os.environ[k]):
+                        os.environ[k] = v
+            prefs = cfg.get("preferences", {})
+            if isinstance(prefs, dict):
+                if prefs.get("language") and "NISKAVA_LANG" not in os.environ:
+                    os.environ["NISKAVA_LANG"] = str(prefs["language"])
+                if prefs.get("offline_mode") and "NISKAVA_OFFLINE" not in os.environ:
+                    os.environ["NISKAVA_OFFLINE"] = "1" if prefs["offline_mode"] else "0"
+    except Exception:
+        pass
+
+
 def main() -> None:
     load_dotenv_fallback()
+    load_config_yaml_fallback()
     parser = argparse.ArgumentParser(description="Niskava Python Agent Engine IPC Runner")
     parser.add_argument("--prompt", default=None, help="Free-form conversational user prompt")
     parser.add_argument("--ticker", default=None, help="Target IDX ticker (e.g. ANTM)")

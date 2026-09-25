@@ -91,6 +91,104 @@ type Server struct {
 	botMu          sync.Mutex
 }
 
+// buildSubprocessEnv extracts active authentication and preferences from s.Config into dynamic environment variables.
+func (s *Server) buildSubprocessEnv() map[string]string {
+	s.cfgMu.RLock()
+	cfg := s.Config
+	s.cfgMu.RUnlock()
+
+	env := make(map[string]string)
+	if cfg == nil {
+		return env
+	}
+
+	if cfg.Auth.AIProvider != "" {
+		env["AI_PROVIDER"] = cfg.Auth.AIProvider
+	}
+	if cfg.Auth.SectorsAPIKey != "" {
+		env["SECTORS_API_KEY"] = cfg.Auth.SectorsAPIKey
+	}
+	if cfg.Auth.SectorsBaseURL != "" {
+		env["SECTORS_BASE_URL"] = cfg.Auth.SectorsBaseURL
+	}
+	if cfg.Auth.GeminiAPIKey != "" {
+		env["GEMINI_API_KEY"] = cfg.Auth.GeminiAPIKey
+	}
+	if cfg.Auth.GeminiModel != "" {
+		env["GEMINI_MODEL"] = cfg.Auth.GeminiModel
+	}
+	if cfg.Auth.OpenAIAPIKey != "" {
+		env["OPENAI_API_KEY"] = cfg.Auth.OpenAIAPIKey
+	}
+	if cfg.Auth.OpenAIBaseURL != "" {
+		env["OPENAI_BASE_URL"] = cfg.Auth.OpenAIBaseURL
+	}
+	if cfg.Auth.OpenAIModel != "" {
+		env["OPENAI_MODEL"] = cfg.Auth.OpenAIModel
+	}
+	if cfg.Auth.AnthropicAPIKey != "" {
+		env["ANTHROPIC_API_KEY"] = cfg.Auth.AnthropicAPIKey
+	}
+	if cfg.Auth.OllamaBaseURL != "" {
+		env["OLLAMA_BASE_URL"] = cfg.Auth.OllamaBaseURL
+	}
+	if cfg.Auth.OllamaModel != "" {
+		env["OLLAMA_MODEL"] = cfg.Auth.OllamaModel
+	}
+	if cfg.Preferences.Language != "" {
+		env["NISKAVA_LANG"] = cfg.Preferences.Language
+	}
+	if cfg.Preferences.OfflineMode {
+		env["NISKAVA_OFFLINE"] = "1"
+	}
+	if cfg.Preferences.DefaultMarket != "" {
+		env["DEFAULT_MARKET"] = cfg.Preferences.DefaultMarket
+	}
+	return env
+}
+
+// syncTelegramBotState synchronizes running Telegram bot service with the latest s.Config settings.
+func (s *Server) syncTelegramBotState() {
+	s.cfgMu.RLock()
+	cfg := s.Config
+	s.cfgMu.RUnlock()
+
+	s.botMu.Lock()
+	defer s.botMu.Unlock()
+
+	if cfg == nil {
+		return
+	}
+
+	trimmedToken := strings.TrimSpace(cfg.Telegram.BotToken)
+	botRunning := s.BotService != nil && s.BotService.IsStarted()
+
+	// If disabled or empty token, stop bot if running
+	if !cfg.Telegram.Enabled || trimmedToken == "" {
+		if botRunning {
+			s.BotService.Stop()
+			s.BotService = nil
+		}
+		return
+	}
+
+	// If already running with the exact same token, no need to recreate
+	if botRunning && s.BotService.Token() == trimmedToken {
+		return
+	}
+
+	// Token changed or bot not running: stop existing instance if any
+	if botRunning {
+		s.BotService.Stop()
+		s.BotService = nil
+	}
+
+	if botSvc, err := telegram.NewBotService(cfg, s.DB, s.SessionManager); err == nil {
+		s.BotService = botSvc
+		_ = s.BotService.Start()
+	}
+}
+
 // ChatRequest represents the JSON payload for /api/chat.
 type ChatRequest struct {
 	Prompt    string `json:"prompt"`
@@ -251,20 +349,32 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 				if req.Auth.AIProvider != nil && *req.Auth.AIProvider != "" {
 					s.Config.Auth.AIProvider = *req.Auth.AIProvider
 				}
-				if req.Auth.SectorsAPIKey != nil && *req.Auth.SectorsAPIKey != "" && !strings.Contains(*req.Auth.SectorsAPIKey, "****") {
-					s.Config.Auth.SectorsAPIKey = *req.Auth.SectorsAPIKey
+				if req.Auth.SectorsAPIKey != nil {
+					if *req.Auth.SectorsAPIKey == "" {
+						s.Config.Auth.SectorsAPIKey = ""
+					} else if !strings.Contains(*req.Auth.SectorsAPIKey, "****") {
+						s.Config.Auth.SectorsAPIKey = *req.Auth.SectorsAPIKey
+					}
 				}
 				if req.Auth.SectorsBaseURL != nil && *req.Auth.SectorsBaseURL != "" {
 					s.Config.Auth.SectorsBaseURL = *req.Auth.SectorsBaseURL
 				}
-				if req.Auth.GeminiAPIKey != nil && *req.Auth.GeminiAPIKey != "" && !strings.Contains(*req.Auth.GeminiAPIKey, "****") {
-					s.Config.Auth.GeminiAPIKey = *req.Auth.GeminiAPIKey
+				if req.Auth.GeminiAPIKey != nil {
+					if *req.Auth.GeminiAPIKey == "" {
+						s.Config.Auth.GeminiAPIKey = ""
+					} else if !strings.Contains(*req.Auth.GeminiAPIKey, "****") {
+						s.Config.Auth.GeminiAPIKey = *req.Auth.GeminiAPIKey
+					}
 				}
 				if req.Auth.GeminiModel != nil && *req.Auth.GeminiModel != "" {
 					s.Config.Auth.GeminiModel = *req.Auth.GeminiModel
 				}
-				if req.Auth.OpenAIAPIKey != nil && *req.Auth.OpenAIAPIKey != "" && !strings.Contains(*req.Auth.OpenAIAPIKey, "****") {
-					s.Config.Auth.OpenAIAPIKey = *req.Auth.OpenAIAPIKey
+				if req.Auth.OpenAIAPIKey != nil {
+					if *req.Auth.OpenAIAPIKey == "" {
+						s.Config.Auth.OpenAIAPIKey = ""
+					} else if !strings.Contains(*req.Auth.OpenAIAPIKey, "****") {
+						s.Config.Auth.OpenAIAPIKey = *req.Auth.OpenAIAPIKey
+					}
 				}
 				if req.Auth.OpenAIBaseURL != nil && *req.Auth.OpenAIBaseURL != "" {
 					s.Config.Auth.OpenAIBaseURL = *req.Auth.OpenAIBaseURL
@@ -272,8 +382,12 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 				if req.Auth.OpenAIModel != nil && *req.Auth.OpenAIModel != "" {
 					s.Config.Auth.OpenAIModel = *req.Auth.OpenAIModel
 				}
-				if req.Auth.AnthropicAPIKey != nil && *req.Auth.AnthropicAPIKey != "" && !strings.Contains(*req.Auth.AnthropicAPIKey, "****") {
-					s.Config.Auth.AnthropicAPIKey = *req.Auth.AnthropicAPIKey
+				if req.Auth.AnthropicAPIKey != nil {
+					if *req.Auth.AnthropicAPIKey == "" {
+						s.Config.Auth.AnthropicAPIKey = ""
+					} else if !strings.Contains(*req.Auth.AnthropicAPIKey, "****") {
+						s.Config.Auth.AnthropicAPIKey = *req.Auth.AnthropicAPIKey
+					}
 				}
 				if req.Auth.OllamaBaseURL != nil && *req.Auth.OllamaBaseURL != "" {
 					s.Config.Auth.OllamaBaseURL = *req.Auth.OllamaBaseURL
@@ -320,9 +434,15 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 					s.Config.Memory.MaxContextTokens = *req.Memory.MaxContextTokens
 				}
 			}
+			telegramUpdated := false
 			if req.Telegram != nil {
-				if req.Telegram.BotToken != nil && *req.Telegram.BotToken != "" && !strings.Contains(*req.Telegram.BotToken, "****") {
-					s.Config.Telegram.BotToken = *req.Telegram.BotToken
+				telegramUpdated = true
+				if req.Telegram.BotToken != nil {
+					if *req.Telegram.BotToken == "" {
+						s.Config.Telegram.BotToken = ""
+					} else if !strings.Contains(*req.Telegram.BotToken, "****") {
+						s.Config.Telegram.BotToken = *req.Telegram.BotToken
+					}
 				}
 				if req.Telegram.Enabled != nil {
 					s.Config.Telegram.Enabled = *req.Telegram.Enabled
@@ -335,6 +455,10 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 			_ = config.SaveConfig(s.Config, s.ConfigPath)
 			view := s.Config.MaskedView()
 			s.cfgMu.Unlock()
+
+			if telegramUpdated {
+				s.syncTelegramBotState()
+			}
 
 			sendJSON(w, http.StatusOK, view)
 			return
@@ -614,8 +738,12 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 			if s.Config == nil {
 				s.Config = config.DefaultConfig()
 			}
-			if req.BotToken != nil && *req.BotToken != "" && !strings.Contains(*req.BotToken, "****") {
-				s.Config.Telegram.BotToken = *req.BotToken
+			if req.BotToken != nil {
+				if *req.BotToken == "" {
+					s.Config.Telegram.BotToken = ""
+				} else if !strings.Contains(*req.BotToken, "****") {
+					s.Config.Telegram.BotToken = *req.BotToken
+				}
 			}
 			if req.Enabled != nil {
 				s.Config.Telegram.Enabled = *req.Enabled
@@ -641,6 +769,8 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 			hasToken := strings.TrimSpace(s.Config.Telegram.BotToken) != ""
 			allowedUsers := s.Config.Telegram.AllowedUsers
 			s.cfgMu.Unlock()
+
+			s.syncTelegramBotState()
 
 			if allowedUsers == nil {
 				allowedUsers = []string{}
@@ -702,7 +832,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 		s.botMu.Lock()
 		defer s.botMu.Unlock()
 
-		if s.BotService == nil || !s.BotService.IsStarted() {
+		if s.BotService == nil || !s.BotService.IsStarted() || s.BotService.Token() != token {
+			if s.BotService != nil && s.BotService.IsStarted() {
+				s.BotService.Stop()
+				s.BotService = nil
+			}
 			svc, err := telegram.NewBotService(s.Config, s.DB, s.SessionManager)
 			if err != nil {
 				sendJSON(w, http.StatusInternalServerError, map[string]interface{}{
@@ -1563,11 +1697,24 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 			}
 		}()
 
-		pythonBin := ipc.ResolvePythonBin(os.Getenv("NISKAVA_PYTHON_BIN"))
+		s.cfgMu.RLock()
+		activeCfg := s.Config
+		s.cfgMu.RUnlock()
+		if activeCfg == nil {
+			activeCfg = config.DefaultConfig()
+		}
+
+		configuredBin := activeCfg.Engine.PythonBin
+		if envBin := os.Getenv("NISKAVA_PYTHON_BIN"); envBin != "" {
+			configuredBin = envBin
+		}
+		pythonBin := ipc.ResolvePythonBin(configuredBin)
 
 		dbPath := ""
 		if s.DB != nil && s.DB.Path != "" {
 			dbPath = s.DB.Path
+		} else if activeCfg.Storage.DBPath != "" {
+			dbPath = config.ExpandHome(activeCfg.Storage.DBPath)
 		} else {
 			homeDir, _ := os.UserHomeDir()
 			dbPath = filepath.Join(homeDir, ".niskava", "niskava.db")
@@ -1578,19 +1725,25 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 
 		wd, _ := os.Getwd()
 
-		chatLang := os.Getenv("NISKAVA_LANG")
+		chatLang := activeCfg.Preferences.Language
+		if envLang := os.Getenv("NISKAVA_LANG"); envLang != "" {
+			chatLang = envLang
+		}
 		if chatLang == "" {
 			chatLang = "id"
 		}
 
+		isOffline := activeCfg.Preferences.OfflineMode || os.Getenv("NISKAVA_OFFLINE") == "1" || os.Getenv("MOCK_SECTORS") == "1"
+
 		runnerParams := ipc.RunnerParams{
-			PythonBin: pythonBin,
-			WorkDir:   wd,
-			DBPath:    dbPath,
-			Prompt:    req.Prompt,
-			SessionID: sessionID,
-			Offline:   os.Getenv("NISKAVA_OFFLINE") == "1",
-			Language:  chatLang,
+			PythonBin:    pythonBin,
+			WorkDir:      wd,
+			DBPath:       dbPath,
+			Prompt:       req.Prompt,
+			SessionID:    sessionID,
+			Offline:      isOffline,
+			Language:     chatLang,
+			EnvOverrides: s.buildSubprocessEnv(),
 		}
 
 		eventsChan, errChan := ipc.RunSubprocess(chatCtx, runnerParams)
@@ -1785,11 +1938,24 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 
 	// 6. Interactive Memory Graph View endpoint (serves full Market Intelligence visualizer)
 	mux.HandleFunc("/graph", func(w http.ResponseWriter, r *http.Request) {
-		pythonBin := ipc.ResolvePythonBin(os.Getenv("NISKAVA_PYTHON_BIN"))
+		s.cfgMu.RLock()
+		activeCfg := s.Config
+		s.cfgMu.RUnlock()
+		if activeCfg == nil {
+			activeCfg = config.DefaultConfig()
+		}
+
+		configuredBin := activeCfg.Engine.PythonBin
+		if envBin := os.Getenv("NISKAVA_PYTHON_BIN"); envBin != "" {
+			configuredBin = envBin
+		}
+		pythonBin := ipc.ResolvePythonBin(configuredBin)
 
 		dbPath := ""
 		if s.DB != nil && s.DB.Path != "" {
 			dbPath = s.DB.Path
+		} else if activeCfg.Storage.DBPath != "" {
+			dbPath = config.ExpandHome(activeCfg.Storage.DBPath)
 		} else {
 			homeDir, _ := os.UserHomeDir()
 			dbPath = filepath.Join(homeDir, ".niskava", "niskava.db")
@@ -1835,6 +2001,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 			"PYTHONIOENCODING=utf-8",
 			"PYTHONUTF8=1",
 		)
+		for k, v := range s.buildSubprocessEnv() {
+			if strings.TrimSpace(k) != "" {
+				cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+			}
+		}
 		if out, err := cmd.CombinedOutput(); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to generate graph visualization: %v\nOutput: %s", err, string(out)), http.StatusInternalServerError)
 			return

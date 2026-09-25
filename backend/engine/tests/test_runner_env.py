@@ -2,7 +2,7 @@
 
 import os
 from unittest.mock import patch
-from engine.runner import load_dotenv_fallback
+from engine.runner import load_dotenv_fallback, load_config_yaml_fallback
 
 _real_open = open
 
@@ -31,3 +31,26 @@ def test_load_dotenv_fallback_skips_empty_values(tmp_path):
                     load_dotenv_fallback()
                     assert os.environ.get("SECTORS_API_KEY") == "valid_key_12345"
                     assert os.environ.get("OPENAI_MODEL") == "hermes"
+
+
+def test_load_config_yaml_fallback(tmp_path):
+    yaml_config = tmp_path / "config.yaml"
+    yaml_config.write_text("""
+auth:
+  sectors_api_key: "sectors_yaml_key_999"
+  gemini_api_key: "gemini_yaml_key_888"
+  ai_provider: "gemini"
+preferences:
+  language: "en"
+  offline_mode: true
+""", encoding="utf-8")
+
+    with patch.dict(os.environ, {}, clear=True):
+        with patch("engine.runner.os.path.expanduser", return_value=str(yaml_config)):
+            load_config_yaml_fallback()
+            assert os.environ.get("SECTORS_API_KEY") == "sectors_yaml_key_999"
+            assert os.environ.get("GEMINI_API_KEY") == "gemini_yaml_key_888"
+            assert os.environ.get("AI_PROVIDER") == "gemini"
+            assert os.environ.get("NISKAVA_LANG") == "en"
+            assert os.environ.get("NISKAVA_OFFLINE") == "1"
+
