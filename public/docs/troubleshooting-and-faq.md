@@ -65,33 +65,71 @@ Niskava uses SQLite with Write-Ahead Logging (`PRAGMA journal_mode = WAL;`) for 
 
 ---
 
-### Issue 3: Python Virtual Environment or Executable Not Found
+### Issue 3: Python Virtual Environment or Quantitative Dependencies Missing
 **Symptoms:**
 Go Core reports:
 ```text
-Error: python executable not found in backend/engine/venv
+Error: quantitative dependencies missing or python executable not found
 ```
 
 **Resolutions:**
-1. Ensure the Python virtual environment exists and dependencies are installed:
+1. **Run Auto-Bootstrap via Setup Wizard (Recommended):**
    ```bash
-   cd backend/engine
-   python3 -m venv venv
-   # Linux/macOS:
-   ./venv/bin/pip install -r requirements.txt
-   # Windows:
-   .\venv\Scripts\pip.exe install -r requirements.txt
+   ./bin/niskava setup
    ```
-2. If using a custom Python installation, specify the binary path explicitly in `~/.niskava/config.yaml`:
+   When prompted, choose `Y` to allow Niskava to automatically configure `.venv` and install `requirements.txt`.
+2. **Manual Virtual Environment Setup:**
+   Ensure the Python virtual environment exists in the root directory and dependencies are installed:
+   - **Linux / macOS:**
+     ```bash
+     python3 -m venv .venv
+     .venv/bin/pip install --upgrade pip
+     .venv/bin/pip install -r backend/engine/requirements.txt
+     ```
+   - **Windows (PowerShell):**
+     ```powershell
+     python -m venv .venv
+     .\.venv\Scripts\pip.exe install --upgrade pip
+     .\.venv\Scripts\pip.exe install -r backend\engine\requirements.txt
+     ```
+3. If using a custom Python installation, specify the binary path explicitly in `~/.niskava/config.yaml`:
    ```yaml
    engine:
      python_bin: "/usr/bin/python3"
-     engine_path: "/absolute/path/to/backend/engine"
+     engine_path: "./backend/engine"
    ```
    Or set the environment variable:
    ```bash
    export NISKAVA_PYTHON_BIN="/usr/bin/python3"
    ```
+
+---
+
+### Issue 4: Windows PowerShell Script Execution Blocked
+**Symptoms:**
+Running `.\install.ps1` produces the following error:
+```text
+File install.ps1 cannot be loaded because running scripts is disabled on this system.
+```
+
+**Resolution:**
+PowerShell by default blocks script execution. Run the following command in your current PowerShell session:
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+Then re-run `.\install.ps1`.
+
+---
+
+### Issue 5: Python Not Found on Windows (`'python' is not recognized`)
+**Symptoms:**
+Command Prompt or PowerShell reports:
+```text
+'python' is not recognized as an internal or external command
+```
+
+**Resolution:**
+Re-install Python 3.11+ from [python.org](https://www.python.org/downloads/) and make sure to check the checkbox **"Add python.exe to PATH"** on the first installation screen. If already installed, add `C:\Users\<Username>\AppData\Local\Programs\Python\Python312` and its `Scripts` directory to your system Environment Variables.
 
 ---
 
