@@ -651,11 +651,11 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 
 		wd, _ := os.Getwd()
 		runnerParams := ipc.RunnerParams{
-			PythonBin: pythonBin,
-			WorkDir:   wd,
-			DBPath:    cfg.Storage.DBPath,
-			Prompt:    prompt,
-			SessionID: sessionID,
+			PythonBin:    pythonBin,
+			WorkDir:      wd,
+			DBPath:       cfg.Storage.DBPath,
+			Prompt:       prompt,
+			SessionID:    sessionID,
 			Offline:      cfg.Preferences.OfflineMode,
 			Language:     cfg.Preferences.Language,
 			EnvOverrides: cfg.BuildSubprocessEnv(),

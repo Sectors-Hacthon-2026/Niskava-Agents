@@ -69,13 +69,13 @@ var investigateCmd = &cobra.Command{
 		resolvedEngine := ipc.ResolveEnginePath(resolvedRoot, customEngine)
 
 		runnerParams := ipc.RunnerParams{
-			PythonBin:  pythonBin,
-			WorkDir:    resolvedRoot,
-			EnginePath: resolvedEngine,
-			DBPath:     cfg.Storage.DBPath,
-			Ticker:     ticker,
-			Days:       daysFlag,
-			SessionID:  sessionID,
+			PythonBin:    pythonBin,
+			WorkDir:      resolvedRoot,
+			EnginePath:   resolvedEngine,
+			DBPath:       cfg.Storage.DBPath,
+			Ticker:       ticker,
+			Days:         daysFlag,
+			SessionID:    sessionID,
 			Offline:      isOffline,
 			Language:     cfg.Preferences.Language,
 			EnvOverrides: cfg.BuildSubprocessEnv(),
