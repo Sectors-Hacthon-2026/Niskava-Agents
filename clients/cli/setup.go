@@ -78,14 +78,15 @@ func init() {
 
 // SetupParams encapsulates all configuration attributes gathered during the wizard.
 type SetupParams struct {
-	AIProvider    string
-	OpenAIBaseURL string
-	OpenAIKey     string
-	OpenAIModel   string
-	GeminiKey     string
-	GeminiModel   string
-	SectorsKey    string
-	PythonBin     string
+	AIProvider     string
+	OpenAIBaseURL  string
+	OpenAIKey      string
+	OpenAIModel    string
+	GeminiKey      string
+	GeminiModel    string
+	SectorsKey     string
+	PythonBin      string
+	LLMTimeoutSecs float64 // Inference timeout in seconds (10–300). 0 → defaults to 60.
 }
 
 // ProviderPreset holds standard endpoints and defaults for popular AI providers.
@@ -175,6 +176,17 @@ func BuildEnvContent(p SetupParams) string {
 		}
 	}
 
+	timeoutSecs := p.LLMTimeoutSecs
+	if timeoutSecs <= 0 {
+		timeoutSecs = 60.0
+	}
+	if timeoutSecs < 10.0 {
+		timeoutSecs = 10.0
+	}
+	if timeoutSecs > 300.0 {
+		timeoutSecs = 300.0
+	}
+
 	return fmt.Sprintf(`# =============================================================================
 # NISKAVA AGENT — ENVIRONMENT CONFIGURATION (.env)
 # Generated automatically via 'niskava setup' on %s
@@ -208,12 +220,17 @@ NISKAVA_PORT=8080
 # 4. SECTORS NEWS ENGINE
 NEWS_HARVEST_MAX_ARTICLES=5
 NEWS_TIMEOUT_SECONDS=10
+
+# 5. INFERENCE TIMEOUT — how long to wait for LLM response (seconds, range 10–300)
+# Profiles: fast=25 | balanced=60 | deep=120 | local_llm=180
+NISKAVA_LLM_TIMEOUT=%.2f
 `, time.Now().Format(time.RFC3339),
 		p.AIProvider, p.OpenAIBaseURL, p.OpenAIKey, p.OpenAIModel,
 		p.GeminiKey, p.GeminiModel,
 		p.SectorsKey,
 		mockVal, mockVal,
 		pyBin,
+		timeoutSecs,
 	)
 }
 
@@ -237,6 +254,11 @@ func SaveSetupConfiguration(p SetupParams) error {
 	cfg.Auth.GeminiModel = p.GeminiModel
 	cfg.Auth.SectorsAPIKey = p.SectorsKey
 	cfg.Preferences.OfflineMode = (strings.TrimSpace(p.SectorsKey) == "")
+	if p.LLMTimeoutSecs > 0 {
+		cfg.Preferences.LLMTimeoutSecs = p.LLMTimeoutSecs
+	} else {
+		cfg.Preferences.LLMTimeoutSecs = 60.0
+	}
 	if p.PythonBin != "" {
 		cfg.Engine.PythonBin = p.PythonBin
 	}
@@ -785,16 +807,70 @@ func RunInteractiveSetup() error {
 		}
 	}
 
-	// Step 5: Save Configuration
+	// Step 5: Inference Timeout Profile
+	fmt.Println()
+	fmt.Println(wizardStepStyle.Render("Step 5: AI Inference Timeout Profile:"))
+	fmt.Println(wizardMutedStyle.Render("  Sets how long Niskava waits for the LLM to respond per reasoning step."))
+	fmt.Printf("  %s %s %s\n",
+		wizardItemBadgeStyle.Render("[1]"),
+		"Fast / Cloud API          — 25 seconds",
+		wizardMutedStyle.Render("Best for: OpenAI, Claude, Gemini API"))
+	fmt.Printf("  %s %s %s\n",
+		wizardItemBadgeStyle.Render("[2]"),
+		"Balanced / Adaptive       — 60 seconds",
+		wizardMutedStyle.Render("[Recommended] Handles multi-tool IDX analysis"))
+	fmt.Printf("  %s %s %s\n",
+		wizardItemBadgeStyle.Render("[3]"),
+		"Deep Reasoning / Cloud    — 120 seconds",
+		wizardMutedStyle.Render("Best for: o3, Gemini 2.5 Pro, DeepSeek R2"))
+	fmt.Printf("  %s %s %s\n",
+		wizardItemBadgeStyle.Render("[4]"),
+		"Local LLM / Slow Hardware — 180 seconds",
+		wizardMutedStyle.Render("Best for: Ollama on CPU, vLLM on low-VRAM GPU"))
+	fmt.Printf("  %s Custom (enter seconds)\n",
+		wizardItemBadgeStyle.Render("[5]"))
+	fmt.Printf("\n%s Choice [1/2/3/4/5, default: 2]: ", wizardStepStyle.Render("►"))
+
+	timeoutChoice, _ := reader.ReadString('\n')
+	timeoutChoice = strings.TrimSpace(timeoutChoice)
+
+	var chosenTimeoutSecs float64
+	switch timeoutChoice {
+	case "1":
+		chosenTimeoutSecs = 25.0
+	case "3":
+		chosenTimeoutSecs = 120.0
+	case "4":
+		chosenTimeoutSecs = 180.0
+	case "5":
+		fmt.Printf("  %s Enter timeout in seconds (10–300): ", wizardStepStyle.Render("►"))
+		rawSecs, _ := reader.ReadString('\n')
+		rawSecs = strings.TrimSpace(rawSecs)
+		var parsed float64
+		if _, err := fmt.Sscanf(rawSecs, "%f", &parsed); err == nil && parsed >= 10 && parsed <= 300 {
+			chosenTimeoutSecs = parsed
+		} else {
+			fmt.Printf("  %s Invalid value. Using Balanced (60s).\n", wizardWarnBadgeStyle.Render("[!]"))
+			chosenTimeoutSecs = 60.0
+		}
+	default:
+		chosenTimeoutSecs = 60.0
+	}
+	fmt.Printf("  %s Inference timeout set to %.0fs per LLM call.\n",
+		wizardSuccessBadgeStyle.Render("[✓]"),
+		chosenTimeoutSecs)
+
+	// Step 6: Save Configuration
 	params := SetupParams{
-		AIProvider:    aiProvider,
-		OpenAIBaseURL: openAIBaseURL,
-		OpenAIKey:     openAIKey,
-		OpenAIModel:   openAIModel,
-		GeminiKey:     geminiKey,
-		GeminiModel:   geminiModel,
-		SectorsKey:    sectorsKey,
-		PythonBin:     pyBin,
+		AIProvider:     aiProvider,
+		OpenAIBaseURL:  openAIBaseURL,
+		OpenAIKey:      openAIKey,
+		OpenAIModel:    openAIModel,
+		GeminiKey:      geminiKey,
+		GeminiModel:    geminiModel,
+		SectorsKey:     sectorsKey,
+		PythonBin:      pyBin,
+		LLMTimeoutSecs: chosenTimeoutSecs,
 	}
 
 	if err := SaveSetupConfiguration(params); err != nil {
@@ -809,6 +885,7 @@ func RunInteractiveSetup() error {
 	completeBox.WriteString(wizardMutedStyle.Render("Active Configuration Summary:\n"))
 	completeBox.WriteString(fmt.Sprintf("  • Provider : %s (%s)\n", aiProvider, openAIModel))
 	completeBox.WriteString(fmt.Sprintf("  • Endpoint : %s\n", openAIBaseURL))
+	completeBox.WriteString(fmt.Sprintf("  • Timeout  : %.0fs per LLM step (Adaptive scaling)\n", chosenTimeoutSecs))
 	if sectorsKey == "" {
 		completeBox.WriteString("  • Sectors  : Offline Mock Mode (100% Free / Cached)\n")
 	} else {

@@ -129,7 +129,7 @@ niskava/                         # Root direktori repositori implementasi
 │       ├── quant/               # Anomali kuantitatif deterministik (NumPy/Pandas Z-Scores)
 │       ├── sectors/             # Sectors v2 API client, news engine & disk cache lokal
 │       ├── memory/              # Local Graph Memory Engine (NetworkX DiGraph)
-│       ├── tests/               # 231 unit tests komprehensif engine Python (100% green)
+│       ├── tests/               # 272 unit tests komprehensif engine Python (100% green)
 │       ├── runner.py            # Entrypoint IPC headless investigation pipeline
 │       └── pyproject.toml       # Dependensi modern Python (uv / pip)
 │
@@ -163,9 +163,10 @@ CLI Flags (Override Tertinggi)
 | **Python Engine Path** | `./backend/engine` (atau `backend.engine.runner`) | `NISKAVA_ENGINE_PATH` | `--engine-path` / `engine.entrypoint` | Runner menemukan entrypoint baik dalam root repo maupun lingkungan terpasang. |
 | **Web UI Assets** | `//go:embed clients/web/dist` | `NISKAVA_WEB_DIR` | `--web-dir` / `web.dist_path` | Mode produksi memakai embedded binary. Mode development dapat mengarahkan ke `clients/web/dist` lokal. |
 | **SQLite DB Path** | `~/.niskava/niskava.db` | `NISKAVA_DB_PATH` | `--db-path` / `storage.db_path` | Memungkinkan database diletakkan di lokasi kustom atau memori (`:memory:`) untuk testing isolasi. |
-| **HTTP Port** | `8080` | `NISKAVA_PORT` | `--port` / `server.port` | Port lokal REST/SSE dapat dipindah jika 8080 sedang digunakan. |
-| **LLM API Base** | `http://localhost:20128/v1` | `NISKAVA_LLM_API_BASE` | `--llm-api-base` / `llm.api_base` | Endpoint OpenAI-compatible (9router local proxy, Ollama, OpenRouter, vLLM). |
-| **LLM Model** | `hermes` | `NISKAVA_LLM_MODEL` | `--llm-model` / `llm.model` | Model id universal tanpa vendor lock-in. |
+| **HTTP Port** | `20128` (atau `8080`) | `NISKAVA_PORT` | `--port` / `server.port` | Port lokal REST/SSE dapat dipindah sesuai ketersediaan port. |
+| **LLM Inference Timeout** | `60.0` detik | `NISKAVA_LLM_TIMEOUT` | `/timeout` / `preferences.llm_timeout_secs` | Skala adaptif otomatis per iterasi ReAct: $\text{Base} + (N_{\text{obs}} \times 10\text{s})$, batas 10–300 detik. |
+| **LLM API Base** | `http://localhost:20128/v1` | `OPENAI_BASE_URL` | `--llm-api-base` / `auth.openai_base_url` | Endpoint OpenAI-compatible (9router local proxy, Ollama, OpenRouter, vLLM). |
+| **LLM Model** | `hermes` | `OPENAI_MODEL` | `--llm-model` / `auth.openai_model` | Model id universal tanpa vendor lock-in. |
 
 ---
 

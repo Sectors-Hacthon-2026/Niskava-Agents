@@ -409,6 +409,7 @@ export interface ConfigView {
     default_market: string;
     offline_mode: boolean;
     language: string;
+    llm_timeout_secs?: number; // Batas waktu inferensi LLM dalam detik (10 - 300)
   };
   memory: {
     enabled: boolean;

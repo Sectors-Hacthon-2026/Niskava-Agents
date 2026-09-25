@@ -217,6 +217,22 @@ var TUIStrings = map[string]map[string]string{
 		"en": "Switch active language preference (/lang en | /lang id)",
 		"id": "Ubah preferensi bahasa aktif (/lang en | /lang id)",
 	},
+	"slash_timeout_desc": {
+		"en": "Set LLM timeout: /timeout [fast|balanced|deep|local|<seconds>]",
+		"id": "Atur timeout LLM: /timeout [fast|balanced|deep|local|<detik>]",
+	},
+	"slash_timeout_set": {
+		"en": "✓ Inference timeout set to %.0fs (%s). Saved to config.",
+		"id": "✓ Timeout inferensi diatur %.0fd (%s). Tersimpan ke config.",
+	},
+	"slash_timeout_invalid": {
+		"en": "⚠ Invalid. Use: /timeout fast(25s) | balanced(60s) | deep(120s) | local(180s) | <10–300>",
+		"id": "⚠ Tidak valid. Gunakan: /timeout fast(25d) | balanced(60d) | deep(120d) | local(180d) | <10–300>",
+	},
+	"slash_timeout_current": {
+		"en": "Current inference timeout: %.0fs",
+		"id": "Timeout inferensi saat ini: %.0fd",
+	},
 	"slash_exit_desc": {
 		"en": "Exit Live REPL session back to main menu",
 		"id": "Keluar dari sesi Live REPL kembali ke menu utama",
@@ -750,6 +766,7 @@ func GetLocalizedSlashCommands() []SlashCommand {
 		{Command: "/sessions", Category: "INTEL", Description: T("slash_sessions_desc")},
 		{Command: "/health", Category: "SYSTEM", Description: T("slash_health_desc")},
 		{Command: "/lang", Category: "SYSTEM", Description: T("slash_lang_desc")},
+		{Command: "/timeout", Category: "SYSTEM", Description: T("slash_timeout_desc")},
 		{Command: "/exit", Category: "SYSTEM", Description: T("slash_exit_desc")},
 	}
 }

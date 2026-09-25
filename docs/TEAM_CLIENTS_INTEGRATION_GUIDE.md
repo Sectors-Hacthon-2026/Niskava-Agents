@@ -200,13 +200,17 @@ niskava mcp
 
 # 7. Menampilkan Riwayat Sesi Investigasi & Chat dari SQLite
 niskava sessions
+
+# 8. Menjalankan Diagnostik Kesehatan Lengkap Lingkungan Kerja
+niskava doctor
 ```
 
 ---
 
 ### C. Penyesuaian REPL Interaktif (`repl.go`)
 1. **Slash Commands**:
-   * Agung sudah memiliki popup slash command di Bubbletea (`/help`, `/reset`, `/graph`, `/web`, `/sessions`, `/health`, `/clear`, `/exit`).
+   * Agung sudah memiliki popup slash command di Bubbletea lengkap dengan 13 perintah (`/help`, `/chats`, `/resume`, `/timeout`, `/reset`, `/graph`, `/clear`, `/web`, `/sessions`, `/health`, `/lang`, `/back`, `/exit`).
+   * Perintah `/timeout` mendukung profil instan: `fast` (25s), `balanced` (60s), `deep` (120s), `local` (180s), atau nilai kustom `10-300` detik, langsung tersimpan ke `~/.niskava/config.yaml`.
    * Pastikan perintah `/reset` membersihkan memori graf di database:
      ```go
      appDB.ClearMemoryGraph()
@@ -247,12 +251,13 @@ Ketika menampilkan kartu temuan (*findings*) di Web Canvas (Nabil) maupun Termin
 - [ ] SSE streaming berjalan lancar (token teks mengalir halus).
 - [ ] Textarea disabled & tombol *Send* berubah menjadi tombol *Stop* saat streaming berlangsung.
 - [ ] Menguji pembatalan: Klik *Stop* $\to$ BE menerima `/abort` $\to$ status sesi kembali ke `IDLE`.
+- [ ] Slider *Inference Timeout* (10–300s) di Settings modal tersinkronisasi dua arah via `GET/PATCH /api/settings`.
 - [ ] Mengetik prompt typo *"cek berita hari ini domg"* $\to$ menampilkan berita pasar umum tanpa memunculkan emiten fiktif `DOMG`.
 - [ ] Disclaimer finansial non-advisory tampil jelas di footer.
 
 ### Untuk Agung (CLI):
 - [ ] `niskava` (interactive REPL) berjalan mulus dengan banner HUD Market Intelligence.
-- [ ] Mengetik `/help`, `/reset`, `/graph`, `/web`, `/clear` berfungsi normal.
+- [ ] Mengetik `/help`, `/chats`, `/resume`, `/timeout`, `/reset`, `/graph`, `/web`, `/clear` berfungsi normal.
 - [ ] Tekan `Ctrl + C` saat agen berpikir $\to$ proses berhenti seketika dan prompt `USER > ` kembali aktif.
 - [ ] Output rendering markdown menggunakan Glamour rapi dan tidak merusak layout terminal.
 - [ ] Kompilasi biner Go bersih (`go build -o bin/niskava ./cmd/niskava`) dan tes `go test -v -race ./...` lulus.
@@ -260,4 +265,4 @@ Ketika menampilkan kartu temuan (*findings*) di Web Canvas (Nabil) maupun Termin
 ---
 
 > **Ada Pertanyaan atau Kendala Integrasi?**  
-> Seluruh kode backend Go (`backend/core/`) dan Python Engine (`backend/engine/`) telah siap 100% dan lulus 92/92 unit test. Jalankan `go test ./backend/... -v` atau `PYTHONPATH=backend pytest backend/engine/tests/ -v` untuk memeriksa integritas backend kapan saja.
+> Seluruh kode backend Go (`backend/core/`) dan Python Engine (`backend/engine/`) telah siap 100% dan lulus 272/272 unit test Python serta seluruh suite Go test. Jalankan `go test ./backend/... -v` atau `PYTHONPATH=backend pytest backend/engine/tests/ -q` untuk memeriksa integritas backend kapan saja.

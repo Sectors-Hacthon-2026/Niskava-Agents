@@ -502,3 +502,32 @@ func TestFormatSSEStreamError(t *testing.T) {
 		t.Fatalf("expected nil for nil error")
 	}
 }
+
+func TestParseTimeoutCommand(t *testing.T) {
+	cases := []struct {
+		input    string
+		wantSecs float64
+		wantOk   bool
+	}{
+		{"/timeout fast", 25.0, true},
+		{"/timeout balanced", 60.0, true},
+		{"/timeout deep", 120.0, true},
+		{"/timeout local", 180.0, true},
+		{"/timeout 90", 90.0, true},
+		{"/timeout 10", 10.0, true},
+		{"/timeout 300", 300.0, true},
+		{"/timeout 9", 0, false},   // below min
+		{"/timeout 301", 0, false}, // above max
+		{"/timeout abc", 0, false}, // unrecognized keyword
+		{"/timeout", 0, false},     // no arg → show current
+	}
+	for _, tc := range cases {
+		got, ok := ParseTimeoutCommand(tc.input)
+		if ok != tc.wantOk {
+			t.Errorf("ParseTimeoutCommand(%q) ok=%v, want %v", tc.input, ok, tc.wantOk)
+		}
+		if ok && got != tc.wantSecs {
+			t.Errorf("ParseTimeoutCommand(%q) = %.1f, want %.1f", tc.input, got, tc.wantSecs)
+		}
+	}
+}

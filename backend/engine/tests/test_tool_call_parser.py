@@ -11,9 +11,9 @@ from engine.agent.react_agent import (
 
 
 def test_token_and_timeout_constants():
-    """Verify default max tokens is 30,000 and default timeout is 25s."""
+    """Verify default max tokens is 30,000 and default timeout is 60s."""
     assert DEFAULT_MAX_TOKENS == 30000
-    assert DEFAULT_LLM_TIMEOUT == 25.0
+    assert DEFAULT_LLM_TIMEOUT == 60.0
 
 
 

@@ -196,3 +196,33 @@ func TestSaveDotEnv_SSoT(t *testing.T) {
 		t.Errorf("expected OPENAI_API_KEY in .env, got:\n%s", strContent)
 	}
 }
+
+func TestLLMTimeoutSecsDefaultAndForwarding(t *testing.T) {
+	cfg := DefaultConfig()
+	if cfg.Preferences.LLMTimeoutSecs != 60.0 {
+		t.Errorf("expected default LLMTimeoutSecs 60.0, got %v", cfg.Preferences.LLMTimeoutSecs)
+	}
+	env := cfg.BuildSubprocessEnv()
+	if env["NISKAVA_LLM_TIMEOUT"] != "60.00" {
+		t.Errorf("expected NISKAVA_LLM_TIMEOUT=60.00, got %q", env["NISKAVA_LLM_TIMEOUT"])
+	}
+	cfg.Preferences.LLMTimeoutSecs = 120.0
+	env2 := cfg.BuildSubprocessEnv()
+	if env2["NISKAVA_LLM_TIMEOUT"] != "120.00" {
+		t.Errorf("expected NISKAVA_LLM_TIMEOUT=120.00, got %q", env2["NISKAVA_LLM_TIMEOUT"])
+	}
+}
+
+func TestLLMTimeoutSecsClamp(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Preferences.LLMTimeoutSecs = 5.0
+	env := cfg.BuildSubprocessEnv()
+	if env["NISKAVA_LLM_TIMEOUT"] != "10.00" {
+		t.Errorf("expected clamped to 10.00, got %q", env["NISKAVA_LLM_TIMEOUT"])
+	}
+	cfg.Preferences.LLMTimeoutSecs = 999.0
+	env2 := cfg.BuildSubprocessEnv()
+	if env2["NISKAVA_LLM_TIMEOUT"] != "300.00" {
+		t.Errorf("expected clamped to 300.00, got %q", env2["NISKAVA_LLM_TIMEOUT"])
+	}
+}
