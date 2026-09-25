@@ -21,6 +21,8 @@ from engine.utils.resilience import RetryConfig, execute_with_retry
 
 # Configurable ReAct loop depth & resource bounds
 MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_MAX_REACT_ITERATIONS", "30"))
+GENERAL_MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_GENERAL_REACT_ITERATIONS", "10"))
+SIMPLE_MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_SIMPLE_REACT_ITERATIONS", "5"))
 DEFAULT_MAX_TOKENS: int = int(os.environ.get("NISKAVA_MAX_TOKENS", "30000"))
 DEFAULT_LLM_TIMEOUT: float = float(os.environ.get("NISKAVA_LLM_TIMEOUT", "90.0"))
 
@@ -229,6 +231,71 @@ def sanitize_final_response(content: str) -> str:
     candidate = re.sub(r"</observation>", "", candidate)
 
     return candidate.strip()
+
+
+# Keyword sets for adaptive complexity classification
+_SIMPLE_KEYWORDS = frozenset({
+    "halo", "hai", "hi", "hello", "hey", "pagi", "siang", "sore", "malam",
+    "apa kabar", "test", "tes", "coba", "help", "bantuan", "who are you",
+    "siapa kamu", "perkenalan", "introduce",
+})
+
+_GENERAL_KEYWORDS = frozenset({
+    "berita", "news", "kabar", "pasar", "market", "ihsg", "bursa", "hari ini",
+    "pre-open", "pre open", "sebelum buka", "sebelum open", "open market",
+    "potensial", "potential", "big move", "sentimen", "sentiment", "headline",
+    "macro", "makro", "overview", "rangkuman", "ringkasan", "summary",
+    "rekomendasi umum", "watchlist hari ini",
+})
+
+_DEEP_KEYWORDS = frozenset({
+    "anomali", "anomaly", "volume", "z-score", "zscore", "audit", "investigasi",
+    "investigate", "bandarmologi", "insider", "forensic", "stress test", "stres",
+    "foreign flow", "net foreign", "valuasi", "valuation", "per ratio", "pbv",
+    "cashflow", "laporan keuangan", "financial", "quant", "quantitative",
+    "abnormal return", "candle", "ohlcv", "broker", "fund flow",
+})
+
+
+def classify_prompt_complexity(user_prompt: str) -> str:
+    """Classify user prompt into 'simple', 'general', or 'deep' for adaptive iteration budget.
+
+    'simple'  → greetings, test messages, identity questions (≤ 5 iterations)
+    'general' → macro overview, news digest, pre-market summary (≤ 10 iterations)
+    'deep'    → ticker-specific quantitative analysis, audit, investigation (≤ MAX_REACT_ITERATIONS)
+
+    Returns:
+        Literal['simple', 'general', 'deep']
+    """
+    if not user_prompt:
+        return "simple"
+
+    lower = user_prompt.lower()
+
+    # Check deep first — a prompt with ticker + quant keyword is always deep
+    for keyword in _DEEP_KEYWORDS:
+        if keyword in lower:
+            return "deep"
+
+    # Check general — macro/market news overview with no specific ticker analysis
+    for keyword in _GENERAL_KEYWORDS:
+        if keyword == "kabar" and "apa kabar" in lower:
+            continue
+        if keyword in lower:
+            return "general"
+
+    # Check simple — greetings and trivial messages
+    for keyword in _SIMPLE_KEYWORDS:
+        if keyword in lower:
+            return "simple"
+
+    # Default: if there's a valid IDX ticker in the prompt, assume deep
+    from engine.sectors.tickers import extract_valid_tickers
+    if extract_valid_tickers(user_prompt):
+        return "deep"
+
+    # No match — default to general (safe middle ground)
+    return "general"
 
 
 _ID_STOPWORDS = {
@@ -753,21 +820,23 @@ class NiskavaReActAgent:
         if self.memory and isinstance(res, dict):
             import logging
             _log = logging.getLogger(__name__)
+            from engine.memory.extractor import extract_response_tickers
+
             findings = res.get("findings", [])
             anomalies = res.get("anomalies", [])
+            response_text = res.get("response", "")
+
+            # --- Path A: Ticker explicitly in user prompt or anomaly results (unchanged behavior) ---
             target_ticker: Optional[str] = None
 
             if anomalies:
                 target_ticker = anomalies[0].get("ticker")
 
-            # Bug #1B fix: fresh call — never rely on outer-scope variable
             if not target_ticker:
                 for cand in extract_valid_tickers(user_prompt):
                     target_ticker = cand.upper()
                     break
 
-            # Bug #1A fix: record for any session with an identified ticker,
-            # regardless of whether anomalies or findings were produced.
             if target_ticker:
                 try:
                     self.memory.record_investigation(
@@ -776,11 +845,40 @@ class NiskavaReActAgent:
                         anomalies=anomalies,
                         findings=findings,
                     )
-                except Exception as exc:    # Bug #1C fix: surface failures via logging
+                except Exception as exc:
                     _log.warning(
                         "graph_memory: record_investigation failed session=%s ticker=%s: %s",
                         session_id, target_ticker, exc,
                     )
+
+            # --- Path B: No ticker in prompt — extract from agent response & tool calls ---
+            # Activates for general pre-market briefings, sector overviews, macro summaries.
+            if not target_ticker and response_text:
+                tool_call_args: List[Dict[str, Any]] = []
+                for msg in res.get("_tool_call_history", []):
+                    if isinstance(msg, dict):
+                        tool_call_args.append(msg)
+
+                briefing_tickers = extract_response_tickers(
+                    response_text=response_text,
+                    tool_call_args_list=tool_call_args,
+                )
+                if briefing_tickers:
+                    try:
+                        self.memory.record_session_briefing(
+                            session_id=session_id,
+                            tickers=briefing_tickers,
+                            context=f"Auto-extracted from agent briefing in session {session_id}",
+                        )
+                        _log.debug(
+                            "graph_memory: record_session_briefing stored %d tickers session=%s: %s",
+                            len(briefing_tickers), session_id, briefing_tickers,
+                        )
+                    except Exception as exc:
+                        _log.warning(
+                            "graph_memory: record_session_briefing failed session=%s: %s",
+                            session_id, exc,
+                        )
 
         return res
 
@@ -1001,6 +1099,7 @@ class NiskavaReActAgent:
 
         findings: List[Dict[str, Any]] = []
         anomalies: List[Dict[str, Any]] = []
+        tool_call_history: List[Dict[str, Any]] = []
         final_response = ""
 
         def on_llm_retry(attempt: int, delay: float, status_code: int, summary: str):
@@ -1029,7 +1128,15 @@ class NiskavaReActAgent:
         _prev_tool_signature: str = ""
         _dup_streak: int = 0
         _MAX_DUP_STREAK: int = 2  # Force synthesis after 2 consecutive identical calls
-        max_iter = self.max_iterations
+        # Adaptive iteration budget: reduce for simple/general queries to prevent latency bloat
+        _base_max_iter = self.max_iterations
+        _complexity = classify_prompt_complexity(user_prompt)
+        if _complexity == "simple":
+            max_iter = min(_base_max_iter, SIMPLE_MAX_REACT_ITERATIONS)
+        elif _complexity == "general":
+            max_iter = min(_base_max_iter, GENERAL_MAX_REACT_ITERATIONS)
+        else:
+            max_iter = _base_max_iter
         for _ in range(max_iter):
             payload = {
                 "model": model,
@@ -1237,6 +1344,8 @@ class NiskavaReActAgent:
 
                 obs_parts = []
                 for tool_name, tool_args in tool_calls:
+                    if isinstance(tool_args, dict):
+                        tool_call_history.append(tool_args)
                     self._emit({
                         "event": "agent_tool_call",
                         "session_id": session_id,
@@ -1566,6 +1675,7 @@ class NiskavaReActAgent:
             "response": final_response,
             "anomalies": anomalies,
             "findings": findings,
+            "_tool_call_history": tool_call_history,
             "duration_ms": duration_ms,
         }
 
@@ -1581,6 +1691,7 @@ class NiskavaReActAgent:
         start_time: float,
     ) -> Dict[str, Any]:
         """Deterministic fallback chat synthesis extracting ticker and enforcing Law 1 & Law 2."""
+        tool_call_history: List[Dict[str, Any]] = []
         tickers = extract_valid_tickers(user_prompt)
 
         if not tickers and history:
@@ -1601,7 +1712,10 @@ class NiskavaReActAgent:
             detected_lang = detect_prompt_language(user_prompt, fallback=self.language or "en")
 
             # 1. Intent: General Market News / Macro Overview
-            if any(w in prompt_lower for w in ["berita", "news", "kabar", "sentimen", "headline", "ihsg", "bursa"]):
+            if any(w in prompt_lower for w in [
+                "berita", "news", "kabar", "sentimen", "headline", "ihsg", "bursa",
+                "market", "open market", "pre-open", "pasar", "potensial", "potential",
+            ]):
                 self._emit({
                     "event": "agent_thought",
                     "session_id": session_id,
@@ -1613,6 +1727,7 @@ class NiskavaReActAgent:
                     "tool": "harvest_market_news",
                     "args": {},
                 })
+                tool_call_history.append({})
                 news_items = self.tools.execute_tool("harvest_market_news", {})
                 self._emit({
                     "event": "agent_observation",
@@ -1716,6 +1831,7 @@ class NiskavaReActAgent:
                 "response": response_text,
                 "anomalies": [],
                 "findings": [],
+                "_tool_call_history": tool_call_history,
                 "duration_ms": duration_ms,
             }
 

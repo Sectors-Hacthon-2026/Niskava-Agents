@@ -5,7 +5,7 @@ chat turns and maps them into associative memory graph triples.
 """
 
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from engine.sectors.tickers import is_valid_idx_ticker
 
 
@@ -78,3 +78,41 @@ def extract_dialogue_observations(user_text: str) -> List[Dict[str, Any]]:
                     })
 
     return observations
+
+
+def extract_response_tickers(
+    response_text: str,
+    tool_call_args_list: Optional[List[Dict[str, Any]]] = None,
+) -> List[str]:
+    """Extract deduplicated valid IDX tickers from agent response text and tool call args.
+
+    Priority sources (in order):
+    1. Tool call argument 'ticker' or 'symbol' keys — highest confidence (agent explicitly queried)
+    2. Valid IDX ticker matches from the final response text (extract_valid_tickers)
+
+    Returns a deduplicated ordered list; tool-call tickers appear before response text tickers.
+    """
+    from engine.sectors.tickers import extract_valid_tickers, is_valid_idx_ticker
+
+    found: List[str] = []
+
+    # 1. Extract from tool call args (highest confidence — agent explicitly queried these)
+    if tool_call_args_list:
+        for args in tool_call_args_list:
+            if not isinstance(args, dict):
+                continue
+            for key in ("ticker", "symbol"):
+                val = args.get(key)
+                if val and isinstance(val, str):
+                    upper_val = val.upper().strip()
+                    if is_valid_idx_ticker(upper_val) and upper_val not in found:
+                        found.append(upper_val)
+
+    # 2. Extract from response text
+    if response_text:
+        for ticker in extract_valid_tickers(response_text):
+            if ticker not in found:
+                found.append(ticker)
+
+    return found
+
