@@ -31,19 +31,7 @@ func TestRunSubprocessMock(t *testing.T) {
 		curr = parent
 	}
 
-	pythonBin := filepath.Join(rootDir, ".venv", "Scripts", "python.exe")
-	if _, err := os.Stat(pythonBin); os.IsNotExist(err) {
-		pythonBin = filepath.Join(rootDir, ".venv", "bin", "python3")
-		if _, err := os.Stat(pythonBin); os.IsNotExist(err) {
-			if path, err := exec.LookPath("python"); err == nil {
-				pythonBin = path
-			} else if path, err := exec.LookPath("python3"); err == nil {
-				pythonBin = path
-			} else {
-				pythonBin = "python"
-			}
-		}
-	}
+	pythonBin := resolveTestPythonBin(rootDir)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -164,7 +152,7 @@ func TestRunSubprocessEnvOverrides(t *testing.T) {
 		curr = parent
 	}
 
-	pythonBin := ResolvePythonBin("")
+	pythonBin := resolveTestPythonBin(rootDir)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -189,4 +177,21 @@ func TestRunSubprocessEnvOverrides(t *testing.T) {
 	if err := <-errChan; err != nil {
 		t.Fatalf("subprocess with EnvOverrides failed: %v", err)
 	}
+}
+
+func resolveTestPythonBin(rootDir string) string {
+	pythonBin := filepath.Join(rootDir, ".venv", "Scripts", "python.exe")
+	if _, err := os.Stat(pythonBin); os.IsNotExist(err) {
+		pythonBin = filepath.Join(rootDir, ".venv", "bin", "python3")
+		if _, err := os.Stat(pythonBin); os.IsNotExist(err) {
+			if path, err := exec.LookPath("python3"); err == nil {
+				pythonBin = path
+			} else if path, err := exec.LookPath("python"); err == nil {
+				pythonBin = path
+			} else {
+				pythonBin = "python"
+			}
+		}
+	}
+	return pythonBin
 }

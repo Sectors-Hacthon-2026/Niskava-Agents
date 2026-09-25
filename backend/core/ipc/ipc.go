@@ -184,8 +184,22 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 	go func() {
 		defer close(eventsChan)
 		defer close(errChan)
-
 		pythonBin := ResolvePythonBin(params.PythonBin)
+		if (params.PythonBin == "" || params.PythonBin == "python3" || params.PythonBin == "python") && params.WorkDir != "" {
+			for _, cand := range []string{
+				filepath.Join(params.WorkDir, ".venv", "Scripts", "python.exe"),
+				filepath.Join(params.WorkDir, "venv", "Scripts", "python.exe"),
+				filepath.Join(params.WorkDir, ".venv", "bin", "python3"),
+				filepath.Join(params.WorkDir, ".venv", "bin", "python"),
+				filepath.Join(params.WorkDir, "venv", "bin", "python3"),
+				filepath.Join(params.WorkDir, "venv", "bin", "python"),
+			} {
+				if _, err := os.Stat(cand); err == nil {
+					pythonBin = cand
+					break
+				}
+			}
+		}
 
 		args := []string{
 			"-m", "engine.runner",
