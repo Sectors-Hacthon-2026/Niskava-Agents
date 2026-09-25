@@ -24,7 +24,7 @@ MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_MAX_REACT_ITERATIONS", "
 GENERAL_MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_GENERAL_REACT_ITERATIONS", "10"))
 SIMPLE_MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_SIMPLE_REACT_ITERATIONS", "5"))
 DEFAULT_MAX_TOKENS: int = int(os.environ.get("NISKAVA_MAX_TOKENS", "30000"))
-DEFAULT_LLM_TIMEOUT: float = float(os.environ.get("NISKAVA_LLM_TIMEOUT", "90.0"))
+DEFAULT_LLM_TIMEOUT: float = float(os.environ.get("NISKAVA_LLM_TIMEOUT", "25.0"))
 
 
 def parse_single_tool_call(raw: str) -> Optional[Tuple[str, Dict[str, Any]]]:
@@ -1112,11 +1112,26 @@ class NiskavaReActAgent:
                 "thought": thought_msg,
             })
 
+        _complexity = classify_prompt_complexity(user_prompt)
+        _base_max_iter = self.max_iterations
+        if _complexity == "simple":
+            max_iter = min(_base_max_iter, SIMPLE_MAX_REACT_ITERATIONS)
+            call_timeout = min(self.llm_timeout, 15.0)
+            max_retries = 1
+        elif _complexity == "general":
+            max_iter = min(_base_max_iter, GENERAL_MAX_REACT_ITERATIONS)
+            call_timeout = min(self.llm_timeout, 20.0)
+            max_retries = 2
+        else:
+            max_iter = _base_max_iter
+            call_timeout = self.llm_timeout
+            max_retries = 2
+
         retry_cfg = RetryConfig(
-            max_retries=3,
+            max_retries=max_retries,
             initial_delay=1.0,
-            max_delay=8.0,
-            backoff_factor=2.0,
+            max_delay=4.0,
+            backoff_factor=1.5,
             jitter=True,
             retryable_statuses={429, 500, 502, 503, 504},
         )
@@ -1128,15 +1143,6 @@ class NiskavaReActAgent:
         _prev_tool_signature: str = ""
         _dup_streak: int = 0
         _MAX_DUP_STREAK: int = 2  # Force synthesis after 2 consecutive identical calls
-        # Adaptive iteration budget: reduce for simple/general queries to prevent latency bloat
-        _base_max_iter = self.max_iterations
-        _complexity = classify_prompt_complexity(user_prompt)
-        if _complexity == "simple":
-            max_iter = min(_base_max_iter, SIMPLE_MAX_REACT_ITERATIONS)
-        elif _complexity == "general":
-            max_iter = min(_base_max_iter, GENERAL_MAX_REACT_ITERATIONS)
-        else:
-            max_iter = _base_max_iter
         for _ in range(max_iter):
             payload = {
                 "model": model,
@@ -1148,7 +1154,7 @@ class NiskavaReActAgent:
             # Pure XML ReAct protocol: tools injected into system prompt, never as API-level function definitions
             try:
                 resp = execute_with_retry(
-                    lambda: requests.post(url, headers=headers, json=payload, timeout=self.llm_timeout),
+                    lambda: requests.post(url, headers=headers, json=payload, timeout=call_timeout),
                     config=retry_cfg,
                     on_retry_callback=on_llm_retry,
                 )
@@ -1515,22 +1521,30 @@ class NiskavaReActAgent:
         if not final_response:
             err_detail = last_error or "AI model did not produce a valid synthesis response within the ReAct cycle."
 
-            # Classify error: connection failure vs. loop exhaustion
-            _connection_keywords = (
-                "Gagal terhubung", "Connection refused", "Koneksi timeout",
-                "ConnectionError", "Timeout", "HTTP 4", "HTTP 5",
+            # Classify error: AI provider/connection failure vs. actual ReAct loop exhaustion
+            _provider_keywords = (
+                "gagal terhubung", "connection refused", "koneksi timeout",
+                "connectionerror", "timeout", "http 4", "http 5",
+                "ai provider error", "provider error", "temporarily unavailable",
+                "unavailable", "invalid response format", "upstream",
+                "payment required", "too many requests", "rate limit",
+                "quota", "forbidden", "unauthorized", "bad gateway",
             )
-            is_connection_error = any(kw.lower() in err_detail.lower() for kw in _connection_keywords)
+            is_provider_error = any(kw in err_detail.lower() for kw in _provider_keywords)
 
-            if is_connection_error:
-                error_title = "### ⚠️ Unable to Connect to AI Provider"
+            if is_provider_error:
+                error_title = (
+                    "### ⚠️ AI Provider Error / Unavailable"
+                    if ("unavailable" in err_detail.lower() or "ai provider error" in err_detail.lower())
+                    else "### ⚠️ Unable to Connect to AI Provider"
+                )
                 error_markdown = (
                     f"{error_title}\n\n"
                     f"- **Endpoint**: `{url}`\n"
                     f"- **Model**: `{model}`\n"
                     f"- **Error Details**: {err_detail}\n\n"
                     f"**Troubleshooting Steps:**\n"
-                    f"1. Ensure the LLM gateway/server (Ollama / vLLM / 9router / OpenRouter) is running at `{base_url}` or that an API key is configured.\n"
+                    f"1. Ensure the LLM gateway/server (Ollama / vLLM / 9router / OpenRouter) is running and model `{model}` is online with available credits.\n"
                     f"2. Check the configuration in `~/.niskava/.env` or run `niskava setup`.\n"
                     f"3. Use offline mode (`--offline`) to run deterministic analysis without an LLM."
                 )
@@ -1539,13 +1553,34 @@ class NiskavaReActAgent:
                 detected_ticker = self._extract_target_ticker(user_prompt)
                 error_title = "### ⏱️ ReAct Analysis Limit Reached" if self.language == "en" else "### ⏱️ Batas Penalaran ReAct Tercapai"
 
-                if self.language == "en":
-                    suggestion_ticker = f"1. Refine query with a specific IDX ticker (e.g. `investigate {detected_ticker or 'ANTM'}`)."
-                    suggestion_data = f"2. Ask a focused question on specific market data."
+                if _complexity == "simple":
+                    if self.language == "en":
+                        suggestion_block = (
+                            "1. Verify model provider status in `~/.niskava/.env`.\n"
+                            "2. Try another AI model or gateway endpoint.\n"
+                            "3. Use offline mode (`--offline`) to run without an LLM."
+                        )
+                        desc_text = "The AI model did not finalize a response for this message."
+                    else:
+                        suggestion_block = (
+                            "1. Periksa status penyedia model AI di `~/.niskava/.env`.\n"
+                            "2. Coba ganti model atau endpoint AI gateway lainnya.\n"
+                            "3. Gunakan mode offline (`--offline`) untuk analisis tanpa LLM."
+                        )
+                        desc_text = "Layanan model AI tidak menyelesaikan respon untuk pesan ini."
+                elif self.language == "en":
+                    suggestion_block = (
+                        f"1. Refine query with a specific IDX ticker (e.g. `investigate {detected_ticker or 'ANTM'}`).\n"
+                        f"2. Ask a focused question on specific market data.\n"
+                        f"3. Use offline mode (`--offline`) to run deterministic analysis without an LLM."
+                    )
                     desc_text = "The agent reached its maximum reasoning depth before finalizing synthesis."
                 else:
-                    suggestion_ticker = f"1. Coba persepit pertanyaan untuk saham `{detected_ticker or 'ANTM'}` (misalnya: `cek net foreign flow {detected_ticker or 'ANTM'}`)."
-                    suggestion_data = f"2. Ajukan pertanyaan terfokus pada bagian spesifik data pasar."
+                    suggestion_block = (
+                        f"1. Coba persepit pertanyaan untuk saham `{detected_ticker or 'ANTM'}` (misalnya: `cek net foreign flow {detected_ticker or 'ANTM'}`).\n"
+                        f"2. Ajukan pertanyaan terfokus pada bagian spesifik data pasar.\n"
+                        f"3. Gunakan mode offline (`--offline`) untuk analisis deterministik murni tanpa LLM."
+                    )
                     desc_text = "Agen membutuhkan lebih banyak langkah analisis dari batas yang tersedia untuk menyusun sintesis lengkap."
 
                 collected_summary = ""
@@ -1562,9 +1597,7 @@ class NiskavaReActAgent:
                     f"- **Details**: {err_detail}\n\n"
                     f"{desc_text}{collected_summary}\n\n"
                     f"**Saran Perbaikan / Actionable Steps:**\n"
-                    f"{suggestion_ticker}\n"
-                    f"{suggestion_data}\n"
-                    f"3. Gunakan mode offline (`--offline`) untuk analisis deterministik murni tanpa LLM."
+                    f"{suggestion_block}"
                 )
                 session_error_msg = f"ReAct analysis limit reached ({model}): {err_detail}"
 
