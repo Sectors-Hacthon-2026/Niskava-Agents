@@ -3509,6 +3509,10 @@
                 const statusOpenaiKey = document.getElementById('statusOpenaiKey');
                 const btnTestOpenai = document.getElementById('btnTestOpenai');
 
+                // Preferences Elements
+                const toggleOfflineMode = document.getElementById('toggleOfflineMode');
+                const timeoutSlider = document.getElementById('timeout-slider');
+
                 // Telegram Elements
                 const teleBotStatusBadge = document.getElementById('teleBotStatusBadge');
                 const teleBotUsername = document.getElementById('teleBotUsername');
@@ -3689,6 +3693,42 @@
                     });
                 });
 
+                // Inference Timeout Slider Handlers
+                function onTimeoutSliderInput(val) {
+                    const num = parseFloat(val) || 60;
+                    const valueEl = document.getElementById('timeout-value-badge');
+                    const badgeEl = document.getElementById('timeout-profile-badge');
+                    if (valueEl) {
+                        valueEl.textContent = `${Math.round(num)}s`;
+                    }
+                    let profile = '[custom]';
+                    if (num <= 25) {
+                        profile = '[fast]';
+                    } else if (num <= 65) {
+                        profile = '[balanced]';
+                    } else if (num <= 125) {
+                        profile = '[deep]';
+                    } else if (num <= 185) {
+                        profile = '[local]';
+                    } else {
+                        profile = '[custom]';
+                    }
+                    if (badgeEl) {
+                        badgeEl.textContent = profile;
+                    }
+                }
+                window.onTimeoutSliderInput = onTimeoutSliderInput;
+
+                function populateTimeoutSlider(timeoutSecs) {
+                    const slider = document.getElementById('timeout-slider');
+                    const val = (timeoutSecs !== undefined && timeoutSecs !== null && !isNaN(timeoutSecs)) ? parseFloat(timeoutSecs) : 60;
+                    if (slider) {
+                        slider.value = val;
+                    }
+                    onTimeoutSliderInput(val);
+                }
+                window.populateTimeoutSlider = populateTimeoutSlider;
+
                 // Fetch Settings & Populate Form
                 async function fetchSettingsData() {
                     try {
@@ -3728,6 +3768,14 @@
                                     statusOpenaiKey.textContent = 'Belum Ada Kunci';
                                     statusOpenaiKey.style.color = 'var(--text-muted)';
                                 }
+                            }
+                        }
+                        if (data.preferences) {
+                            if (toggleOfflineMode && typeof data.preferences.offline_mode === 'boolean') {
+                                toggleOfflineMode.checked = data.preferences.offline_mode;
+                            }
+                            if (data.preferences && data.preferences.llm_timeout_secs) {
+                                populateTimeoutSlider(data.preferences.llm_timeout_secs);
                             }
                         }
                     } catch (e) {
@@ -3969,6 +4017,13 @@
                             payload.telegram.allowed_users = inputTeleUsers.value.split(',').map(s => s.trim()).filter(Boolean);
                         }
 
+                        if (document.getElementById('timeout-slider')) {
+                            payload.preferences.llm_timeout_secs = parseFloat(document.getElementById('timeout-slider').value);
+                        }
+                        if (toggleOfflineMode) {
+                            payload.preferences.offline_mode = toggleOfflineMode.checked;
+                        }
+
                         try {
                             btnSaveSettings.disabled = true;
                             btnSaveSettings.textContent = 'Menyimpan...';
@@ -4076,6 +4131,32 @@
                             <div class="form-input-group">
                                 <input type="password" class="form-input" id="inputOpenaiKey" placeholder="sk-... (Kosongkan jika tidak diubah)">
                                 <button class="btn-test-conn" id="btnTestOpenai">Uji Koneksi</button>
+                            </div>
+                        </div>
+
+                        <!-- Preferensi Sistem & Inferensi (Law 5) -->
+                        <div class="form-row" style="margin-top:6px; border-top:1px solid var(--border-subtle); padding-top:12px;">
+                            <label class="form-label" style="justify-content:space-between; cursor:pointer;" for="toggleOfflineMode">
+                                <span>Mode Offline / Mock (Law 5)</span>
+                                <input type="checkbox" id="toggleOfflineMode" style="cursor:pointer; width:16px; height:16px;">
+                            </label>
+                            <span style="font-size:11px; color:var(--text-muted);">Gunakan data sintetis lokal tanpa memotong kuota kredit Sectors API v2 (offline_mode).</span>
+                        </div>
+
+                        <div class="form-row">
+                            <label class="form-label">
+                                <span>Inference Timeout</span>
+                                <span style="display:inline-flex; align-items:center; gap:6px;">
+                                    <span id="timeout-value-badge" class="panel-card-badge" style="color:var(--primary); font-weight:700;">60s</span>
+                                    <span id="timeout-profile-badge" class="panel-card-badge">[balanced]</span>
+                                </span>
+                            </label>
+                            <input type="range" class="form-range" id="timeout-slider" min="10" max="300" step="5" value="60" oninput="onTimeoutSliderInput(this.value)" style="width:100%; accent-color:var(--primary); cursor:pointer;">
+                            <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text-muted); margin-top:2px;">
+                                <span>Fast (10s)</span>
+                                <span>Balanced (60s)</span>
+                                <span>Deep (120s)</span>
+                                <span>Max (300s)</span>
                             </div>
                         </div>
                     </div>

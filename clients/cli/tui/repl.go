@@ -81,6 +81,36 @@ type SlashCommand struct {
 	Description string
 }
 
+// ParseTimeoutCommand parses "/timeout <arg>" and returns the resolved timeout in seconds.
+// Named profiles: fast=25, balanced=60, deep=120, local=180.
+// Numeric: accepted in [10, 300] inclusive.
+// Returns (0, false) when arg is absent (caller should display current) or invalid.
+func ParseTimeoutCommand(input string) (float64, bool) {
+	parts := strings.Fields(input)
+	if len(parts) < 2 {
+		return 0, false // no arg → show current value
+	}
+	arg := strings.ToLower(strings.TrimSpace(parts[1]))
+	switch arg {
+	case "fast":
+		return 25.0, true
+	case "balanced":
+		return 60.0, true
+	case "deep":
+		return 120.0, true
+	case "local":
+		return 180.0, true
+	}
+	var secs float64
+	if _, err := fmt.Sscanf(arg, "%f", &secs); err != nil {
+		return 0, false
+	}
+	if secs < 10.0 || secs > 300.0 {
+		return 0, false
+	}
+	return secs, true
+}
+
 func getDefaultSlashCommands() []SlashCommand {
 	return GetLocalizedSlashCommands()
 }
@@ -480,6 +510,41 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 			renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
 			activeInfo := GetActiveLanguageInfo()
 			fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(TF("repl_lang_switched", activeInfo.FlagSymbol, activeInfo.NativeName, activeInfo.Code)))
+			continue
+		}
+
+		if strings.HasPrefix(lower, "/timeout") {
+			secs, ok := ParseTimeoutCommand(input)
+			if !ok && len(strings.Fields(input)) < 2 {
+				current := cfg.Preferences.LLMTimeoutSecs
+				if current <= 0 {
+					current = 60.0
+				}
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorAccent).Render(
+					fmt.Sprintf(T("slash_timeout_current"), current),
+				))
+				continue
+			}
+			if !ok {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_timeout_invalid")))
+				continue
+			}
+			cfg.Preferences.LLMTimeoutSecs = secs
+			_ = config.SaveConfig(cfg)
+			profile := "custom"
+			switch secs {
+			case 25.0:
+				profile = "fast"
+			case 60.0:
+				profile = "balanced"
+			case 120.0:
+				profile = "deep"
+			case 180.0:
+				profile = "local"
+			}
+			fmt.Println(lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true).Render(
+				fmt.Sprintf(T("slash_timeout_set"), secs, profile),
+			))
 			continue
 		}
 

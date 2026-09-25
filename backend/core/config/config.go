@@ -65,9 +65,10 @@ type ServerConfig struct {
 
 // PreferencesConfig configures agent behavior preferences.
 type PreferencesConfig struct {
-	DefaultMarket string `yaml:"default_market"`
-	OfflineMode   bool   `yaml:"offline_mode"`
-	Language      string `yaml:"language"`
+	DefaultMarket  string  `yaml:"default_market" json:"default_market"`
+	OfflineMode    bool    `yaml:"offline_mode" json:"offline_mode"`
+	Language       string  `yaml:"language" json:"language"`
+	LLMTimeoutSecs float64 `yaml:"llm_timeout_secs" json:"llm_timeout_secs"` // LLM inference timeout in seconds (10–300). 0 → defaults to 60.
 }
 
 // MemoryConfig configures the local conversational graph memory engine.
@@ -113,9 +114,10 @@ func DefaultConfig() *Config {
 			Port: 20128,
 		},
 		Preferences: PreferencesConfig{
-			DefaultMarket: "IDX",
-			OfflineMode:   false,
-			Language:      "en",
+			DefaultMarket:  "IDX",
+			OfflineMode:    false,
+			Language:       "en",
+			LLMTimeoutSecs: 60.0,
 		},
 		Memory: MemoryConfig{
 			Enabled:          true,
@@ -273,6 +275,17 @@ func Load(customConfigPath string) (*Config, error) {
 	if val := os.Getenv("NISKAVA_LANG"); val != "" {
 		cfg.Preferences.Language = strings.ToLower(val)
 	}
+	if val := os.Getenv("NISKAVA_LLM_TIMEOUT"); val != "" {
+		if timeout, err := strconv.ParseFloat(val, 64); err == nil && timeout > 0 {
+			if timeout < 10.0 {
+				timeout = 10.0
+			}
+			if timeout > 300.0 {
+				timeout = 300.0
+			}
+			cfg.Preferences.LLMTimeoutSecs = timeout
+		}
+	}
 	if val := os.Getenv("NISKAVA_TELEGRAM_TOKEN"); val != "" {
 		cfg.Telegram.BotToken = val
 	}
@@ -421,6 +434,17 @@ func SaveDotEnv(cfg *Config, targetPath ...string) error {
 	envMap["NISKAVA_DEFAULT_MARKET"] = cfg.Preferences.DefaultMarket
 	envMap["NISKAVA_PORT"] = strconv.Itoa(cfg.Server.Port)
 	envMap["NISKAVA_LANG"] = cfg.Preferences.Language
+	timeoutVal := cfg.Preferences.LLMTimeoutSecs
+	if timeoutVal <= 0 {
+		timeoutVal = 60.0
+	}
+	if timeoutVal < 10.0 {
+		timeoutVal = 10.0
+	}
+	if timeoutVal > 300.0 {
+		timeoutVal = 300.0
+	}
+	envMap["NISKAVA_LLM_TIMEOUT"] = fmt.Sprintf("%.2f", timeoutVal)
 	if cfg.Preferences.OfflineMode {
 		envMap["NISKAVA_OFFLINE"] = "1"
 	} else {
@@ -568,5 +592,19 @@ func (c *Config) BuildSubprocessEnv() map[string]string {
 	if c.Preferences.DefaultMarket != "" {
 		env["DEFAULT_MARKET"] = c.Preferences.DefaultMarket
 	}
+
+	// Emit LLM inference timeout with valid-range clamping (10.0 – 300.0 seconds)
+	timeoutSecs := c.Preferences.LLMTimeoutSecs
+	if timeoutSecs <= 0 {
+		timeoutSecs = 60.0 // default balanced profile
+	}
+	if timeoutSecs < 10.0 {
+		timeoutSecs = 10.0
+	}
+	if timeoutSecs > 300.0 {
+		timeoutSecs = 300.0
+	}
+	env["NISKAVA_LLM_TIMEOUT"] = fmt.Sprintf("%.2f", timeoutSecs)
+
 	return env
 }

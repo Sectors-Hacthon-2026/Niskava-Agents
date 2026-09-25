@@ -114,3 +114,28 @@ func TestBootstrapPythonEnvironment_Validation(t *testing.T) {
 		t.Error("expected error for nonexistent python binary, got nil")
 	}
 }
+
+func TestBuildEnvContentIncludesLLMTimeout(t *testing.T) {
+	p := SetupParams{
+		AIProvider:     "openai",
+		OpenAIBaseURL:  "http://localhost:20128/v1",
+		OpenAIModel:    "hermes",
+		LLMTimeoutSecs: 90.0,
+	}
+	content := BuildEnvContent(p)
+	if !strings.Contains(content, "NISKAVA_LLM_TIMEOUT=90.00") {
+		t.Errorf("expected NISKAVA_LLM_TIMEOUT=90.00 in .env content, got:\n%s", content)
+	}
+}
+
+func TestBuildEnvContentTimeoutDefaultsTo60(t *testing.T) {
+	p := SetupParams{
+		AIProvider:    "openai",
+		OpenAIBaseURL: "https://api.openai.com/v1",
+		OpenAIModel:   "gpt-4o-mini",
+	}
+	content := BuildEnvContent(p)
+	if !strings.Contains(content, "NISKAVA_LLM_TIMEOUT=60.00") {
+		t.Errorf("expected NISKAVA_LLM_TIMEOUT=60.00 in .env content, got:\n%s", content)
+	}
+}

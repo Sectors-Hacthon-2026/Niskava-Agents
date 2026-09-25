@@ -1067,3 +1067,45 @@ func TestDynamicSettingsAndSubprocessEnv(t *testing.T) {
 		t.Errorf("expected empty GEMINI_API_KEY after clear, got %s", clearedEnv["GEMINI_API_KEY"])
 	}
 }
+
+func TestSettingsLLMTimeoutPatch(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cfg := config.DefaultConfig()
+	srv, err := Start(ctx, 0, nil, cfg)
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	body := `{"preferences":{"llm_timeout_secs":90.0}}`
+	req, _ := http.NewRequest(http.MethodPatch, srv.URL+"/api/settings", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("PATCH /api/settings failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+
+	var data map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	prefs, _ := data["preferences"].(map[string]interface{})
+	if prefs["llm_timeout_secs"] != 90.0 {
+		t.Errorf("expected 90.0 in response preferences, got %v", prefs["llm_timeout_secs"])
+	}
+
+	srv.cfgMu.RLock()
+	got := srv.Config.Preferences.LLMTimeoutSecs
+	srv.cfgMu.RUnlock()
+	if got != 90.0 {
+		t.Errorf("expected Config.Preferences.LLMTimeoutSecs=90.0, got %v", got)
+	}
+}

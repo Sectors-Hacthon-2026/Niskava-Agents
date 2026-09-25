@@ -24,7 +24,20 @@ MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_MAX_REACT_ITERATIONS", "
 GENERAL_MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_GENERAL_REACT_ITERATIONS", "10"))
 SIMPLE_MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_SIMPLE_REACT_ITERATIONS", "5"))
 DEFAULT_MAX_TOKENS: int = int(os.environ.get("NISKAVA_MAX_TOKENS", "30000"))
-DEFAULT_LLM_TIMEOUT: float = float(os.environ.get("NISKAVA_LLM_TIMEOUT", "25.0"))
+DEFAULT_LLM_TIMEOUT: float = float(os.environ.get("NISKAVA_LLM_TIMEOUT", "60.0"))
+
+
+def _adaptive_call_timeout(base_secs: float, obs_count: int) -> float:
+    """Compute an observation-count-aware LLM call timeout.
+    Formula: timeout = base_secs + max(0, obs_count) * 10.0
+    Soft cap: base_secs * 4.0
+    Hard cap: 300.0 seconds
+    """
+    if obs_count < 0:
+        obs_count = 0
+    raw = base_secs + obs_count * 10.0
+    soft_cap = base_secs * 4.0
+    return float(min(raw, soft_cap, 300.0))
 
 
 def parse_single_tool_call(raw: str) -> Optional[Tuple[str, Dict[str, Any]]]:
@@ -1116,15 +1129,15 @@ class NiskavaReActAgent:
         _base_max_iter = self.max_iterations
         if _complexity == "simple":
             max_iter = min(_base_max_iter, SIMPLE_MAX_REACT_ITERATIONS)
-            call_timeout = min(self.llm_timeout, 15.0)
+            _base_call_timeout = min(self.llm_timeout, 15.0)
             max_retries = 1
         elif _complexity == "general":
             max_iter = min(_base_max_iter, GENERAL_MAX_REACT_ITERATIONS)
-            call_timeout = min(self.llm_timeout, 20.0)
+            _base_call_timeout = min(self.llm_timeout, 20.0)
             max_retries = 2
         else:
             max_iter = _base_max_iter
-            call_timeout = self.llm_timeout
+            _base_call_timeout = self.llm_timeout
             max_retries = 2
 
         retry_cfg = RetryConfig(
@@ -1144,6 +1157,7 @@ class NiskavaReActAgent:
         _dup_streak: int = 0
         _MAX_DUP_STREAK: int = 2  # Force synthesis after 2 consecutive identical calls
         for _ in range(max_iter):
+            call_timeout = _adaptive_call_timeout(_base_call_timeout, obs_count=len(tool_call_history))
             payload = {
                 "model": model,
                 "messages": messages,

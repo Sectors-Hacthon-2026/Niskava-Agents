@@ -183,9 +183,10 @@ type UpdateSettingsRequest struct {
 		OllamaModel     *string `json:"ollama_model"`
 	} `json:"auth"`
 	Preferences *struct {
-		DefaultMarket *string `json:"default_market"`
-		OfflineMode   *bool   `json:"offline_mode"`
-		Language      *string `json:"language"`
+		DefaultMarket  *string  `json:"default_market"`
+		OfflineMode    *bool    `json:"offline_mode"`
+		Language       *string  `json:"language"`
+		LLMTimeoutSecs *float64 `json:"llm_timeout_secs"`
 	} `json:"preferences"`
 	Storage *struct {
 		DBPath *string `json:"db_path"`
@@ -355,6 +356,16 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				}
 				if req.Preferences.Language != nil && *req.Preferences.Language != "" {
 					s.Config.Preferences.Language = strings.ToLower(*req.Preferences.Language)
+				}
+				if req.Preferences.LLMTimeoutSecs != nil {
+					v := *req.Preferences.LLMTimeoutSecs
+					if v < 10.0 {
+						v = 10.0
+					}
+					if v > 300.0 {
+						v = 300.0
+					}
+					s.Config.Preferences.LLMTimeoutSecs = v
 				}
 			}
 
