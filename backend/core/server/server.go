@@ -1996,16 +1996,36 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*con
 		if existing := os.Getenv("PYTHONPATH"); existing != "" {
 			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
 		}
-		cmd.Env = append(os.Environ(),
+		baseEnv := os.Environ()
+		subEnv := s.buildSubprocessEnv()
+		overrideKeys := make(map[string]bool)
+		for k := range subEnv {
+			overrideKeys[k] = true
+		}
+		overrideKeys["PYTHONPATH"] = true
+		overrideKeys["PYTHONIOENCODING"] = true
+		overrideKeys["PYTHONUTF8"] = true
+
+		cleanEnv := make([]string, 0, len(baseEnv)+len(overrideKeys))
+		for _, envVar := range baseEnv {
+			parts := strings.SplitN(envVar, "=", 2)
+			if len(parts) == 2 && overrideKeys[parts[0]] {
+				continue
+			}
+			cleanEnv = append(cleanEnv, envVar)
+		}
+
+		cleanEnv = append(cleanEnv,
 			"PYTHONPATH="+pythonPath,
 			"PYTHONIOENCODING=utf-8",
 			"PYTHONUTF8=1",
 		)
-		for k, v := range s.buildSubprocessEnv() {
-			if strings.TrimSpace(k) != "" {
-				cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+		for k, v := range subEnv {
+			if strings.TrimSpace(k) != "" && v != "" {
+				cleanEnv = append(cleanEnv, fmt.Sprintf("%s=%s", k, v))
 			}
 		}
+		cmd.Env = cleanEnv
 		if out, err := cmd.CombinedOutput(); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to generate graph visualization: %v\nOutput: %s", err, string(out)), http.StatusInternalServerError)
 			return

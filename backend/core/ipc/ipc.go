@@ -225,22 +225,44 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 		if existing := os.Getenv("PYTHONPATH"); existing != "" {
 			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
 		}
-		cmd.Env = append(cmd.Environ(),
+		baseEnv := cmd.Environ()
+		overrideKeys := make(map[string]bool)
+		for k := range params.EnvOverrides {
+			overrideKeys[k] = true
+		}
+		if params.Language != "" {
+			overrideKeys["NISKAVA_LANG"] = true
+		}
+		overrideKeys["PYTHONPATH"] = true
+		overrideKeys["PYTHONIOENCODING"] = true
+		overrideKeys["PYTHONUTF8"] = true
+
+		cleanEnv := make([]string, 0, len(baseEnv)+len(overrideKeys))
+		for _, envVar := range baseEnv {
+			parts := strings.SplitN(envVar, "=", 2)
+			if len(parts) == 2 && overrideKeys[parts[0]] {
+				continue
+			}
+			cleanEnv = append(cleanEnv, envVar)
+		}
+
+		cleanEnv = append(cleanEnv,
 			"PYTHONPATH="+pythonPath,
 			"PYTHONIOENCODING=utf-8",
 			"PYTHONUTF8=1",
 		)
 		if params.Language != "" {
-			cmd.Env = append(cmd.Env, "NISKAVA_LANG="+params.Language)
+			cleanEnv = append(cleanEnv, "NISKAVA_LANG="+params.Language)
 		}
 		if len(params.EnvOverrides) > 0 {
 			for k, v := range params.EnvOverrides {
 				trimmedKey := strings.TrimSpace(k)
-				if trimmedKey != "" {
-					cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", trimmedKey, v))
+				if trimmedKey != "" && v != "" {
+					cleanEnv = append(cleanEnv, fmt.Sprintf("%s=%s", trimmedKey, v))
 				}
 			}
 		}
+		cmd.Env = cleanEnv
 
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
