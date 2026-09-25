@@ -94,57 +94,8 @@ type Server struct {
 // buildSubprocessEnv extracts active authentication and preferences from s.Config into dynamic environment variables.
 func (s *Server) buildSubprocessEnv() map[string]string {
 	s.cfgMu.RLock()
-	cfg := s.Config
-	s.cfgMu.RUnlock()
-
-	env := make(map[string]string)
-	if cfg == nil {
-		return env
-	}
-
-	if cfg.Auth.AIProvider != "" {
-		env["AI_PROVIDER"] = cfg.Auth.AIProvider
-	}
-	if cfg.Auth.SectorsAPIKey != "" {
-		env["SECTORS_API_KEY"] = cfg.Auth.SectorsAPIKey
-	}
-	if cfg.Auth.SectorsBaseURL != "" {
-		env["SECTORS_BASE_URL"] = cfg.Auth.SectorsBaseURL
-	}
-	if cfg.Auth.GeminiAPIKey != "" {
-		env["GEMINI_API_KEY"] = cfg.Auth.GeminiAPIKey
-	}
-	if cfg.Auth.GeminiModel != "" {
-		env["GEMINI_MODEL"] = cfg.Auth.GeminiModel
-	}
-	if cfg.Auth.OpenAIAPIKey != "" {
-		env["OPENAI_API_KEY"] = cfg.Auth.OpenAIAPIKey
-	}
-	if cfg.Auth.OpenAIBaseURL != "" {
-		env["OPENAI_BASE_URL"] = cfg.Auth.OpenAIBaseURL
-	}
-	if cfg.Auth.OpenAIModel != "" {
-		env["OPENAI_MODEL"] = cfg.Auth.OpenAIModel
-	}
-	if cfg.Auth.AnthropicAPIKey != "" {
-		env["ANTHROPIC_API_KEY"] = cfg.Auth.AnthropicAPIKey
-	}
-	if cfg.Auth.OllamaBaseURL != "" {
-		env["OLLAMA_BASE_URL"] = cfg.Auth.OllamaBaseURL
-	}
-	if cfg.Auth.OllamaModel != "" {
-		env["OLLAMA_MODEL"] = cfg.Auth.OllamaModel
-	}
-	if cfg.Preferences.Language != "" {
-		env["NISKAVA_LANG"] = cfg.Preferences.Language
-	}
-	if cfg.Preferences.OfflineMode {
-		env["NISKAVA_OFFLINE"] = "1"
-	}
-	if cfg.Preferences.DefaultMarket != "" {
-		env["DEFAULT_MARKET"] = cfg.Preferences.DefaultMarket
-	}
-	return env
+	defer s.cfgMu.RUnlock()
+	return s.Config.BuildSubprocessEnv()
 }
 
 // syncTelegramBotState synchronizes running Telegram bot service with the latest s.Config settings.
@@ -257,13 +208,11 @@ type UpdateSettingsRequest struct {
 }
 
 // Start launches the background HTTP server on the specified port (or auto-finds free port).
-func Start(ctx context.Context, requestedPort int, database *db.DB, cfgs ...*config.Config) (*Server, error) {
+func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.Config) (*Server, error) {
 	mux := http.NewServeMux()
 
-	var activeCfg *config.Config
-	if len(cfgs) > 0 && cfgs[0] != nil {
-		activeCfg = cfgs[0]
-	} else {
+	activeCfg := cfg
+	if activeCfg == nil {
 		activeCfg = config.DefaultConfig()
 	}
 

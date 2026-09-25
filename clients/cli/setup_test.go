@@ -107,3 +107,10 @@ func TestTestLiveConnection_MockServer(t *testing.T) {
 		t.Errorf("expected TestLiveConnection to succeed, got msg: %s", msg)
 	}
 }
+
+func TestBootstrapPythonEnvironment_Validation(t *testing.T) {
+	_, err := BootstrapPythonEnvironment(t.TempDir(), "nonexistent-python-bin-xyz")
+	if err == nil {
+		t.Error("expected error for nonexistent python binary, got nil")
+	}
+}

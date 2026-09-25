@@ -18,7 +18,7 @@ func TestServerStartAndHealth(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	srv, err := Start(ctx, 0, nil) // 0 binds to a free port
+	srv, err := Start(ctx, 0, nil, config.DefaultConfig()) // 0 binds to a free port
 	if err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestMemoryGraphEndpoint(t *testing.T) {
 	}
 	defer database.Close()
 
-	srv, err := Start(ctx, 0, database)
+	srv, err := Start(ctx, 0, database, config.DefaultConfig())
 	if err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestGraphStatsEndpoint(t *testing.T) {
 	}
 	defer database.Close()
 
-	srv, err := Start(ctx, 0, database)
+	srv, err := Start(ctx, 0, database, config.DefaultConfig())
 	if err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}
@@ -144,6 +144,7 @@ func TestSettingsEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}
+	srv.ConfigPath = cfgPath
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -199,6 +200,7 @@ func TestTestConnectionEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}
+	srv.ConfigPath = filepath.Join(t.TempDir(), "config.yaml")
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -242,7 +244,7 @@ func TestChatSessions_REST_Endpoints(t *testing.T) {
 	}
 	defer database.Close()
 
-	srv, err := Start(ctx, 0, database)
+	srv, err := Start(ctx, 0, database, config.DefaultConfig())
 	if err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}
@@ -377,7 +379,7 @@ func TestChatSession_Export_And_Search(t *testing.T) {
 	}
 	defer database.Close()
 
-	srv, err := Start(ctx, 0, database)
+	srv, err := Start(ctx, 0, database, config.DefaultConfig())
 	if err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}
@@ -500,7 +502,7 @@ func TestGraphDataEndpointAlias(t *testing.T) {
 	}
 	defer database.Close()
 
-	srv, err := Start(ctx, 0, database)
+	srv, err := Start(ctx, 0, database, config.DefaultConfig())
 	if err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}
@@ -572,7 +574,7 @@ func TestInvestigationEndpoints(t *testing.T) {
 	}
 
 	// 2. Start test server
-	srv, err := Start(ctx, 0, database)
+	srv, err := Start(ctx, 0, database, config.DefaultConfig())
 	if err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}
@@ -720,7 +722,7 @@ func TestServerDoesNotEnforceReadTimeoutOnSSE(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	srv, err := Start(ctx, 0, nil)
+	srv, err := Start(ctx, 0, nil, config.DefaultConfig())
 	if err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}
@@ -927,7 +929,7 @@ func TestSystemEndpoints(t *testing.T) {
 	}
 	defer database.Close()
 
-	srv, err := Start(ctx, 0, database)
+	srv, err := Start(ctx, 0, database, config.DefaultConfig())
 	if err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}

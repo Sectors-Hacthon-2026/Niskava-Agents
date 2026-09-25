@@ -140,10 +140,16 @@ func ResolvePythonBin(configuredBin string) string {
 	venvCandidates := []string{
 		filepath.Join(".venv", "Scripts", "python.exe"), // Windows standard venv
 		filepath.Join("venv", "Scripts", "python.exe"),  // Windows alternative
-		filepath.Join(".venv", "bin", "python3"),        // POSIX standard venv
-		filepath.Join(".venv", "bin", "python"),         // POSIX alternative
-		filepath.Join("venv", "bin", "python3"),         // POSIX venv
-		filepath.Join("venv", "bin", "python"),          // POSIX venv
+		filepath.Join("backend", "engine", ".venv", "Scripts", "python.exe"),
+		filepath.Join("backend", "engine", "venv", "Scripts", "python.exe"),
+		filepath.Join(".venv", "bin", "python3"), // POSIX standard venv
+		filepath.Join(".venv", "bin", "python"),  // POSIX alternative
+		filepath.Join("venv", "bin", "python3"),  // POSIX venv
+		filepath.Join("venv", "bin", "python"),   // POSIX venv
+		filepath.Join("backend", "engine", ".venv", "bin", "python3"),
+		filepath.Join("backend", "engine", ".venv", "bin", "python"),
+		filepath.Join("backend", "engine", "venv", "bin", "python3"),
+		filepath.Join("backend", "engine", "venv", "bin", "python"),
 	}
 	for _, cand := range venvCandidates {
 		if _, err := os.Stat(cand); err == nil {
@@ -176,6 +182,62 @@ func FindPythonBinary() string {
 	return ResolvePythonBin("")
 }
 
+// ResolveRepoRoot traverses upwards from hintDir or the current executable to locate
+// the project root containing go.mod, backend/engine, or .git.
+func ResolveRepoRoot(hintDir string) string {
+	startDirs := make([]string, 0, 3)
+	if hintDir != "" {
+		startDirs = append(startDirs, hintDir)
+	}
+	if wd, err := os.Getwd(); err == nil && wd != "" {
+		startDirs = append(startDirs, wd)
+	}
+	if exe, err := os.Executable(); err == nil && exe != "" {
+		startDirs = append(startDirs, filepath.Dir(exe))
+	}
+
+	for _, start := range startDirs {
+		curr := start
+		for i := 0; i < 15; i++ {
+			if _, err := os.Stat(filepath.Join(curr, "go.mod")); err == nil {
+				return curr
+			}
+			if _, err := os.Stat(filepath.Join(curr, "backend", "engine", "runner.py")); err == nil {
+				return curr
+			}
+			parent := filepath.Dir(curr)
+			if parent == curr || parent == "" {
+				break
+			}
+			curr = parent
+		}
+	}
+
+	if hintDir != "" {
+		return hintDir
+	}
+	return "."
+}
+
+// ResolveEnginePath resolves the absolute directory containing the Python engine.
+func ResolveEnginePath(repoRoot, customEngine string) string {
+	if customEngine != "" {
+		if _, err := os.Stat(customEngine); err == nil {
+			return customEngine
+		}
+	}
+	if env := os.Getenv("NISKAVA_ENGINE_PATH"); env != "" {
+		if _, err := os.Stat(env); err == nil {
+			return env
+		}
+	}
+	cand := filepath.Join(repoRoot, "backend", "engine")
+	if _, err := os.Stat(cand); err == nil {
+		return cand
+	}
+	return cand
+}
+
 // RunSubprocess spawns the Python runner and returns a channel of streaming events.
 func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-chan error) {
 	eventsChan := make(chan Event, 64)
@@ -184,18 +246,40 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 	go func() {
 		defer close(eventsChan)
 		defer close(errChan)
+		repoRoot := ResolveRepoRoot(params.WorkDir)
+		workDir := repoRoot
+		if params.WorkDir != "" {
+			if _, err := os.Stat(filepath.Join(params.WorkDir, "backend", "engine")); err == nil {
+				workDir = params.WorkDir
+			}
+		}
+
 		pythonBin := ResolvePythonBin(params.PythonBin)
-		if (params.PythonBin == "" || params.PythonBin == "python3" || params.PythonBin == "python") && params.WorkDir != "" {
-			for _, cand := range []string{
-				filepath.Join(params.WorkDir, ".venv", "Scripts", "python.exe"),
-				filepath.Join(params.WorkDir, "venv", "Scripts", "python.exe"),
-				filepath.Join(params.WorkDir, ".venv", "bin", "python3"),
-				filepath.Join(params.WorkDir, ".venv", "bin", "python"),
-				filepath.Join(params.WorkDir, "venv", "bin", "python3"),
-				filepath.Join(params.WorkDir, "venv", "bin", "python"),
-			} {
-				if _, err := os.Stat(cand); err == nil {
-					pythonBin = cand
+		if params.PythonBin == "" || params.PythonBin == "python3" || params.PythonBin == "python" {
+			for _, searchDir := range []string{params.WorkDir, repoRoot} {
+				if searchDir == "" {
+					continue
+				}
+				for _, cand := range []string{
+					filepath.Join(searchDir, ".venv", "Scripts", "python.exe"),
+					filepath.Join(searchDir, "venv", "Scripts", "python.exe"),
+					filepath.Join(searchDir, "backend", "engine", ".venv", "Scripts", "python.exe"),
+					filepath.Join(searchDir, "backend", "engine", "venv", "Scripts", "python.exe"),
+					filepath.Join(searchDir, ".venv", "bin", "python3"),
+					filepath.Join(searchDir, ".venv", "bin", "python"),
+					filepath.Join(searchDir, "venv", "bin", "python3"),
+					filepath.Join(searchDir, "venv", "bin", "python"),
+					filepath.Join(searchDir, "backend", "engine", ".venv", "bin", "python3"),
+					filepath.Join(searchDir, "backend", "engine", ".venv", "bin", "python"),
+					filepath.Join(searchDir, "backend", "engine", "venv", "bin", "python3"),
+					filepath.Join(searchDir, "backend", "engine", "venv", "bin", "python"),
+				} {
+					if _, err := os.Stat(cand); err == nil {
+						pythonBin = cand
+						break
+					}
+				}
+				if pythonBin != "" && pythonBin != "python3" && pythonBin != "python" {
 					break
 				}
 			}
@@ -225,15 +309,9 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 		}
 
 		cmd := exec.CommandContext(ctx, pythonBin, args...)
-		if params.WorkDir != "" {
-			cmd.Dir = params.WorkDir
-		}
+		cmd.Dir = workDir
 
 		// Ensure PYTHONPATH includes backend directory, WorkDir, and environment PYTHONPATH
-		workDir := params.WorkDir
-		if workDir == "" {
-			workDir = "."
-		}
 		backendDir := filepath.Join(workDir, "backend")
 		pythonPath := backendDir + string(filepath.ListSeparator) + workDir
 		if existing := os.Getenv("PYTHONPATH"); existing != "" {

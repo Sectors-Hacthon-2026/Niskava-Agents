@@ -1,6 +1,6 @@
 # Installation and Setup Guide
 
-This guide provides instructions for installing, configuring, and verifying Niskava Agent on Linux, macOS, and Windows.
+This guide provides instructions for installing, configuring, and verifying Niskava Agent on Linux, macOS, Windows, and Docker.
 
 ---
 
@@ -13,92 +13,111 @@ Ensure your host environment meets the minimum software requirements before proc
 | **Go** | `1.22` or higher | Go Core | CLI entry points, REST/SSE server, SQLite WAL persistence, IPC broker. |
 | **Python** | `3.11` or higher | Python Engine | Deterministic NumPy math, News harvesting, ReAct reasoning agent loop. |
 | **Git** | `2.30` or higher | Source control | Cloning and updating repository files. |
-| **Node.js / npm** *(Optional)* | `18.0` or higher | Web Client | Only required if rebuilding or modifying the React SPA frontend. |
+| **Docker** *(Optional)* | `20.10` or higher | Containerization | Zero-install alternative running everything in container. |
 
 ---
 
-## 2. Step-by-Step Installation
+## 2. Fast Installation (Recommended)
 
-### Step 1: Clone the Repository
-Clone the repository and enter the project directory:
-
+Clone the repository first:
 ```bash
 git clone https://github.com/Sectors-Hacthon-2026/Niskava-Agents.git
 cd Niskava-Agents
 ```
 
----
+### Option A: One-Liner Script Installers
 
-### Step 2: Set Up the Python Engine Virtual Environment
-
-The Python Engine executes deterministic quantitative algorithms, web scraping, and agent orchestration. It must be run inside a dedicated virtual environment.
-
-#### On Linux / macOS:
+#### On Linux & macOS:
 ```bash
-cd backend/engine
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-cd ../..
+chmod +x install.sh
+./install.sh
 ```
+*The installer automatically verifies Go and Python, builds the `.venv` in the repository root, installs quantitative packages, and compiles `bin/niskava`.*
 
 #### On Windows (PowerShell):
 ```powershell
-cd backend\engine
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install --upgrade pip
-pip install -r requirements.txt
-cd ..\..
+.\install.ps1
+```
+> **Note on PowerShell Script Execution:** If script execution is restricted on Windows, run:
+> `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` in your current PowerShell window before executing `.\install.ps1`.
+
+---
+
+### Option B: Docker Container (Zero-Install)
+
+If you have Docker and Docker Compose installed:
+```bash
+# Start Web Workspace daemon in the background on http://localhost:8080
+docker compose up -d
+
+# Check live logs
+docker compose logs -f
 ```
 
-> **Note on PowerShell Script Execution:** If you encounter an execution policy error on Windows, run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` in your PowerShell session before activating the virtual environment.
+---
 
-Core Python dependencies installed via `requirements.txt`:
-- `numpy`, `pandas`: Deterministic time-series and anomaly calculations.
-- `networkx`: In-memory directed graph modeling for conversational and market memory.
-- `trafilatura`, `beautifulsoup4`, `feedparser`: News harvesting, web article parsing, and content sanitization.
-- `requests`, `urllib3`: HTTP client for external data ingestion.
-- `pydantic`: Strict data validation and schema serialization.
-- `pytest`: Unit testing framework.
+### Option C: Manual Step-by-Step Installation
+
+If you prefer to configure everything manually:
+
+#### Step 1: Create Python Virtual Environment (.venv) at Project Root
+
+**On Linux / macOS:**
+```bash
+python3 -m venv .venv
+.venv/bin/pip install --upgrade pip
+.venv/bin/pip install -r backend/engine/requirements.txt
+```
+
+**On Windows (PowerShell / CMD):**
+```powershell
+python -m venv .venv
+.\.venv\Scripts\pip.exe install --upgrade pip
+.\.venv\Scripts\pip.exe install -r backend\engine\requirements.txt
+```
+
+#### Step 2: Compile Standalone Go Core Binary
+
+**On Linux / macOS:**
+```bash
+mkdir -p bin
+go build -o bin/niskava ./cmd/niskava
+chmod +x bin/niskava
+```
+
+**On Windows:**
+```powershell
+if (-not (Test-Path "bin")) { New-Item -ItemType Directory -Path "bin" }
+go build -o bin\niskava.exe .\cmd\niskava
+```
 
 ---
 
-### Step 3: Configure Authentication & Settings
+## 3. Configuration & Setup Wizard
 
-Niskava Agent requires credentials for official market data access and an AI provider for conversational and investigative synthesis.
-
-#### Required Credentials
-1. **Sectors Financial API v2 Key**: Required for official IDX market data (daily candlestick prices, corporate actions, financial ratios, net foreign flow). Register for an API key at [sectors.app](https://sectors.app/).
-2. **AI Provider Key**:
-   - **Google Gemini** (Default): Fast, multimodal reasoning with `gemini-2.5-flash` or `gemini-1.5-pro`. Get a key from [Google AI Studio](https://aistudio.google.com/).
-   - **Ollama** (Local): Fully local, private inference without external cloud API calls.
-   - **OpenRouter / vLLM / OpenAI-compatible**: Any standard OpenAI-compatible API endpoint.
-
----
-
-#### Method A: Interactive Setup Wizard (Recommended)
-
-Run the interactive setup wizard via Go:
+### Method A: Dynamic Setup Wizard (Recommended)
+Run the dynamic setup wizard:
 
 ```bash
-go run ./cmd/niskava setup
+# On Linux / macOS:
+./bin/niskava setup
+
+# On Windows:
+.\bin\niskava.exe setup
 ```
 
 The wizard guides you through:
-1. Detecting system tools (Go, Python, virtual environment path).
-2. Entering your Sectors API key and verifying connection status.
-3. Selecting your AI inference provider (Gemini, Ollama, OpenRouter, vLLM).
-4. Generating `~/.niskava/config.yaml` and `~/.niskava/.env` with secure file permissions.
+1. Selecting your AI inference provider (OpenRouter, Google Gemini, Ollama, DeepSeek, Groq, or OpenAI).
+2. Entering your **Sectors Financial API v2 Key** ([sectors.app](https://sectors.app/)) or pressing Enter for 100% Offline Mock Mode.
+3. Automatically detecting and bootstrapping the Python `.venv` environment if missing.
+4. Testing live connectivity against endpoints.
+5. Saving configuration synchronously to both `.env` and `~/.niskava/config.yaml`.
 
 ---
 
-#### Method B: Manual Configuration
+### Method B: Manual Configuration
 
-You can manually create the configuration file at `~/.niskava/config.yaml` (on Windows: `C:\Users\<Username>\.niskava\config.yaml`).
-
-Sample `config.yaml`:
+You can manually edit or create `~/.niskava/config.yaml` (Windows: `C:\Users\<Username>\.niskava\config.yaml`):
 
 ```yaml
 version: "1.0.0"
@@ -107,105 +126,86 @@ auth:
   sectors_api_key: "YOUR_SECTORS_API_KEY"
   gemini_api_key: "YOUR_GEMINI_API_KEY"
   openai_api_key: ""
+  openai_base_url: "https://openrouter.ai/api/v1"
+  openai_model: "deepseek/deepseek-chat"
 
 ai:
-  provider: "gemini"               # Options: gemini, ollama, openrouter, vllm
-  model: "gemini-2.5-flash"        # Target model identifier
-  endpoint: ""                     # Required only for Ollama (e.g., http://localhost:11434/v1) or vLLM
-  temperature: 0.1                 # Low temperature for analytical consistency
+  provider: "openai"               # Options: openai, gemini, ollama
+  model: "deepseek/deepseek-chat"
+  temperature: 0.1
 
 storage:
-  db_path: "~/.niskava/niskava.db" # Local SQLite database location
-  journal_mode: "WAL"              # Write-Ahead Logging for concurrency
+  db_path: "~/.niskava/niskava.db" # Local SQLite database location (Law 4)
+  journal_mode: "WAL"
 
 server:
   host: "127.0.0.1"
-  port: 20128                      # Background daemon and REST/SSE port
-
-engine:
-  python_bin: ""                   # Path to python executable (auto-detected if empty)
-  engine_path: ""                  # Path to backend/engine (auto-detected if empty)
+  port: 20128
 
 preferences:
-  language: "en"                   # Interface language: "en" (English) or "id" (Indonesian)
+  language: "id"                   # "id" (Indonesian) or "en" (English)
   default_market: "IDX"
   default_timeframe_days: 30
 ```
 
-You can also export environment variables directly:
+---
+
+## 4. Verification & Diagnostics
+
+### 1. Run System Health Doctor
+Verify that all system components, quantitative libraries, and database permissions are ready:
 
 ```bash
-export SECTORS_API_KEY="your_sectors_api_key_here"
-export GEMINI_API_KEY="your_gemini_api_key_here"
-export NISKAVA_DB_PATH="$HOME/.niskava/niskava.db"
+# Linux / macOS:
+./bin/niskava doctor
+
+# Windows:
+.\bin\niskava.exe doctor
+```
+
+The visual diagnostic HUD checks:
+- Operating system and architecture
+- SQLite database WAL mode status
+- Python quantitative engine (`numpy`, `pandas`, `networkx`)
+- AI provider endpoint reachability & latency
+- Sectors Financial API quota and mock status
+- Engine directory mobility
+
+---
+
+### 2. Launch Web Workspace (Dashboard)
+Start the REST/SSE daemon and open the interactive dashboard:
+
+```bash
+# Opens http://localhost:20128 automatically in your default browser:
+./bin/niskava serve
+
+# Run headlessly (without opening browser):
+./bin/niskava serve --open=false
 ```
 
 ---
 
-### Step 4: Build the Standalone Binary
-
-Compile the single Go Core executable:
-
-#### On Linux / macOS:
-```bash
-go build -o niskava ./cmd/niskava
-chmod +x niskava
-```
-
-#### On Windows (PowerShell / CMD):
-```powershell
-go build -o niskava.exe ./cmd/niskava
-```
-
-Optionally move the binary into your system `PATH` (e.g., `/usr/local/bin` on Linux/macOS, or a custom scripts directory on Windows) to execute `niskava` globally from any terminal.
-
----
-
-## 3. Verifying the Installation
-
-### 1. Verify Go Core Binary & Diagnostic HUD
-Execute the compiled binary without subcommands:
+### 3. Launch Interactive Terminal UI (TUI)
+Launch the interactive terminal research terminal:
 
 ```bash
-./niskava
-```
-
-The terminal displays the HUD Launcher menu. Select `[H]` to view health diagnostics, confirming database connectivity, Python engine status, and API key validity.
-
-### 2. Run Python Engine Test Suite
-Verify that all quantitative algorithms, memory engines, and tool integrations pass automated tests:
-
-```bash
-# From project root with venv activated
-pytest backend/engine -v
-```
-
-All 200+ unit tests should pass with zero errors.
-
-### 3. Run Go Core Test Suite
-Verify the Go Core daemon, IPC pipeline, and persistence layer:
-
-```bash
-go test ./...
+./bin/niskava
 ```
 
 ---
 
-## 4. Offline Mode (Zero Credit Consumption)
+### 4. Enable Shell Autocompletion (Optional)
 
-For CI/CD testing or evaluation without invoking external APIs or consuming Sectors API credits, run Niskava in offline mode using pre-packaged static mock fixtures:
+Generate tab-completion for subcommands and popular IDX ticker suggestions (`BBCA`, `BBRI`, `ANTM`, etc.):
 
 ```bash
-# On Linux / macOS:
-export MOCK_SECTORS=1
-./niskava investigate ANTM --days 30 --offline
+# Bash:
+source <(./bin/niskava completion bash)
 
-# On Windows (PowerShell):
-$env:MOCK_SECTORS="1"
-.\niskava.exe investigate ANTM --days 30 --offline
+# Zsh:
+source <(./bin/niskava completion zsh)
+
+# PowerShell (Windows):
+.\bin\niskava.exe completion powershell | Out-String | Invoke-Expression
 ```
-
-In offline mode:
-- Quantitative data is served from local JSON fixtures.
-- The deterministic compute gate evaluates formulas locally.
-- Zero network requests are issued, ensuring offline reliability and testing determinism.

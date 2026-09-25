@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/clients/cli/tui"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -60,6 +61,12 @@ var setupCmd = &cobra.Command{
 	Use:   "setup",
 	Short: "Interactive setup wizard for Niskava Agent environment (.env & config.yaml)",
 	Long:  `Launches a dynamic step-by-step wizard to configure AI Provider (OpenRouter/Gemini/OpenAI/DeepSeek/Groq/Ollama/9router), API keys, and local Niskava Agent preferences.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// Setup wizard initializes configuration from scratch; does not require initial DB
+		if cfg == nil {
+			cfg, _ = config.Load(cfgFile)
+		}
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return RunInteractiveSetup()
 	},
@@ -303,6 +310,15 @@ func DetectPythonEnvironment() (string, string, bool) {
 		filepath.Join(".venv", "bin", "python3"),
 		filepath.Join(".venv", "bin", "python"),
 		filepath.Join(".venv", "Scripts", "python.exe"),
+		filepath.Join("venv", "bin", "python3"),
+		filepath.Join("venv", "bin", "python"),
+		filepath.Join("venv", "Scripts", "python.exe"),
+		filepath.Join("backend", "engine", ".venv", "bin", "python3"),
+		filepath.Join("backend", "engine", ".venv", "bin", "python"),
+		filepath.Join("backend", "engine", ".venv", "Scripts", "python.exe"),
+		filepath.Join("backend", "engine", "venv", "bin", "python3"),
+		filepath.Join("backend", "engine", "venv", "bin", "python"),
+		filepath.Join("backend", "engine", "venv", "Scripts", "python.exe"),
 	}
 
 	for _, cand := range venvCandidates {
@@ -330,6 +346,87 @@ func DetectPythonEnvironment() (string, string, bool) {
 	}
 
 	return "python3", "Python interpreter not found on PATH. Please install Python 3.11+", false
+}
+
+// BootstrapPythonEnvironment creates a virtual environment in rootDir/.venv and installs requirements.txt.
+func BootstrapPythonEnvironment(rootDir, sysPython string) (string, error) {
+	if sysPython == "" || sysPython == "python3" || sysPython == "python" {
+		if path, err := exec.LookPath("python3"); err == nil {
+			sysPython = path
+		} else if path, err := exec.LookPath("python"); err == nil {
+			sysPython = path
+		} else {
+			return "", fmt.Errorf("system Python interpreter not found on PATH (requires Python 3.11+)")
+		}
+	} else {
+		if _, err := os.Stat(sysPython); err != nil {
+			if _, err := exec.LookPath(sysPython); err != nil {
+				return "", fmt.Errorf("python interpreter %q not found: %w", sysPython, err)
+			}
+		}
+	}
+
+	venvDir := filepath.Join(rootDir, ".venv")
+	cmdVenv := exec.Command(sysPython, "-m", "venv", venvDir)
+	if out, err := cmdVenv.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("failed to create virtual environment: %s (%w)", strings.TrimSpace(string(out)), err)
+	}
+
+	// Locate pip inside the new venv
+	pipCandidates := []string{
+		filepath.Join(venvDir, "Scripts", "pip.exe"),
+		filepath.Join(venvDir, "Scripts", "pip"),
+		filepath.Join(venvDir, "bin", "pip3"),
+		filepath.Join(venvDir, "bin", "pip"),
+	}
+	var pipBin string
+	for _, cand := range pipCandidates {
+		if _, err := os.Stat(cand); err == nil {
+			pipBin = cand
+			break
+		}
+	}
+	if pipBin == "" {
+		return "", fmt.Errorf("pip not found in newly created virtualenv at %s", venvDir)
+	}
+
+	// Upgrade pip (best effort)
+	_ = exec.Command(pipBin, "install", "--upgrade", "pip").Run()
+
+	// Locate requirements.txt
+	reqCandidates := []string{
+		filepath.Join(rootDir, "backend", "engine", "requirements.txt"),
+		filepath.Join(rootDir, "requirements.txt"),
+	}
+	var reqPath string
+	for _, cand := range reqCandidates {
+		if _, err := os.Stat(cand); err == nil {
+			reqPath = cand
+			break
+		}
+	}
+	if reqPath == "" {
+		return "", fmt.Errorf("backend/engine/requirements.txt not found in %s", rootDir)
+	}
+
+	cmdPip := exec.Command(pipBin, "install", "-r", reqPath)
+	if out, err := cmdPip.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("failed to install requirements via pip: %s (%w)", strings.TrimSpace(string(out)), err)
+	}
+
+	// Locate python binary in new venv
+	pyCandidates := []string{
+		filepath.Join(venvDir, "Scripts", "python.exe"),
+		filepath.Join(venvDir, "bin", "python3"),
+		filepath.Join(venvDir, "bin", "python"),
+	}
+	for _, cand := range pyCandidates {
+		if _, err := os.Stat(cand); err == nil {
+			return cand, nil
+		}
+	}
+
+	return "", fmt.Errorf("python binary not found in virtualenv at %s", venvDir)
 }
 
 // RunInteractiveSetup launches the step-by-step terminal setup wizard.
@@ -668,6 +765,24 @@ func RunInteractiveSetup() error {
 		fmt.Printf("  %s %s (%s)\n", wizardSuccessBadgeStyle.Render("[✓ READY]"), pyBin, wizardMutedStyle.Render(pyDesc))
 	} else {
 		fmt.Printf("  %s %s (%s)\n", wizardWarnBadgeStyle.Render("[! ACTION REQUIRED]"), pyBin, wizardMutedStyle.Render(pyDesc))
+		fmt.Printf("\n  %s Would you like Niskava to set up .venv and install requirements automatically? [Y/n, default: Y]: ", wizardStepStyle.Render("►"))
+		autoChoice, _ := reader.ReadString('\n')
+		autoChoice = strings.ToLower(strings.TrimSpace(autoChoice))
+		if autoChoice == "" || autoChoice == "y" || autoChoice == "yes" {
+			fmt.Printf("  %s Bootstrapping Python virtual environment (.venv) and installing requirements... ", wizardMutedStyle.Render("►"))
+			wd, _ := os.Getwd()
+			root := ipc.ResolveRepoRoot(wd)
+			newPy, err := BootstrapPythonEnvironment(root, pyBin)
+			if err != nil {
+				fmt.Printf("%s\n    Error: %v\n", wizardErrBadgeStyle.Render("[FAILED]"), err)
+			} else {
+				fmt.Printf("%s\n", wizardSuccessBadgeStyle.Render("[SUCCESS]"))
+				pyBin = newPy
+				pyDesc = "Virtual environment (.venv) successfully created with dependencies"
+				pyReady = true
+				fmt.Printf("  %s %s (%s)\n", wizardSuccessBadgeStyle.Render("[✓ READY]"), pyBin, wizardMutedStyle.Render(pyDesc))
+			}
+		}
 	}
 
 	// Step 5: Save Configuration

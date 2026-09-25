@@ -113,31 +113,68 @@ All development on Niskava Agent is strictly governed by six foundational archit
 
 ## Quick Start
 
-### 1. Prerequisites
-- **Go**: Version 1.22 or higher
-- **Python**: Version 3.11 or higher
-- **Git**: Version 2.30 or higher
+### 1. Fast Automated Installation (One-Liner)
 
-### 2. Clone and Setup Environment
+Clone the repository and run the automated installer for your operating system:
+
 ```bash
 git clone https://github.com/Sectors-Hacthon-2026/Niskava-Agents.git
 cd Niskava-Agents
-
-# Run the interactive setup wizard (configures API keys & creates Python virtual environment)
-go run ./cmd/niskava setup
 ```
 
-The wizard prompts for your **Sectors Financial API v2 Key** ([sectors.app](https://sectors.app/)) and your AI provider credentials (Google Gemini, Ollama, OpenRouter, or vLLM), then generates `~/.niskava/config.yaml`.
+- **Linux & macOS:**
+  ```bash
+  chmod +x install.sh && ./install.sh
+  ```
+- **Windows (PowerShell):**
+  ```powershell
+  .\install.ps1
+  ```
+- **Docker Container (Zero-Install):**
+  ```bash
+  docker compose up -d
+  ```
 
-### 3. Build Executable Binary
+*The automated installer verifies Go/Python, creates `.venv`, installs quantitative packages (`numpy`, `pandas`, `networkx`), and compiles the standalone executable to `bin/`.*
+
+---
+
+### 2. Verify Environment & System Health (`niskava doctor`)
+
+Run the built-in system doctor to verify local SQLite WAL database, Python quant engine, and API connectivity:
+
 ```bash
-# On Linux / macOS:
-go build -o niskava ./cmd/niskava
-chmod +x niskava
-
-# On Windows:
-go build -o niskava.exe ./cmd/niskava
+./bin/niskava doctor
+# On Windows: .\bin\niskava.exe doctor
 ```
+
+---
+
+### 3. Interactive Configuration Wizard (`niskava setup`)
+
+Configure your AI provider (OpenRouter, Gemini, Ollama, DeepSeek, Groq) and Sectors API key (press ENTER for 100% Offline Mock Mode):
+
+```bash
+./bin/niskava setup
+# On Windows: .\bin\niskava.exe setup
+```
+
+---
+
+### 4. Launch Web Workspace or Interactive Terminal
+
+- **Interactive Web Workspace (Dual-Theme Dashboard):**
+  ```bash
+  ./bin/niskava serve
+  # Automatically opens http://localhost:20128 in your default browser!
+  ```
+- **Interactive Terminal REPL & HUD:**
+  ```bash
+  ./bin/niskava
+  ```
+- **Quick Desktop Launchers:**
+  - Linux/macOS: `./run.sh`
+  - Windows: Double-click `run.bat` or run `.\run.bat`
 
 ---
 

@@ -195,3 +195,22 @@ func resolveTestPythonBin(rootDir string) string {
 	}
 	return pythonBin
 }
+
+func TestResolveRepoRootAndEngine(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := ResolveRepoRoot(wd)
+	if root == "" {
+		t.Fatal("expected non-empty repository root")
+	}
+	if _, err := os.Stat(filepath.Join(root, "go.mod")); err != nil {
+		t.Fatalf("go.mod not found at resolved root %s: %v", root, err)
+	}
+
+	engine := ResolveEnginePath(root, "")
+	if !strings.HasSuffix(engine, filepath.Join("backend", "engine")) {
+		t.Errorf("unexpected resolved engine path: %s", engine)
+	}
+}
