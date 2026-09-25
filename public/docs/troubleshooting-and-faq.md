@@ -37,6 +37,36 @@ Error: unable to connect to AI provider (gemini / ollama / openrouter)
 
 ---
 
+### Issue 1B: LLM Inference Timeout During Deep Multi-Tool Analysis
+**Symptoms:**
+During deep ticker analysis, peer comparisons, or multi-tool reasoning, the agent reports:
+```text
+Koneksi timeout setelah 25 detik ke http://localhost:20128/v1/chat/completions
+# atau
+Request timed out waiting for AI response
+```
+
+**Cause:**
+Complex financial investigations require the LLM to inspect multiple quantitative metrics and news releases. If running a local model (Ollama on CPU) or a deep reasoning model, 25 seconds may not be enough for the model to synthesize observations.
+
+**Resolutions:**
+1. **Switch Timeout Profile in REPL:**
+   Adjust the active timeout immediately with the `/timeout` slash command:
+   ```text
+   /timeout balanced   # 60s (Recommended baseline)
+   /timeout deep       # 120s (For complex analysis)
+   /timeout local      # 180s (For CPU/Ollama inference)
+   /timeout 90         # Custom value in seconds (10 - 300)
+   ```
+2. **Configure in Setup Wizard:**
+   Run `./bin/niskava setup` and select **Step 5: AI Inference Timeout Profile**.
+3. **Adjust in Web Workspace Canvas:**
+   Open `http://localhost:20128`, click the **Settings** icon (top right), and move the **Inference Timeout** slider to your desired value. Click **Save Configuration**.
+4. **Environment Variable Override:**
+   Add `NISKAVA_LLM_TIMEOUT=60.00` to your `.env` file or export it in your shell environment.
+
+---
+
 ### Issue 2: SQLite Database Locked (`database is locked`)
 **Symptoms:**
 The terminal or engine emits an error message:

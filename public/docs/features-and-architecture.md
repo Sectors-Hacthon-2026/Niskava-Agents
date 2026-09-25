@@ -253,3 +253,31 @@ To prevent subjective continuous probability scores (e.g. 0.50), Niskava enforce
 | **`0.75`** | **Reasonable Inference** | Plausible catalyst from industry-wide trends corroborated by matching sector divergence metrics. |
 | **`0.65`** | **Weak Inference** | Unverified market commentary, social media sentiment, or unconfirmed financial forum discussions. |
 | **`0.55`** | **Speculative** | Distant co-occurrence without temporal causality or formal corroboration. |
+
+---
+
+## 7. Adaptive Inference Timeout Architecture
+
+To eliminate socket disconnects and premature timeout failures during complex multi-tool research turns without sacrificing responsiveness on simple prompts, Niskava employs an observation-aware **Adaptive Inference Timeout Engine**:
+
+### Mathematical Formula:
+$$\text{Timeout}_{\text{call}} = \min\Big(\text{Base Timeout} + \max(0, N_{\text{obs}}) \times 10.0\text{s},\; 4 \times \text{Base Timeout},\; 300.0\text{s}\Big)$$
+
+Where:
+- $\text{Base Timeout}$: Configured baseline (default `60.0s`, customizable via `NISKAVA_LLM_TIMEOUT`).
+- $N_{\text{obs}}$: Cumulative count of deterministic tool observations ingested during the current chat cycle.
+- **Soft Cap ($4 \times \text{Base}$)**: Prevents runaway execution during massive batch observations.
+- **Hard Cap ($300.0\text{s}$)**: Absolute upper limit guaranteeing system liveness.
+
+### Prompt Complexity Classification:
+Before tool execution begins, the agent classifies query intent deterministically:
+1. **Simple** ($\le 5$ iterations, timeout capped at $15\text{s}$): Identity queries, greetings, help commands.
+2. **General** ($\le 10$ iterations, timeout capped at $20\text{s}$): Macro reviews, sector overviews.
+3. **Deep** ($\le 30$ iterations, full adaptive timeout): Ticker investigations, forensic causality audits, peer stress tests.
+
+### Tri-Surface Synchronization:
+User preferences are synchronized bidirectionally across three interfaces:
+1. **Interactive Terminal Wizard (`niskava setup`)**: Configures predefined profiles (`Fast 25s`, `Balanced 60s`, `Deep 120s`, `Local LLM 180s`, or `Custom`).
+2. **Terminal REPL (`/timeout [val]`)**: Modifies session timeout and immediately persists to `~/.niskava/config.yaml`.
+3. **Web Workspace Canvas**: Interactive UI slider reading from `GET /api/settings` and updating via `PATCH /api/settings`.
+

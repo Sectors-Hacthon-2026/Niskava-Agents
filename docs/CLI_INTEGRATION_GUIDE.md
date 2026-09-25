@@ -67,14 +67,18 @@ Ketik karakter garis miring (`/`) pada baris input untuk menampilkan daftar peri
 ```text
 /───────────────────────────── SLASH COMMANDS ─────────────────────────────\
 │ /help      [SYSTEM] Panduan & dokumentasi perintah REPL                   │
-│ /back      [NAV]    Kembali ke menu launcher utama                        │
 │ /chats     [NAV]    Buka daftar riwayat sesi obrolan interaktif           │
-│ /resume    [INTEL]  Melanjutkan investigasi sesi sebelumnya               │
-│ /reset     [SYSTEM] Reset konteks percakapan sesi saat ini                │
+│ /resume    [INTEL]  Melanjutkan investigasi sesi sebelumnya via ID        │
+│ /timeout   [SYSTEM] Atur batas waktu inferensi LLM (fast/balanced/deep/N) │
 │ /graph     [INTEL]  Buka visualisasi Knowledge Graph di browser           │
-│ /clear     [SYSTEM] Bersihkan layar terminal                              │
 │ /web       [NAV]    Luncurkan Web Workspace Dashboard di browser          │
 │ /sessions  [INTEL]  Daftar riwayat sesi investigasi & obrolan             │
+│ /health    [SYSTEM] Status kesehatan daemon, database & latensi provider  │
+│ /lang      [SYSTEM] Beralih preferensi bahasa aktif (id <-> en)           │
+│ /reset     [SYSTEM] Reset konteks graf percakapan sesi saat ini           │
+│ /clear     [SYSTEM] Bersihkan layar terminal                              │
+│ /back      [NAV]    Kembali ke menu launcher utama                        │
+│ /exit      [SYSTEM] Keluar dari aplikasi terminal                         │
 \──────────────────────────────────────────────────────────────────────────/
 ```
 
