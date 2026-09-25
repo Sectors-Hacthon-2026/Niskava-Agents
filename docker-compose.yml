@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  niskava:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: niskava-agent
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ~/.niskava:/root/.niskava
+    environment:
+      - SECTORS_API_KEY=${SECTORS_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://openrouter.ai/api/v1}
+      - OPENAI_MODEL=${OPENAI_MODEL:-deepseek/deepseek-chat}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - MOCK_SECTORS=${MOCK_SECTORS:-0}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
