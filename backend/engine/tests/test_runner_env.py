@@ -54,3 +54,27 @@ preferences:
             assert os.environ.get("NISKAVA_LANG") == "en"
             assert os.environ.get("NISKAVA_OFFLINE") == "1"
 
+
+def test_load_config_yaml_fallback_without_pyyaml(tmp_path):
+    yaml_config = tmp_path / "config.yaml"
+    yaml_config.write_text("""
+auth:
+  sectors_api_key: "sectors_yaml_key_777"
+  gemini_api_key: "gemini_yaml_key_666"
+  ai_provider: "gemini"
+preferences:
+  language: "id"
+  offline_mode: false
+""", encoding="utf-8")
+
+    with patch.dict(os.environ, {}, clear=True):
+        with patch("engine.runner.os.path.expanduser", return_value=str(yaml_config)):
+            with patch.dict("sys.modules", {"yaml": None}):
+                load_config_yaml_fallback()
+                assert os.environ.get("SECTORS_API_KEY") == "sectors_yaml_key_777"
+                assert os.environ.get("GEMINI_API_KEY") == "gemini_yaml_key_666"
+                assert os.environ.get("AI_PROVIDER") == "gemini"
+                assert os.environ.get("NISKAVA_LANG") == "id"
+                assert os.environ.get("NISKAVA_OFFLINE") == "0"
+
+

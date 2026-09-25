@@ -64,35 +64,63 @@ def load_config_yaml_fallback() -> None:
     if not os.path.exists(config_path):
         return
     try:
-        import yaml
-        with open(config_path, "r", encoding="utf-8") as f:
-            cfg = yaml.safe_load(f)
-            if not isinstance(cfg, dict):
-                return
-            auth = cfg.get("auth", {})
-            if isinstance(auth, dict):
-                mapping = {
-                    "SECTORS_API_KEY": auth.get("sectors_api_key"),
-                    "SECTORS_BASE_URL": auth.get("sectors_base_url"),
-                    "AI_PROVIDER": auth.get("ai_provider"),
-                    "GEMINI_API_KEY": auth.get("gemini_api_key"),
-                    "GEMINI_MODEL": auth.get("gemini_model"),
-                    "OPENAI_API_KEY": auth.get("openai_api_key"),
-                    "OPENAI_BASE_URL": auth.get("openai_base_url"),
-                    "OPENAI_MODEL": auth.get("openai_model"),
-                    "ANTHROPIC_API_KEY": auth.get("anthropic_api_key"),
-                    "OLLAMA_BASE_URL": auth.get("ollama_base_url"),
-                    "OLLAMA_MODEL": auth.get("ollama_model"),
-                }
-                for k, v in mapping.items():
-                    if v and isinstance(v, str) and (k not in os.environ or not os.environ[k]):
-                        os.environ[k] = v
-            prefs = cfg.get("preferences", {})
-            if isinstance(prefs, dict):
-                if prefs.get("language") and "NISKAVA_LANG" not in os.environ:
-                    os.environ["NISKAVA_LANG"] = str(prefs["language"])
-                if prefs.get("offline_mode") and "NISKAVA_OFFLINE" not in os.environ:
-                    os.environ["NISKAVA_OFFLINE"] = "1" if prefs["offline_mode"] else "0"
+        cfg = None
+        try:
+            import yaml
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f)
+        except ImportError:
+            # Zero-dependency standard library parser for simple YAML key-value sections
+            cfg = {"auth": {}, "preferences": {}}
+            current_section = None
+            with open(config_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if not stripped or stripped.startswith("#"):
+                        continue
+                    if not line.startswith(" ") and not line.startswith("\t") and stripped.endswith(":"):
+                        current_section = stripped[:-1].strip()
+                        if current_section not in cfg:
+                            cfg[current_section] = {}
+                        continue
+                    if ":" in stripped and current_section:
+                        k, v = stripped.split(":", 1)
+                        k = k.strip()
+                        v = v.strip().strip("'\"")
+                        if v.lower() == "true":
+                            val = True
+                        elif v.lower() == "false":
+                            val = False
+                        else:
+                            val = v
+                        cfg[current_section][k] = val
+
+        if not isinstance(cfg, dict):
+            return
+        auth = cfg.get("auth", {})
+        if isinstance(auth, dict):
+            mapping = {
+                "SECTORS_API_KEY": auth.get("sectors_api_key"),
+                "SECTORS_BASE_URL": auth.get("sectors_base_url"),
+                "AI_PROVIDER": auth.get("ai_provider"),
+                "GEMINI_API_KEY": auth.get("gemini_api_key"),
+                "GEMINI_MODEL": auth.get("gemini_model"),
+                "OPENAI_API_KEY": auth.get("openai_api_key"),
+                "OPENAI_BASE_URL": auth.get("openai_base_url"),
+                "OPENAI_MODEL": auth.get("openai_model"),
+                "ANTHROPIC_API_KEY": auth.get("anthropic_api_key"),
+                "OLLAMA_BASE_URL": auth.get("ollama_base_url"),
+                "OLLAMA_MODEL": auth.get("ollama_model"),
+            }
+            for k, v in mapping.items():
+                if v and isinstance(v, str) and (k not in os.environ or not os.environ[k]):
+                    os.environ[k] = v
+        prefs = cfg.get("preferences", {})
+        if isinstance(prefs, dict):
+            if prefs.get("language") and "NISKAVA_LANG" not in os.environ:
+                os.environ["NISKAVA_LANG"] = str(prefs["language"])
+            if "offline_mode" in prefs and "NISKAVA_OFFLINE" not in os.environ:
+                os.environ["NISKAVA_OFFLINE"] = "1" if prefs["offline_mode"] else "0"
     except Exception:
         pass
 
