@@ -673,9 +673,34 @@ func startLiveSpinner(ctx context.Context, getStatus func() string) func() {
 
 func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, appDB *db.DB) {
 	usingDaemon := IsDaemonAlive(serverURL)
+	modelLabel := "hermes"
+	if cfg != nil {
+		if cfg.Auth.OpenAIModel != "" {
+			modelLabel = cfg.Auth.OpenAIModel
+		} else if cfg.Auth.GeminiModel != "" {
+			modelLabel = cfg.Auth.GeminiModel
+		}
+	}
 
-	// Record User Message in SQLite if running standalone subprocess mode
+	// Record User Message and ensure ChatSession metadata exists in SQLite if running standalone subprocess mode
 	if !usingDaemon && appDB != nil {
+		_, errSess := appDB.GetChatSession(sessionID)
+		if errSess != nil {
+			title := prompt
+			if len(title) > 60 {
+				title = title[:57] + "..."
+			}
+			sess := &db.ChatSession{
+				ID:        sessionID,
+				Title:     title,
+				Model:     modelLabel,
+				Status:    "IDLE",
+				CreatedAt: time.Now().UTC().Format(time.RFC3339),
+				UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+			}
+			_ = appDB.CreateChatSession(sess)
+		}
+
 		userMsg := &db.ChatMessage{
 			ID:        fmt.Sprintf("MSG-%d", time.Now().UnixNano()),
 			SessionID: sessionID,
@@ -684,6 +709,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 			CreatedAt: time.Now().UTC().Format(time.RFC3339),
 		}
 		_ = appDB.SaveChatMessage(userMsg)
+		_ = appDB.TouchChatSession(sessionID, prompt)
 	}
 
 	// Sleek session divider (avoids redundant duplicate user input box)
@@ -762,14 +788,6 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 	)
 
 	turnStart := time.Now()
-	modelLabel := cfg.Auth.OpenAIModel
-	if modelLabel == "" {
-		if cfg.Auth.GeminiModel != "" {
-			modelLabel = cfg.Auth.GeminiModel
-		} else {
-			modelLabel = "hermes"
-		}
-	}
 
 	var statusText atomic.Value
 	initStatus := strings.TrimPrefix(TF("thinking_init", modelLabel), "  ⠋ ")
@@ -824,6 +842,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 						CreatedAt: time.Now().UTC().Format(time.RFC3339),
 					}
 					_ = appDB.SaveChatMessage(asstMsg)
+					_ = appDB.TouchChatSession(sessionID, assistantResponse.String())
 				}
 
 				// Render official completion badge with timing & statistics
