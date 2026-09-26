@@ -19,6 +19,34 @@ Ensure your host environment meets the minimum software requirements before proc
 
 ## 2. Fast Installation (Recommended)
 
+### Option 0: Zero-Clone via NPX / NPM (Instant Run)
+
+If you have Node.js (>= 18) installed, you can launch Niskava Agent immediately without cloning the git repository:
+
+```bash
+# Run interactive setup wizard
+npx @zyrexnns/niskava-agent setup
+
+# Check environment readiness
+npx @zyrexnns/niskava-agent doctor
+
+# Run conversational terminal (REPL)
+npx @zyrexnns/niskava-agent
+
+# Start local web workspace (:20128)
+npx @zyrexnns/niskava-agent serve
+```
+
+To install globally as a system-wide command:
+```bash
+npm install -g @zyrexnns/niskava-agent
+niskava setup
+```
+
+---
+
+### Option A: From Source via Git Clone
+
 Clone the repository first:
 ```bash
 git clone https://github.com/Sectors-Hacthon-2026/Niskava-Agents.git
