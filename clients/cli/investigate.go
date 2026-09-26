@@ -26,6 +26,17 @@ var (
 var investigateCmd = &cobra.Command{
 	Use:   "investigate [TICKER]",
 	Short: "Run autonomous investigation on an IDX ticker (e.g. ANTM)",
+	Long: `Run an autonomous 7-stage investigation pipeline on an IDX ticker (e.g. ANTM, BBCA).
+Executes quantitative anomaly calculations, harvests contemporaneous news/disclosures,
+and compiles evidence classified into SUPPORTED, UNCERTAIN, or CONTRADICTED findings.`,
+	Example: `  # Run 30-day headless investigation:
+  niskava investigate ANTM
+
+  # Run investigation and open interactive REPL pre-focused on ticker:
+  niskava investigate ANTM -i
+
+  # Run 90-day offline investigation:
+  niskava investigate BBRI --days 90 --offline`,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ticker := strings.ToUpper(strings.TrimSpace(args[0]))

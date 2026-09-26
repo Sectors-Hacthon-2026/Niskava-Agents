@@ -119,6 +119,13 @@ Ketik `/` saat berada di input REPL untuk membuka popup autocomplete:
 | `/chats` | `[NAV]` | Membuka selektor sesi Bubbletea untuk menelusuri dan mengganti riwayat obrolan. |
 | `/resume <ID>` | `[INTEL]` | Melanjutkan sesi obrolan tertentu berdasarkan ID (`/resume CHAT-20260925-0001`). |
 | `/timeout [profil\|detik]` | `[SYSTEM]` | Mengatur batas waktu inferensi LLM: `fast` (25s), `balanced` (60s), `deep` (120s), `local` (180s), atau nilai kustom `10-300` detik. |
+| `/export [md\|json]` | `[INTEL]` | Mengekspor transkrip obrolan sesi aktif ke berkas laporan `.md` atau `.json` lokal. |
+| `/fork [title]` | `[INTEL]` | Mencabangkan sesi aktif ke ID sesi baru untuk menguji skenario pasar alternatif (*session forking*). |
+| `/search <keyword>` | `[INTEL]` | Mencari teks pesan dari riwayat obrolan SQLite langsung dari prompt REPL. |
+| `/anomalies` | `[INTEL]` | Menampilkan tabel anomali kuantitatif yang terdeteksi selama sesi aktif. |
+| `/skills` | `[INTEL]` | Menampilkan katalog 6 domain SOP terdaftar (`market_anomaly_recon`, `event_causality_audit`, dll). |
+| `/doctor` | `[SYSTEM]` | Menjalankan pemeriksaan diagnostik sistem komprehensif langsung dari dalam REPL. |
+| `/cache [stats\|clean]` | `[SYSTEM]` | Menampilkan statistik efisiensi kuota Sectors API v2 & membersihkan entri cache kadaluarsa. |
 | `/graph` | `[INTEL]` | Membuka visualisasi graf memori asosiatif langsung di browser. |
 | `/web` | `[NAV]` | Membuka antarmuka visual Web Workspace di peramban web default. |
 | `/sessions` | `[INTEL]` | Mencetak daftar sesi investigasi dan obrolan dari SQLite lokal. |
@@ -133,6 +140,12 @@ Ketik `/` saat berada di input REPL untuk membuka popup autocomplete:
 # Menjalankan launcher interaktif
 niskava
 
+# Langsung melompat ke REPL terminal interaktif
+niskava terminal
+# atau via alias singkat:
+niskava repl
+niskava chat
+
 # Langsung melompat ke REPL terminal untuk sesi tertentu
 niskava --session SES-20260924-ANTM
 
@@ -142,8 +155,23 @@ niskava --lang en
 
 ---
 
-### 3.2 `niskava investigate`
-Menjalankan alur kerja investigasi terstruktur 7-Stage pipeline secara otonom (*headless execution*) pada emiten Bursa Efek Indonesia (IDX).
+### 3.2 `niskava terminal` (Alias: `niskava repl`, `niskava chat`)
+Meluncurkan antarmuka *Live Conversational REPL* secara langsung tanpa perlu melewati menu Launcher HUD.
+
+```bash
+niskava terminal [flags]
+niskava repl [flags]
+niskava chat [flags]
+```
+
+#### Flags Khusus:
+* `-s, --session <id>`: Langsung melanjutkan ID sesi percakapan tertentu.
+* `-l, --lang <id|en>`: Memaksa preferensi bahasa antarmuka (`id` atau `en`).
+
+---
+
+### 3.3 `niskava investigate`
+Menjalankan alur kerja investigasi terstruktur 7-Stage pipeline secara otonom (*headless execution*) atau interaktif pada emiten Bursa Efek Indonesia (IDX).
 
 ```bash
 niskava investigate <TICKER> [flags]
@@ -153,6 +181,7 @@ niskava investigate <TICKER> [flags]
 * `<TICKER>` (Wajib): Kode ticker 4-5 huruf resmi IDX (contoh: `ANTM`, `BBCA`, `BBRI`, `ASII`).
 
 #### Flags Khusus:
+* `-i, --interactive`: Menjalankan audit lalu **langsung membuka Live REPL** yang terfokus pada emiten target.
 * `--days <n>`: Rentang hari analisis historis ke belakang (default: `30`).
 * `--offline`: Menjalankan investigasi menggunakan data lokal *cached* tanpa mengurangi kuota API (Law 5).
 * `--py-bin <path>`: Menentukan biner Python khusus untuk proses runner.
@@ -161,6 +190,9 @@ niskava investigate <TICKER> [flags]
 ```bash
 # Investigasi default 30 hari untuk saham ANTM
 niskava investigate ANTM
+
+# Investigasi saham ANTM dan langsung membuka Live REPL interaktif
+niskava investigate ANTM -i
 
 # Investigasi 90 hari saham BBRI dalam mode offline
 niskava investigate BBRI --days 90 --offline

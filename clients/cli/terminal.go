@@ -16,6 +16,16 @@ var terminalCmd = &cobra.Command{
 	Short:   "Launch interactive conversational intelligence REPL directly",
 	Long: `Launch interactive Hermes-style conversational research REPL terminal directly
 to dialog with the investigation agent, evaluate quantitative anomalies, and inspect evidence.`,
+	Example: `  # Launch interactive REPL directly:
+  niskava terminal
+  niskava repl
+  niskava chat
+
+  # Resume a specific session directly:
+  niskava terminal --session CHAT-20260926-0001
+
+  # Launch in English:
+  niskava terminal --lang en`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()

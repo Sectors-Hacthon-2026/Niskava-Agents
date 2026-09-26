@@ -73,7 +73,9 @@ func GetFullHelpGuideString() string {
 	b.WriteString(fmt.Sprintf("   • %-16s : %s\n\n", cmdStyle.Render("/exit, quit"), T("slash_exit_desc")))
 
 	b.WriteString(sectionStyle.Render(T("help_sec4_title")) + "\n")
-	b.WriteString(fmt.Sprintf("   • %s : Single-line headless investigation.\n", mutedStyle.Render("niskava investigate <TICKER> --days 30")))
+	b.WriteString(fmt.Sprintf("   • %s : Launch interactive REPL directly (aliases: repl, chat).\n", mutedStyle.Render("niskava terminal [flags]")))
+	b.WriteString(fmt.Sprintf("   • %s : Run audit & open live REPL pre-focused on ticker.\n", mutedStyle.Render("niskava investigate <TICKER> -i")))
+	b.WriteString(fmt.Sprintf("   • %s : Single-line headless 7-stage investigation.\n", mutedStyle.Render("niskava investigate <TICKER> --days 30")))
 	b.WriteString(fmt.Sprintf("   • %s : Launch background daemon server.\n", mutedStyle.Render("niskava serve --port 20128")))
 	b.WriteString(fmt.Sprintf("   • %s : Display session history from CLI.\n", mutedStyle.Render("niskava sessions")))
 	b.WriteString(fmt.Sprintf("   • %s : Launch interactive setup wizard directly.\n\n", mutedStyle.Render("niskava setup")))

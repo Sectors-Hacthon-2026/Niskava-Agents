@@ -973,6 +973,7 @@ func printHelp() {
 	fmt.Println(T("help_reset_desc"))
 	fmt.Println("  • /chats        : " + T("slash_chats_desc"))
 	fmt.Println("  • /resume <id>  : " + T("slash_resume_desc"))
+	fmt.Println("  • /timeout [arg]: " + T("slash_timeout_desc"))
 	fmt.Println(T("help_sessions_desc"))
 	fmt.Println(T("help_web_desc"))
 	fmt.Println(T("help_health_desc"))
