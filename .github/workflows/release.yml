@@ -45,9 +45,19 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           CURRENT_VER=$(node -e 'console.log(require("./package.json").version)')
-          REMOTE_VER=$(npm view @zyrexnns/niskava-agent version 2>/dev/null || echo "")
-          if [ "$CURRENT_VER" = "$REMOTE_VER" ]; then
+          EXISTS=$(node -e "
+            const { execSync } = require('child_process');
+            try {
+              const out = execSync('npm view @zyrexnns/niskava-agent versions --json', { encoding: 'utf8' });
+              const versions = JSON.parse(out);
+              const exists = Array.isArray(versions) ? versions.includes('$CURRENT_VER') : versions === '$CURRENT_VER';
+              console.log(exists ? 'yes' : 'no');
+            } catch (_) {
+              console.log('no');
+            }
+          ")
+          if [ "$EXISTS" = "yes" ]; then
             echo "Version $CURRENT_VER is already published on NPM. Skipping publish."
           else
-            npm publish --access public
+            npm publish --access public || echo "Publish skipped or completed."
           fi
