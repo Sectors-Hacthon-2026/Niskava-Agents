@@ -60,8 +60,9 @@ ENV/
 env.bak/
 venv.bak/
 
-# --- Go ---
-/bin/
+# --- Go & Binaries ---
+/bin/*
+!/bin/index.js
 /niskava
 *.exe
 *.exe~
