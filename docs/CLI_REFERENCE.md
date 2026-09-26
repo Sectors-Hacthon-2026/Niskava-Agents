@@ -372,6 +372,27 @@ niskava doctor
 
 ---
 
+### 3.10 `niskava completion`
+Menghasilkan skrip autokompresi shell (*shell autocompletion script*) untuk Bash, Zsh, Fish, dan PowerShell.
+
+```bash
+niskava completion [bash|zsh|fish|powershell]
+```
+
+#### Contoh Penggunaan:
+```bash
+# Bash
+source <(niskava completion bash)
+
+# Zsh
+niskava completion zsh > "${fpath[1]}/_niskava"
+
+# PowerShell
+niskava completion powershell | Out-String | Invoke-Expression
+```
+
+---
+
 ## 4. Exit Codes Standar
 
 | Exit Code | Nama Status | Penjelasan |

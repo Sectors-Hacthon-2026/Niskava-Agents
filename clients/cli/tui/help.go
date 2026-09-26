@@ -78,7 +78,11 @@ func GetFullHelpGuideString() string {
 	b.WriteString(fmt.Sprintf("   • %s : Single-line headless 7-stage investigation.\n", mutedStyle.Render("niskava investigate <TICKER> --days 30")))
 	b.WriteString(fmt.Sprintf("   • %s : Launch background daemon server.\n", mutedStyle.Render("niskava serve --port 20128")))
 	b.WriteString(fmt.Sprintf("   • %s : Display session history from CLI.\n", mutedStyle.Render("niskava sessions")))
-	b.WriteString(fmt.Sprintf("   • %s : Launch interactive setup wizard directly.\n\n", mutedStyle.Render("niskava setup")))
+	b.WriteString(fmt.Sprintf("   • %s : Launch interactive setup wizard directly.\n", mutedStyle.Render("niskava setup")))
+	b.WriteString(fmt.Sprintf("   • %s : Run system health & diagnostics check.\n", mutedStyle.Render("niskava doctor")))
+	b.WriteString(fmt.Sprintf("   • %s : Launch Telegram bot worker.\n", mutedStyle.Render("niskava telegram")))
+	b.WriteString(fmt.Sprintf("   • %s : Export Knowledge Graph HTML.\n", mutedStyle.Render("niskava graph --open")))
+	b.WriteString(fmt.Sprintf("   • %s : Generate shell autocompletion script.\n\n", mutedStyle.Render("niskava completion [bash|zsh|fish|powershell]")))
 
 	b.WriteString(RenderConstellationLine(85) + "\n")
 
