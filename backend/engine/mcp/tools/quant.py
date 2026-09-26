@@ -15,22 +15,22 @@ def get_quant_tool_definitions() -> List[Dict[str, Any]]:
     return [
         {
             "name": "quant_compute_anomalies",
-            "description": "Hitung anomali statistik volume perdagangan (MA20 Volume Z-Score) dan return harga abnormal secara deterministik via NumPy (Firewall Numerik).",
+            "description": "Compute deterministic statistical trading volume anomalies (MA20 Volume Z-Score) and abnormal price returns via NumPy (Deterministic Compute Gate).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "ticker": {
                         "type": "string",
-                        "description": "Kode ticker 4 huruf IDX (contoh: ANTM, BBRI)",
+                        "description": "4-letter IDX stock ticker symbol (e.g. ANTM, BBRI)",
                     },
                     "volume_z_threshold": {
                         "type": "number",
-                        "description": "Ambang batas Z-score volume anomali (default: 2.5)",
+                        "description": "Anomaly threshold for volume Z-score (default: 2.5)",
                         "default": 2.5,
                     },
                     "return_threshold_pct": {
                         "type": "number",
-                        "description": "Ambang batas lonjakan return harga dalam persen (default: 5.0)",
+                        "description": "Anomaly threshold for abnormal price return percentage (default: 5.0)",
                         "default": 5.0,
                     },
                 },

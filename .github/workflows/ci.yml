@@ -47,16 +47,32 @@ jobs:
       - name: Execute Go Test Suite
         run: go test -v -race ./backend/core/... ./clients/cli/...
 
-      - name: Build Niskava CLI Binary
+      - name: Build Niskava CLI Binaries (Multi-Platform Matrix)
         run: |
           mkdir -p bin
-          go build -o bin/niskava ./cmd/niskava
+          # Native Linux AMD64
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/niskava ./cmd/niskava
+          cp bin/niskava bin/niskava-linux-amd64
+          # Linux ARM64
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/niskava-linux-arm64 ./cmd/niskava
+          # macOS Intel & Apple Silicon
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o bin/niskava-darwin-amd64 ./cmd/niskava
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o bin/niskava-darwin-arm64 ./cmd/niskava
+          # Windows AMD64
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o bin/niskava-windows-amd64.exe ./cmd/niskava
 
-      - name: Upload Binary Artifact
+      - name: Upload Linux Binary Artifact
         uses: actions/upload-artifact@v4
         with:
           name: niskava-cli-linux-amd64
           path: bin/niskava
+          retention-days: 7
+
+      - name: Upload Multi-Platform Release Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: niskava-multiplatform-binaries
+          path: bin/niskava*
           retention-days: 7
 
   python-ci:
@@ -130,7 +146,7 @@ jobs:
         run: |
           TOOLS_RESP=$(echo '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | ./bin/niskava mcp)
           echo "$TOOLS_RESP" | grep -q 'quant_compute_anomalies'
-          echo "$TOOLS_RESP" | grep -q 'osint_harvest_market_news'
+          echo "$TOOLS_RESP" | grep -q 'news_harvest_market_news'
           echo "$TOOLS_RESP" | grep -q 'sectors_get_daily_candles'
           echo "$TOOLS_RESP" | grep -q 'memory_recall_context'
 

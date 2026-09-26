@@ -20,9 +20,24 @@ from engine.sectors.tickers import extract_valid_tickers, is_valid_idx_ticker
 from engine.utils.resilience import RetryConfig, execute_with_retry
 
 # Configurable ReAct loop depth & resource bounds
-MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_MAX_REACT_ITERATIONS", "15"))
+MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_MAX_REACT_ITERATIONS", "30"))
+GENERAL_MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_GENERAL_REACT_ITERATIONS", "10"))
+SIMPLE_MAX_REACT_ITERATIONS: int = int(os.environ.get("NISKAVA_SIMPLE_REACT_ITERATIONS", "5"))
 DEFAULT_MAX_TOKENS: int = int(os.environ.get("NISKAVA_MAX_TOKENS", "30000"))
-DEFAULT_LLM_TIMEOUT: float = float(os.environ.get("NISKAVA_LLM_TIMEOUT", "90.0"))
+DEFAULT_LLM_TIMEOUT: float = float(os.environ.get("NISKAVA_LLM_TIMEOUT", "60.0"))
+
+
+def _adaptive_call_timeout(base_secs: float, obs_count: int) -> float:
+    """Compute an observation-count-aware LLM call timeout.
+    Formula: timeout = base_secs + max(0, obs_count) * 10.0
+    Soft cap: base_secs * 4.0
+    Hard cap: 300.0 seconds
+    """
+    if obs_count < 0:
+        obs_count = 0
+    raw = base_secs + obs_count * 10.0
+    soft_cap = base_secs * 4.0
+    return float(min(raw, soft_cap, 300.0))
 
 
 def parse_single_tool_call(raw: str) -> Optional[Tuple[str, Dict[str, Any]]]:
@@ -149,14 +164,23 @@ def _compact_tool_observation(tool_name: str, tool_res: Any, max_len: int = 1500
         return "{}"
 
     if isinstance(tool_res, list):
-        if tool_name in ("search_osint", "harvest_market_news"):
-            # Extract only title, date, and brief snippet for top 3 articles
+        if tool_name in ("search_news", "search_osint", "harvest_market_news"):
+            # Sort descending by date so freshest / today's news is always in top 3
+            sorted_items = sorted(
+                [item for item in tool_res if isinstance(item, dict)],
+                key=lambda x: str(x.get("publication_date") or x.get("publish_date") or x.get("date") or ""),
+                reverse=True,
+            )
+            # If tool_res contained non-dict entries, preserve them
+            if not sorted_items and tool_res:
+                sorted_items = tool_res
+
             compact_items = []
-            for item in tool_res[:3]:
+            for item in sorted_items[:3]:
                 if isinstance(item, dict):
                     compact_items.append({
                         "title": item.get("title", ""),
-                        "date": item.get("date") or item.get("published_at", ""),
+                        "date": item.get("publication_date") or item.get("publish_date") or item.get("date") or item.get("published_at", ""),
                         "snippet": (item.get("snippet") or item.get("content", ""))[:180],
                     })
                 else:
@@ -222,36 +246,137 @@ def sanitize_final_response(content: str) -> str:
     return candidate.strip()
 
 
+# Keyword sets for adaptive complexity classification
+_SIMPLE_KEYWORDS = frozenset({
+    "halo", "hai", "hi", "hello", "hey", "pagi", "siang", "sore", "malam",
+    "apa kabar", "test", "tes", "coba", "help", "bantuan", "who are you",
+    "siapa kamu", "perkenalan", "introduce",
+})
+
+_GENERAL_KEYWORDS = frozenset({
+    "berita", "news", "kabar", "pasar", "market", "ihsg", "bursa", "hari ini",
+    "pre-open", "pre open", "sebelum buka", "sebelum open", "open market",
+    "potensial", "potential", "big move", "sentimen", "sentiment", "headline",
+    "macro", "makro", "overview", "rangkuman", "ringkasan", "summary",
+    "rekomendasi umum", "watchlist hari ini",
+})
+
+_DEEP_KEYWORDS = frozenset({
+    "anomali", "anomaly", "volume", "z-score", "zscore", "audit", "investigasi",
+    "investigate", "bandarmologi", "insider", "forensic", "stress test", "stres",
+    "foreign flow", "net foreign", "valuasi", "valuation", "per ratio", "pbv",
+    "cashflow", "laporan keuangan", "financial", "quant", "quantitative",
+    "abnormal return", "candle", "ohlcv", "broker", "fund flow",
+})
+
+
+def classify_prompt_complexity(user_prompt: str) -> str:
+    """Classify user prompt into 'simple', 'general', or 'deep' for adaptive iteration budget.
+
+    'simple'  → greetings, test messages, identity questions (≤ 5 iterations)
+    'general' → macro overview, news digest, pre-market summary (≤ 10 iterations)
+    'deep'    → ticker-specific quantitative analysis, audit, investigation (≤ MAX_REACT_ITERATIONS)
+
+    Returns:
+        Literal['simple', 'general', 'deep']
+    """
+    if not user_prompt:
+        return "simple"
+
+    lower = user_prompt.lower()
+
+    # Check deep first — a prompt with ticker + quant keyword is always deep
+    for keyword in _DEEP_KEYWORDS:
+        if keyword in lower:
+            return "deep"
+
+    # Check general — macro/market news overview with no specific ticker analysis
+    for keyword in _GENERAL_KEYWORDS:
+        if keyword == "kabar" and "apa kabar" in lower:
+            continue
+        if keyword in lower:
+            return "general"
+
+    # Check simple — greetings and trivial messages
+    for keyword in _SIMPLE_KEYWORDS:
+        if keyword in lower:
+            return "simple"
+
+    # Default: if there's a valid IDX ticker in the prompt, assume deep
+    from engine.sectors.tickers import extract_valid_tickers
+    if extract_valid_tickers(user_prompt):
+        return "deep"
+
+    # No match — default to general (safe middle ground)
+    return "general"
+
+
+_ID_STOPWORDS = {
+    "yang", "dan", "di", "ke", "dari", "ini", "itu", "untuk", "pada", "adalah",
+    "dengan", "apa", "apakah", "siapa", "bagaimana", "kenapa", "mengapa", "kapan",
+    "bisa", "tolong", "cek", "analisis", "analisa", "saham", "emiten", "berita",
+    "hari", "ini", "dong", "gan", "halo", "hai", "selamat", "pagi", "siang",
+    "sore", "malam", "terkini", "terbaru", "rekomendasi", "laporan", "keuangan",
+    "kamu", "anda", "saya", "akankah", "saja",
+}
+
+_EN_STOPWORDS = {
+    "the", "and", "in", "to", "of", "this", "that", "for", "on", "is", "are",
+    "with", "what", "who", "how", "why", "when", "can", "please", "check",
+    "analyze", "analysis", "stock", "shares", "company", "news", "today",
+    "hi", "hello", "good", "morning", "afternoon", "evening", "latest",
+    "report", "financial", "overview", "sentiment", "which", "explain",
+    "you", "your", "me", "my",
+}
+
+
+def detect_prompt_language(text: str, fallback: str = "en") -> str:
+    """Detect whether a user prompt is predominantly English or Indonesian using lexical heuristics.
+
+    Returns:
+        'en', 'id', or fallback if indeterminate.
+    """
+    if not text or not text.strip():
+        return fallback
+
+    words = set(re.findall(r"\b[a-zA-Z]{2,}\b", text.lower()))
+    if not words:
+        return fallback
+
+    id_matches = len(words.intersection(_ID_STOPWORDS))
+    en_matches = len(words.intersection(_EN_STOPWORDS))
+
+    if en_matches > id_matches:
+        return "en"
+    if id_matches > en_matches:
+        return "id"
+
+    return fallback
+
 
 def get_system_prompt(
-    language: str = "id",
+    language: Optional[str] = None,
     available_tools: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
-    """Build the lean system prompt (~420 tokens) using Progressive Skill Disclosure.
+    """Build the lean system prompt (~450 tokens) using Progressive Skill Disclosure.
 
-    The LLM receives only 4 gateway primitive definitions — never the full list
-    of 15+ atomic Sectors API tools. Skills are presented as a compact 1-liner
-    manifest; full SOPs are injected by the Python engine when execute_skill
-    is called (ADR-11).
+    The prompt establishes an English-first analytical persona with a strict
+    Language Mirroring Protocol so the agent seamlessly converses in English,
+    Bahasa Indonesia, or any other user-preferred tongue.
 
     Args:
-        language: 'id' (Bahasa Indonesia) or 'en' (English).
+        language: Optional language hint ('id' or 'en').
         available_tools: List of 4 gateway tool definition dicts from
                          NiskavaToolRegistry.get_tool_definitions().
 
     Returns:
         Complete system prompt string for the LLM.
     """
-    lang = (language or "id").lower()
-    user_lang_instruction = (
-        "- The user prefers English. Respond in professional, engaging English."
-        if lang == "en"
-        else (
-            "- The user communicates in Bahasa Indonesia. "
-            "Provide all final answers, insights, tables, and narrative summaries "
-            "in fluent, professional, and clear Indonesian."
-        )
-    )
+    lang_hint = ""
+    if language == "en":
+        lang_hint = "- Active session preference: English requested.\n"
+    elif language == "id":
+        lang_hint = "- Active session preference: Bahasa Indonesia requested.\n"
 
     # Build compact gateway tools section — 4 gateways, not 15+ atomic tools
     tools_section = ""
@@ -262,11 +387,17 @@ def get_system_prompt(
             req_str = ", ".join(req) if req else "none"
             tools_section += f"- `{t['name']}`: {t.get('description', '')} [required: {req_str}]\n"
 
-    return f"""You are Niskava Agent, an autonomous financial OSINT and market intelligence specialist for the Indonesia Stock Exchange (IDX). You help equity analysts, financial journalists, and retail traders with rigorous, evidence-based market investigations.
+    return f"""You are Niskava Agent, an autonomous market intelligence and equity research specialist for the Indonesia Stock Exchange (IDX). You help equity analysts, financial journalists, and retail traders with rigorous, evidence-based market investigations.
 
 === TARGET USER LANGUAGE ===
-{user_lang_instruction}
-- Internal reasoning, tool calls, and XML tags MUST follow the English protocol below.
+=== CONVERSATIONAL LANGUAGE & MIRRORING PROTOCOL ===
+1. DEFAULT & INTERNAL PROTOCOL: All internal thoughts (<thought>), tool calling syntax (<tool_call>), and XML reasoning tags MUST be in English.
+2. DYNAMIC LANGUAGE MIRRORING: In your final <response>, ALWAYS mirror the exact language used by the user in their prompt:
+   - If the user writes in English -> Respond entirely in fluent, professional, engaging English.
+   - If the user writes in Bahasa Indonesia -> Respond entirely in fluent, natural Bahasa Indonesia.
+   - If the user writes in any other language -> Respond in that corresponding language.
+{lang_hint}3. EVIDENCE TRANSLATION & ANTI-CONTAMINATION: Even though retrieved raw market data, news articles (Kontan, Bisnis, CNBC), and IDX regulatory filings are in Bahasa Indonesia, you MUST translate and synthesize your analytical findings, tables, and narrative summaries into the user's prompt language (English when prompted in English). NEVER switch to Bahasa Indonesia simply because the source observations are in Indonesian.
+4. NEVER force Bahasa Indonesia when the user addresses you in English.
 
 === GOLDEN OPERATIONAL RULES ===
 1. ZERO PREAMBLE TO USER: Never output greetings or execution plans before calling tools. Act immediately.
@@ -274,8 +405,9 @@ def get_system_prompt(
 3. IMMEDIATE ACTION: For any IDX ticker inquiry, emit <tool_call> on your very first step.
 4. TOOL SELECTION SOP:
    - Deep investigation: call `execute_skill` with the appropriate skill_id.
-   - Raw market data: call `query_sectors` with the appropriate domain.
-   - News & catalysts: call `search_osint`.
+   - Raw market data & sector overview: call `query_sectors` with the appropriate domain ('candles', 'subsectors', 'fundamentals', etc.).
+   - News & catalysts: call `search_news` (pass empty string for ticker and optional query keyword like 'perbankan' or 'tambang' for general market / sector news).
+   - Macro sector potential questions: call `search_news(ticker="", query=...)` or `query_sectors(domain="subsectors", ticker="")` first to gather sector landscape before drilling down.
    - Session memory recall: call `query_memory` before starting fresh investigations.
    - General concepts (PER, PBV, IDX trading hours): answer directly in <response>.
 5. RESPONSE GATING: Communicate with user ONLY inside <response>...</response> AFTER observing factual tool data.
@@ -283,21 +415,23 @@ def get_system_prompt(
 === OPERATIONAL LAWS ===
 LAW 1 (Deterministic Before Generative): NEVER calculate Z-scores, moving averages, or abnormal returns in your head. Always call `execute_skill` or `query_sectors` and use the returned computed values.
 LAW 2 (Non-Advisory Boundary): You are an investigative intelligence platform, NOT an investment advisor. NEVER output BUY/SELL recommendations or price targets. Classify all findings as [SUPPORTED], [UNCERTAIN], or [CONTRADICTED]. Always include the non-advisory disclaimer on stock investigations.
+LAW 3 (Professional Sourcing & Terminology): Always refer to your analysis as market intelligence ('intelijen pasar') or equity research ('riset pasar modal'). NEVER use the word or acronym 'OSINT' in your responses, thoughts, or disclaimers. State clearly that data and news are sourced from official Sectors Financial API v2 and IDX regulatory disclosures.
 
 === REACTION PROTOCOL & 1-SHOT DEMONSTRATION ===
 Example:
-User: "analisis ANTM"
+User: "analyze ANTM"
 <thought>Need volume anomaly scan for ANTM. Will run market_anomaly_recon skill first.</thought>
 <tool_call>{{"name": "execute_skill", "arguments": {{"skill_id": "market_anomaly_recon", "arguments": {{"ticker": "ANTM"}}}}}}</tool_call>
 (System provides: <observation>Z-Score 3.84σ on 2026-09-12, Abnormal Return +6.2%</observation>)
-<thought>Significant anomaly detected. Ready to synthesize findings.</thought>
+<thought>Significant anomaly detected. Ready to synthesize findings in English.</thought>
 <response>
 [Evidence-based analytical synthesis in user's target language with data tables and disclaimer]
 </response>
 {tools_section}"""
 
 
-SYSTEM_PROMPT = get_system_prompt("id")
+SYSTEM_PROMPT = get_system_prompt()
+
 
 
 # ---------------------------------------------------------------------------
@@ -371,12 +505,20 @@ class NiskavaReActAgent:
         language: Optional[str] = None,
         max_tokens: Optional[int] = None,
         llm_timeout: Optional[float] = None,
+        append_followup_chips: Optional[bool] = None,
+        max_iterations: Optional[int] = None,
     ):
         self.tools = tool_registry
         self.memory = getattr(tool_registry, "memory", None)
         self.emitter = emitter or (lambda ev: None)
         self.db_path = getattr(tool_registry, "db_path", os.path.expanduser("~/.niskava/niskava.db"))
         self.language = (language or os.environ.get("NISKAVA_LANG") or "id").lower()
+        self._custom_max_iterations = max_iterations
+        self.append_followup_chips = (
+            append_followup_chips
+            if append_followup_chips is not None
+            else os.environ.get("NISKAVA_FOLLOWUP_CHIPS", "0").lower() in ("1", "true", "yes")
+        )
         self.max_tokens = (
             max_tokens
             if max_tokens is not None
@@ -413,12 +555,13 @@ class NiskavaReActAgent:
 
         # Transparent adapter for Google API keys (speaks standard OpenAI protocol)
         if not resolved_base_url:
-            if os.environ.get("GEMINI_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
+            raw_prov = (ai_provider or os.environ.get("AI_PROVIDER", "")).lower()
+            if (raw_prov == "gemini" or os.environ.get("GEMINI_API_KEY")) and not os.environ.get("OPENAI_BASE_URL"):
                 resolved_base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
                 if not model and not os.environ.get("NISKAVA_MODEL") and not os.environ.get("OPENAI_MODEL"):
                     self.model = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
             else:
-                resolved_base_url = "http://localhost:20128/v1"
+                resolved_base_url = os.environ.get("OPENAI_BASE_URL", "http://localhost:20128/v1")
 
         self.base_url = resolved_base_url.rstrip("/")
         # Backward compatibility aliases
@@ -437,6 +580,11 @@ class NiskavaReActAgent:
         else:
             self.mock_mode = False
             self.ai_provider = "universal"
+
+    @property
+    def max_iterations(self) -> int:
+        """Maximum ReAct loop iterations (custom override or MAX_REACT_ITERATIONS)."""
+        return self._custom_max_iterations if self._custom_max_iterations is not None else MAX_REACT_ITERATIONS
 
     def _emit(self, event_data: Dict[str, Any]) -> None:
         self.emitter(event_data)
@@ -533,10 +681,10 @@ class NiskavaReActAgent:
                 cursor.execute(
                     """
                     INSERT INTO chat_sessions (id, title, model, status, message_count, last_message_preview, is_pinned, created_at, updated_at)
-                    VALUES (?, ?, 'hermes', 'IDLE', 0, '', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    VALUES (?, ?, ?, 'IDLE', 0, '', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     ON CONFLICT(id) DO UPDATE SET title = excluded.title
                     """,
-                    (session_id, title),
+                    (session_id, title, self.model or "hermes"),
                 )
                 conn.commit()
         except Exception:
@@ -685,21 +833,23 @@ class NiskavaReActAgent:
         if self.memory and isinstance(res, dict):
             import logging
             _log = logging.getLogger(__name__)
+            from engine.memory.extractor import extract_response_tickers
+
             findings = res.get("findings", [])
             anomalies = res.get("anomalies", [])
+            response_text = res.get("response", "")
+
+            # --- Path A: Ticker explicitly in user prompt or anomaly results (unchanged behavior) ---
             target_ticker: Optional[str] = None
 
             if anomalies:
                 target_ticker = anomalies[0].get("ticker")
 
-            # Bug #1B fix: fresh call — never rely on outer-scope variable
             if not target_ticker:
                 for cand in extract_valid_tickers(user_prompt):
                     target_ticker = cand.upper()
                     break
 
-            # Bug #1A fix: record for any session with an identified ticker,
-            # regardless of whether anomalies or findings were produced.
             if target_ticker:
                 try:
                     self.memory.record_investigation(
@@ -708,11 +858,40 @@ class NiskavaReActAgent:
                         anomalies=anomalies,
                         findings=findings,
                     )
-                except Exception as exc:    # Bug #1C fix: surface failures via logging
+                except Exception as exc:
                     _log.warning(
                         "graph_memory: record_investigation failed session=%s ticker=%s: %s",
                         session_id, target_ticker, exc,
                     )
+
+            # --- Path B: No ticker in prompt — extract from agent response & tool calls ---
+            # Activates for general pre-market briefings, sector overviews, macro summaries.
+            if not target_ticker and response_text:
+                tool_call_args: List[Dict[str, Any]] = []
+                for msg in res.get("_tool_call_history", []):
+                    if isinstance(msg, dict):
+                        tool_call_args.append(msg)
+
+                briefing_tickers = extract_response_tickers(
+                    response_text=response_text,
+                    tool_call_args_list=tool_call_args,
+                )
+                if briefing_tickers:
+                    try:
+                        self.memory.record_session_briefing(
+                            session_id=session_id,
+                            tickers=briefing_tickers,
+                            context=f"Auto-extracted from agent briefing in session {session_id}",
+                        )
+                        _log.debug(
+                            "graph_memory: record_session_briefing stored %d tickers session=%s: %s",
+                            len(briefing_tickers), session_id, briefing_tickers,
+                        )
+                    except Exception as exc:
+                        _log.warning(
+                            "graph_memory: record_session_briefing failed session=%s: %s",
+                            session_id, exc,
+                        )
 
         return res
 
@@ -861,7 +1040,8 @@ class NiskavaReActAgent:
         if not selected:
             return ""
 
-        lang = (language or self.language or "id").lower()
+        prompt_lang = detect_prompt_language(final_response, fallback=self.language or "en")
+        lang = (language or prompt_lang).lower()
         if lang == "en":
             header = "### 💡 Recommended Next Steps:"
             desc_map = _SKILL_CHIP_DESCRIPTIONS_EN
@@ -911,7 +1091,9 @@ class NiskavaReActAgent:
             if self.tools and hasattr(self.tools, "get_tool_definitions")
             else []
         )
-        system_prompt_base = get_system_prompt(self.language, available_tools=tool_defs)
+        prompt_detected_lang = detect_prompt_language(user_prompt, fallback="")
+        effective_lang = prompt_detected_lang or self.language or "en"
+        system_prompt_base = get_system_prompt(effective_lang, available_tools=tool_defs)
         dynamic_system_prompt = (
             f"{system_prompt_base}\n\n"
             f"=== REAL-WORLD TEMPORAL CONTEXT ===\n"
@@ -919,7 +1101,7 @@ class NiskavaReActAgent:
             f"- Current Year: {now.year}\n"
             f"- Strict Temporal Rule: NEVER guess or refer to past years (like 2024 or early 2025) as 'hari ini' or 'recent'. Today is {current_date_str}.\n"
             f"- Anti-Hallucination Rule: NEVER fabricate stock prices, indices, or trading dates from your memory. Always call tools (e.g. 'get_daily_candles', 'compute_quant_anomalies', 'harvest_market_news') to obtain authentic data before citing numbers.\n"
-            f"- Provenance Rule: If the user asks where data came from ('itu data darimana?'), explicitly and transparently explain the real data pipelines used (Sectors Financial API v2 for official IDX candlestick & fundamental data, and Google News RSS / IDX disclosures for news).\n"
+            f"- Provenance Rule: If the user asks where data came from ('itu data darimana?'), explicitly and transparently explain the real data pipelines used (Sectors Financial API v2 for official IDX candlestick, fundamental metrics, corporate actions, and curated financial news).\n"
         )
 
         messages = self._prepare_chat_messages(
@@ -930,6 +1112,7 @@ class NiskavaReActAgent:
 
         findings: List[Dict[str, Any]] = []
         anomalies: List[Dict[str, Any]] = []
+        tool_call_history: List[Dict[str, Any]] = []
         final_response = ""
 
         def on_llm_retry(attempt: int, delay: float, status_code: int, summary: str):
@@ -942,11 +1125,26 @@ class NiskavaReActAgent:
                 "thought": thought_msg,
             })
 
+        _complexity = classify_prompt_complexity(user_prompt)
+        _base_max_iter = self.max_iterations
+        if _complexity == "simple":
+            max_iter = min(_base_max_iter, SIMPLE_MAX_REACT_ITERATIONS)
+            _base_call_timeout = min(self.llm_timeout, 15.0)
+            max_retries = 1
+        elif _complexity == "general":
+            max_iter = min(_base_max_iter, GENERAL_MAX_REACT_ITERATIONS)
+            _base_call_timeout = min(self.llm_timeout, 20.0)
+            max_retries = 2
+        else:
+            max_iter = _base_max_iter
+            _base_call_timeout = self.llm_timeout
+            max_retries = 2
+
         retry_cfg = RetryConfig(
-            max_retries=3,
+            max_retries=max_retries,
             initial_delay=1.0,
-            max_delay=8.0,
-            backoff_factor=2.0,
+            max_delay=4.0,
+            backoff_factor=1.5,
             jitter=True,
             retryable_statuses={429, 500, 502, 503, 504},
         )
@@ -958,7 +1156,8 @@ class NiskavaReActAgent:
         _prev_tool_signature: str = ""
         _dup_streak: int = 0
         _MAX_DUP_STREAK: int = 2  # Force synthesis after 2 consecutive identical calls
-        for _ in range(MAX_REACT_ITERATIONS):
+        for _ in range(max_iter):
+            call_timeout = _adaptive_call_timeout(_base_call_timeout, obs_count=len(tool_call_history))
             payload = {
                 "model": model,
                 "messages": messages,
@@ -969,7 +1168,7 @@ class NiskavaReActAgent:
             # Pure XML ReAct protocol: tools injected into system prompt, never as API-level function definitions
             try:
                 resp = execute_with_retry(
-                    lambda: requests.post(url, headers=headers, json=payload, timeout=self.llm_timeout),
+                    lambda: requests.post(url, headers=headers, json=payload, timeout=call_timeout),
                     config=retry_cfg,
                     on_retry_callback=on_llm_retry,
                 )
@@ -1165,6 +1364,8 @@ class NiskavaReActAgent:
 
                 obs_parts = []
                 for tool_name, tool_args in tool_calls:
+                    if isinstance(tool_args, dict):
+                        tool_call_history.append(tool_args)
                     self._emit({
                         "event": "agent_tool_call",
                         "session_id": session_id,
@@ -1200,9 +1401,9 @@ class NiskavaReActAgent:
                                     "event": "finding_emitted",
                                     "session_id": session_id,
                                     "id": f"FND-AUTO-{len(findings) + 1:02d}",
-                                    "title": f"Anomali Volume {tool_args.get('ticker', '')}: {top_anomaly.get('metric_type', 'VOLUME_SPIKE')}",
+                                    "title": f"Volume Anomaly {tool_args.get('ticker', '')}: {top_anomaly.get('metric_type', 'VOLUME_SPIKE')}",
                                     "claim_text": (
-                                        f"Z-Score {top_anomaly.get('z_score', 0):.2f}σ pada "
+                                        f"Z-Score {top_anomaly.get('z_score', 0):.2f}σ on "
                                         f"{top_anomaly.get('date') or top_anomaly.get('anomaly_date', 'N/A')}."
                                     ),
                                     "verification_status": "SUPPORTED",
@@ -1240,16 +1441,64 @@ class NiskavaReActAgent:
                 # Feed back to model
                 combined_obs = "\n\n".join(obs_parts)
                 # Graceful landing warning: when approaching iteration limit, instruct model to synthesize
-                remaining_steps = MAX_REACT_ITERATIONS - 1 - _
-                if 0 < remaining_steps <= 2:
+                remaining_steps = max_iter - 1 - _
+                if remaining_steps == 0:
                     combined_obs += (
-                        f"\n\n[SYSTEM NOTICE: Hanya tersisa {remaining_steps} langkah penalaran. "
-                        "Data yang terkumpul sudah memadai. JANGAN panggil tool lagi. "
-                        "Segera rangkum dan sajikan analisis akhir lengkap Anda di dalam "
-                        "tag <response>...</response>.]"
+                        "\n\n[SYSTEM NOTICE: Maximum reasoning steps reached. "
+                        "All necessary market data and evidence have been collected. Do NOT invoke any additional tools. "
+                        "Immediately synthesize and present your comprehensive final analysis inside "
+                        "<response>...</response> in the user's inquiry language.]"
+                    )
+                elif 0 < remaining_steps <= 3:
+                    combined_obs += (
+                        f"\n\n[SYSTEM NOTICE: Only {remaining_steps} reasoning step(s) remaining. "
+                        "Sufficient evidence has been collected. Do NOT invoke additional tools. "
+                        "Immediately synthesize and present your comprehensive final analysis inside "
+                        "<response>...</response> in the user's inquiry language.]"
                     )
                 messages.append({"role": "assistant", "content": content})
                 messages.append({"role": "user", "content": f"<observation>\n{combined_obs}\n</observation>"})
+
+                if remaining_steps == 0:
+                    # Final graceful synthesis turn: synthesize all collected observations instead of discarding
+                    final_payload = {
+                        "model": model,
+                        "messages": messages,
+                        "temperature": 0.2,
+                        "max_tokens": self.max_tokens,
+                        "stream": False,
+                    }
+                    try:
+                        final_resp = execute_with_retry(
+                            lambda: requests.post(url, headers=headers, json=final_payload, timeout=self.llm_timeout),
+                            config=retry_cfg,
+                            on_retry_callback=on_llm_retry,
+                        )
+                        if final_resp.status_code == 200:
+                            f_raw = final_resp.text.strip()
+                            if "data: [DONE]" in f_raw:
+                                f_raw = f_raw.split("data: [DONE]")[0].strip()
+                            fb = f_raw.find("{")
+                            lb = f_raw.rfind("}")
+                            if fb != -1 and lb != -1:
+                                f_data = json.loads(f_raw[fb : lb + 1])
+                                final_content = str(f_data.get("choices", [{}])[0].get("message", {}).get("content") or "").strip()
+                                final_matches = re.findall(r"<response>(.*?)</response>", final_content, re.DOTALL)
+                                if final_matches:
+                                    final_response = final_matches[0].strip()
+                                    break
+                                else:
+                                    final_cleaned = re.sub(r"<thought>.*?</thought>", "", final_content, flags=re.DOTALL)
+                                    final_cleaned = re.sub(r"<tool_call>.*?</tool_call>", "", final_cleaned, flags=re.DOTALL).strip()
+                                    if final_cleaned:
+                                        final_response = final_cleaned
+                                        break
+                                    thoughts = re.findall(r"<thought>(.*?)</thought>", final_content, re.DOTALL)
+                                    if thoughts and len(thoughts[0].strip()) > 30:
+                                        final_response = thoughts[0].strip()
+                                        break
+                    except Exception:
+                        pass
                 continue
 
             # Check for final response
@@ -1286,22 +1535,30 @@ class NiskavaReActAgent:
         if not final_response:
             err_detail = last_error or "AI model did not produce a valid synthesis response within the ReAct cycle."
 
-            # Classify error: connection failure vs. loop exhaustion
-            _connection_keywords = (
-                "Gagal terhubung", "Connection refused", "Koneksi timeout",
-                "ConnectionError", "Timeout", "HTTP 4", "HTTP 5",
+            # Classify error: AI provider/connection failure vs. actual ReAct loop exhaustion
+            _provider_keywords = (
+                "gagal terhubung", "connection refused", "koneksi timeout",
+                "connectionerror", "timeout", "http 4", "http 5",
+                "ai provider error", "provider error", "temporarily unavailable",
+                "unavailable", "invalid response format", "upstream",
+                "payment required", "too many requests", "rate limit",
+                "quota", "forbidden", "unauthorized", "bad gateway",
             )
-            is_connection_error = any(kw.lower() in err_detail.lower() for kw in _connection_keywords)
+            is_provider_error = any(kw in err_detail.lower() for kw in _provider_keywords)
 
-            if is_connection_error:
-                error_title = "### ⚠️ Unable to Connect to AI Provider"
+            if is_provider_error:
+                error_title = (
+                    "### ⚠️ AI Provider Error / Unavailable"
+                    if ("unavailable" in err_detail.lower() or "ai provider error" in err_detail.lower())
+                    else "### ⚠️ Unable to Connect to AI Provider"
+                )
                 error_markdown = (
                     f"{error_title}\n\n"
                     f"- **Endpoint**: `{url}`\n"
                     f"- **Model**: `{model}`\n"
                     f"- **Error Details**: {err_detail}\n\n"
                     f"**Troubleshooting Steps:**\n"
-                    f"1. Ensure the LLM gateway/server (Ollama / vLLM / 9router / OpenRouter) is running at `{base_url}` or that an API key is configured.\n"
+                    f"1. Ensure the LLM gateway/server (Ollama / vLLM / 9router / OpenRouter) is running and model `{model}` is online with available credits.\n"
                     f"2. Check the configuration in `~/.niskava/.env` or run `niskava setup`.\n"
                     f"3. Use offline mode (`--offline`) to run deterministic analysis without an LLM."
                 )
@@ -1310,13 +1567,34 @@ class NiskavaReActAgent:
                 detected_ticker = self._extract_target_ticker(user_prompt)
                 error_title = "### ⏱️ ReAct Analysis Limit Reached" if self.language == "en" else "### ⏱️ Batas Penalaran ReAct Tercapai"
 
-                if self.language == "en":
-                    suggestion_ticker = f"1. Refine query with a specific IDX ticker (e.g. `investigate {detected_ticker or 'ANTM'}`)."
-                    suggestion_data = f"2. Ask a focused question on specific market data."
+                if _complexity == "simple":
+                    if self.language == "en":
+                        suggestion_block = (
+                            "1. Verify model provider status in `~/.niskava/.env`.\n"
+                            "2. Try another AI model or gateway endpoint.\n"
+                            "3. Use offline mode (`--offline`) to run without an LLM."
+                        )
+                        desc_text = "The AI model did not finalize a response for this message."
+                    else:
+                        suggestion_block = (
+                            "1. Periksa status penyedia model AI di `~/.niskava/.env`.\n"
+                            "2. Coba ganti model atau endpoint AI gateway lainnya.\n"
+                            "3. Gunakan mode offline (`--offline`) untuk analisis tanpa LLM."
+                        )
+                        desc_text = "Layanan model AI tidak menyelesaikan respon untuk pesan ini."
+                elif self.language == "en":
+                    suggestion_block = (
+                        f"1. Refine query with a specific IDX ticker (e.g. `investigate {detected_ticker or 'ANTM'}`).\n"
+                        f"2. Ask a focused question on specific market data.\n"
+                        f"3. Use offline mode (`--offline`) to run deterministic analysis without an LLM."
+                    )
                     desc_text = "The agent reached its maximum reasoning depth before finalizing synthesis."
                 else:
-                    suggestion_ticker = f"1. Coba persepit pertanyaan untuk saham `{detected_ticker or 'ANTM'}` (misalnya: `cek net foreign flow {detected_ticker or 'ANTM'}`)."
-                    suggestion_data = f"2. Ajukan pertanyaan terfokus pada bagian spesifik data pasar."
+                    suggestion_block = (
+                        f"1. Coba persepit pertanyaan untuk saham `{detected_ticker or 'ANTM'}` (misalnya: `cek net foreign flow {detected_ticker or 'ANTM'}`).\n"
+                        f"2. Ajukan pertanyaan terfokus pada bagian spesifik data pasar.\n"
+                        f"3. Gunakan mode offline (`--offline`) untuk analisis deterministik murni tanpa LLM."
+                    )
                     desc_text = "Agen membutuhkan lebih banyak langkah analisis dari batas yang tersedia untuk menyusun sintesis lengkap."
 
                 collected_summary = ""
@@ -1329,13 +1607,11 @@ class NiskavaReActAgent:
                 error_markdown = (
                     f"{error_title}\n\n"
                     f"- **Model**: `{model}`\n"
-                    f"- **Iterations Used**: {MAX_REACT_ITERATIONS}\n"
+                    f"- **Iterations Used**: {max_iter}\n"
                     f"- **Details**: {err_detail}\n\n"
                     f"{desc_text}{collected_summary}\n\n"
                     f"**Saran Perbaikan / Actionable Steps:**\n"
-                    f"{suggestion_ticker}\n"
-                    f"{suggestion_data}\n"
-                    f"3. Gunakan mode offline (`--offline`) untuk analisis deterministik murni tanpa LLM."
+                    f"{suggestion_block}"
                 )
                 session_error_msg = f"ReAct analysis limit reached ({model}): {err_detail}"
 
@@ -1409,14 +1685,15 @@ class NiskavaReActAgent:
             if t_candidates:
                 detected_ticker = t_candidates[0].upper()
 
-        chips = self._build_followup_chips(
-            final_response=final_response,
-            skills_executed=skills_executed,
-            ticker=detected_ticker,
-            language=self.language,
-        )
-        if chips:
-            final_response = final_response + chips
+        if self.append_followup_chips:
+            chips = self._build_followup_chips(
+                final_response=final_response,
+                skills_executed=skills_executed,
+                ticker=detected_ticker,
+                language=effective_lang,
+            )
+            if chips:
+                final_response = final_response + chips
 
         self._emit({
             "event": "agent_message_chunk",
@@ -1445,6 +1722,7 @@ class NiskavaReActAgent:
             "response": final_response,
             "anomalies": anomalies,
             "findings": findings,
+            "_tool_call_history": tool_call_history,
             "duration_ms": duration_ms,
         }
 
@@ -1460,6 +1738,7 @@ class NiskavaReActAgent:
         start_time: float,
     ) -> Dict[str, Any]:
         """Deterministic fallback chat synthesis extracting ticker and enforcing Law 1 & Law 2."""
+        tool_call_history: List[Dict[str, Any]] = []
         tickers = extract_valid_tickers(user_prompt)
 
         if not tickers and history:
@@ -1477,8 +1756,13 @@ class NiskavaReActAgent:
 
         if not tickers:
             prompt_lower = user_prompt.lower()
+            detected_lang = detect_prompt_language(user_prompt, fallback=self.language or "en")
+
             # 1. Intent: General Market News / Macro Overview
-            if any(w in prompt_lower for w in ["berita", "news", "kabar", "sentimen", "headline", "ihsg", "bursa"]):
+            if any(w in prompt_lower for w in [
+                "berita", "news", "kabar", "sentimen", "headline", "ihsg", "bursa",
+                "market", "open market", "pre-open", "pasar", "potensial", "potential",
+            ]):
                 self._emit({
                     "event": "agent_thought",
                     "session_id": session_id,
@@ -1490,6 +1774,7 @@ class NiskavaReActAgent:
                     "tool": "harvest_market_news",
                     "args": {},
                 })
+                tool_call_history.append({})
                 news_items = self.tools.execute_tool("harvest_market_news", {})
                 self._emit({
                     "event": "agent_observation",
@@ -1510,32 +1795,62 @@ class NiskavaReActAgent:
                 response_text = "\n".join(lines)
 
             # 2. Intent: Greeting / Sapaan
-            elif any(w in prompt_lower for w in ["halo", "hai", "pagi", "siang", "sore", "malam", "apa kabar", "assalamualaikum", "tes", "test"]):
-                response_text = (
-                    "Halo! Saya **Niskava Agent**, asisten riset dan intelijen pasar modal Indonesia (IDX).\n\n"
-                    "Ada yang bisa saya bantu hari ini? Anda dapat:\n"
-                    "- Menanyakan **berita dan sentimen pasar** (contoh: *\"Cek berita pasar hari ini\"*)\n"
-                    "- Menganalisis **anomali volume & transaksi saham** (contoh: *\"Cek anomali ANTM\"*, *\"Audit volume BBCA\"*)\n"
-                    "- Berdiskusi seputar **konsep finansial atau regulasi bursa** (contoh: *\"Apa itu rasio DER?\"*, *\"Bagaimana kriteria suspensi BEI?\"*)"
-                )
+            elif any(
+                w in prompt_lower
+                for w in [
+                    "halo", "hai", "pagi", "siang", "sore", "malam", "apa kabar",
+                    "assalamualaikum", "tes", "test", "hi", "hello", "hey",
+                    "who are you", "what are you", "introduce yourself", "help",
+                ]
+            ):
+                if detected_lang == "en":
+                    response_text = (
+                        "Hello! I am **Niskava Agent**, your autonomous financial market intelligence assistant for the Indonesia Stock Exchange (IDX).\n\n"
+                        "How can I assist your investigation today? You can:\n"
+                        "- Inquire about **market news and sentiment** (e.g., *\"Check today's market news\"*)\n"
+                        "- Analyze **volume spikes and order flow anomalies** (e.g., *\"Check ANTM volume anomaly\"*, *\"Audit BBCA accumulation\"*)\n"
+                        "- Discuss **financial concepts or exchange regulations** (e.g., *\"What is DER ratio?\"*, *\"Explain IDX suspension rules\"*)"
+                    )
+                    thought_text = "Received user greeting in English. Returning guidance and capabilities in English."
+                else:
+                    response_text = (
+                        "Halo! Saya **Niskava Agent**, asisten riset dan intelijen pasar modal Indonesia (IDX).\n\n"
+                        "Ada yang bisa saya bantu hari ini? Anda dapat:\n"
+                        "- Menanyakan **berita dan sentimen pasar** (contoh: *\"Cek berita pasar hari ini\"*)\n"
+                        "- Menganalisis **anomali volume & transaksi saham** (contoh: *\"Cek anomali ANTM\"*, *\"Audit volume BBCA\"*)\n"
+                        "- Berdiskusi seputar **konsep finansial atau regulasi bursa** (contoh: *\"Apa itu rasio DER?\"*, *\"Bagaimana kriteria suspensi BEI?\"*)"
+                    )
+                    thought_text = "Menerima sapaan pengguna. Menyapa kembali dan memberikan panduan interaksi."
+
                 self._emit({
                     "event": "agent_thought",
                     "session_id": session_id,
-                    "thought": "Menerima sapaan pengguna. Menyapa kembali dan memberikan panduan interaksi.",
+                    "thought": thought_text,
                 })
 
             # 3. Intent: General questions without ticker
             else:
-                response_text = (
-                    "Halo! Saya Niskava Agent, asisten riset pasar modal Indonesia (IDX).\n\n"
-                    "Saya tidak mendeteksi kode emiten saham IDX yang spesifik dalam pesan Anda.\n\n"
-                    "- Jika Anda ingin **menganalisis anomali transaksi atau keterbukaan informasi emiten**, silakan sebutkan kode sahamnya (contoh: **BBCA**, **ANTM**, **BBRI**, **GOTO**).\n"
-                    "- Jika Anda ingin **memantau berita pasar modal terkini**, ketik *\"cek berita hari ini\"*."
-                )
+                if detected_lang == "en":
+                    response_text = (
+                        "Hello! I am Niskava Agent, your IDX market intelligence assistant.\n\n"
+                        "I did not detect a specific IDX ticker symbol in your request.\n\n"
+                        "- If you wish to **analyze transaction anomalies or corporate disclosures**, please specify the ticker (e.g., **BBCA**, **ANTM**, **BBRI**, **GOTO**).\n"
+                        "- If you wish to **monitor recent market news**, type *\"check market news today\"*."
+                    )
+                    thought_text = "Prompt does not contain a specific ticker. Providing usage guidance in English."
+                else:
+                    response_text = (
+                        "Halo! Saya Niskava Agent, asisten riset pasar modal Indonesia (IDX).\n\n"
+                        "Saya tidak mendeteksi kode emiten saham IDX yang spesifik dalam pesan Anda.\n\n"
+                        "- Jika Anda ingin **menganalisis anomali transaksi atau keterbukaan informasi emiten**, silakan sebutkan kode sahamnya (contoh: **BBCA**, **ANTM**, **BBRI**, **GOTO**).\n"
+                        "- Jika Anda ingin **memantau berita pasar modal terkini**, ketik *\"cek berita hari ini\"*."
+                    )
+                    thought_text = "Prompt tidak memuat kode emiten spesifik. Memberikan panduan penggunaan."
+
                 self._emit({
                     "event": "agent_thought",
                     "session_id": session_id,
-                    "thought": "Prompt tidak memuat kode emiten spesifik. Memberikan panduan penggunaan.",
+                    "thought": thought_text,
                 })
 
             self._emit({
@@ -1563,6 +1878,7 @@ class NiskavaReActAgent:
                 "response": response_text,
                 "anomalies": [],
                 "findings": [],
+                "_tool_call_history": tool_call_history,
                 "duration_ms": duration_ms,
             }
 
@@ -1637,7 +1953,7 @@ class NiskavaReActAgent:
             "summary": f"Ditemukan {len(anomalies)} anomali kuantitatif signifikan (Z-Score puncak: {highest_z:.2f}σ pada {anomaly_date}).",
         })
 
-        # Step 3: OSINT News Harvester with resilient error handling
+        # Step 3: Sectors News Harvester with resilient error handling
         self._emit({
             "event": "agent_tool_call",
             "session_id": session_id,
@@ -1693,7 +2009,7 @@ class NiskavaReActAgent:
 
         response_text = f"""### Laporan Investigasi Intelijen Pasar: **{ticker}** (Bursa Efek Indonesia)
 
-Berdasarkan analisis deterministik kuantitatif dan penelusuran OSINT keterbukaan informasi:
+Berdasarkan analisis kuantitatif deterministik dan penelusuran berita serta keterbukaan informasi bursa:
 
 1. **Temuan Anomali Transaksi (Law 1: NumPy Deterministic)**
    * **Volume Z-Score Puncak**: `{highest_z:.2f}σ` terdeteksi pada tanggal `{anomaly_date}`.
@@ -1921,10 +2237,10 @@ Berdasarkan analisis deterministik kuantitatif dan penelusuran OSINT keterbukaan
     ) -> Dict[str, Any]:
         """Live ReAct reasoning cycle powered by Gemini API."""
         prompt = (
-            f"Kamu adalah Niskava Agent. Berikan analisis singkat (1-2 kalimat) dalam bahasa Indonesia mengenai rencana "
-            f"investigasi kuantitatif dan OSINT untuk emiten {ticker} pada periode {days} hari terakhir."
+            f"You are Niskava Agent. Provide a concise 1-2 sentence executive summary of the "
+            f"quantitative anomaly and market intelligence investigation plan for ticker {ticker} over the past {days} days."
         )
-        thought_text = f"Menghubungkan ke Gemini ({self.model}). Memulai siklus ReAct investigasi emiten {ticker}."
+        thought_text = f"Connecting to Gemini ({self.model}). Initiating ReAct investigation cycle for ticker {ticker}."
         if self.api_key and not self.mock_mode:
             try:
                 import requests
@@ -1952,15 +2268,15 @@ Berdasarkan analisis deterministik kuantitatif dan penelusuran OSINT keterbukaan
     ) -> Dict[str, Any]:
         """Live ReAct reasoning cycle powered by 9router / OpenAI-compatible endpoint."""
         prompt = (
-            f"Kamu adalah Niskava Agent. Berikan analisis singkat (1-2 kalimat) dalam bahasa Indonesia mengenai rencana "
-            f"investigasi kuantitatif dan OSINT untuk emiten {ticker} pada periode {days} hari terakhir."
+            f"You are Niskava Agent. Provide a concise 1-2 sentence executive summary of the "
+            f"quantitative anomaly and market intelligence investigation plan for ticker {ticker} over the past {days} days."
         )
-        thought_text = f"Menghubungkan ke 9router ({self.openai_model}). Memulai siklus ReAct investigasi emiten {ticker}."
+        thought_text = f"Connecting to endpoint ({self.openai_model}). Initiating ReAct investigation cycle for ticker {ticker}."
 
         try:
             import requests
 
-            base_url = (self.openai_base_url or "http://localhost:20128/v1").rstrip("/")
+            base_url = (getattr(self, "base_url", None) or getattr(self, "openai_base_url", None) or "http://localhost:20128/v1").rstrip("/")
             url = f"{base_url}/chat/completions"
             headers = {"Content-Type": "application/json"}
             if self.openai_api_key:
@@ -1971,7 +2287,7 @@ Berdasarkan analisis deterministik kuantitatif dan penelusuran OSINT keterbukaan
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are Niskava Agent, an elite financial intelligence investigator for IDX. Think step-by-step in Indonesian.",
+                        "content": "You are Niskava Agent, an elite financial intelligence investigator for the Indonesia Stock Exchange (IDX). Think step-by-step.",
                     },
                     {"role": "user", "content": prompt},
                 ],

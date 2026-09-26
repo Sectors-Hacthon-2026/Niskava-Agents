@@ -16,7 +16,7 @@ Untuk memberikan pengalaman terminal dan web yang responsif, setiap tahap invest
 |---|---|---|---|
 | **Sectors API Baseline Fetch** | 300 ms | 1.500 ms | Dipercepat hingga < 10 ms jika terkena cache SQLite lokal. |
 | **Kalkulasi Anomali Deterministik** | 15 ms | 50 ms | Eksekusi berbasis matematika murni `numpy`. |
-| **Targeted OSINT & News Fetch** | 1.800 ms | 4.000 ms | Agregasi berita Sectors v2 & pencarian terarah. |
+| **Targeted News Fetch** | 1.800 ms | 4.000 ms | Agregasi berita Sectors v2 & pencarian terarah. |
 | **LLM Reasoning & Evidence Synthesis** | 2.500 ms | 5.000 ms | Menggunakan model inferensi cepat (Gemini 2.0 Flash). |
 | **Total Waktu Investigasi End-to-End** | **< 6.000 ms** | **12.000 ms** | Dari penekanan Enter di CLI hingga hasil muncul lengkap. |
 

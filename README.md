@@ -1,6 +1,6 @@
 # Niskava Agent
 
-**Autonomous Financial OSINT & Market Intelligence Orchestration Platform for the Indonesia Stock Exchange (IDX)**
+**Autonomous Financial Market Intelligence Orchestration Platform for the Indonesia Stock Exchange (IDX)**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Track](https://img.shields.io/badge/Sectors%20Hackathon%202026-Track%201%3A%20AI%20Agents%20%26%20Assistants-0969da.svg)](https://hackathon.sectors.app/)
@@ -14,7 +14,7 @@
 
 ## Overview
 
-**Niskava Agent** is an autonomous market intelligence and Open Source Intelligence (OSINT) orchestration platform engineered specifically for the Indonesia Stock Exchange (IDX / Bursa Efek Indonesia).
+**Niskava Agent** is an autonomous market intelligence and equity research orchestration platform engineered specifically for the Indonesia Stock Exchange (IDX / Bursa Efek Indonesia).
 
 It bridges the critical operational gap between structured quantitative exchange facts (powered by the **Sectors Financial API v2**) and unstructured qualitative market intelligence (official IDXnet regulatory disclosures, corporate announcements, and syndicated business news).
 
@@ -32,7 +32,7 @@ Most commercial "financial AI" tools are thin wrappers around general-purpose La
 |---|---|
 | **Raw JSON Prompt Stuffing:** Dumping hundreds of raw candlestick rows exhausts token limits and degrades reasoning quality. | **Deterministic Compute Gate:** Raw time series data is processed locally by deterministic algorithms; only verified anomaly indicators enter model context. |
 | **Mental Math Hallucinations:** Asking an LLM to calculate moving averages or Z-scores produces fabricated numbers. | **Law 1 (Deterministic Before Generative):** LLMs are strictly forbidden from performing mathematical calculations. All statistics are computed via NumPy. |
-| **Atemporal Search (Causality Inversion):** Standard semantic search retrieves articles without date constraints, attributing price spikes to news published days *after* the event. | **Temporal-Aware OSINT Anchoring:** Web harvesting is locked strictly around the anomaly event date ($T_{\text{anomaly}} \pm 2\text{ days}$) to verify chronological precedence. |
+| **Atemporal Search (Causality Inversion):** Standard semantic search retrieves articles without date constraints, attributing price spikes to news published days *after* the event. | **Temporal-Aware News Anchoring:** Web and disclosure harvesting is locked strictly around the anomaly event date ($T_{\text{anomaly}} \pm 2\text{ days}$) to verify chronological precedence. |
 | **Monolithic Prompts:** Single monolithic prompts fail to isolate analytical methodologies or support structured backtracking. | **4-Layer Cognitive Hierarchy:** Clean separation between MCP primitives, compute gates, modular domain skills (SOPs), and the cognitive ReAct loop. |
 | **Unregulated Speculative Advice:** Thin wrappers often generate illegal buy/sell recommendations or price targets. | **Law 2 (Strict Non-Advisory Boundary):** Outputs an objective evidence audit trail. Zero buy/sell recommendations or price targets. |
 
@@ -74,16 +74,16 @@ Niskava Agent is implemented as a **Tripartite Hybrid Stack** combining Go Core,
 │  - Volume Z-Scores (Vz), Abnormal Returns (Rt), Sector Beta     │
 │  - Net Foreign Flow Z-Scores (Fz), Altman Z-Score Ratios        │
 │                                                                 │
-│  [Layer 1: MCP & OSINT Data Primitives]                         │
+│  [Layer 1: Sectors MCP & News Engine Primitives]                │
 │  - Sectors Financial API v2 MCP Server Adapter                  │
-│  - Dual-Engine Targeted OSINT (Sectors News + Google RSS Dorks) │
+│  - Curated Sectors News & Corporate Filings Engine              │
 │  - Content Sanitization via Trafilatura (<evidence_context>)    │
 └────────────────────────────────┬────────────────────────────────┘
                                  │
                                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                   REACT SPA WEB WORKSPACE                       │
-│  - Cyber-OSINT / Bloomberg Terminal Interface (Vite + Tailwind) │
+│  - Market Intelligence / Bloomberg Terminal Interface (Vite + Tailwind) │
 │  - TradingView / Recharts Candlestick Anomaly Overlays          │
 │  - Real-Time Thinking Stream via Server-Sent Events (SSE)       │
 │  - Interactive Evidence Matrix & Causality Timeline Graph       │
@@ -113,31 +113,68 @@ All development on Niskava Agent is strictly governed by six foundational archit
 
 ## Quick Start
 
-### 1. Prerequisites
-- **Go**: Version 1.22 or higher
-- **Python**: Version 3.11 or higher
-- **Git**: Version 2.30 or higher
+### 1. Fast Automated Installation (One-Liner)
 
-### 2. Clone and Setup Environment
+Clone the repository and run the automated installer for your operating system:
+
 ```bash
 git clone https://github.com/Sectors-Hacthon-2026/Niskava-Agents.git
 cd Niskava-Agents
-
-# Run the interactive setup wizard (configures API keys & creates Python virtual environment)
-go run ./cmd/niskava setup
 ```
 
-The wizard prompts for your **Sectors Financial API v2 Key** ([sectors.app](https://sectors.app/)) and your AI provider credentials (Google Gemini, Ollama, OpenRouter, or vLLM), then generates `~/.niskava/config.yaml`.
+- **Linux & macOS:**
+  ```bash
+  chmod +x install.sh && ./install.sh
+  ```
+- **Windows (PowerShell):**
+  ```powershell
+  .\install.ps1
+  ```
+- **Docker Container (Zero-Install):**
+  ```bash
+  docker compose up -d
+  ```
 
-### 3. Build Executable Binary
+*The automated installer verifies Go/Python, creates `.venv`, installs quantitative packages (`numpy`, `pandas`, `networkx`), and compiles the standalone executable to `bin/`.*
+
+---
+
+### 2. Verify Environment & System Health (`niskava doctor`)
+
+Run the built-in system doctor to verify local SQLite WAL database, Python quant engine, and API connectivity:
+
 ```bash
-# On Linux / macOS:
-go build -o niskava ./cmd/niskava
-chmod +x niskava
-
-# On Windows:
-go build -o niskava.exe ./cmd/niskava
+./bin/niskava doctor
+# On Windows: .\bin\niskava.exe doctor
 ```
+
+---
+
+### 3. Interactive Configuration Wizard (`niskava setup`)
+
+Configure your AI provider (OpenRouter, Gemini, Ollama, DeepSeek, Groq) and Sectors API key (press ENTER for 100% Offline Mock Mode):
+
+```bash
+./bin/niskava setup
+# On Windows: .\bin\niskava.exe setup
+```
+
+---
+
+### 4. Launch Web Workspace or Interactive Terminal
+
+- **Interactive Web Workspace (Dual-Theme Dashboard):**
+  ```bash
+  ./bin/niskava serve
+  # Automatically opens http://localhost:20128 in your default browser!
+  ```
+- **Interactive Terminal REPL & HUD:**
+  ```bash
+  ./bin/niskava
+  ```
+- **Quick Desktop Launchers:**
+  - Linux/macOS: `./run.sh`
+  - Windows: Double-click `run.bat` or run `.\run.bat`
 
 ---
 
@@ -297,7 +334,7 @@ Niskava-Agents/
 │   └── web/                   # React SPA Web Workspace (Vite + Tailwind + shadcn/ui)
 ├── backend/                   # Core Backend & Cognitive Computation Subsystems
 │   ├── core/                  # Go Core Daemon, REST/SSE Server, & SQLite WAL Persistence
-│   └── engine/                # Python Agent Engine (ReAct Agent, Quant Math, OSINT, MCP)
+│   └── engine/                # Python Agent Engine (ReAct Agent, Quant Math, Sectors News, MCP)
 └── docs/                      # Internal Architecture Decision Records (ADR 01 - 11)
 ```
 
@@ -335,7 +372,7 @@ This project is authored and maintained by:
 ## Financial Non-Advisory Disclaimer
 
 > **IMPORTANT DISCLAIMER**  
-> Niskava Agent is an automated market intelligence, Open Source Intelligence (OSINT), and empirical research platform. All findings, anomaly alerts, and correlated evidence generated by the platform are derived from historical market data, public regulatory disclosures, and news media.
+> Niskava Agent is an automated market intelligence and empirical research platform. All findings, anomaly alerts, and correlated evidence generated by the platform are derived from historical market data, public regulatory disclosures, and news media.
 >
 > Niskava Agent **DOES NOT** provide financial advice, investment recommendations, price targets, or solicitations to purchase or sell any security. Niskava operates under a strict non-advisory policy in compliance with Capital Market regulations (POJK / IDX) and Sectors Hackathon Rule 12. Users are solely responsible for their independent investment evaluations and risk assessments.
 

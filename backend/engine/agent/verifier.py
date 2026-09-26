@@ -22,11 +22,23 @@ PROHIBITED_ADVISORY_PATTERNS = [
     r"\bDISARANKAN\s+(MEMBELI|MENJUAL)\b",
 ]
 
-DISCLAIMER_TEXT = (
-    "DISCLAIMER: Niskava Agent adalah platform OSINT dan intelijen pasar faktual, "
+DISCLAIMER_TEXT_ID = (
+    "DISCLAIMER: Niskava Agent adalah platform intelijen pasar dan riset pasar modal faktual, "
     "bukan penasihat investasi. Seluruh temuan bersifat investigatif dan tidak boleh "
     "dianggap sebagai rekomendasi beli/jual atau nasihat keuangan personal."
 )
+DISCLAIMER_TEXT = DISCLAIMER_TEXT_ID
+
+DISCLAIMER_TEXT_EN = (
+    "DISCLAIMER: Niskava Agent is an autonomous market intelligence and equity research platform, "
+    "not an investment advisor. All findings are purely investigative and do not constitute "
+    "buy/sell recommendations, price targets, or personalized financial advice."
+)
+
+
+def get_disclaimer(language: str = "id") -> str:
+    """Return non-advisory disclaimer in English or Indonesian."""
+    return DISCLAIMER_TEXT_EN if (language or "").lower() == "en" else DISCLAIMER_TEXT_ID
 
 
 class FactVerificationGate:
@@ -123,7 +135,7 @@ class FactVerificationGate:
             if not has_matching_evidence:
                 status = "UNCERTAIN"
                 verified["verification_status"] = "UNCERTAIN"
-                verified["verification_note"] = "Downgraded to UNCERTAIN: No matching empirical text snippet found in OSINT or Quant context."
+                verified["verification_note"] = "Downgraded to UNCERTAIN: No matching empirical text snippet found in News or Quant context."
 
         # 3. Calibrate confidence score according to rubric
         initial_score = float(verified.get("confidence_score", 0.75))
@@ -131,6 +143,7 @@ class FactVerificationGate:
         verified["confidence_score"] = calibrated_score
 
         # 4. Attach disclaimer
-        verified["disclaimer"] = DISCLAIMER_TEXT
+        lang = str(synthesis.get("language") or "id")
+        verified["disclaimer"] = get_disclaimer(lang)
 
         return verified

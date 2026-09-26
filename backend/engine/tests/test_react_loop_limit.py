@@ -180,3 +180,61 @@ def test_universal_cycle_accumulates_findings_from_tool_observation(tmp_path):
     assert len(result.get("findings", [])) >= 1, (
         "findings harus terisi dari tool compute_quant_anomalies"
     )
+
+
+def test_max_react_iterations_default_is_30():
+    """Default MAX_REACT_ITERATIONS harus 30 untuk memastikan ReAct loop nyaman & playable."""
+    assert MAX_REACT_ITERATIONS == 30
+
+
+def test_agent_max_iterations_custom_override(tmp_path):
+    """NiskavaReActAgent harus menghargai parameter max_iterations kustom."""
+    agent, _ = _make_agent(tmp_path)
+    assert agent.max_iterations == 30
+
+    custom_agent = NiskavaReActAgent(
+        tool_registry=agent.tools,
+        max_iterations=50,
+    )
+    assert custom_agent.max_iterations == 50
+
+
+def test_agent_final_iteration_graceful_synthesis(tmp_path):
+    """Ketika iterasi terakhir memanggil tool, agent harus memberi kesempatan sintesis final alih-alih langsung error."""
+    agent, events = _make_agent(tmp_path)
+
+    # Ketika max_iterations diset 2:
+    # Call 1: model panggil tool get_daily_candles (remaining_steps = 1)
+    # Call 2: model panggil tool search_news di langkah terakhir (remaining_steps = 0)
+    # Call 3: prompt sintesis final dijalankan otomatis dan model memberikan <response>
+    t1 = '<thought>Tool 1</thought><tool_call>{"name": "query_sectors", "arguments": {"domain": "candles", "ticker": "ANTM"}}</tool_call>'
+    t2 = '<thought>Tool 2</thought><tool_call>{"name": "search_news", "arguments": {"ticker": "ANTM"}}</tool_call>'
+    t3 = '<thought>Synthesizing</thought><response>Analisis multi-langkah ANTM berhasil disintesis.</response>'
+
+    responses = [
+        json.dumps({"choices": [{"message": {"content": t1}}]}),
+        json.dumps({"choices": [{"message": {"content": t2}}]}),
+        json.dumps({"choices": [{"message": {"content": t3}}]}),
+    ]
+    call_idx = 0
+
+    def mock_post(*args, **kwargs):
+        nonlocal call_idx
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = responses[min(call_idx, len(responses) - 1)]
+        call_idx += 1
+        return mock_resp
+
+    with patch("engine.agent.react_agent.MAX_REACT_ITERATIONS", 2), \
+         patch("requests.post", side_effect=mock_post):
+        result = agent._run_universal_chat_cycle(
+            session_id="TEST-GRACEFUL-001",
+            user_prompt="Bandingkan data ANTM",
+            history=[],
+            start_time=0.0,
+        )
+
+    assert result.get("status") != "ERROR"
+    assert "Analisis multi-langkah ANTM berhasil disintesis" in result.get("response", "")
+

@@ -6,7 +6,7 @@ docs/30-agent/01-investigation-pipeline.md and AGENTS.md:
 2. SECTORS_BASELINE
 3. QUANT_ANOMALY (NumPy Deterministic)
 4. GAP_DETECTION
-5. OSINT_HARVEST (Dual-Engine)
+5. NEWS_HARVEST (Sectors News Engine)
 6. EVIDENCE_CORRELATION (Taxonomy & Discrete Confidence)
 7. SYNTHESIS_AND_STREAMING
 """
@@ -20,9 +20,12 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
 from engine.memory.graph_memory import LocalGraphMemory
-from engine.osint.harvester import DualEngineOSINTHarvester, OSINTItem
 from engine.quant.anomaly import AnomalyResult, detect_historical_anomalies
 from engine.sectors.client import SectorsAPIClient
+from engine.sectors.news_engine import NewsItem, SectorsNewsEngine
+
+# Backward-compatibility alias
+OSINTItem = NewsItem
 
 
 class InvestigationPipeline:
@@ -40,7 +43,14 @@ class InvestigationPipeline:
         self.sectors_client = SectorsAPIClient(
             db_path=self.db_path, mock_mode=self.mock_mode
         )
-        self.osint_harvester = DualEngineOSINTHarvester(mock_mode=self.mock_mode)
+        self.news_engine = SectorsNewsEngine(
+            sectors_client=self.sectors_client,
+            db_path=self.db_path,
+            mock_mode=self.mock_mode,
+        )
+        self.news_harvester = self.news_engine
+        # Backward-compatible attribute reference
+        self.osint_harvester = self.news_engine
 
     def _emit(self, event_data: Dict[str, Any]) -> None:
         """Send a JSONL event to the listener (stdout for Go Core)."""
@@ -116,21 +126,20 @@ class InvestigationPipeline:
             })
 
         # =========================================================================
-        # Stage 4 & 5: GAP_DETECTION & OSINT_HARVEST
+        # Stage 4 & 5: GAP_DETECTION & NEWS_HARVEST
         # =========================================================================
         self._emit({
             "event": "progress_step",
             "session_id": session_id,
-            "stage": "OSINT_HARVEST",
+            "stage": "NEWS_HARVEST",
             "step_index": 3,
             "total_steps": 4,
             "message": f"Harvesting news & regulatory filings for {ticker} ({company_name})...",
         })
 
-        osint_items: List[OSINTItem] = self.osint_harvester.harvest(
+        news_items: List[NewsItem] = self.news_engine.fetch_news(
             ticker=ticker,
             company_name=company_name,
-            sectors_news_items=sectors_news,
         )
 
         # =========================================================================
@@ -149,7 +158,7 @@ class InvestigationPipeline:
             session_id=session_id,
             ticker=ticker,
             anomalies=anomalies,
-            osint_items=osint_items,
+            news_items=news_items,
         )
 
         for finding in findings:
@@ -194,7 +203,7 @@ class InvestigationPipeline:
         session_id: str,
         ticker: str,
         anomalies: List[AnomalyResult],
-        osint_items: List[OSINTItem],
+        news_items: List[NewsItem],
     ) -> List[Dict[str, Any]]:
         """Perform temporal causality correlation and 3-Tier classification."""
         findings: List[Dict[str, Any]] = []
@@ -229,9 +238,9 @@ class InvestigationPipeline:
             }
 
             # 2. Check for matching news/disclosures
-            matched_news = [item for item in osint_items if item.is_disclosure]
-            if not matched_news and osint_items:
-                matched_news = osint_items[:2]
+            matched_news = [item for item in news_items if item.is_disclosure]
+            if not matched_news and news_items:
+                matched_news = news_items[:2]
 
             if matched_news:
                 top_item = matched_news[0]

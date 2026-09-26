@@ -77,16 +77,17 @@ type Event struct {
 
 // RunnerParams defines parameters to invoke the Python engine.
 type RunnerParams struct {
-	PythonBin  string
-	EnginePath string
-	WorkDir    string
-	DBPath     string
-	Ticker     string
-	Days       int
-	SessionID  string
-	Offline    bool
-	Prompt     string
-	Language   string
+	PythonBin    string
+	EnginePath   string
+	WorkDir      string
+	DBPath       string
+	Ticker       string
+	Days         int
+	SessionID    string
+	Offline      bool
+	Prompt       string
+	Language     string
+	EnvOverrides map[string]string
 }
 
 // RunConversationStream spawns the Python runner for interactive or batch conversation turns.
@@ -96,28 +97,59 @@ func RunConversationStream(ctx context.Context, params RunnerParams) (<-chan Eve
 
 // ResolvePythonBin dynamically resolves the best Python interpreter across Windows, macOS, and Linux.
 // Precedence:
-// 1. Explicit configured path if it exists on disk.
-// 2. Local virtualenv:
-//   - Windows: .venv\Scripts\python.exe
-//   - POSIX: .venv/bin/python3, .venv/bin/python
+// 1. Explicit configured path if it exists on disk or in PATH.
+// 2. Environment variable overrides (NISKAVA_PYTHON_BIN, NISKAVA_PYTHON).
+// 3. Local virtualenv:
+//   - Windows: .venv\Scripts\python.exe, venv\Scripts\python.exe
+//   - POSIX: .venv/bin/python3, .venv/bin/python, venv/bin/python3, venv/bin/python
 //
-// 3. System LookPath:
+// 4. System LookPath:
 //   - On Windows: "python", "py", "python3"
 //   - On POSIX: "python3", "python"
 //
-// 4. Fallback to "python3" (POSIX) or "python" (Windows).
+// 5. Fallback to "python3" (POSIX) or "python" (Windows).
 func ResolvePythonBin(configuredBin string) string {
 	if configuredBin != "" && configuredBin != "python3" && configuredBin != "python" {
 		if _, err := os.Stat(configuredBin); err == nil {
 			return configuredBin
+		}
+		if path, err := exec.LookPath(configuredBin); err == nil {
+			return path
+		}
+	}
+
+	// Environment variable overrides
+	if custom := os.Getenv("NISKAVA_PYTHON_BIN"); custom != "" {
+		if _, err := os.Stat(custom); err == nil {
+			return custom
+		}
+		if path, err := exec.LookPath(custom); err == nil {
+			return path
+		}
+	}
+	if custom := os.Getenv("NISKAVA_PYTHON"); custom != "" {
+		if _, err := os.Stat(custom); err == nil {
+			return custom
+		}
+		if path, err := exec.LookPath(custom); err == nil {
+			return path
 		}
 	}
 
 	// Check local virtual environments first
 	venvCandidates := []string{
 		filepath.Join(".venv", "Scripts", "python.exe"), // Windows standard venv
-		filepath.Join(".venv", "bin", "python3"),        // POSIX standard venv
-		filepath.Join(".venv", "bin", "python"),         // POSIX alternative
+		filepath.Join("venv", "Scripts", "python.exe"),  // Windows alternative
+		filepath.Join("backend", "engine", ".venv", "Scripts", "python.exe"),
+		filepath.Join("backend", "engine", "venv", "Scripts", "python.exe"),
+		filepath.Join(".venv", "bin", "python3"), // POSIX standard venv
+		filepath.Join(".venv", "bin", "python"),  // POSIX alternative
+		filepath.Join("venv", "bin", "python3"),  // POSIX venv
+		filepath.Join("venv", "bin", "python"),   // POSIX venv
+		filepath.Join("backend", "engine", ".venv", "bin", "python3"),
+		filepath.Join("backend", "engine", ".venv", "bin", "python"),
+		filepath.Join("backend", "engine", "venv", "bin", "python3"),
+		filepath.Join("backend", "engine", "venv", "bin", "python"),
 	}
 	for _, cand := range venvCandidates {
 		if _, err := os.Stat(cand); err == nil {
@@ -145,6 +177,67 @@ func ResolvePythonBin(configuredBin string) string {
 	return "python3"
 }
 
+// FindPythonBinary provides backward compatibility for callers expecting FindPythonBinary.
+func FindPythonBinary() string {
+	return ResolvePythonBin("")
+}
+
+// ResolveRepoRoot traverses upwards from hintDir or the current executable to locate
+// the project root containing go.mod, backend/engine, or .git.
+func ResolveRepoRoot(hintDir string) string {
+	startDirs := make([]string, 0, 3)
+	if hintDir != "" {
+		startDirs = append(startDirs, hintDir)
+	}
+	if wd, err := os.Getwd(); err == nil && wd != "" {
+		startDirs = append(startDirs, wd)
+	}
+	if exe, err := os.Executable(); err == nil && exe != "" {
+		startDirs = append(startDirs, filepath.Dir(exe))
+	}
+
+	for _, start := range startDirs {
+		curr := start
+		for i := 0; i < 15; i++ {
+			if _, err := os.Stat(filepath.Join(curr, "go.mod")); err == nil {
+				return curr
+			}
+			if _, err := os.Stat(filepath.Join(curr, "backend", "engine", "runner.py")); err == nil {
+				return curr
+			}
+			parent := filepath.Dir(curr)
+			if parent == curr || parent == "" {
+				break
+			}
+			curr = parent
+		}
+	}
+
+	if hintDir != "" {
+		return hintDir
+	}
+	return "."
+}
+
+// ResolveEnginePath resolves the absolute directory containing the Python engine.
+func ResolveEnginePath(repoRoot, customEngine string) string {
+	if customEngine != "" {
+		if _, err := os.Stat(customEngine); err == nil {
+			return customEngine
+		}
+	}
+	if env := os.Getenv("NISKAVA_ENGINE_PATH"); env != "" {
+		if _, err := os.Stat(env); err == nil {
+			return env
+		}
+	}
+	cand := filepath.Join(repoRoot, "backend", "engine")
+	if _, err := os.Stat(cand); err == nil {
+		return cand
+	}
+	return cand
+}
+
 // RunSubprocess spawns the Python runner and returns a channel of streaming events.
 func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-chan error) {
 	eventsChan := make(chan Event, 64)
@@ -153,8 +246,44 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 	go func() {
 		defer close(eventsChan)
 		defer close(errChan)
+		repoRoot := ResolveRepoRoot(params.WorkDir)
+		workDir := repoRoot
+		if params.WorkDir != "" {
+			if _, err := os.Stat(filepath.Join(params.WorkDir, "backend", "engine")); err == nil {
+				workDir = params.WorkDir
+			}
+		}
 
 		pythonBin := ResolvePythonBin(params.PythonBin)
+		if params.PythonBin == "" || params.PythonBin == "python3" || params.PythonBin == "python" {
+			for _, searchDir := range []string{params.WorkDir, repoRoot} {
+				if searchDir == "" {
+					continue
+				}
+				for _, cand := range []string{
+					filepath.Join(searchDir, ".venv", "Scripts", "python.exe"),
+					filepath.Join(searchDir, "venv", "Scripts", "python.exe"),
+					filepath.Join(searchDir, "backend", "engine", ".venv", "Scripts", "python.exe"),
+					filepath.Join(searchDir, "backend", "engine", "venv", "Scripts", "python.exe"),
+					filepath.Join(searchDir, ".venv", "bin", "python3"),
+					filepath.Join(searchDir, ".venv", "bin", "python"),
+					filepath.Join(searchDir, "venv", "bin", "python3"),
+					filepath.Join(searchDir, "venv", "bin", "python"),
+					filepath.Join(searchDir, "backend", "engine", ".venv", "bin", "python3"),
+					filepath.Join(searchDir, "backend", "engine", ".venv", "bin", "python"),
+					filepath.Join(searchDir, "backend", "engine", "venv", "bin", "python3"),
+					filepath.Join(searchDir, "backend", "engine", "venv", "bin", "python"),
+				} {
+					if _, err := os.Stat(cand); err == nil {
+						pythonBin = cand
+						break
+					}
+				}
+				if pythonBin != "" && pythonBin != "python3" && pythonBin != "python" {
+					break
+				}
+			}
+		}
 
 		args := []string{
 			"-m", "engine.runner",
@@ -180,28 +309,52 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 		}
 
 		cmd := exec.CommandContext(ctx, pythonBin, args...)
-		if params.WorkDir != "" {
-			cmd.Dir = params.WorkDir
-		}
+		cmd.Dir = workDir
 
 		// Ensure PYTHONPATH includes backend directory, WorkDir, and environment PYTHONPATH
-		workDir := params.WorkDir
-		if workDir == "" {
-			workDir = "."
-		}
 		backendDir := filepath.Join(workDir, "backend")
 		pythonPath := backendDir + string(filepath.ListSeparator) + workDir
 		if existing := os.Getenv("PYTHONPATH"); existing != "" {
 			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
 		}
-		cmd.Env = append(cmd.Environ(),
+		baseEnv := cmd.Environ()
+		overrideKeys := make(map[string]bool)
+		for k := range params.EnvOverrides {
+			overrideKeys[k] = true
+		}
+		if params.Language != "" {
+			overrideKeys["NISKAVA_LANG"] = true
+		}
+		overrideKeys["PYTHONPATH"] = true
+		overrideKeys["PYTHONIOENCODING"] = true
+		overrideKeys["PYTHONUTF8"] = true
+
+		cleanEnv := make([]string, 0, len(baseEnv)+len(overrideKeys))
+		for _, envVar := range baseEnv {
+			parts := strings.SplitN(envVar, "=", 2)
+			if len(parts) == 2 && overrideKeys[parts[0]] {
+				continue
+			}
+			cleanEnv = append(cleanEnv, envVar)
+		}
+
+		cleanEnv = append(cleanEnv,
 			"PYTHONPATH="+pythonPath,
 			"PYTHONIOENCODING=utf-8",
 			"PYTHONUTF8=1",
 		)
 		if params.Language != "" {
-			cmd.Env = append(cmd.Env, "NISKAVA_LANG="+params.Language)
+			cleanEnv = append(cleanEnv, "NISKAVA_LANG="+params.Language)
 		}
+		if len(params.EnvOverrides) > 0 {
+			for k, v := range params.EnvOverrides {
+				trimmedKey := strings.TrimSpace(k)
+				if trimmedKey != "" && v != "" {
+					cleanEnv = append(cleanEnv, fmt.Sprintf("%s=%s", trimmedKey, v))
+				}
+			}
+		}
+		cmd.Env = cleanEnv
 
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {

@@ -62,8 +62,8 @@ class TestLeanSystemPrompt:
                 "parameters": {"type": "object", "properties": {"domain": {}, "ticker": {}}, "required": ["domain", "ticker"]},
             },
             {
-                "name": "search_osint",
-                "description": "Router OSINT Dual-Engine.",
+                "name": "search_news",
+                "description": "Router berita dan keterbukaan informasi bursa.",
                 "parameters": {"type": "object", "properties": {"ticker": {}}, "required": ["ticker"]},
             },
             {
@@ -86,7 +86,7 @@ class TestLeanSystemPrompt:
         from engine.agent.react_agent import get_system_prompt
         defs = self._make_gateway_defs()
         prompt = get_system_prompt("id", available_tools=defs)
-        for gateway in ["execute_skill", "query_sectors", "search_osint", "query_memory"]:
+        for gateway in ["execute_skill", "query_sectors", "search_news", "query_memory"]:
             assert f"`{gateway}`" in prompt, f"Gateway `{gateway}` not found in prompt"
 
     def test_old_atomic_tool_names_not_in_prompt(self):
@@ -114,6 +114,21 @@ class TestLeanSystemPrompt:
         defs = self._make_gateway_defs()
         prompt = get_system_prompt("en", available_tools=defs)
         assert "English" in prompt or "english" in prompt.lower()
+
+    def test_system_prompt_includes_language_mirroring_protocol(self):
+        from engine.agent.react_agent import get_system_prompt
+        defs = self._make_gateway_defs()
+        prompt = get_system_prompt(available_tools=defs)
+        assert "LANGUAGE & MIRRORING PROTOCOL" in prompt
+        assert "mirror the exact language" in prompt.lower() or "mirror" in prompt.lower()
+        assert "English" in prompt
+        assert "Bahasa Indonesia" in prompt
+
+    def test_system_prompt_default_is_polyglot_english_core(self):
+        from engine.agent.react_agent import get_system_prompt
+        prompt = get_system_prompt()
+        assert "You are Niskava Agent" in prompt
+        assert "Zero Preamble" in prompt or "ZERO PREAMBLE" in prompt
 
 
 class TestFollowupChips:
@@ -237,6 +252,7 @@ class TestFollowupChips:
             emitter=lambda ev: events.append(ev),
             mock_mode=True,
             language="id",
+            append_followup_chips=True,
         )
 
         # Turn 1: Model calls execute_skill for ANTM
@@ -280,6 +296,42 @@ class TestFollowupChips:
         complete_events = [e for e in events if e.get("event") == "agent_message_complete"]
         assert len(complete_events) >= 1
         assert "💡 Rekomendasi Penelusuran Lanjutan" in complete_events[-1]["content"]
+
+    def test_chips_not_appended_by_default_in_universal_chat_cycle(self, tmp_path):
+        """Verifies that by default, follow-up chips are NOT appended to produce clean LLM output."""
+        import json
+        import time
+        from unittest.mock import MagicMock, patch
+
+        registry = NiskavaToolRegistry(db_path=str(tmp_path / "test.db"), mock_mode=True)
+        events = []
+        agent = NiskavaReActAgent(
+            tool_registry=registry,
+            emitter=lambda ev: events.append(ev),
+            mock_mode=True,
+            language="id",
+        )
+        assert agent.append_followup_chips is False
+
+        mock_turn = {
+            "message": {
+                "role": "assistant",
+                "content": "<response>Analisis BBCA menunjukkan performa stabil.</response>",
+            }
+        }
+        mock_resp = MagicMock(status_code=200, text=json.dumps({"choices": [mock_turn]}))
+
+        with patch("requests.post", return_value=mock_resp):
+            res = agent._run_universal_chat_cycle(
+                session_id="TEST-CHIPS-DEFAULT-CLEAN",
+                user_prompt="analisis BBCA",
+                history=[],
+                start_time=time.time(),
+            )
+
+        assert res["response"] == "Analisis BBCA menunjukkan performa stabil."
+        assert "💡 Rekomendasi" not in res["response"]
+        assert "💡 Recommended" not in res["response"]
 
 
 def test_memory_records_session_even_without_anomalies(tmp_path, monkeypatch):
@@ -346,15 +398,15 @@ def test_memory_graph_no_crash_when_memory_is_none(tmp_path):
 
 
 def test_compact_tool_observation_limits_length():
-    """Verify bulky tool observations (OSINT news, sectors reports) are compacted to <= 1600 chars."""
+    """Verify bulky tool observations (Sectors news, reports) are compacted to <= 1600 chars."""
     from engine.agent.react_agent import _compact_tool_observation
 
-    # Simulate large OSINT news payload (> 8KB)
+    # Simulate large news payload (> 8KB)
     large_news = [
         {"title": f"News Headline {i}", "snippet": "A" * 500, "date": "2026-09-20", "source": "Reuters"}
         for i in range(10)
     ]
-    compacted = _compact_tool_observation("search_osint", large_news, max_len=1500)
+    compacted = _compact_tool_observation("search_news", large_news, max_len=1500)
     assert len(compacted) <= 1600
     assert "News Headline 0" in compacted
     assert "summarized" in compacted or "items" in compacted
@@ -383,5 +435,16 @@ def test_on_llm_retry_emits_english_thoughts(tmp_path):
         assert "Koneksi Terputus" not in th, f"Indonesian text found in thought: {th}"
         assert "Menunggu" not in th, f"Indonesian text found in thought: {th}"
         assert "Gagal mengeksekusi" not in th, f"Indonesian text found in thought: {th}"
+
+
+def test_investigation_cycle_uses_neutral_english_prompt(tmp_path):
+    from engine.agent.react_agent import NiskavaReActAgent
+    from engine.agent.tools import NiskavaToolRegistry
+    registry = NiskavaToolRegistry(str(tmp_path / "test.db"), mock_mode=True)
+    events = []
+    agent = NiskavaReActAgent(tool_registry=registry, emitter=lambda ev: events.append(ev), mock_mode=True)
+    res = agent.investigate(ticker="ANTM", days=30)
+    assert res is not None
+    assert "ANTM" in str(res)
 
 

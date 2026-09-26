@@ -372,7 +372,47 @@ class LocalGraphMemory:
             "status": "RECORDED",
         }
 
+    def record_session_briefing(
+        self,
+        session_id: str,
+        tickers: List[str],
+        context: str = "",
+    ) -> int:
+        """Batch-record multiple tickers as MENTIONED_IN_BRIEFING for a conversational session.
+
+        Called after chat() when no single primary ticker exists in the user prompt
+        but the agent's final response discusses several IDX stocks (e.g. pre-market briefings,
+        sector overviews, macro summaries). Zero LLM cost — fully deterministic (Law 1).
+
+        Args:
+            session_id: Active chat session identifier.
+            tickers: List of valid IDX ticker strings. Invalid/empty values are silently skipped.
+            context: Human-readable context snippet stored with each edge.
+
+        Returns:
+            Number of edges successfully stored (equals number of valid, non-empty tickers).
+        """
+        stored_count = 0
+        for ticker in tickers:
+            clean_ticker = str(ticker).strip().upper()
+            if not clean_ticker:
+                continue
+            ctx = context or f"Mentioned in session {session_id} briefing"
+            self.store_observation(
+                source_label="User",
+                source_type="USER",
+                relation="MENTIONED_IN_BRIEFING",
+                target_label=clean_ticker,
+                target_type="TICKER",
+                context_snippet=ctx,
+                session_id=session_id,
+                confidence_score=0.85,  # Rubric: Strong Inference (mentioned in agent response)
+            )
+            stored_count += 1
+        return stored_count
+
     @staticmethod
+
     def clean_corporate_tokens(text: str) -> str:
         """Strip common corporate suffixes, prefixes, and punctuation."""
         cleaned = re.sub(r"\b(pt|tbk|persero|corp|corporation|inc)\b", "", text.lower())

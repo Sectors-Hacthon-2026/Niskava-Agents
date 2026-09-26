@@ -37,6 +37,36 @@ Error: unable to connect to AI provider (gemini / ollama / openrouter)
 
 ---
 
+### Issue 1B: LLM Inference Timeout During Deep Multi-Tool Analysis
+**Symptoms:**
+During deep ticker analysis, peer comparisons, or multi-tool reasoning, the agent reports:
+```text
+Koneksi timeout setelah 25 detik ke http://localhost:20128/v1/chat/completions
+# atau
+Request timed out waiting for AI response
+```
+
+**Cause:**
+Complex financial investigations require the LLM to inspect multiple quantitative metrics and news releases. If running a local model (Ollama on CPU) or a deep reasoning model, 25 seconds may not be enough for the model to synthesize observations.
+
+**Resolutions:**
+1. **Switch Timeout Profile in REPL:**
+   Adjust the active timeout immediately with the `/timeout` slash command:
+   ```text
+   /timeout balanced   # 60s (Recommended baseline)
+   /timeout deep       # 120s (For complex analysis)
+   /timeout local      # 180s (For CPU/Ollama inference)
+   /timeout 90         # Custom value in seconds (10 - 300)
+   ```
+2. **Configure in Setup Wizard:**
+   Run `./bin/niskava setup` and select **Step 5: AI Inference Timeout Profile**.
+3. **Adjust in Web Workspace Canvas:**
+   Open `http://localhost:20128`, click the **Settings** icon (top right), and move the **Inference Timeout** slider to your desired value. Click **Save Configuration**.
+4. **Environment Variable Override:**
+   Add `NISKAVA_LLM_TIMEOUT=60.00` to your `.env` file or export it in your shell environment.
+
+---
+
 ### Issue 2: SQLite Database Locked (`database is locked`)
 **Symptoms:**
 The terminal or engine emits an error message:
@@ -65,33 +95,71 @@ Niskava uses SQLite with Write-Ahead Logging (`PRAGMA journal_mode = WAL;`) for 
 
 ---
 
-### Issue 3: Python Virtual Environment or Executable Not Found
+### Issue 3: Python Virtual Environment or Quantitative Dependencies Missing
 **Symptoms:**
 Go Core reports:
 ```text
-Error: python executable not found in backend/engine/venv
+Error: quantitative dependencies missing or python executable not found
 ```
 
 **Resolutions:**
-1. Ensure the Python virtual environment exists and dependencies are installed:
+1. **Run Auto-Bootstrap via Setup Wizard (Recommended):**
    ```bash
-   cd backend/engine
-   python3 -m venv venv
-   # Linux/macOS:
-   ./venv/bin/pip install -r requirements.txt
-   # Windows:
-   .\venv\Scripts\pip.exe install -r requirements.txt
+   ./bin/niskava setup
    ```
-2. If using a custom Python installation, specify the binary path explicitly in `~/.niskava/config.yaml`:
+   When prompted, choose `Y` to allow Niskava to automatically configure `.venv` and install `requirements.txt`.
+2. **Manual Virtual Environment Setup:**
+   Ensure the Python virtual environment exists in the root directory and dependencies are installed:
+   - **Linux / macOS:**
+     ```bash
+     python3 -m venv .venv
+     .venv/bin/pip install --upgrade pip
+     .venv/bin/pip install -r backend/engine/requirements.txt
+     ```
+   - **Windows (PowerShell):**
+     ```powershell
+     python -m venv .venv
+     .\.venv\Scripts\pip.exe install --upgrade pip
+     .\.venv\Scripts\pip.exe install -r backend\engine\requirements.txt
+     ```
+3. If using a custom Python installation, specify the binary path explicitly in `~/.niskava/config.yaml`:
    ```yaml
    engine:
      python_bin: "/usr/bin/python3"
-     engine_path: "/absolute/path/to/backend/engine"
+     engine_path: "./backend/engine"
    ```
    Or set the environment variable:
    ```bash
    export NISKAVA_PYTHON_BIN="/usr/bin/python3"
    ```
+
+---
+
+### Issue 4: Windows PowerShell Script Execution Blocked
+**Symptoms:**
+Running `.\install.ps1` produces the following error:
+```text
+File install.ps1 cannot be loaded because running scripts is disabled on this system.
+```
+
+**Resolution:**
+PowerShell by default blocks script execution. Run the following command in your current PowerShell session:
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+Then re-run `.\install.ps1`.
+
+---
+
+### Issue 5: Python Not Found on Windows (`'python' is not recognized`)
+**Symptoms:**
+Command Prompt or PowerShell reports:
+```text
+'python' is not recognized as an internal or external command
+```
+
+**Resolution:**
+Re-install Python 3.11+ from [python.org](https://www.python.org/downloads/) and make sure to check the checkbox **"Add python.exe to PATH"** on the first installation screen. If already installed, add `C:\Users\<Username>\AppData\Local\Programs\Python\Python312` and its `Scripts` directory to your system Environment Variables.
 
 ---
 

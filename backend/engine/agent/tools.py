@@ -11,10 +11,13 @@ import os
 from typing import Any, Callable, Dict, List, Optional
 
 from engine.memory.graph_memory import LocalGraphMemory
-from engine.osint.harvester import DualEngineOSINTHarvester, OSINTItem
 from engine.quant.anomaly import AnomalyResult, detect_historical_anomalies
 from engine.sectors.client import SectorsAPIClient
+from engine.sectors.news_engine import NewsItem, SectorsNewsEngine
 from engine.skills.registry import SkillsRegistry
+
+# Backward compatibility alias
+OSINTItem = NewsItem
 
 # Ticker-ticker yang merepresentasikan indeks pasar, bukan emiten perusahaan individual.
 # Jika digunakan di harvest_market_news, harus di-route ke general market news.
@@ -32,6 +35,7 @@ _SECTORS_DOMAIN_MAP: dict[str, str] = {
     "subsector_peers": "get_subsector_peers",
     "mining_detail": "get_mining_detail",
     "news": "get_news",
+    "subsectors": "get_subsectors",
 }
 
 
@@ -42,7 +46,8 @@ class NiskavaToolRegistry:
         self,
         db_path: str,
         sectors_client: Optional[SectorsAPIClient] = None,
-        osint_harvester: Optional[DualEngineOSINTHarvester] = None,
+        osint_harvester: Optional[Any] = None,
+        news_harvester: Optional[Any] = None,
         mock_mode: Optional[bool] = None,
         skills_registry: Optional[SkillsRegistry] = None,
         memory: Optional[LocalGraphMemory] = None,
@@ -52,9 +57,14 @@ class NiskavaToolRegistry:
         self.sectors_client = sectors_client or SectorsAPIClient(
             db_path=self.db_path, mock_mode=self.mock_mode
         )
-        self.osint_harvester = osint_harvester or DualEngineOSINTHarvester(
-            mock_mode=self.mock_mode
+        self.news_engine = SectorsNewsEngine(
+            sectors_client=self.sectors_client,
+            db_path=self.db_path,
+            mock_mode=self.mock_mode,
         )
+        self.news_harvester = news_harvester or osint_harvester or self.news_engine
+        # Backward-compatible reference
+        self.osint_harvester = self.news_harvester
         self.skills_registry = skills_registry or SkillsRegistry()
         self.memory = memory or LocalGraphMemory(db_path=self.db_path)
 
@@ -62,6 +72,7 @@ class NiskavaToolRegistry:
         """Execute a Layer 3 Domain Skill and return structured findings dict."""
         context = {
             "sectors_client": self.sectors_client,
+            "news_harvester": self.news_harvester,
             "osint_harvester": self.osint_harvester,
             "db_path": self.db_path,
             "mock_mode": self.mock_mode,
@@ -83,7 +94,7 @@ class NiskavaToolRegistry:
             domain: One of the keys in _SECTORS_DOMAIN_MAP
                     ('candles', 'fundamentals', 'foreign_flow', 'suspensions',
                     'filings', 'broker_summary', 'corporate_actions',
-                    'subsector_peers', 'mining_detail', 'news').
+                    'subsector_peers', 'mining_detail', 'news', 'subsectors').
             ticker: IDX 4-letter ticker (case-insensitive, auto-uppercased).
             params: Optional domain-specific extra parameters
                     (e.g. {'slug': '...'} for mining_detail).
@@ -96,30 +107,31 @@ class NiskavaToolRegistry:
         """
         clean_ticker = ticker.upper() if ticker else ""
 
+        if clean_ticker in _INDEX_TICKERS and domain in ("candles", ""):
+            # Return enriched market overview instead of raw news list
+            # to prevent model confusion and duplicate tool call loops
+            news = self.sectors_client.get_news(None)
+            context_parts = [
+                f"Data pasar umum IDX per hari ini.",
+                f"Jumlah artikel berita terkini: {len(news)}.",
+            ]
+            if news:
+                top_headlines = [n.get("title", "") for n in news[:3] if isinstance(n, dict)]
+                if top_headlines:
+                    context_parts.append(
+                        "Headline: " + "; ".join(top_headlines)
+                    )
+            return {
+                "type": "market_overview",
+                "ticker": clean_ticker,
+                "status": "active",
+                "news": news,
+                "market_context": " ".join(context_parts),
+            }
+
         # Intelligently default domain when omitted or empty to prevent ReAct loop crashes
         if not domain:
-            if clean_ticker in _INDEX_TICKERS:
-                # Return enriched market overview instead of raw news list
-                # to prevent model confusion and duplicate tool call loops
-                news = self.sectors_client.get_news(None)
-                context_parts = [
-                    f"Data pasar umum IDX per hari ini.",
-                    f"Jumlah artikel berita terkini: {len(news)}.",
-                ]
-                if news:
-                    top_headlines = [n.get("title", "") for n in news[:3] if isinstance(n, dict)]
-                    if top_headlines:
-                        context_parts.append(
-                            "Headline: " + "; ".join(top_headlines)
-                        )
-                return {
-                    "type": "market_overview",
-                    "ticker": clean_ticker,
-                    "news": news,
-                    "market_context": " ".join(context_parts),
-                }
-            else:
-                domain = "candles"
+            domain = "candles"
 
         method_name = _SECTORS_DOMAIN_MAP.get(domain)
         if not method_name:
@@ -129,6 +141,9 @@ class NiskavaToolRegistry:
             )
 
         client_method = getattr(self.sectors_client, method_name)
+
+        if domain == "subsectors":
+            return client_method()
 
         # Domains with a non-ticker primary key
         if domain == "subsector_peers":
@@ -140,39 +155,44 @@ class NiskavaToolRegistry:
 
         return client_method(clean_ticker)
 
-    def search_osint(self, ticker: str, query: str = "") -> List[Dict[str, Any]]:
-        """Universal gateway to the Dual-Engine OSINT harvester.
+    def search_news(self, ticker: str, query: str = "") -> List[Dict[str, Any]]:
+        """Universal gateway to the Sectors News and Corporate Disclosure engine.
 
-        Fetches curated Sectors news and targeted Google News RSS results for
-        the given ticker. Returns a list of OSINTItem dicts (sanitised, no raw HTML).
+        Fetches curated news and corporate disclosures directly from Sectors
+        Financial API v2 for the given ticker. Returns a list of sanitized news dicts.
 
         Args:
             ticker: IDX 4-letter ticker. Pass empty string for general market news.
-            query: Optional extra keyword to narrow Google News RSS dorking.
+            query: Optional search keyword or context filter.
 
         Returns:
-            List of dicts, each with keys: title, url, published_at, source, snippet.
+            List of dicts, each with keys: title, source_name, source_url, publication_date, snippet.
         """
         clean_ticker = ticker.upper() if ticker else ""
 
         if not clean_ticker or clean_ticker in _INDEX_TICKERS:
             sectors_news = self.sectors_client.get_news(None)
-            items: List[OSINTItem] = self.osint_harvester.harvest(
+            items: List[NewsItem] = self.news_harvester.harvest(
                 ticker="IHSG",
                 company_name="Pasar Modal Indonesia",
                 sectors_news_items=sectors_news,
+                query=query,
             )
             return [item.model_dump() for item in items]
 
         report = self.get_company_fundamentals(clean_ticker)
         company_name = report.get("company_name", clean_ticker)
         sectors_news = self.sectors_client.get_news(clean_ticker)
-        items = self.osint_harvester.harvest(
+        items = self.news_harvester.harvest(
             ticker=clean_ticker,
             company_name=company_name,
             sectors_news_items=sectors_news,
+            query=query,
         )
         return [item.model_dump() for item in items]
+
+    # Backward-compatible alias
+    search_osint = search_news
 
     def query_memory(self, concept_or_ticker: str, radius: int = 2) -> Dict[str, Any]:
         """Universal gateway to the local conversational graph memory engine.
@@ -253,11 +273,11 @@ class NiskavaToolRegistry:
         ticker: Optional[str] = None,
         company_name: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Harvest curated news and targeted IDX regulatory filings via Dual-Engine OSINT."""
+        """Harvest curated news and corporate disclosures exclusively from Sectors Financial API v2."""
         if not ticker:
             # General market headlines when no specific ticker is provided
             sectors_news = self.sectors_client.get_news(None)
-            items: List[OSINTItem] = self.osint_harvester.harvest(
+            items: List[NewsItem] = self.news_harvester.harvest(
                 ticker="IHSG",
                 company_name="Pasar Modal Indonesia",
                 sectors_news_items=sectors_news,
@@ -270,7 +290,7 @@ class NiskavaToolRegistry:
             company_name = report.get("company_name", clean_ticker)
 
         sectors_news = self.sectors_client.get_news(clean_ticker)
-        items: List[OSINTItem] = self.osint_harvester.harvest(
+        items: List[NewsItem] = self.news_harvester.harvest(
             ticker=clean_ticker,
             company_name=company_name,
             sectors_news_items=sectors_news,
@@ -343,15 +363,15 @@ class NiskavaToolRegistry:
             {
                 "name": "execute_skill",
                 "description": (
-                    "Jalankan Standard Operating Procedure (SOP) analis ekuitas domain. "
-                    "Gunakan ini untuk investigasi mendalam terstruktur. "
-                    "skill_id tersedia: "
-                    "market_anomaly_recon (scan lonjakan volume MA20/Z-score & abnormal return via NumPy), "
-                    "event_causality_audit (audit kausalitas berita vs lonjakan volume: LIKELY_CATALYST/PRECEDED_ANNOUNCEMENT), "
-                    "insider_bandarmology_forensic (audit akumulasi top broker C3>=65% & transaksi direksi/komisaris), "
-                    "financial_health_stress_test (audit likuiditas Current/Quick, solvabilitas DER, sanggahan rumor gagal bayar), "
-                    "mining_commodity_divergence (uji korelasi emiten tambang vs harga spot komoditas: Nikel, Batubara), "
-                    "peer_valuation_benchmark (benchmark valuasi PER/PBV vs median rekan subsektor IDX)."
+                    "Execute a specialized domain equity research Standard Operating Procedure (SOP). "
+                    "Use this for structured deep-dive market investigations. "
+                    "Available skill_ids: "
+                    "market_anomaly_recon (scan MA20 volume spikes/Z-scores and abnormal returns via NumPy), "
+                    "event_causality_audit (audit news causality vs volume surge: LIKELY_CATALYST/PRECEDED_ANNOUNCEMENT), "
+                    "insider_bandarmology_forensic (audit top broker accumulation C3>=65% and insider trading filings), "
+                    "financial_health_stress_test (stress-test liquidity/solvency ratios and evaluate default rumors), "
+                    "mining_commodity_divergence (test mining company correlation against global spot commodity benchmarks), "
+                    "peer_valuation_benchmark (benchmark PER/PBV multiples against IDX subsector median)."
                 ),
                 "parameters": {
                     "type": "object",
@@ -359,7 +379,7 @@ class NiskavaToolRegistry:
                         "skill_id": {
                             "type": "string",
                             "description": (
-                                "ID skill yang akan dijalankan. Pilih salah satu: "
+                                "Target skill ID to execute. Choose one: "
                                 "market_anomaly_recon, event_causality_audit, "
                                 "insider_bandarmology_forensic, financial_health_stress_test, "
                                 "mining_commodity_divergence, peer_valuation_benchmark."
@@ -368,8 +388,8 @@ class NiskavaToolRegistry:
                         "arguments": {
                             "type": "object",
                             "description": (
-                                "Parameter skill. Minimal wajib: {'ticker': 'ANTM'}. "
-                                "Opsional: 'days' (int), 'subsector' (str untuk peer_valuation_benchmark)."
+                                "Skill parameters. Required: {'ticker': 'ANTM'}. "
+                                "Optional: 'days' (int), 'subsector' (str for peer_valuation_benchmark)."
                             ),
                         },
                     },
@@ -379,18 +399,19 @@ class NiskavaToolRegistry:
             {
                 "name": "query_sectors",
                 "description": (
-                    "Router universal ke Sectors Financial API v2. "
-                    "Gunakan `domain` untuk memilih jenis data: "
-                    "candles (OHLCV harian), "
-                    "fundamentals (profil & rasio keuangan emiten), "
-                    "foreign_flow (akumulasi/distribusi dana asing), "
-                    "suspensions (suspensi & pengumuman UMA resmi BEI), "
-                    "filings (kepemilikan orang dalam/insider trading), "
-                    "broker_summary (top buyer/seller broker), "
-                    "corporate_actions (dividen, split, rights issue), "
-                    "subsector_peers (komparasi rekan subsektor), "
-                    "mining_detail (detail operasional tambang & smelter), "
-                    "news (berita terkurasi Sectors API)."
+                    "Universal router to Sectors Financial API v2. "
+                    "Use `domain` to select the dataset: "
+                    "candles (daily OHLCV time series), "
+                    "fundamentals (company profile, financial statements, and valuation ratios), "
+                    "foreign_flow (net foreign institutional accumulation/distribution), "
+                    "suspensions (official IDX suspension notices and Unusual Market Activity / UMA), "
+                    "filings (insider trading transactions by directors and commissioners), "
+                    "broker_summary (top buying and selling brokerage participants), "
+                    "corporate_actions (cash dividends, stock splits, rights issues), "
+                    "subsector_peers (subsector peer comparison and valuation multiples), "
+                    "mining_detail (operational mining concessions, IUP permits, and smelter assets), "
+                    "news (curated financial news from Sectors API), "
+                    "subsectors (official list of IDX sectors and subsectors)."
                 ),
                 "parameters": {
                     "type": "object",
@@ -398,22 +419,22 @@ class NiskavaToolRegistry:
                         "domain": {
                             "type": "string",
                             "description": (
-                                "Jenis data Sectors API. Wajib diisi. Pilih: "
+                                "Sectors API dataset domain. Required. Choose one: "
                                 "candles | fundamentals | foreign_flow | suspensions | "
                                 "filings | broker_summary | corporate_actions | "
-                                "subsector_peers | mining_detail | news."
+                                "subsector_peers | mining_detail | news | subsectors."
                             ),
                         },
                         "ticker": {
                             "type": "string",
-                            "description": "Kode ticker IDX 4 huruf (contoh: ANTM, BBCA). Tidak case-sensitive.",
+                            "description": "4-letter IDX stock ticker symbol (e.g. ANTM, BBCA). Case-insensitive. Optional or empty string for subsectors domain or macro index overview.",
                         },
                         "params": {
                             "type": "object",
                             "description": (
-                                "Parameter tambahan opsional, misalnya: "
-                                "{'subsector': 'metals-mining'} untuk subsector_peers, "
-                                "{'slug': 'antm'} untuk mining_detail."
+                                "Optional extra query parameters, e.g.: "
+                                "{'subsector': 'metals-mining'} for subsector_peers, "
+                                "{'slug': 'antm'} for mining_detail."
                             ),
                         },
                     },
@@ -421,27 +442,23 @@ class NiskavaToolRegistry:
                 },
             },
             {
-                "name": "search_osint",
+                "name": "search_news",
                 "description": (
-                    "Router universal ke mesin Dual-Engine OSINT. "
-                    "Memanen berita terkurasi dari Sectors v2 API dan melakukan "
-                    "targeted boolean dorking ke Google News RSS untuk menemukan "
-                    "keterbukaan informasi IDXnet, Kontan, Bisnis, dan CNBC Indonesia. "
-                    "Kosongkan ticker untuk berita pasar modal umum terkini."
+                    "Universal router to Sectors Curated News & Corporate Disclosures Engine. "
+                    "Fetches verified financial news and official company announcements directly "
+                    "from Sectors Financial API v2 (/v2/news/). "
+                    "Pass empty string for ticker to retrieve macro IDX market news."
                 ),
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "ticker": {
                             "type": "string",
-                            "description": (
-                                "Kode ticker IDX (contoh: ANTM). "
-                                "Kosongkan ('') untuk mengambil berita pasar modal umum."
-                            ),
+                            "description": "4-letter IDX stock ticker. Pass empty string for general market news.",
                         },
                         "query": {
                             "type": "string",
-                            "description": "Kata kunci tambahan untuk mempersempit pencarian berita (opsional).",
+                            "description": "Optional search keyword or sector filtering query.",
                         },
                     },
                     "required": ["ticker"],
@@ -450,21 +467,20 @@ class NiskavaToolRegistry:
             {
                 "name": "query_memory",
                 "description": (
-                    "Router universal ke mesin memori graf percakapan lokal (SQLite + NetworkX). "
-                    "Ambil konteks riwayat, relasi entitas, dan observasi masa lalu "
-                    "terkait suatu ticker atau entitas pasar modal lintas sesi percakapan. "
-                    "Gunakan sebelum memulai investigasi baru untuk mengecek riwayat temuan."
+                    "Universal router to local associative graph memory (NetworkX + SQLite WAL). "
+                    "Traverses ego-graphs up to 2 hops with temporal recency decay to recall "
+                    "past findings, entities, and discussion context across sessions."
                 ),
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "concept_or_ticker": {
                             "type": "string",
-                            "description": "Entitas atau ticker yang dicari dalam memori lokal (contoh: ANTM, Hari Darmawan).",
+                            "description": "Stock ticker or market concept to recall (e.g. 'ANTM', 'smelter').",
                         },
                         "radius": {
                             "type": "integer",
-                            "description": "Kedalaman hop ego-graph (default 2, maks 3).",
+                            "description": "Ego-graph traversal radius (1 or 2, default: 2).",
                             "default": 2,
                         },
                     },
@@ -571,6 +587,8 @@ class NiskavaToolRegistry:
             "sectors_get_subsector_peers": lambda args: self.get_subsector_peers(
                 subsector=args.get("subsector", ""),
             ),
+            "get_subsectors": lambda args: self.sectors_client.get_subsectors(),
+            "sectors_get_subsectors": lambda args: self.sectors_client.get_subsectors(),
             "get_mining_detail": lambda args: self.get_mining_detail(
                 slug=args.get("slug", ""),
             ),
@@ -604,7 +622,15 @@ class NiskavaToolRegistry:
                 ticker=args.get("ticker", ""),
                 params={k: v for k, v in args.items() if k not in ("domain", "ticker")},
             ),
-            "search_osint": lambda args: self.search_osint(
+            "search_news": lambda args: self.search_news(
+                ticker=args.get("ticker", ""),
+                query=args.get("query", ""),
+            ),
+            "search_osint": lambda args: self.search_news(
+                ticker=args.get("ticker", ""),
+                query=args.get("query", ""),
+            ),
+            "sectors_search_news": lambda args: self.search_news(
                 ticker=args.get("ticker", ""),
                 query=args.get("query", ""),
             ),

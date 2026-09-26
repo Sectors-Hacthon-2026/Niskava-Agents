@@ -25,7 +25,7 @@ const ReplBackSentinel = "__back__"
 const replBackSentinel = ReplBackSentinel
 
 var (
-	// Terminal Color Styles (Binance Dark Financial OSINT Aesthetic)
+	// Terminal Color Styles (Binance Dark Financial Intelligence Aesthetic)
 	promptBoxStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(ColorAccent)
@@ -79,6 +79,36 @@ type SlashCommand struct {
 	Command     string
 	Category    string
 	Description string
+}
+
+// ParseTimeoutCommand parses "/timeout <arg>" and returns the resolved timeout in seconds.
+// Named profiles: fast=25, balanced=60, deep=120, local=180.
+// Numeric: accepted in [10, 300] inclusive.
+// Returns (0, false) when arg is absent (caller should display current) or invalid.
+func ParseTimeoutCommand(input string) (float64, bool) {
+	parts := strings.Fields(input)
+	if len(parts) < 2 {
+		return 0, false // no arg → show current value
+	}
+	arg := strings.ToLower(strings.TrimSpace(parts[1]))
+	switch arg {
+	case "fast":
+		return 25.0, true
+	case "balanced":
+		return 60.0, true
+	case "deep":
+		return 120.0, true
+	case "local":
+		return 180.0, true
+	}
+	var secs float64
+	if _, err := fmt.Sscanf(arg, "%f", &secs); err != nil {
+		return 0, false
+	}
+	if secs < 10.0 || secs > 300.0 {
+		return 0, false
+	}
+	return secs, true
 }
 
 func getDefaultSlashCommands() []SlashCommand {
@@ -483,6 +513,41 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 			continue
 		}
 
+		if strings.HasPrefix(lower, "/timeout") {
+			secs, ok := ParseTimeoutCommand(input)
+			if !ok && len(strings.Fields(input)) < 2 {
+				current := cfg.Preferences.LLMTimeoutSecs
+				if current <= 0 {
+					current = 60.0
+				}
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorAccent).Render(
+					fmt.Sprintf(T("slash_timeout_current"), current),
+				))
+				continue
+			}
+			if !ok {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_timeout_invalid")))
+				continue
+			}
+			cfg.Preferences.LLMTimeoutSecs = secs
+			_ = config.SaveConfig(cfg)
+			profile := "custom"
+			switch secs {
+			case 25.0:
+				profile = "fast"
+			case 60.0:
+				profile = "balanced"
+			case 120.0:
+				profile = "deep"
+			case 180.0:
+				profile = "local"
+			}
+			fmt.Println(lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true).Render(
+				fmt.Sprintf(T("slash_timeout_set"), secs, profile),
+			))
+			continue
+		}
+
 		if lower == "/sessions" {
 			printSessions(appDB)
 			continue
@@ -651,13 +716,14 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 
 		wd, _ := os.Getwd()
 		runnerParams := ipc.RunnerParams{
-			PythonBin: pythonBin,
-			WorkDir:   wd,
-			DBPath:    cfg.Storage.DBPath,
-			Prompt:    prompt,
-			SessionID: sessionID,
-			Offline:   cfg.Preferences.OfflineMode,
-			Language:  cfg.Preferences.Language,
+			PythonBin:    pythonBin,
+			WorkDir:      wd,
+			DBPath:       cfg.Storage.DBPath,
+			Prompt:       prompt,
+			SessionID:    sessionID,
+			Offline:      cfg.Preferences.OfflineMode,
+			Language:     cfg.Preferences.Language,
+			EnvOverrides: cfg.BuildSubprocessEnv(),
 		}
 		eventsChan, errChan = ipc.RunSubprocess(ctx, runnerParams)
 	}
@@ -744,7 +810,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				lastThought = ev.Thought
 				fmt.Print("\r\033[K")
 				fmt.Printf("💭 %s\n", thoughtStyle.Render(ev.Thought))
-				vMsg := strings.TrimPrefix(TF("thinking_verify", modelLabel), "  ⠋ ")
+				vMsg := strings.TrimPrefix(TF("thinking_synthesize", modelLabel), "  ⠋ ")
 				statusText.Store(vMsg)
 
 			case ipc.EventAgentToolCall:
@@ -753,8 +819,12 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				if ev.Args != nil {
 					argsJSON = fmt.Sprintf(" %v", ev.Args)
 				}
-				fmt.Printf("⚡ %s%s\n", toolCallStyle.Render("[TOOL CALL: "+ev.Tool+"]"), argsJSON)
-				tMsg := strings.TrimPrefix(TF("tool_executing", ev.Tool), "  ⠋ ")
+				toolName := ev.Tool
+				if toolName == "search_osint" {
+					toolName = "search_news"
+				}
+				fmt.Printf("⚡ %s%s\n", toolCallStyle.Render("[TOOL CALL: "+toolName+"]"), argsJSON)
+				tMsg := strings.TrimPrefix(TF("tool_executing", toolName), "  ⠋ ")
 				statusText.Store(tMsg)
 
 			case ipc.EventAgentObservation:

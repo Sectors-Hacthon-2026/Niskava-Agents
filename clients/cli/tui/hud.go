@@ -4,6 +4,7 @@ package tui
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -12,7 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Lipgloss Color Palette for NISKAVA-HUD (Binance Dark Financial OSINT Aesthetic)
+// Lipgloss Color Palette for NISKAVA-HUD (Binance Dark Financial Intelligence Aesthetic)
 var (
 	// Palette Aliases for HUD
 	hudTitleStyle = lipgloss.NewStyle().
@@ -182,7 +183,7 @@ func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 	return b.String()
 }
 
-// PrintHealthDiagnostics renders the system health check screen with the Binance Dark OSINT palette and HUD ASCII header.
+// PrintHealthDiagnostics renders the system health check screen with the Binance Dark Financial Intelligence palette and HUD ASCII header.
 func PrintHealthDiagnostics(cfg *config.Config, serverURL string) {
 	if cfg == nil {
 		return
@@ -229,31 +230,57 @@ func PrintHealthDiagnostics(cfg *config.Config, serverURL string) {
 		lblStyle.Render("Database Path   "),
 		valStyle.Render(cfg.Storage.DBPath))
 
-	fmt.Printf("• %s: %s\n",
+	pyBin := cfg.Engine.PythonBin
+	if pyBin == "" {
+		pyBin = "python3"
+	}
+	pyStatus := statusAliveStyle.Render("[READY]")
+	if _, err := os.Stat(pyBin); err != nil {
+		if _, lookErr := exec.LookPath(pyBin); lookErr != nil {
+			pyStatus = statusErrStyle.Render("[NOT FOUND]")
+		}
+	}
+	fmt.Printf("• %s: %s %s\n",
 		lblStyle.Render("Python Engine   "),
-		valStyle.Render(cfg.Engine.PythonBin))
+		valStyle.Render(pyBin),
+		pyStatus)
 
 	secKeyText := statusAliveStyle.Render(T("health_installed"))
 	if cfg.Auth.SectorsAPIKey == "" {
-		secKeyText = statusErrStyle.Render(T("health_not_installed"))
+		if cfg.Preferences.OfflineMode {
+			secKeyText = statusAliveStyle.Render("[MOCK MODE (OFFLINE)]")
+		} else {
+			secKeyText = statusErrStyle.Render(T("health_not_installed"))
+		}
 	}
 	fmt.Printf("• %s: %s\n",
 		lblStyle.Render("Sectors API Key "),
 		secKeyText)
 
+	prov := cfg.Auth.AIProvider
+	if prov == "" {
+		prov = "universal"
+	}
 	activeModel := cfg.Auth.OpenAIModel
-	if activeModel == "" {
+	if strings.ToLower(prov) == "gemini" && cfg.Auth.GeminiModel != "" {
+		activeModel = cfg.Auth.GeminiModel
+	} else if activeModel == "" {
 		if cfg.Auth.GeminiModel != "" {
 			activeModel = cfg.Auth.GeminiModel
 		} else {
-			activeModel = "hermes"
+			activeModel = "deepseek/deepseek-chat"
 		}
 	}
+
 	baseURL := cfg.Auth.OpenAIBaseURL
 	if baseURL == "" {
-		baseURL = "Universal ReAct Standard"
+		if strings.ToLower(prov) == "gemini" {
+			baseURL = "https://generativelanguage.googleapis.com"
+		} else {
+			baseURL = "Universal ReAct Standard"
+		}
 	}
-	hasModelKey := cfg.Auth.OpenAIAPIKey != "" || cfg.Auth.GeminiAPIKey != ""
+	hasModelKey := cfg.Auth.OpenAIAPIKey != "" || cfg.Auth.GeminiAPIKey != "" || strings.Contains(baseURL, "localhost") || strings.Contains(baseURL, "127.0.0.1")
 	modelKeyText := statusAliveStyle.Render(T("health_installed"))
 	if !hasModelKey {
 		modelKeyText = statusErrStyle.Render(T("health_not_installed"))
@@ -261,8 +288,8 @@ func PrintHealthDiagnostics(cfg *config.Config, serverURL string) {
 
 	fmt.Printf("• %s: %s %s\n",
 		lblStyle.Render("Inference Engine"),
-		valStyle.Render(fmt.Sprintf("Universal ReAct (%s)", baseURL)),
-		statusAliveStyle.Render("[ALIVE]"))
+		valStyle.Render(fmt.Sprintf("%s (%s)", strings.ToUpper(prov), baseURL)),
+		statusAliveStyle.Render("[CONFIGURED]"))
 
 	fmt.Printf("• %s: %s\n",
 		lblStyle.Render("Active Model    "),
@@ -275,7 +302,7 @@ func PrintHealthDiagnostics(cfg *config.Config, serverURL string) {
 	fmt.Println(dividerStyle.Render("─────────────────────────────────────────────────────────────────────────────"))
 }
 
-// PrintWebWorkspaceLaunchScreen renders a styled, rich Web Workspace launcher card using the Binance Dark OSINT palette.
+// PrintWebWorkspaceLaunchScreen renders a styled, rich Web Workspace launcher card using the Binance Dark Financial Intelligence palette.
 func PrintWebWorkspaceLaunchScreen(serverURL string) {
 	if serverURL == "" {
 		serverURL = "http://localhost:8080"
@@ -314,7 +341,7 @@ func PrintWebWorkspaceLaunchScreen(serverURL string) {
 		Foreground(ColorMuted)
 
 	var b strings.Builder
-	b.WriteString(headerStyle.Render("🌐 NISKAVA WEB WORKSPACE (VISUAL CYBER-OSINT CANVAS)") + "\n\n")
+	b.WriteString(headerStyle.Render("🌐 NISKAVA WEB WORKSPACE (VISUAL MARKET INTELLIGENCE CANVAS)") + "\n\n")
 	b.WriteString(fmt.Sprintf("• %s : %s %s\n", lblStyle.Render("Local Server Status"), statusStyle.Render("[ONLINE]"), mutedStyle.Render("(Go SSE Gateway + React SPA)")))
 	b.WriteString(fmt.Sprintf("• %s : %s\n", lblStyle.Render("Browser Access URL "), urlStyle.Render(serverURL)))
 	b.WriteString(fmt.Sprintf("• %s : %s\n", lblStyle.Render("Canvas Features    "), valStyle.Render("TradingView Anomaly Markers, ReAct SSE Stream, Evidence Matrix")))

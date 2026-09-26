@@ -40,16 +40,16 @@ Niskava Agent combines the low-latency systems capabilities of Go, the scientifi
 │  - Volume Z-Scores, Abnormal Returns, Sector Divergence         │
 │  - Foreign Inflow Z-Scores, Altman Z-Score Ratios               │
 │                                                                 │
-│  [Layer 1: MCP & OSINT Data Primitives]                         │
+│  [Layer 1: MCP & News Data Primitives]                         │
 │  - Sectors Financial API v2 MCP Server Adapter                  │
-│  - Dual-Engine Targeted OSINT (Sectors News + Google RSS Dorks) │
+│  - Dual-Engine Targeted News Harvest (Sectors News + Google RSS Dorks) │
 │  - Content Extraction & HTML Sanitization via Trafilatura       │
 └────────────────────────────────┬────────────────────────────────┘
                                  │
                                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                   REACT SPA WEB WORKSPACE                       │
-│  - Terminal / Cyber-OSINT Design Language                       │
+│  - Terminal / Market Intelligence Design Language                       │
 │  - Interactive Candlestick Charts & Anomaly Overlays            │
 │  - Real-Time Thinking Stream via Server-Sent Events (SSE)       │
 │  - Interactive Evidence Matrix & Causality Timeline Graph       │
@@ -111,7 +111,7 @@ Whenever a ticker investigation is initiated (e.g., `niskava investigate ANTM --
 [4. GAP_DETECTION]                                │
        │                                          │
        ▼                                          │
-[5. OSINT_HARVEST]                                │
+[5. NEWS_HARVEST]                                │
        │                                          │
        ▼                                          │
 [6. EVIDENCE_CORRELATION] ◀───────────────────────┘
@@ -142,7 +142,7 @@ Whenever a ticker investigation is initiated (e.g., `niskava investigate ANTM --
    - Formulates targeted temporal investigation hypotheses centered tightly around the anomaly window: $T_{\text{anomaly}} \pm 2\text{ days}$.
    - Generates structured search dork queries combining the company name, ticker, and exchange-specific disclosure terminology.
 
-5. **Stage 5: OSINT_HARVEST**
+5. **Stage 5: NEWS_HARVEST**
    - Executes parallel Dual-Engine intelligence harvesting:
      - **Curated News:** Fetches categorized market news from Sectors v2 Unified News API (`/v2/news/`).
      - **Targeted Media Dorking:** Queries Google News RSS with boolean operators for major Indonesian financial media (Kontan, Bisnis Indonesia, CNBC Indonesia, Investor Daily, IDXnet disclosures).
@@ -213,7 +213,7 @@ Where $F_t$ represents the Net Foreign Flow (in IDR) on trading session $t$.
 
 | Condition $V_z$ | Condition $|R_t|$ | Condition $|D_t|$ | Classification | Engine Action |
 |:---:|:---:|:---:|:---|:---|
-| $\ge 2.5$ | $\ge 5.0\%$ | $\ge 4.0\%$ | `IDIOSYNCRATIC_CATALYST` | Triggers high-priority `event_causality_audit` OSINT investigation. |
+| $\ge 2.5$ | $\ge 5.0\%$ | $\ge 4.0\%$ | `IDIOSYNCRATIC_CATALYST` | Triggers high-priority `event_causality_audit` news investigation. |
 | $\ge 2.5$ | $< 5.0\%$ | Any | `VOLUME_ACCUMULATION` | Activates `insider_bandarmology_forensic` for foreign/domestic flow tracking. |
 | $< 2.5$ | $\ge 5.0\%$ | $< 4.0\%$ | `SECTOR_BETA_RALLY` | Attributes movement to broader sector macro trends; suppresses false-alarm company alarms. |
 | $< 2.5$ | $< 5.0\%$ | Any | `NORMAL_VARIANCE` | Routes to fundamental health and valuation baseline screening. |
@@ -253,3 +253,31 @@ To prevent subjective continuous probability scores (e.g. 0.50), Niskava enforce
 | **`0.75`** | **Reasonable Inference** | Plausible catalyst from industry-wide trends corroborated by matching sector divergence metrics. |
 | **`0.65`** | **Weak Inference** | Unverified market commentary, social media sentiment, or unconfirmed financial forum discussions. |
 | **`0.55`** | **Speculative** | Distant co-occurrence without temporal causality or formal corroboration. |
+
+---
+
+## 7. Adaptive Inference Timeout Architecture
+
+To eliminate socket disconnects and premature timeout failures during complex multi-tool research turns without sacrificing responsiveness on simple prompts, Niskava employs an observation-aware **Adaptive Inference Timeout Engine**:
+
+### Mathematical Formula:
+$$\text{Timeout}_{\text{call}} = \min\Big(\text{Base Timeout} + \max(0, N_{\text{obs}}) \times 10.0\text{s},\; 4 \times \text{Base Timeout},\; 300.0\text{s}\Big)$$
+
+Where:
+- $\text{Base Timeout}$: Configured baseline (default `60.0s`, customizable via `NISKAVA_LLM_TIMEOUT`).
+- $N_{\text{obs}}$: Cumulative count of deterministic tool observations ingested during the current chat cycle.
+- **Soft Cap ($4 \times \text{Base}$)**: Prevents runaway execution during massive batch observations.
+- **Hard Cap ($300.0\text{s}$)**: Absolute upper limit guaranteeing system liveness.
+
+### Prompt Complexity Classification:
+Before tool execution begins, the agent classifies query intent deterministically:
+1. **Simple** ($\le 5$ iterations, timeout capped at $15\text{s}$): Identity queries, greetings, help commands.
+2. **General** ($\le 10$ iterations, timeout capped at $20\text{s}$): Macro reviews, sector overviews.
+3. **Deep** ($\le 30$ iterations, full adaptive timeout): Ticker investigations, forensic causality audits, peer stress tests.
+
+### Tri-Surface Synchronization:
+User preferences are synchronized bidirectionally across three interfaces:
+1. **Interactive Terminal Wizard (`niskava setup`)**: Configures predefined profiles (`Fast 25s`, `Balanced 60s`, `Deep 120s`, `Local LLM 180s`, or `Custom`).
+2. **Terminal REPL (`/timeout [val]`)**: Modifies session timeout and immediately persists to `~/.niskava/config.yaml`.
+3. **Web Workspace Canvas**: Interactive UI slider reading from `GET /api/settings` and updating via `PATCH /api/settings`.
+

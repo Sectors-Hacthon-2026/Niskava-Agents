@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -124,5 +125,104 @@ func TestExpandHome_CrossPlatform(t *testing.T) {
 		if got != tt.expected {
 			t.Errorf("ExpandHome(%q) = %q, want %q", tt.input, got, tt.expected)
 		}
+	}
+}
+
+func TestSaveConfigAndMaskedView(t *testing.T) {
+	origKey := os.Getenv("SECTORS_API_KEY")
+	_ = os.Unsetenv("SECTORS_API_KEY")
+	defer func() {
+		if origKey != "" {
+			_ = os.Setenv("SECTORS_API_KEY", origKey)
+		}
+	}()
+
+	tempDir := t.TempDir()
+	cfgPath := filepath.Join(tempDir, "config.yaml")
+
+	cfg := DefaultConfig()
+	cfg.Auth.SectorsAPIKey = "sec_test_key_12345"
+	cfg.Auth.GeminiAPIKey = "AIzaSyTestGeminiSecret"
+	cfg.Auth.AIProvider = "gemini"
+
+	if err := SaveConfig(cfg, cfgPath); err != nil {
+		t.Fatalf("failed to save config: %v", err)
+	}
+
+	loaded, err := LoadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("failed to reload config: %v", err)
+	}
+	if loaded.Auth.SectorsAPIKey != "sec_test_key_12345" {
+		t.Fatalf("expected saved key to match, got %s", loaded.Auth.SectorsAPIKey)
+	}
+
+	view := cfg.MaskedView()
+	if view.Auth.SectorsAPIKey == "sec_test_key_12345" {
+		t.Fatalf("SectorsAPIKey should be masked in view, got: %s", view.Auth.SectorsAPIKey)
+	}
+	if !strings.Contains(view.Auth.SectorsAPIKey, "****") {
+		t.Fatalf("expected mask pattern with ****, got: %s", view.Auth.SectorsAPIKey)
+	}
+}
+
+func TestSaveDotEnv_SSoT(t *testing.T) {
+	tempDir := t.TempDir()
+	envPath := filepath.Join(tempDir, ".env")
+
+	cfg := DefaultConfig()
+	cfg.Auth.AIProvider = "openai"
+	cfg.Auth.OpenAIBaseURL = "http://localhost:20128/v1"
+	cfg.Auth.OpenAIModel = "hermes"
+	cfg.Auth.OpenAIAPIKey = "sk-custom-test-123"
+
+	if err := SaveDotEnv(cfg, envPath); err != nil {
+		t.Fatalf("SaveDotEnv failed: %v", err)
+	}
+
+	content, err := os.ReadFile(envPath)
+	if err != nil {
+		t.Fatalf("failed to read written .env: %v", err)
+	}
+	strContent := string(content)
+
+	if !strings.Contains(strContent, "OPENAI_BASE_URL=http://localhost:20128/v1") {
+		t.Errorf("expected OPENAI_BASE_URL in .env, got:\n%s", strContent)
+	}
+	if !strings.Contains(strContent, "OPENAI_MODEL=hermes") {
+		t.Errorf("expected OPENAI_MODEL in .env, got:\n%s", strContent)
+	}
+	if !strings.Contains(strContent, "OPENAI_API_KEY=sk-custom-test-123") {
+		t.Errorf("expected OPENAI_API_KEY in .env, got:\n%s", strContent)
+	}
+}
+
+func TestLLMTimeoutSecsDefaultAndForwarding(t *testing.T) {
+	cfg := DefaultConfig()
+	if cfg.Preferences.LLMTimeoutSecs != 60.0 {
+		t.Errorf("expected default LLMTimeoutSecs 60.0, got %v", cfg.Preferences.LLMTimeoutSecs)
+	}
+	env := cfg.BuildSubprocessEnv()
+	if env["NISKAVA_LLM_TIMEOUT"] != "60.00" {
+		t.Errorf("expected NISKAVA_LLM_TIMEOUT=60.00, got %q", env["NISKAVA_LLM_TIMEOUT"])
+	}
+	cfg.Preferences.LLMTimeoutSecs = 120.0
+	env2 := cfg.BuildSubprocessEnv()
+	if env2["NISKAVA_LLM_TIMEOUT"] != "120.00" {
+		t.Errorf("expected NISKAVA_LLM_TIMEOUT=120.00, got %q", env2["NISKAVA_LLM_TIMEOUT"])
+	}
+}
+
+func TestLLMTimeoutSecsClamp(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Preferences.LLMTimeoutSecs = 5.0
+	env := cfg.BuildSubprocessEnv()
+	if env["NISKAVA_LLM_TIMEOUT"] != "10.00" {
+		t.Errorf("expected clamped to 10.00, got %q", env["NISKAVA_LLM_TIMEOUT"])
+	}
+	cfg.Preferences.LLMTimeoutSecs = 999.0
+	env2 := cfg.BuildSubprocessEnv()
+	if env2["NISKAVA_LLM_TIMEOUT"] != "300.00" {
+		t.Errorf("expected clamped to 300.00, got %q", env2["NISKAVA_LLM_TIMEOUT"])
 	}
 }

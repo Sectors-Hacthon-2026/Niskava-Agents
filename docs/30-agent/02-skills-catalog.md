@@ -20,7 +20,7 @@ version: string                  # Semantic versioning (e.g. 1.2.0)
 description: string              # Deskripsi kapabilitas untuk routing oleh ReAct Agent
 trigger_conditions: list[string] # Kondisi pemicu aktivasi skill
 prerequisites:                   # Ketergantungan primitive tools
-  mcp_tools: list[string]        # Tool MCP Sectors / OSINT yang wajib tersedia
+  mcp_tools: list[string]        # Tool MCP Sectors / News yang wajib tersedia
   data_requirements: list[string]# Minimum rentang data yang dibutuhkan
 deterministic_gate:              # Firewall matematika NumPy (Law 1)
   metrics: list[string]          # Formula metrik yang dihitung deterministik
@@ -96,14 +96,14 @@ verification_mapping: dict       # Pemetaan ke Three-Tier Verification Taxonomy
 * **Prerequisites (MCP Tools)**:
   * `sectors_get_suspensions` (`/v2/suspensions/`)
   * `sectors_get_corporate_actions` (`/v2/corporate-actions/{symbol}/`)
-  * `osint_harvest_dual_engine` (Sectors `/v2/news/` + Google News RSS)
+  * `harvest_market_news` (Sectors `/v2/news/`)
 * **Deterministic Gate**:
   * Jendela waktu pencarian wajib dibatasi ketat: $[T_{\text{anomaly}} - 2\text{ hari}, T_{\text{anomaly}} + 1\text{ hari}]$.
   * Pencarian di luar jendela waktu ditolak untuk mencegah *temporal causality inversion*.
 * **Execution Protocol (SOP)**:
   1. Periksa catatan suspensi resmi dan surat pengumuman BEI via `/v2/suspensions/`. Ambil tautan dokumen PDF resmi.
   2. Periksa jadwal aksi korporasi (RUPS, cum-date dividen, rights issue).
-  3. Jalankan pencarian bertarget via Dual-Engine OSINT, ekstraksi teks berita via `trafilatura`, dan isolasi kutipan di tag `<evidence_context>`.
+  3. Jalankan penarikan berita & keterbukaan informasi via Sectors News Engine, ekstraksi teks berita via `trafilatura` jika diperlukan, dan isolasi kutipan di tag `<evidence_context>`.
   4. Lakukan evaluasi urutan stempel waktu (*temporal precedence*):
      * Waktu rilis berita mendahului lonjakan volume $\to$ `LIKELY_CATALYST`.
      * Lonjakan volume mendahului rilis berita $\to$ `PRECEDED_ANNOUNCEMENT` (dugaan kebocoran informasi).
@@ -267,7 +267,7 @@ Agen ReAct [`engine/agent/react_agent.py`](../../engine/agent/react_agent.py) ti
    - "Apakah rumor gagal bayar benar?" ──▶ [financial-health-stress-test]
       │
 3. EXECUTION: Agen mengeksekusi SOP Skill:
-   - Memanggil MCP Tools (Sectors & OSINT Primitives)
+   - Memanggil MCP Tools (Sectors & News Primitives)
    - Melewatkan data melalui Deterministic Compute Gate
       │
 4. EVIDENCE HARVEST: Output schema terstruktur disimpan ke SQLite (`findings` & `anomalies`).

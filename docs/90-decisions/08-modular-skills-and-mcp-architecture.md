@@ -35,7 +35,7 @@ Layer 3: Modular Domain Skills (Standardized SOP: market-anomaly, causality, ins
 Layer 2: Deterministic Compute Gate (NumPy Z-Score, Moving Average, Correlation)
    │
    ▼ (Protokol Alat Standar)
-Layer 1: MCP & OSINT Primitives (Sectors MCP Server + Dual-Engine OSINT Tools)
+Layer 1: Sectors MCP & News Engine Primitives (Sectors MCP Server + News Engine Tools)
 ```
 
 ### Karakteristik Desain:

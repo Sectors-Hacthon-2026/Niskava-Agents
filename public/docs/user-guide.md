@@ -78,19 +78,40 @@ During tool execution, Sectors API queries, and web harvesting, an animated Brai
 ⠋ [hermes] Running market anomaly reconnaissance on ANTM...
 ```
 
+### Natural Language Prompt-Driven Research
+The REPL is powered by an autonomous Hermes-style ReAct loop with progressive skill disclosure. You do not need to memorize rigid syntax—simply ask questions in plain Indonesian or English:
+- *"Analisis saham BBCA: apakah foreign flow 5 hari terakhir searah dengan IHSG?"*
+- *"Mengapa saham BUMI mengalami lonjakan volume kemarin? Cek keterbukaan informasi IDX."*
+- *"Bandingkan valuasi perbankan big-4 (BBCA, BBRI, BMRI, BBNI) dengan Altman Z-Score."*
+
 ### Autocomplete Slash Commands
-Type `/` to open the slash command popup menu:
+Type `/` in the prompt input to open the interactive autocomplete popup:
 
 | Command | Category | Description | Example |
 |---|---|---|---|
-| `/investigate <TICKER>` | `[INTEL]` | Executes a full 7-stage investigation on an IDX ticker. | `/investigate ANTM` |
-| `/screen <CRITERIA>` | `[INTEL]` | Screens for stocks matching volume surge or return anomalies. | `/screen volume_surge` |
-| `/health <TICKER>` | `[INTEL]` | Evaluates solvency ratios and calculates the Altman Z-Score. | `/health BBCA` |
-| `/memory` | `[NAV]` | Displays the current session's associative ego-graph. | `/memory` |
-| `/lang <en\|id>` | `[NAV]` | Switches interface and response language dynamically. | `/lang en` |
-| `/clear` | `[SYSTEM]` | Clears the terminal output screen. | `/clear` |
-| `/help` | `[SYSTEM]` | Displays command assistance and usage documentation. | `/help` |
-| `/exit` or `/back` | `[SYSTEM]` | Exits the REPL and returns to the Main HUD Launcher. | `/exit` |
+| `/help` | `[SYSTEM]` | Displays available keyboard shortcuts and slash commands. | `/help` |
+| `/chats` | `[NAV]` | Opens interactive Bubbletea session selector to browse & switch chats. | `/chats` |
+| `/resume <ID>` | `[INTEL]` | Resumes a specific chat session by its unique ID. | `/resume CHAT-20260925-0001` |
+| `/timeout [val]` | `[SYSTEM]` | Sets LLM inference timeout (`fast`, `balanced`, `deep`, `local`, or seconds `10-300`). | `/timeout balanced` |
+| `/graph` | `[INTEL]` | Opens the associative knowledge graph visualization directly in browser. | `/graph` |
+| `/web` | `[NAV]` | Launches/opens the Web Workspace canvas in your default browser. | `/web` |
+| `/sessions` | `[INTEL]` | Displays recent investigation and chat sessions stored in local SQLite. | `/sessions` |
+| `/health` | `[SYSTEM]` | Prints daemon status, database connection, and AI provider latency check. | `/health` |
+| `/lang [en\|id]` | `[SYSTEM]` | Switches interface and response language (`en` or `id`). | `/lang id` |
+| `/reset` | `[SYSTEM]` | Resets working memory graph for the current session and starts fresh. | `/reset` |
+| `/clear` | `[SYSTEM]` | Clears the terminal screen and redraws the banner. | `/clear` |
+| `/back` or `/exit` | `[NAV]` | Returns cleanly to the Main HUD Launcher menu. | `/back` |
+
+---
+
+### Inference Timeout Configuration
+Niskava features an **Adaptive Inference Timeout Engine** that automatically scales LLM reasoning time based on how many tool observations have been collected:
+$$\text{Timeout} = \text{Base Timeout} + (\text{Tool Observations} \times 10\text{ seconds})$$
+
+You can customize the base timeout across three convenient interfaces:
+1. **Interactive Setup Wizard**: Run `niskava setup` and choose Step 5 (Fast 25s, Balanced 60s, Deep 120s, Local 180s, Custom).
+2. **Interactive REPL**: Use `/timeout fast`, `/timeout balanced`, `/timeout deep`, `/timeout local`, or `/timeout 90`.
+3. **Web Workspace Settings**: Open the Settings modal and adjust the **Inference Timeout** slider (10s – 300s). Changes are synchronized immediately.
 
 ---
 
@@ -208,7 +229,7 @@ Add Niskava to your Claude Desktop configuration file:
   - `compute_quant_anomalies`: Calculates Volume Z-scores, abnormal returns, and sector divergence.
   - `get_sectors_daily`: Retrieves cached daily candlestick time-series data.
   - `get_sectors_company_report`: Fetches comprehensive company profiles and financial metrics.
-  - `harvest_targeted_osint`: Executes temporal-aware news and regulatory filing dorking.
+  - `harvest_market_news`: Executes temporal-aware news and regulatory filing dorking.
   - `query_graph_memory`: Queries local associative memory nodes and relationships.
 - **Resources**: System cache statistics and local database health.
 - **Prompts**: Standardized multi-step investigative research workflows.

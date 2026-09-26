@@ -99,7 +99,7 @@ func (s *BotService) authMiddleware() telebot.MiddlewareFunc {
 func (s *BotService) handleStart(c telebot.Context) error {
 	welcomeMsg := `🔍 *Niskava Agent — IDX Autonomous Financial Intelligence*
 
-Selamat datang! Niskava Agent adalah platform intelijen dan OSINT pasar modal otonom khusus Bursa Efek Indonesia (IDX). Sistem menjembatani fakta kuantitatif Sectors Financial API v2 dengan bukti keterbukaan informasi dan berita emiten.
+Selamat datang! Niskava Agent adalah platform intelijen dan riset pasar modal otonom khusus Bursa Efek Indonesia (IDX). Sistem menjembatani fakta kuantitatif Sectors Financial API v2 dengan bukti keterbukaan informasi dan berita emiten.
 
 *Perintah Tersedia:*
 • /start atau /help — Menampilkan panduan dan bantuan penggunaan bot
@@ -240,7 +240,7 @@ func formatExportDocument(sessionID, model string, history []db.ChatMessage) str
 	sb.WriteString(fmt.Sprintf("- **Waktu Ekspor:** %s\n\n", time.Now().UTC().Format(time.RFC3339)))
 
 	sb.WriteString("> **Pemberitahuan Kepatuhan (Law 2 — Non-Advisory Boundary):**\n")
-	sb.WriteString("> Niskava Agent adalah platform intelijen dan OSINT pasar modal otonom IDX, BUKAN penasihat investasi atau broker terdaftar. Seluruh data, analisis anomali, dan korelasi bukti disajikan secara independen semata-mata untuk verifikasi fakta dan riset pasar modal. Tidak ada bagian dari laporan ini yang merupakan rekomendasi beli/jual atau nasihat investasi keuangan berlisensi.\n\n")
+	sb.WriteString("> Niskava Agent adalah platform intelijen dan riset pasar modal otonom IDX, BUKAN penasihat investasi atau broker terdaftar. Seluruh data, analisis anomali, dan korelasi bukti disajikan secara independen semata-mata untuk verifikasi fakta dan riset pasar modal. Tidak ada bagian dari laporan ini yang merupakan rekomendasi beli/jual atau nasihat investasi keuangan berlisensi.\n\n")
 	sb.WriteString("---\n\n")
 	sb.WriteString("## Riwayat Percakapan & Investigasi\n\n")
 
@@ -432,6 +432,7 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 	lang := "id"
 	var offline bool
 	var pythonBin, enginePath string
+	envOverrides := make(map[string]string)
 	if s.cfg != nil {
 		if s.cfg.Preferences.Language != "" {
 			lang = s.cfg.Preferences.Language
@@ -439,17 +440,61 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 		offline = s.cfg.Preferences.OfflineMode
 		pythonBin = s.cfg.Engine.PythonBin
 		enginePath = s.cfg.Engine.EnginePath
+
+		if s.cfg.Auth.AIProvider != "" {
+			envOverrides["AI_PROVIDER"] = s.cfg.Auth.AIProvider
+		}
+		if s.cfg.Auth.SectorsAPIKey != "" {
+			envOverrides["SECTORS_API_KEY"] = s.cfg.Auth.SectorsAPIKey
+		}
+		if s.cfg.Auth.SectorsBaseURL != "" {
+			envOverrides["SECTORS_BASE_URL"] = s.cfg.Auth.SectorsBaseURL
+		}
+		if s.cfg.Auth.GeminiAPIKey != "" {
+			envOverrides["GEMINI_API_KEY"] = s.cfg.Auth.GeminiAPIKey
+		}
+		if s.cfg.Auth.GeminiModel != "" {
+			envOverrides["GEMINI_MODEL"] = s.cfg.Auth.GeminiModel
+		}
+		if s.cfg.Auth.OpenAIAPIKey != "" {
+			envOverrides["OPENAI_API_KEY"] = s.cfg.Auth.OpenAIAPIKey
+		}
+		if s.cfg.Auth.OpenAIBaseURL != "" {
+			envOverrides["OPENAI_BASE_URL"] = s.cfg.Auth.OpenAIBaseURL
+		}
+		if s.cfg.Auth.OpenAIModel != "" {
+			envOverrides["OPENAI_MODEL"] = s.cfg.Auth.OpenAIModel
+		}
+		if s.cfg.Auth.AnthropicAPIKey != "" {
+			envOverrides["ANTHROPIC_API_KEY"] = s.cfg.Auth.AnthropicAPIKey
+		}
+		if s.cfg.Auth.OllamaBaseURL != "" {
+			envOverrides["OLLAMA_BASE_URL"] = s.cfg.Auth.OllamaBaseURL
+		}
+		if s.cfg.Auth.OllamaModel != "" {
+			envOverrides["OLLAMA_MODEL"] = s.cfg.Auth.OllamaModel
+		}
+		if s.cfg.Preferences.Language != "" {
+			envOverrides["NISKAVA_LANG"] = s.cfg.Preferences.Language
+		}
+		if s.cfg.Preferences.OfflineMode {
+			envOverrides["NISKAVA_OFFLINE"] = "1"
+		}
+		if s.cfg.Preferences.DefaultMarket != "" {
+			envOverrides["DEFAULT_MARKET"] = s.cfg.Preferences.DefaultMarket
+		}
 	}
 
 	runnerParams := ipc.RunnerParams{
-		PythonBin:  pythonBin,
-		EnginePath: enginePath,
-		WorkDir:    wd,
-		DBPath:     s.db.Path,
-		SessionID:  sessionID,
-		Prompt:     prompt,
-		Offline:    offline,
-		Language:   lang,
+		PythonBin:    pythonBin,
+		EnginePath:   enginePath,
+		WorkDir:      wd,
+		DBPath:       s.db.Path,
+		SessionID:    sessionID,
+		Prompt:       prompt,
+		Offline:      offline,
+		Language:     lang,
+		EnvOverrides: envOverrides,
 	}
 
 	eventsChan, errChan := ipc.RunConversationStream(childCtx, runnerParams)

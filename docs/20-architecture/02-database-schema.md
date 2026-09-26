@@ -232,10 +232,10 @@ CREATE TABLE IF NOT EXISTS sectors_cache (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Cache Data OSINT & Web Intelligence (07-resilient-dual-engine-osint-architecture)
-CREATE TABLE IF NOT EXISTS osint_cache (
+-- Cache Data Berita & Dokumen Bukti (Sectors News Engine)
+CREATE TABLE IF NOT EXISTS news_cache (
     cache_key TEXT PRIMARY KEY,                -- Hash sha256 dari query / URL
-    source_type TEXT NOT NULL,                 -- 'GOOGLE_NEWS_RSS', 'WEB_ARTICLE'
+    source_type TEXT NOT NULL,                 -- 'SECTORS_NEWS', 'OFFICIAL_DISCLOSURE', 'WEB_ARTICLE'
     query_or_url TEXT NOT NULL,
     content_text TEXT NOT NULL,
     metadata_json TEXT,
@@ -279,7 +279,7 @@ CREATE INDEX IF NOT EXISTS idx_timeline_investigation ON timeline_events(investi
 CREATE INDEX IF NOT EXISTS idx_suspensions_symbol ON suspension_records(symbol, suspension_date DESC);
 CREATE INDEX IF NOT EXISTS idx_insider_filings_symbol ON insider_filings(symbol, transaction_date DESC);
 CREATE INDEX IF NOT EXISTS idx_sectors_cache_endpoint ON sectors_cache(endpoint);
-CREATE INDEX IF NOT EXISTS idx_osint_cache_type ON osint_cache(source_type);
+CREATE INDEX IF NOT EXISTS idx_news_cache_type ON news_cache(source_type);
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_parent ON chat_sessions(parent_session_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);

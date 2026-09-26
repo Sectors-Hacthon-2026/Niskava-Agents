@@ -27,7 +27,7 @@ var mcpCmd = &cobra.Command{
 
 Exposes:
 - Sectors Financial API v2 Market Data Primitives
-- Dual-Engine OSINT Harvester & Trafilatura Content Sanitizer
+- Sectors News Engine & Trafilatura Content Sanitizer
 - Deterministic Quantitative Math Calculations (NumPy Firewall)
 - Local Associative Graph Memory Context & Storage
 - MCP Resources (System status, cache metrics)

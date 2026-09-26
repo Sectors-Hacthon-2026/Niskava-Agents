@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"path/filepath"
 	"testing"
 	"time"
@@ -490,7 +491,7 @@ func TestAllSpecificationTablesCreated(t *testing.T) {
 		"investigations", "anomalies", "findings", "evidence_items",
 		"timeline_events", "sectors_cache", "memory_nodes", "memory_edges",
 		"chat_sessions", "chat_messages", "suspension_records", "insider_filings",
-		"osint_cache", "telegram_chats",
+		"news_cache", "telegram_chats",
 	}
 
 	for _, tbl := range expectedTables {
@@ -567,5 +568,176 @@ func TestTelegramChatSessionOperations(t *testing.T) {
 	}
 	if chatRecordAfterReset.CurrentSessionID != sessID3 {
 		t.Errorf("expected current session ID %s, got %s", sessID3, chatRecordAfterReset.CurrentSessionID)
+	}
+}
+
+func TestFilteredMemoryGraphAndStats(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_graph_filter.db")
+
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	// Insert test nodes
+	nodes := []MemoryNode{
+		{ID: "node:ANTM", Label: "ANTM", NodeType: "TICKER", LastObservedAt: time.Now().Format(time.RFC3339)},
+		{ID: "node:NICKEL", Label: "Nickel Commodity", NodeType: "CATALYST", LastObservedAt: time.Now().Format(time.RFC3339)},
+		{ID: "node:INCO", Label: "INCO", NodeType: "TICKER", LastObservedAt: time.Now().Format(time.RFC3339)},
+	}
+	for _, n := range nodes {
+		if err := database.SaveMemoryNode(&n); err != nil {
+			t.Fatalf("failed to save node: %v", err)
+		}
+	}
+
+	// Insert test edges
+	sess1 := "sess-1"
+	sess2 := "sess-2"
+	edges := []MemoryEdge{
+		{SourceID: "node:ANTM", TargetID: "node:NICKEL", Relation: "EXPOSED_TO", Weight: 2.5, SessionID: &sess1, LastObservedAt: time.Now().Format(time.RFC3339)},
+		{SourceID: "node:INCO", TargetID: "node:NICKEL", Relation: "EXPOSED_TO", Weight: 1.0, SessionID: &sess2, LastObservedAt: time.Now().Format(time.RFC3339)},
+	}
+	for _, e := range edges {
+		if err := database.SaveMemoryEdge(&e); err != nil {
+			t.Fatalf("failed to save edge: %v", err)
+		}
+	}
+
+	// 1. Filter by ticker / ego network
+	fNodes, fEdges, err := database.GetFilteredMemoryGraph(MemoryGraphFilter{
+		Ticker: "ANTM",
+		Depth:  1,
+	})
+	if err != nil {
+		t.Fatalf("GetFilteredMemoryGraph failed: %v", err)
+	}
+	if len(fNodes) != 2 {
+		t.Fatalf("expected 2 nodes in ANTM ego graph, got %d", len(fNodes))
+	}
+	if len(fEdges) != 1 {
+		t.Fatalf("expected 1 edge in ANTM ego graph, got %d", len(fEdges))
+	}
+
+	// 2. Stats
+	stats, err := database.GetMemoryGraphStats()
+	if err != nil {
+		t.Fatalf("GetMemoryGraphStats failed: %v", err)
+	}
+	if stats.TotalNodes != 3 || stats.TotalEdges != 2 {
+		t.Fatalf("expected 3 nodes and 2 edges in stats, got %d nodes and %d edges", stats.TotalNodes, stats.TotalEdges)
+	}
+	if stats.NodeTypes["TICKER"] != 2 || stats.NodeTypes["CATALYST"] != 1 {
+		t.Fatalf("unexpected node type breakdown: %+v", stats.NodeTypes)
+	}
+}
+
+func TestSectorsCacheStatsAndClean(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_cache_stats.db")
+
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	// Insert permanent cache
+	err = database.SetSectorsCache("key1", "/v2/daily/BBCA", `{"ok":true}`, nil)
+	if err != nil {
+		t.Fatalf("SetSectorsCache failed: %v", err)
+	}
+
+	// Insert expired cache
+	past := time.Now().Add(-2 * time.Hour)
+	err = database.SetSectorsCache("key2", "/v2/company/BBCA", `{"ok":true}`, &past)
+	if err != nil {
+		t.Fatalf("SetSectorsCache failed: %v", err)
+	}
+
+	stats, err := database.GetSectorsCacheStats()
+	if err != nil {
+		t.Fatalf("GetSectorsCacheStats failed: %v", err)
+	}
+	if stats.TotalEntries != 2 || stats.ExpiredEntries != 1 || stats.PermanentEntries != 1 {
+		t.Fatalf("unexpected stats: %+v", stats)
+	}
+
+	cleaned, err := database.CleanExpiredCache()
+	if err != nil {
+		t.Fatalf("CleanExpiredCache failed: %v", err)
+	}
+	if cleaned != 1 {
+		t.Fatalf("expected 1 cleaned item, got %d", cleaned)
+	}
+}
+
+func TestLegacyOSINTCacheMigration(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "migration_test.db")
+
+	// First create legacy database with osint_cache table
+	rawConn, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("failed to open raw sqlite: %v", err)
+	}
+	_, err = rawConn.Exec(`
+		CREATE TABLE osint_cache (
+			cache_key TEXT PRIMARY KEY,
+			source_type TEXT NOT NULL,
+			query_or_url TEXT NOT NULL,
+			content_text TEXT NOT NULL,
+			metadata_json TEXT,
+			expires_at TEXT,
+			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+		INSERT INTO osint_cache (cache_key, source_type, query_or_url, content_text)
+		VALUES ('test_key', 'news', 'https://example.com', 'test content');
+	`)
+	if err != nil {
+		t.Fatalf("failed to seed legacy table: %v", err)
+	}
+	rawConn.Close()
+
+	// Now open using DB wrapper Open(), which triggers migration
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("Open failed on legacy database: %v", err)
+	}
+	defer database.Close()
+
+	// Verify news_cache exists and contains the migrated data
+	var count int
+	err = database.conn.QueryRow("SELECT count(*) FROM news_cache WHERE cache_key = 'test_key'").Scan(&count)
+	if err != nil {
+		t.Fatalf("query on news_cache failed: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("expected 1 row in news_cache, got %d", count)
+	}
+}
+
+func TestPruneMockTestData(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "prune_test.db")
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open test db: %v", err)
+	}
+	defer database.Close()
+
+	// Insert mock eval records
+	_, _ = database.conn.Exec("INSERT INTO memory_nodes (id, label, node_type, last_observed_at) VALUES ('mock:node1', 'Mock 1', 'TICKER', CURRENT_TIMESTAMP)")
+	_, _ = database.conn.Exec("INSERT INTO memory_nodes (id, label, node_type, last_observed_at) VALUES ('mock:node2', 'Mock 2', 'CATALYST_EVENT', CURRENT_TIMESTAMP)")
+	_, _ = database.conn.Exec("INSERT INTO memory_edges (source_id, target_id, relation, session_id, last_observed_at) VALUES ('mock:node1', 'mock:node2', 'RELATES', 'EVAL-TEST-01', CURRENT_TIMESTAMP)")
+
+	pruned, err := database.PruneMockTestData()
+	if err != nil {
+		t.Fatalf("PruneMockTestData failed: %v", err)
+	}
+	if pruned < 1 {
+		t.Errorf("Expected at least 1 pruned edge, got %d", pruned)
 	}
 }

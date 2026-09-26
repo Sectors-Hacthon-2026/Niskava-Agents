@@ -27,8 +27,8 @@ Sesuai aturan resmi kompetisi (Rule 05 & Rule 10), tim wajib menyerahkan dua for
 | Detik | Visual di Layar | Teks di Layar / Callout | Narasi Voiceover (Bahasa Indonesia / Subtitle EN) |
 |---|---|---|---|
 | **00:00 - 00:08** | Cuplikan tangkapan layar forum grup saham ritel penuh rumor panik ("Saham X digoreng! Ada kebocoran info!"). Layar berkedip merah. | **"Rumor atau Fakta?"** | *"Berapa kali Anda panik atau tertipu rumor saat saham tiba-tiba melonjak gila-gilaan di bursa?"* |
-| **00:08 - 00:18** | Transisi cepat ke terminal gelap Matrix/Cyber-OSINT. Perintah diketik: `niskava investigate ANTM`. Angka Z-Score volume melesat deterministik. | **"Hukum 1: Matematika Dulu, Baru Generatif"** | *"Jangan tanya chatbot biasa yang jago berhalusinasi. Perkenalkan Niskava Agent: platform OSINT dan intelijen pasar otonom pertama untuk Bursa Efek Indonesia."* |
-| **00:18 - 00:35** | Layar menampilkan HUD real-time. ReAct thinking steps bergulir: memanggil Sectors v2 API $\to$ NumPy Compute Gate $\to$ Dual-Engine OSINT Harvester. | **"7-Stage Autonomous Investigation"** | *"Dalam 5 detik, Niskava menarik data transaksi resmi Sectors API, menghitung Z-Score deterministik, memburu dokumen keterbukaan BEI, dan memvalidasi urutan waktu."* |
+| **00:08 - 00:18** | Transisi cepat ke terminal gelap Matrix/Market Intelligence. Perintah diketik: `niskava investigate ANTM`. Angka Z-Score volume melesat deterministik. | **"Hukum 1: Matematika Dulu, Baru Generatif"** | *"Jangan tanya chatbot biasa yang jago berhalusinasi. Perkenalkan Niskava Agent: platform intelijen pasar otonom pertama untuk Bursa Efek Indonesia."* |
+| **00:18 - 00:35** | Layar menampilkan HUD real-time. ReAct thinking steps bergulir: memanggil Sectors v2 API $\to$ NumPy Compute Gate $\to$ Sectors News & Disclosure Engine. | **"7-Stage Autonomous Investigation"** | *"Dalam 5 detik, Niskava menarik data transaksi resmi Sectors API, menghitung Z-Score deterministik, memburu dokumen keterbukaan BEI, dan memvalidasi urutan waktu."* |
 | **00:35 - 00:50** | Kamera beralih ke Web Workspace (`localhost:20128`). Tampil grafik candlestick dengan pin anomali merah dan kartu bukti hijau `[SUPPORTED]`. | **"Taksonomi Bukti 3-Tier"** | *"Hasilnya? Bukti terverifikasi, bukan tebak-tebakan. Rumor dibantah, fakta keterbukaan diuji, jejak audit tersimpan lokal."* |
 | **00:50 - 01:00** | Logo Niskava Agent menyala emas bersama logo Sectors Hackathon 2026. Teks slogan muncul. | **"Don't just answer questions. Investigate them."** | *"Niskava Agent. Jangan cuma menjawab pertanyaan. Selidiki faktanya. Coba gratis di GitHub kami sekarang!"* |
 
@@ -60,7 +60,7 @@ Sesuai aturan resmi kompetisi (Rule 05 & Rule 10), tim wajib menyerahkan dua for
   * Menyoroti 4-Layer Agentic Hierarchy dan 6 Hukum Arsitektur Niskava.
 * **Narasi Voiceover**:
   > *"Niskava bukan sekadar AI wrapper. Kami membangun arsitektur hybrid dengan 4-Layer Agentic Hierarchy yang ketat:*
-  > *Pertama, Layer Primitives: Kami mengekspos Sectors Financial API v2 sebagai Model Context Protocol (MCP) server lokal dan Dual-Engine OSINT harvester.*
+  > *Pertama, Layer Primitives: Kami mengekspos Sectors Financial API v2 sebagai Model Context Protocol (MCP) server lokal dan Sectors News Engine.*
   > *Kedua, Deterministic Compute Gate: Sesuai Hukum 1 kami, LLM dilarang keras menghitung matematika. Volume Z-Score, abnormal return, dan divergensi sektor dihitung deterministik via NumPy sebelum AI diikutsertakan.*
   > *Ketiga, 6 Domain Skills Registry: Prosedur analitik standar industri untuk audit kausalitas, bandarmologi, dan stress-test neraca.*
   > *Keempat, ReAct Cognitive Loop dengan Local Graph Memory di SQLite dan NetworkX untuk mengingat konteks emiten lintas sesi tanpa dependensi cloud berbayar."*
@@ -72,7 +72,7 @@ Sesuai aturan resmi kompetisi (Rule 05 & Rule 10), tim wajib menyerahkan dua for
 * **Visual**:
   * **Tampilan 1 (CLI TUI)**:
     1. Buka terminal: jalankan `niskava`.
-    2. Tampilkan HUD Cyber-OSINT dan tekan `L` untuk menunjukkan fitur i18n dwibahasa instan (EN/ID).
+    2. Tampilkan HUD Market Intelligence dan tekan `L` untuk menunjukkan fitur i18n dwibahasa instan (EN/ID).
     3. Masukkan prompt: *"Apakah ada anomali lonjakan volume pada saham ANTM dan apa penyebab faktualnya?"*
     4. Sorot terminal saat ReAct thinking steps mengalir secara real-time:
        - Memanggil skill `market-anomaly-recon` $\to$ Z-Score volume terdeteksi +3.84σ.
@@ -85,7 +85,7 @@ Sesuai aturan resmi kompetisi (Rule 05 & Rule 10), tim wajib menyerahkan dua for
 * **Narasi Voiceover**:
   > *"Mari kita lihat aksinya secara langsung. Di terminal, saya menjalankan `niskava`. Perhatikan antarmuka TUI kami yang responsif, dilengkapi dukungan multi-bahasa instan.*
   > *Saya menanyakan pergerakan anomali ANTM. Dalam hitungan detik, agen ReAct tidak langsung mengarang jawaban. Sistem memanggil skill deteksi kuantitatif kami, menemukan lonjakan volume 184,5 juta lembar atau 3,84 standar deviasi di atas rata-rata 20 hari.*
-  > *Agen kemudian secara otonom meluncurkan targeted OSINT ke pengumuman resmi BEI dalam jendela waktu anomali. Agen menemukan keterbukaan informasi peresmian smelter baru, mencocokkan stempel waktu publikasi yang mendahului lonjakan bursa, dan menetapkan status SUPPORTED dengan confidence score 0,95.*
+  > *Agen kemudian secara otonom meluncurkan penelusuran berita bursa dan pengumuman resmi BEI dalam jendela waktu anomali. Agen menemukan keterbukaan informasi peresmian smelter baru, mencocokkan stempel waktu publikasi yang mendahului lonjakan bursa, dan menetapkan status SUPPORTED dengan confidence score 0,95.*
   > *Di browser, seluruh hasil ini tersinkronisasi live via Server-Sent Events, lengkap dengan visualisasi knowledge graph memori lokal."*
 
 ---

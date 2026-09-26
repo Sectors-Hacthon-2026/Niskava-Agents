@@ -16,8 +16,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/db"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/telegram"
 )
 
 // SessionManager manages active running session streams and allows cancellation (OpenCode pattern).
@@ -66,6 +68,15 @@ func (sm *SessionManager) IsBusy(sessionID string) bool {
 	return exists
 }
 
+func (sm *SessionManager) AbortAll() {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	for id, cancel := range sm.active {
+		cancel()
+		delete(sm.active, id)
+	}
+}
+
 // Server encapsulates the background HTTP server instance.
 type Server struct {
 	httpServer     *http.Server
@@ -73,6 +84,60 @@ type Server struct {
 	DB             *db.DB
 	URL            string
 	SessionManager *SessionManager
+	Config         *config.Config
+	ConfigPath     string
+	cfgMu          sync.RWMutex
+	BotService     *telegram.BotService
+	botMu          sync.Mutex
+}
+
+// buildSubprocessEnv extracts active authentication and preferences from s.Config into dynamic environment variables.
+func (s *Server) buildSubprocessEnv() map[string]string {
+	s.cfgMu.RLock()
+	defer s.cfgMu.RUnlock()
+	return s.Config.BuildSubprocessEnv()
+}
+
+// syncTelegramBotState synchronizes running Telegram bot service with the latest s.Config settings.
+func (s *Server) syncTelegramBotState() {
+	s.cfgMu.RLock()
+	cfg := s.Config
+	s.cfgMu.RUnlock()
+
+	s.botMu.Lock()
+	defer s.botMu.Unlock()
+
+	if cfg == nil {
+		return
+	}
+
+	trimmedToken := strings.TrimSpace(cfg.Telegram.BotToken)
+	botRunning := s.BotService != nil && s.BotService.IsStarted()
+
+	// If disabled or empty token, stop bot if running
+	if !cfg.Telegram.Enabled || trimmedToken == "" {
+		if botRunning {
+			s.BotService.Stop()
+			s.BotService = nil
+		}
+		return
+	}
+
+	// If already running with the exact same token, no need to recreate
+	if botRunning && s.BotService.Token() == trimmedToken {
+		return
+	}
+
+	// Token changed or bot not running: stop existing instance if any
+	if botRunning {
+		s.BotService.Stop()
+		s.BotService = nil
+	}
+
+	if botSvc, err := telegram.NewBotService(cfg, s.DB, s.SessionManager); err == nil {
+		s.BotService = botSvc
+		_ = s.BotService.Start()
+	}
 }
 
 // ChatRequest represents the JSON payload for /api/chat.
@@ -102,20 +167,74 @@ type ForkSessionRequest struct {
 	UpToMessageID string `json:"up_to_message_id,omitempty"`
 }
 
+// UpdateSettingsRequest defines the payload structure for patching system configuration.
+type UpdateSettingsRequest struct {
+	Auth *struct {
+		AIProvider      *string `json:"ai_provider"`
+		SectorsAPIKey   *string `json:"sectors_api_key"`
+		SectorsBaseURL  *string `json:"sectors_base_url"`
+		GeminiAPIKey    *string `json:"gemini_api_key"`
+		GeminiModel     *string `json:"gemini_model"`
+		OpenAIAPIKey    *string `json:"openai_api_key"`
+		OpenAIBaseURL   *string `json:"openai_base_url"`
+		OpenAIModel     *string `json:"openai_model"`
+		AnthropicAPIKey *string `json:"anthropic_api_key"`
+		OllamaBaseURL   *string `json:"ollama_base_url"`
+		OllamaModel     *string `json:"ollama_model"`
+	} `json:"auth"`
+	Preferences *struct {
+		DefaultMarket  *string  `json:"default_market"`
+		OfflineMode    *bool    `json:"offline_mode"`
+		Language       *string  `json:"language"`
+		LLMTimeoutSecs *float64 `json:"llm_timeout_secs"`
+	} `json:"preferences"`
+	Storage *struct {
+		DBPath *string `json:"db_path"`
+	} `json:"storage"`
+	Engine *struct {
+		PythonBin  *string `json:"python_bin"`
+		EnginePath *string `json:"entrypoint"`
+	} `json:"engine"`
+	Memory *struct {
+		Enabled          *bool    `json:"enabled"`
+		DecayLambda      *float64 `json:"decay_lambda"`
+		EgoRadius        *int     `json:"ego_radius"`
+		MaxContextTokens *int     `json:"max_context_tokens"`
+	} `json:"memory"`
+	Telegram *struct {
+		BotToken     *string   `json:"bot_token"`
+		Enabled      *bool     `json:"enabled"`
+		AllowedUsers *[]string `json:"allowed_users"`
+	} `json:"telegram"`
+}
+
 // Start launches the background HTTP server on the specified port (or auto-finds free port).
-func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, error) {
+func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.Config) (*Server, error) {
 	mux := http.NewServeMux()
+
+	activeCfg := cfg
+	if activeCfg == nil {
+		activeCfg = config.DefaultConfig()
+	}
 
 	s := &Server{
 		Port:           requestedPort,
 		DB:             database,
 		SessionManager: NewSessionManager(),
+		Config:         activeCfg,
+	}
+
+	if activeCfg.Telegram.Enabled && strings.TrimSpace(activeCfg.Telegram.BotToken) != "" {
+		if botSvc, err := telegram.NewBotService(s.Config, s.DB, s.SessionManager); err == nil {
+			s.BotService = botSvc
+			_ = s.BotService.Start()
+		}
 	}
 
 	// Helper for CORS preflight and headers
 	enableCORS := func(w http.ResponseWriter, r *http.Request) bool {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
@@ -142,6 +261,766 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			"version":   "1.0.0",
 			"market":    "IDX",
 			"timestamp": time.Now().UTC().Format(time.RFC3339),
+		})
+	})
+
+	// Settings API endpoint (GET masked view, PATCH/PUT update & hot-reload)
+	mux.HandleFunc("/api/settings", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+
+		s.cfgMu.RLock()
+		activeCfg := s.Config
+		s.cfgMu.RUnlock()
+
+		if activeCfg == nil {
+			activeCfg = config.DefaultConfig()
+		}
+
+		if r.Method == http.MethodGet {
+			sendJSON(w, http.StatusOK, activeCfg.MaskedView())
+			return
+		}
+
+		if r.Method == http.MethodPatch || r.Method == http.MethodPut {
+			var req UpdateSettingsRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "invalid json: %v"}`, err), http.StatusBadRequest)
+				return
+			}
+
+			s.cfgMu.Lock()
+			if s.Config == nil {
+				s.Config = config.DefaultConfig()
+			}
+
+			if req.Auth != nil {
+				if req.Auth.AIProvider != nil && *req.Auth.AIProvider != "" {
+					s.Config.Auth.AIProvider = *req.Auth.AIProvider
+				}
+				if req.Auth.SectorsAPIKey != nil {
+					if *req.Auth.SectorsAPIKey == "" {
+						s.Config.Auth.SectorsAPIKey = ""
+					} else if !strings.Contains(*req.Auth.SectorsAPIKey, "****") {
+						s.Config.Auth.SectorsAPIKey = *req.Auth.SectorsAPIKey
+					}
+				}
+				if req.Auth.SectorsBaseURL != nil && *req.Auth.SectorsBaseURL != "" {
+					s.Config.Auth.SectorsBaseURL = *req.Auth.SectorsBaseURL
+				}
+				if req.Auth.GeminiAPIKey != nil {
+					if *req.Auth.GeminiAPIKey == "" {
+						s.Config.Auth.GeminiAPIKey = ""
+					} else if !strings.Contains(*req.Auth.GeminiAPIKey, "****") {
+						s.Config.Auth.GeminiAPIKey = *req.Auth.GeminiAPIKey
+					}
+				}
+				if req.Auth.GeminiModel != nil && *req.Auth.GeminiModel != "" {
+					s.Config.Auth.GeminiModel = *req.Auth.GeminiModel
+				}
+				if req.Auth.OpenAIAPIKey != nil {
+					if *req.Auth.OpenAIAPIKey == "" {
+						s.Config.Auth.OpenAIAPIKey = ""
+					} else if !strings.Contains(*req.Auth.OpenAIAPIKey, "****") {
+						s.Config.Auth.OpenAIAPIKey = *req.Auth.OpenAIAPIKey
+					}
+				}
+				if req.Auth.OpenAIBaseURL != nil && *req.Auth.OpenAIBaseURL != "" {
+					s.Config.Auth.OpenAIBaseURL = *req.Auth.OpenAIBaseURL
+				}
+				if req.Auth.OpenAIModel != nil && *req.Auth.OpenAIModel != "" {
+					s.Config.Auth.OpenAIModel = *req.Auth.OpenAIModel
+				}
+				if req.Auth.AnthropicAPIKey != nil {
+					if *req.Auth.AnthropicAPIKey == "" {
+						s.Config.Auth.AnthropicAPIKey = ""
+					} else if !strings.Contains(*req.Auth.AnthropicAPIKey, "****") {
+						s.Config.Auth.AnthropicAPIKey = *req.Auth.AnthropicAPIKey
+					}
+				}
+				if req.Auth.OllamaBaseURL != nil && *req.Auth.OllamaBaseURL != "" {
+					s.Config.Auth.OllamaBaseURL = *req.Auth.OllamaBaseURL
+				}
+				if req.Auth.OllamaModel != nil && *req.Auth.OllamaModel != "" {
+					s.Config.Auth.OllamaModel = *req.Auth.OllamaModel
+				}
+			}
+
+			if req.Preferences != nil {
+				if req.Preferences.DefaultMarket != nil && *req.Preferences.DefaultMarket != "" {
+					s.Config.Preferences.DefaultMarket = strings.ToUpper(*req.Preferences.DefaultMarket)
+				}
+				if req.Preferences.OfflineMode != nil {
+					s.Config.Preferences.OfflineMode = *req.Preferences.OfflineMode
+				}
+				if req.Preferences.Language != nil && *req.Preferences.Language != "" {
+					s.Config.Preferences.Language = strings.ToLower(*req.Preferences.Language)
+				}
+				if req.Preferences.LLMTimeoutSecs != nil {
+					v := *req.Preferences.LLMTimeoutSecs
+					if v < 10.0 {
+						v = 10.0
+					}
+					if v > 300.0 {
+						v = 300.0
+					}
+					s.Config.Preferences.LLMTimeoutSecs = v
+				}
+			}
+
+			if req.Storage != nil && req.Storage.DBPath != nil && *req.Storage.DBPath != "" {
+				s.Config.Storage.DBPath = *req.Storage.DBPath
+			}
+			if req.Engine != nil {
+				if req.Engine.PythonBin != nil && *req.Engine.PythonBin != "" {
+					s.Config.Engine.PythonBin = *req.Engine.PythonBin
+				}
+				if req.Engine.EnginePath != nil && *req.Engine.EnginePath != "" {
+					s.Config.Engine.EnginePath = *req.Engine.EnginePath
+				}
+			}
+			if req.Memory != nil {
+				if req.Memory.Enabled != nil {
+					s.Config.Memory.Enabled = *req.Memory.Enabled
+				}
+				if req.Memory.DecayLambda != nil {
+					s.Config.Memory.DecayLambda = *req.Memory.DecayLambda
+				}
+				if req.Memory.EgoRadius != nil {
+					s.Config.Memory.EgoRadius = *req.Memory.EgoRadius
+				}
+				if req.Memory.MaxContextTokens != nil {
+					s.Config.Memory.MaxContextTokens = *req.Memory.MaxContextTokens
+				}
+			}
+			telegramUpdated := false
+			if req.Telegram != nil {
+				telegramUpdated = true
+				if req.Telegram.BotToken != nil {
+					if *req.Telegram.BotToken == "" {
+						s.Config.Telegram.BotToken = ""
+					} else if !strings.Contains(*req.Telegram.BotToken, "****") {
+						s.Config.Telegram.BotToken = *req.Telegram.BotToken
+					}
+				}
+				if req.Telegram.Enabled != nil {
+					s.Config.Telegram.Enabled = *req.Telegram.Enabled
+				}
+				if req.Telegram.AllowedUsers != nil {
+					s.Config.Telegram.AllowedUsers = *req.Telegram.AllowedUsers
+				}
+			}
+
+			_ = config.SaveConfig(s.Config, s.ConfigPath)
+			view := s.Config.MaskedView()
+			s.cfgMu.Unlock()
+
+			if telegramUpdated {
+				s.syncTelegramBotState()
+			}
+
+			sendJSON(w, http.StatusOK, view)
+			return
+		}
+
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	})
+
+	// Test Connection endpoint
+	mux.HandleFunc("/api/settings/test-connection", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			Target  string `json:"target"`
+			APIKey  string `json:"api_key,omitempty"`
+			BaseURL string `json:"base_url,omitempty"`
+			Model   string `json:"model,omitempty"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "invalid json: %v"}`, err), http.StatusBadRequest)
+			return
+		}
+
+		target := strings.ToLower(strings.TrimSpace(req.Target))
+		validTargets := map[string]bool{"sectors": true, "gemini": true, "openai": true, "ollama": true, "anthropic": true}
+		if !validTargets[target] {
+			http.Error(w, `{"error": "invalid target, must be one of: sectors, gemini, openai, ollama, anthropic"}`, http.StatusBadRequest)
+			return
+		}
+
+		start := time.Now()
+		type responseType struct {
+			Target    string `json:"target"`
+			Success   bool   `json:"success"`
+			Message   string `json:"message"`
+			LatencyMs int64  `json:"latency_ms"`
+		}
+		resp := responseType{
+			Target: target,
+		}
+
+		s.cfgMu.RLock()
+		cfg := s.Config
+		s.cfgMu.RUnlock()
+		if cfg == nil {
+			cfg = config.DefaultConfig()
+		}
+
+		switch target {
+		case "sectors":
+			key := req.APIKey
+			if key == "" || strings.Contains(key, "****") {
+				key = cfg.Auth.SectorsAPIKey
+			}
+			if key == "" && !cfg.Preferences.OfflineMode && os.Getenv("MOCK_SECTORS") != "1" {
+				resp.Success = false
+				resp.Message = "Sectors API key is not configured"
+				break
+			}
+			if cfg.Preferences.OfflineMode || os.Getenv("MOCK_SECTORS") == "1" {
+				resp.Success = true
+				resp.Message = "Sectors mock mode active (offline testing)"
+				break
+			}
+
+			client := &http.Client{Timeout: 5 * time.Second}
+			httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://api.sectors.app/v2/daily/BBCA/?format=json", nil)
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Failed to build request: %v", err)
+				break
+			}
+			httpReq.Header.Set("Authorization", key)
+			httpResp, err := client.Do(httpReq)
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Connection failed: %v", err)
+				break
+			}
+			defer httpResp.Body.Close()
+			if httpResp.StatusCode == http.StatusOK {
+				resp.Success = true
+				resp.Message = "Connected to Sectors v2 API successfully"
+			} else if httpResp.StatusCode == http.StatusUnauthorized || httpResp.StatusCode == http.StatusForbidden {
+				resp.Success = false
+				resp.Message = "Invalid Sectors API key (Unauthorized)"
+			} else {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Sectors API returned HTTP %d", httpResp.StatusCode)
+			}
+
+		case "ollama":
+			baseURL := req.BaseURL
+			if baseURL == "" {
+				baseURL = cfg.Auth.OllamaBaseURL
+			}
+			if baseURL == "" {
+				baseURL = "http://localhost:11434"
+			}
+			baseURL = strings.TrimRight(baseURL, "/")
+
+			client := &http.Client{Timeout: 3 * time.Second}
+			httpResp, err := client.Get(baseURL + "/api/tags")
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Failed to reach Ollama endpoint at %s: %v", baseURL, err)
+				break
+			}
+			defer httpResp.Body.Close()
+			if httpResp.StatusCode == http.StatusOK {
+				resp.Success = true
+				resp.Message = fmt.Sprintf("Ollama instance reached at %s", baseURL)
+			} else {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Ollama returned HTTP %d", httpResp.StatusCode)
+			}
+
+		case "gemini":
+			key := req.APIKey
+			if key == "" || strings.Contains(key, "****") {
+				key = cfg.Auth.GeminiAPIKey
+			}
+			if key == "" {
+				resp.Success = false
+				resp.Message = "Gemini API key is not configured"
+				break
+			}
+			if cfg.Preferences.OfflineMode {
+				resp.Success = true
+				resp.Message = "Offline mode active (mock verification)"
+				break
+			}
+			client := &http.Client{Timeout: 5 * time.Second}
+			testURL := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models?key=%s", key)
+			httpResp, err := client.Get(testURL)
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Connection to Gemini failed: %v", err)
+				break
+			}
+			defer httpResp.Body.Close()
+			if httpResp.StatusCode == http.StatusOK {
+				resp.Success = true
+				resp.Message = "Gemini API key verified successfully"
+			} else {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Gemini returned HTTP %d", httpResp.StatusCode)
+			}
+
+		case "openai":
+			key := req.APIKey
+			if key == "" || strings.Contains(key, "****") {
+				key = cfg.Auth.OpenAIAPIKey
+			}
+			baseURL := req.BaseURL
+			if baseURL == "" {
+				baseURL = cfg.Auth.OpenAIBaseURL
+			}
+			if baseURL == "" {
+				baseURL = "https://api.openai.com/v1"
+			}
+			baseURL = strings.TrimRight(baseURL, "/")
+			if cfg.Preferences.OfflineMode {
+				resp.Success = true
+				resp.Message = "Offline mode active (mock verification)"
+				break
+			}
+			client := &http.Client{Timeout: 5 * time.Second}
+			httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, baseURL+"/models", nil)
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Failed to build request: %v", err)
+				break
+			}
+			if key != "" {
+				httpReq.Header.Set("Authorization", "Bearer "+key)
+			}
+			httpResp, err := client.Do(httpReq)
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Connection failed: %v", err)
+				break
+			}
+			defer httpResp.Body.Close()
+			if httpResp.StatusCode == http.StatusOK {
+				resp.Success = true
+				resp.Message = "OpenAI compatible endpoint reached successfully"
+			} else {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Endpoint returned HTTP %d", httpResp.StatusCode)
+			}
+
+		case "anthropic":
+			key := req.APIKey
+			if key == "" || strings.Contains(key, "****") {
+				key = cfg.Auth.AnthropicAPIKey
+			}
+			if key == "" {
+				resp.Success = false
+				resp.Message = "Anthropic API key is not configured"
+				break
+			}
+			resp.Success = true
+			resp.Message = "Anthropic key format verified"
+		}
+
+		resp.LatencyMs = time.Since(start).Milliseconds()
+		sendJSON(w, http.StatusOK, resp)
+	})
+
+	// Telegram Settings endpoint (GET view, PATCH/PUT update)
+	mux.HandleFunc("/api/settings/telegram", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+
+		if r.Method == http.MethodGet {
+			s.cfgMu.RLock()
+			cfg := s.Config
+			var enabled bool
+			var hasToken bool
+			var allowedUsers []string
+			if cfg != nil {
+				enabled = cfg.Telegram.Enabled
+				hasToken = strings.TrimSpace(cfg.Telegram.BotToken) != ""
+				allowedUsers = cfg.Telegram.AllowedUsers
+			}
+			s.cfgMu.RUnlock()
+
+			if allowedUsers == nil {
+				allowedUsers = []string{}
+			}
+
+			s.botMu.Lock()
+			botRunning := s.BotService != nil && s.BotService.IsStarted()
+			var botUsername string
+			if s.BotService != nil {
+				botUsername = s.BotService.BotUsername()
+			}
+			s.botMu.Unlock()
+
+			status := "NOT_CONFIGURED"
+			if botRunning {
+				status = "RUNNING"
+			} else if hasToken {
+				status = "STOPPED"
+			}
+
+			sendJSON(w, http.StatusOK, map[string]interface{}{
+				"status":        status,
+				"bot_username":  botUsername,
+				"enabled":       enabled,
+				"allowed_users": allowedUsers,
+				"has_token":     hasToken,
+			})
+			return
+		}
+
+		if r.Method == http.MethodPatch || r.Method == http.MethodPut {
+			var req struct {
+				BotToken     *string       `json:"bot_token"`
+				Enabled      *bool         `json:"enabled"`
+				AllowedUsers []interface{} `json:"allowed_users"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "invalid json: %v"}`, err), http.StatusBadRequest)
+				return
+			}
+
+			s.cfgMu.Lock()
+			if s.Config == nil {
+				s.Config = config.DefaultConfig()
+			}
+			if req.BotToken != nil {
+				if *req.BotToken == "" {
+					s.Config.Telegram.BotToken = ""
+				} else if !strings.Contains(*req.BotToken, "****") {
+					s.Config.Telegram.BotToken = *req.BotToken
+				}
+			}
+			if req.Enabled != nil {
+				s.Config.Telegram.Enabled = *req.Enabled
+			}
+			if req.AllowedUsers != nil {
+				var users []string
+				for _, u := range req.AllowedUsers {
+					switch val := u.(type) {
+					case string:
+						trimmed := strings.TrimSpace(val)
+						if trimmed != "" {
+							users = append(users, trimmed)
+						}
+					case float64:
+						users = append(users, fmt.Sprintf("%.0f", val))
+					}
+				}
+				s.Config.Telegram.AllowedUsers = users
+			}
+			_ = config.SaveConfig(s.Config, s.ConfigPath)
+
+			enabled := s.Config.Telegram.Enabled
+			hasToken := strings.TrimSpace(s.Config.Telegram.BotToken) != ""
+			allowedUsers := s.Config.Telegram.AllowedUsers
+			s.cfgMu.Unlock()
+
+			s.syncTelegramBotState()
+
+			if allowedUsers == nil {
+				allowedUsers = []string{}
+			}
+
+			s.botMu.Lock()
+			botRunning := s.BotService != nil && s.BotService.IsStarted()
+			var botUsername string
+			if s.BotService != nil {
+				botUsername = s.BotService.BotUsername()
+			}
+			s.botMu.Unlock()
+
+			status := "NOT_CONFIGURED"
+			if botRunning {
+				status = "RUNNING"
+			} else if hasToken {
+				status = "STOPPED"
+			}
+
+			sendJSON(w, http.StatusOK, map[string]interface{}{
+				"status":        status,
+				"bot_username":  botUsername,
+				"enabled":       enabled,
+				"allowed_users": allowedUsers,
+				"has_token":     hasToken,
+			})
+			return
+		}
+
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	})
+
+	// Telegram Daemon Lifecycle Start endpoint
+	mux.HandleFunc("/api/telegram/start", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		s.cfgMu.RLock()
+		token := ""
+		if s.Config != nil {
+			token = strings.TrimSpace(s.Config.Telegram.BotToken)
+		}
+		s.cfgMu.RUnlock()
+
+		if token == "" {
+			sendJSON(w, http.StatusBadRequest, map[string]interface{}{
+				"error":  "telegram bot token is not configured",
+				"status": "NOT_CONFIGURED",
+			})
+			return
+		}
+
+		s.botMu.Lock()
+		defer s.botMu.Unlock()
+
+		if s.BotService == nil || !s.BotService.IsStarted() || s.BotService.Token() != token {
+			if s.BotService != nil && s.BotService.IsStarted() {
+				s.BotService.Stop()
+				s.BotService = nil
+			}
+			svc, err := telegram.NewBotService(s.Config, s.DB, s.SessionManager)
+			if err != nil {
+				sendJSON(w, http.StatusInternalServerError, map[string]interface{}{
+					"error":  fmt.Sprintf("failed to initialize telegram bot: %v", err),
+					"status": "STOPPED",
+				})
+				return
+			}
+			s.BotService = svc
+			if err := s.BotService.Start(); err != nil {
+				sendJSON(w, http.StatusInternalServerError, map[string]interface{}{
+					"error":  fmt.Sprintf("failed to start telegram bot: %v", err),
+					"status": "STOPPED",
+				})
+				return
+			}
+		}
+
+		s.cfgMu.Lock()
+		if s.Config != nil {
+			s.Config.Telegram.Enabled = true
+			_ = config.SaveConfig(s.Config, s.ConfigPath)
+		}
+		s.cfgMu.Unlock()
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"status":       "RUNNING",
+			"bot_username": s.BotService.BotUsername(),
+			"message":      "telegram bot started successfully",
+		})
+	})
+
+	// Telegram Daemon Lifecycle Stop endpoint
+	mux.HandleFunc("/api/telegram/stop", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		s.botMu.Lock()
+		if s.BotService != nil && s.BotService.IsStarted() {
+			s.BotService.Stop()
+		}
+		s.botMu.Unlock()
+
+		s.cfgMu.Lock()
+		if s.Config != nil {
+			s.Config.Telegram.Enabled = false
+			_ = config.SaveConfig(s.Config, s.ConfigPath)
+		}
+		s.cfgMu.Unlock()
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"status":  "STOPPED",
+			"message": "telegram bot stopped successfully",
+		})
+	})
+
+	// Telegram Test Message endpoint
+	mux.HandleFunc("/api/telegram/test", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			ChatID interface{} `json:"chat_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "invalid json: %v"}`, err), http.StatusBadRequest)
+			return
+		}
+
+		var chatID int64
+		switch v := req.ChatID.(type) {
+		case float64:
+			chatID = int64(v)
+		case string:
+			parsed, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64)
+			if err == nil {
+				chatID = parsed
+			}
+		}
+
+		if chatID == 0 {
+			http.Error(w, `{"error": "chat_id is required"}`, http.StatusBadRequest)
+			return
+		}
+
+		s.cfgMu.RLock()
+		isOffline := false
+		if s.Config != nil {
+			isOffline = s.Config.Preferences.OfflineMode
+		}
+		s.cfgMu.RUnlock()
+
+		if isOffline || os.Getenv("TELEGRAM_OFFLINE") == "1" {
+			sendJSON(w, http.StatusOK, map[string]interface{}{
+				"status":  "ok",
+				"mock":    true,
+				"chat_id": chatID,
+				"message": "test message delivered (mock offline mode)",
+			})
+			return
+		}
+
+		s.botMu.Lock()
+		active := s.BotService != nil && s.BotService.IsStarted()
+		svc := s.BotService
+		s.botMu.Unlock()
+
+		if !active || svc == nil {
+			http.Error(w, `{"error": "telegram bot is not running", "status": "STOPPED"}`, http.StatusBadRequest)
+			return
+		}
+
+		testMsg := "🔔 Niskava Agent: Koneksi Telegram Bot berhasil diverifikasi."
+		if err := svc.SendTestMessage(chatID, testMsg); err != nil {
+			sendJSON(w, http.StatusInternalServerError, map[string]interface{}{
+				"error":   fmt.Sprintf("failed to send telegram test message: %v", err),
+				"chat_id": chatID,
+			})
+			return
+		}
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"status":  "ok",
+			"chat_id": chatID,
+			"message": "test message sent successfully",
+		})
+	})
+
+	// System: Sectors API Credit & Cache Usage endpoint (Law 5 compliance)
+	mux.HandleFunc("/api/system/sectors-usage", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+
+		stats, err := database.GetSectorsCacheStats()
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+			return
+		}
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"total_entries":          stats.TotalEntries,
+			"expired_entries":        stats.ExpiredEntries,
+			"permanent_entries":      stats.PermanentEntries,
+			"estimated_credit_saved": stats.TotalEntries,
+			"status":                 "HEALTHY",
+		})
+	})
+
+	// System: Diagnostics and runtime health metrics
+	mux.HandleFunc("/api/system/diagnostics", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+
+		dbPath := ""
+		var dbSizeBytes int64
+		if database != nil && database.Path != "" {
+			dbPath = database.Path
+			if fi, err := os.Stat(dbPath); err == nil {
+				dbSizeBytes = fi.Size()
+			}
+		}
+
+		totalSessions := 0
+		if database != nil {
+			_, total, err := database.ListChatSessions(1, 0, "")
+			if err == nil {
+				totalSessions = total
+			}
+		}
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"status":              "OK",
+			"app":                 "Niskava Agent",
+			"go_version":          runtime.Version(),
+			"os":                  runtime.GOOS,
+			"arch":                runtime.GOARCH,
+			"num_cpu":             runtime.NumCPU(),
+			"database_path":       dbPath,
+			"database_size_bytes": dbSizeBytes,
+			"total_sessions":      totalSessions,
+			"timestamp":           time.Now().UTC().Format(time.RFC3339),
+		})
+	})
+
+	// System: Clean expired cache entries
+	mux.HandleFunc("/api/system/cache/clean", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+
+		cleaned, err := database.CleanExpiredCache()
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "failed to clean expired cache: %v"}`, err), http.StatusInternalServerError)
+			return
+		}
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"status":          "ok",
+			"cleaned_entries": cleaned,
+			"timestamp":       time.Now().UTC().Format(time.RFC3339),
 		})
 	})
 
@@ -447,7 +1326,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			// Law 2: Strict Financial Non-Advisory Boundary
 			md.WriteString("> [!IMPORTANT]\n")
 			md.WriteString("> **DISCLAIMER (Non-Advisory Market Intelligence):**\n")
-			md.WriteString("> Niskava Agent adalah platform intelijen dan OSINT pasar modal otonom untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi atau broker berizin. Seluruh temuan, skor anomali, dan korelasi bukti disajikan secara deskriptif untuk tujuan riset dan verifikasi fakta, serta BUKAN merupakan rekomendasi beli/jual atau target harga investasi.\n\n")
+			md.WriteString("> Niskava Agent adalah platform intelijen dan riset pasar modal otonom untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi atau broker berizin. Seluruh temuan, skor anomali, dan korelasi bukti disajikan secara deskriptif untuk tujuan riset dan verifikasi fakta, serta BUKAN merupakan rekomendasi beli/jual atau target harga investasi.\n\n")
 
 			md.WriteString("## Transkrip Percakapan & Temuan Riset\n\n")
 			for idx, msg := range messages {
@@ -638,6 +1517,45 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		})
 	})
 
+	// 5b. Chat Reset endpoint (supports single session reset or clearing all sessions)
+	mux.HandleFunc("/api/chat/reset", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, `{"error": "POST required"}`, http.StatusMethodNotAllowed)
+			return
+		}
+
+		sessionID := r.URL.Query().Get("session_id")
+		if sessionID != "" {
+			_ = s.SessionManager.Abort(sessionID)
+			if err := database.DeleteChatSession(sessionID); err != nil {
+				_ = database.ClearSessionHistory(sessionID)
+			}
+			sendJSON(w, http.StatusOK, map[string]interface{}{
+				"status":     "reset",
+				"session_id": sessionID,
+			})
+			return
+		}
+
+		// Reset all sessions and messages
+		s.SessionManager.AbortAll()
+		if err := database.ClearAllChatSessions(); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+			return
+		}
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"status":  "all_reset",
+			"message": "all chat history and sessions cleared",
+		})
+	})
+
 	// 6. Conversational Chat SSE Streaming endpoint
 	mux.HandleFunc("/api/chat", func(w http.ResponseWriter, r *http.Request) {
 		if enableCORS(w, r) {
@@ -674,9 +1592,16 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		if database != nil {
 			sess, _ := database.GetChatSession(sessionID)
 			if sess == nil {
+				sessionTitle := strings.TrimSpace(req.Prompt)
+				if len(sessionTitle) > 42 {
+					sessionTitle = sessionTitle[:39] + "..."
+				}
+				if sessionTitle == "" {
+					sessionTitle = "Sesi Riset Pasar"
+				}
 				_ = database.CreateChatSession(&db.ChatSession{
 					ID:     sessionID,
-					Title:  "Sesi Riset Pasar",
+					Title:  sessionTitle,
 					Model:  "hermes",
 					Status: "BUSY",
 				})
@@ -732,11 +1657,24 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			}
 		}()
 
-		pythonBin := ipc.ResolvePythonBin(os.Getenv("NISKAVA_PYTHON_BIN"))
+		s.cfgMu.RLock()
+		activeCfg := s.Config
+		s.cfgMu.RUnlock()
+		if activeCfg == nil {
+			activeCfg = config.DefaultConfig()
+		}
+
+		configuredBin := activeCfg.Engine.PythonBin
+		if envBin := os.Getenv("NISKAVA_PYTHON_BIN"); envBin != "" {
+			configuredBin = envBin
+		}
+		pythonBin := ipc.ResolvePythonBin(configuredBin)
 
 		dbPath := ""
 		if s.DB != nil && s.DB.Path != "" {
 			dbPath = s.DB.Path
+		} else if activeCfg.Storage.DBPath != "" {
+			dbPath = config.ExpandHome(activeCfg.Storage.DBPath)
 		} else {
 			homeDir, _ := os.UserHomeDir()
 			dbPath = filepath.Join(homeDir, ".niskava", "niskava.db")
@@ -747,19 +1685,25 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 
 		wd, _ := os.Getwd()
 
-		chatLang := os.Getenv("NISKAVA_LANG")
+		chatLang := activeCfg.Preferences.Language
+		if envLang := os.Getenv("NISKAVA_LANG"); envLang != "" {
+			chatLang = envLang
+		}
 		if chatLang == "" {
 			chatLang = "id"
 		}
 
+		isOffline := activeCfg.Preferences.OfflineMode || os.Getenv("NISKAVA_OFFLINE") == "1" || os.Getenv("MOCK_SECTORS") == "1"
+
 		runnerParams := ipc.RunnerParams{
-			PythonBin: pythonBin,
-			WorkDir:   wd,
-			DBPath:    dbPath,
-			Prompt:    req.Prompt,
-			SessionID: sessionID,
-			Offline:   os.Getenv("NISKAVA_OFFLINE") == "1",
-			Language:  chatLang,
+			PythonBin:    pythonBin,
+			WorkDir:      wd,
+			DBPath:       dbPath,
+			Prompt:       req.Prompt,
+			SessionID:    sessionID,
+			Offline:      isOffline,
+			Language:     chatLang,
+			EnvOverrides: s.buildSubprocessEnv(),
 		}
 
 		eventsChan, errChan := ipc.RunSubprocess(chatCtx, runnerParams)
@@ -855,6 +1799,9 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 
 	// 5. Memory Graph JSON endpoint (registered on both /api/graph and /api/graph/data for web workspace compatibility)
 	graphHandler := func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		if database == nil {
 			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
@@ -862,7 +1809,35 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		}
 
 		sessionID := r.URL.Query().Get("session_id")
-		nodes, edges, err := database.GetMemoryGraph(sessionID)
+		ticker := r.URL.Query().Get("ticker")
+		depthStr := r.URL.Query().Get("depth")
+		minWeightStr := r.URL.Query().Get("min_weight")
+		nodeTypesStr := r.URL.Query().Get("node_types")
+
+		filter := db.MemoryGraphFilter{
+			SessionID: sessionID,
+			Ticker:    ticker,
+		}
+		if depthStr != "" {
+			if d, err := strconv.Atoi(depthStr); err == nil {
+				filter.Depth = d
+			}
+		}
+		if minWeightStr != "" {
+			if mw, err := strconv.ParseFloat(minWeightStr, 64); err == nil {
+				filter.MinWeight = mw
+			}
+		}
+		if nodeTypesStr != "" {
+			parts := strings.Split(nodeTypesStr, ",")
+			for _, p := range parts {
+				if trimmed := strings.TrimSpace(p); trimmed != "" {
+					filter.NodeTypes = append(filter.NodeTypes, trimmed)
+				}
+			}
+		}
+
+		nodes, edges, err := database.GetFilteredMemoryGraph(filter)
 		if err != nil {
 			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
 			return
@@ -879,13 +1854,68 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 	mux.HandleFunc("/api/graph", graphHandler)
 	mux.HandleFunc("/api/graph/data", graphHandler)
 
-	// 6. Interactive Memory Graph View endpoint (serves full Cyber-OSINT visualizer)
+	// Memory Graph Stats endpoint
+	mux.HandleFunc("/api/graph/stats", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+
+		sessionID := r.URL.Query().Get("session_id")
+		ticker := r.URL.Query().Get("ticker")
+		depthStr := r.URL.Query().Get("depth")
+		nodeTypesStr := r.URL.Query().Get("node_types")
+
+		filter := db.MemoryGraphFilter{
+			SessionID: sessionID,
+			Ticker:    ticker,
+		}
+		if depthStr != "" {
+			if d, err := strconv.Atoi(depthStr); err == nil {
+				filter.Depth = d
+			}
+		}
+		if nodeTypesStr != "" {
+			parts := strings.Split(nodeTypesStr, ",")
+			for _, p := range parts {
+				if trimmed := strings.TrimSpace(p); trimmed != "" {
+					filter.NodeTypes = append(filter.NodeTypes, trimmed)
+				}
+			}
+		}
+
+		stats, err := database.GetMemoryGraphStats(filter)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(stats)
+	})
+
+	// 6. Interactive Memory Graph View endpoint (serves full Market Intelligence visualizer)
 	mux.HandleFunc("/graph", func(w http.ResponseWriter, r *http.Request) {
-		pythonBin := ipc.ResolvePythonBin(os.Getenv("NISKAVA_PYTHON_BIN"))
+		s.cfgMu.RLock()
+		activeCfg := s.Config
+		s.cfgMu.RUnlock()
+		if activeCfg == nil {
+			activeCfg = config.DefaultConfig()
+		}
+
+		configuredBin := activeCfg.Engine.PythonBin
+		if envBin := os.Getenv("NISKAVA_PYTHON_BIN"); envBin != "" {
+			configuredBin = envBin
+		}
+		pythonBin := ipc.ResolvePythonBin(configuredBin)
 
 		dbPath := ""
 		if s.DB != nil && s.DB.Path != "" {
 			dbPath = s.DB.Path
+		} else if activeCfg.Storage.DBPath != "" {
+			dbPath = config.ExpandHome(activeCfg.Storage.DBPath)
 		} else {
 			homeDir, _ := os.UserHomeDir()
 			dbPath = filepath.Join(homeDir, ".niskava", "niskava.db")
@@ -895,11 +1925,28 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		}
 
 		sessionID := r.URL.Query().Get("session_id")
+		ticker := r.URL.Query().Get("ticker")
+		depth := r.URL.Query().Get("depth")
+		nodeTypes := r.URL.Query().Get("node_types")
+		isEmbed := r.URL.Query().Get("embed") == "true"
+
 		tmpFile := filepath.Join(os.TempDir(), fmt.Sprintf("niskava_graph_%d.html", time.Now().UnixNano()))
 
 		args := []string{"-m", "engine.runner", "--db-path", dbPath, "--export-graph-html", tmpFile}
 		if sessionID != "" {
 			args = append(args, "--session", sessionID)
+		}
+		if ticker != "" {
+			args = append(args, "--ticker", ticker)
+		}
+		if depth != "" {
+			args = append(args, "--depth", depth)
+		}
+		if nodeTypes != "" {
+			args = append(args, "--node-types", nodeTypes)
+		}
+		if isEmbed {
+			args = append(args, "--embed")
 		}
 
 		wd, _ := os.Getwd()
@@ -909,11 +1956,36 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		if existing := os.Getenv("PYTHONPATH"); existing != "" {
 			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
 		}
-		cmd.Env = append(os.Environ(),
+		baseEnv := os.Environ()
+		subEnv := s.buildSubprocessEnv()
+		overrideKeys := make(map[string]bool)
+		for k := range subEnv {
+			overrideKeys[k] = true
+		}
+		overrideKeys["PYTHONPATH"] = true
+		overrideKeys["PYTHONIOENCODING"] = true
+		overrideKeys["PYTHONUTF8"] = true
+
+		cleanEnv := make([]string, 0, len(baseEnv)+len(overrideKeys))
+		for _, envVar := range baseEnv {
+			parts := strings.SplitN(envVar, "=", 2)
+			if len(parts) == 2 && overrideKeys[parts[0]] {
+				continue
+			}
+			cleanEnv = append(cleanEnv, envVar)
+		}
+
+		cleanEnv = append(cleanEnv,
 			"PYTHONPATH="+pythonPath,
 			"PYTHONIOENCODING=utf-8",
 			"PYTHONUTF8=1",
 		)
+		for k, v := range subEnv {
+			if strings.TrimSpace(k) != "" && v != "" {
+				cleanEnv = append(cleanEnv, fmt.Sprintf("%s=%s", k, v))
+			}
+		}
+		cmd.Env = cleanEnv
 		if out, err := cmd.CombinedOutput(); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to generate graph visualization: %v\nOutput: %s", err, string(out)), http.StatusInternalServerError)
 			return
@@ -931,214 +2003,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, `<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Niskava Agent — AI Financial Research Assistant (IDX)</title>
-    <style>
-        :root {
-            --bg: #090D16;
-            --surface: #111827;
-            --surface-card: #1F2937;
-            --border: #374151;
-            --accent: #00E5FF;
-            --accent-glow: rgba(0, 229, 255, 0.15);
-            --text-main: #F9FAFB;
-            --text-muted: #9CA3AF;
-            --success: #10B981;
-            --warning: #F59E0B;
-            --danger: #EF4444;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: var(--bg); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; height: 100vh; overflow: hidden; }
-        
-        /* Sidebar */
-        .sidebar { width: 300px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; }
-        .brand { font-size: 18px; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; margin-bottom: 24px; }
-        .badge-live { background: rgba(16, 185, 129, 0.2); color: var(--success); font-size: 11px; padding: 3px 8px; border-radius: 99px; border: 1px solid var(--success); }
-        .section-title { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px; }
-        .quick-prompts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
-        .prompt-chip { background: var(--surface-card); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; font-size: 13px; color: var(--text-main); cursor: pointer; text-align: left; transition: all 0.2s; }
-        .prompt-chip:hover { border-color: var(--accent); background: var(--accent-glow); }
-        
-        /* Main Chat Area */
-        .main-content { flex: 1; display: flex; flex-direction: column; background: var(--bg); }
-        .header { height: 64px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; }
-        .header-title { font-size: 15px; font-weight: 600; }
-        .chat-container { flex: 1; overflow-y: auto; padding: 28px; display: flex; flex-direction: column; gap: 20px; }
-        
-        /* Messages */
-        .msg { display: flex; flex-direction: column; max-width: 85%%; }
-        .msg-user { align-self: flex-end; }
-        .msg-user .bubble { background: #0284C7; color: #fff; border-radius: 14px 14px 2px 14px; padding: 12px 18px; font-size: 14px; line-height: 1.5; }
-        .msg-agent { align-self: flex-start; }
-        .msg-agent .bubble { background: var(--surface); border: 1px solid var(--border); border-radius: 14px 14px 14px 2px; padding: 18px; font-size: 14px; line-height: 1.6; }
-        
-        /* Thoughts & Tools Stream */
-        .thought-box { background: rgba(15, 23, 42, 0.6); border-left: 3px solid var(--accent); padding: 8px 12px; font-size: 12px; color: #94A3B8; font-style: italic; margin-bottom: 10px; border-radius: 0 6px 6px 0; }
-        .tool-box { background: rgba(245, 158, 11, 0.1); border: 1px dashed var(--warning); padding: 6px 10px; font-size: 12px; color: #FCD34D; font-family: monospace; border-radius: 6px; margin-bottom: 10px; }
-        
-        /* Badges */
-        .tag-supported { background: var(--success); color: #000; font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
-        .tag-uncertain { background: var(--warning); color: #000; font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
-        
-        /* Input Box */
-        .input-area { padding: 20px 28px; background: var(--surface); border-top: 1px solid var(--border); display: flex; gap: 12px; }
-        .input-box { flex: 1; background: var(--surface-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; color: #fff; font-size: 14px; outline: none; }
-        .input-box:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
-        .btn-send { background: var(--accent); color: #090D16; border: none; border-radius: 10px; padding: 0 24px; font-weight: 700; cursor: pointer; transition: 0.2s; }
-        .btn-send:hover { opacity: 0.9; }
-
-        .disclaimer { font-size: 11px; color: #EF4444; margin-top: 14px; border-top: 1px solid rgba(239, 68, 68, 0.2); padding-top: 8px; }
-    </style>
-</head>
-<body>
-    <div class="sidebar">
-        <div class="brand">
-            ⚡ NISKAVA AGENT
-            <span class="badge-live">ONLINE</span>
-        </div>
-
-        <div class="section-title">Contoh Riset Pasar (Quick Prompts)</div>
-        <div class="quick-prompts">
-            <button class="prompt-chip" onclick="sendPrompt(this.innerText)">Analisis lonjakan volume ANTM 30 hari terakhir</button>
-            <button class="prompt-chip" onclick="sendPrompt(this.innerText)">Apakah ada anomali transaksi asing di BBCA minggu ini?</button>
-            <button class="prompt-chip" onclick="sendPrompt(this.innerText)">Cari keterbukaan informasi dan katalis saham BUMI</button>
-            <button class="prompt-chip" onclick="sendPrompt(this.innerText)">Bandingkan pergerakan saham nikel INCO dan ANTM</button>
-        </div>
-
-        <div class="section-title">Visualisasi Graf Memori</div>
-        <div style="margin-bottom: 20px;">
-            <a href="/graph" target="_blank" style="text-decoration:none;">
-                <button class="prompt-chip" style="width:100%%; border-color:var(--accent); color:var(--accent); font-weight:700; background:rgba(0, 229, 255, 0.08);">
-                    🕸️ Buka Knowledge Graph
-                </button>
-            </a>
-        </div>
-
-        <div class="section-title" style="margin-top: auto;">Sistem & Persistensi</div>
-        <p style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
-            • Model: <code>9router / hermes</code><br>
-            • Database: <code>SQLite WAL Active</code><br>
-            • Hukum 1 & 2 Kepatuhan Penuh
-        </p>
-    </div>
-
-    <div class="main-content">
-        <div class="header">
-            <div class="header-title">Autonomous Financial OSINT Research Assistant (Bursa Efek Indonesia)</div>
-            <div style="font-size: 13px; color: var(--text-muted);">Port: <code>%d</code></div>
-        </div>
-
-        <div class="chat-container" id="chatArea">
-            <div class="msg msg-agent">
-                <div class="bubble">
-                    <strong>Halo! Saya Niskava Agent.</strong><br>
-                    Asisten riset intelijen pasar dan pembuktian anomali saham di Bursa Efek Indonesia (IDX). Tanyakan apa saja mengenai emiten, lonjakan transaksi kuantitatif (Z-score), atau keterbukaan informasi resmi.
-                </div>
-            </div>
-        </div>
-
-        <div class="input-area">
-            <input type="text" id="promptInput" class="input-box" placeholder="Ketik pertanyaan riset pasar saham Anda di sini..." onkeypress="handleKey(event)" />
-            <button class="btn-send" onclick="submitCurrentPrompt()">Kirim ➔</button>
-        </div>
-    </div>
-
-    <script>
-        const chatArea = document.getElementById('chatArea');
-        const promptInput = document.getElementById('promptInput');
-        const sessionID = 'WEB-' + Date.now();
-
-        function handleKey(e) {
-            if (e.key === 'Enter') submitCurrentPrompt();
-        }
-
-        function sendPrompt(text) {
-            promptInput.value = text;
-            submitCurrentPrompt();
-        }
-
-        async function submitCurrentPrompt() {
-            const prompt = promptInput.value.trim();
-            if (!prompt) return;
-
-            // Add user bubble
-            const userMsg = document.createElement('div');
-            userMsg.className = 'msg msg-user';
-            userMsg.innerHTML = '<div class="bubble">' + escapeHtml(prompt) + '</div>';
-            chatArea.appendChild(userMsg);
-            promptInput.value = '';
-            chatArea.scrollTop = chatArea.scrollHeight;
-
-            // Add agent placeholder
-            const agentMsg = document.createElement('div');
-            agentMsg.className = 'msg msg-agent';
-            const agentBubble = document.createElement('div');
-            agentBubble.className = 'bubble';
-            agentBubble.innerHTML = '<div class="thought-box">💭 Menghubungkan ke ReAct Agent Engine...</div>';
-            agentMsg.appendChild(agentBubble);
-            chatArea.appendChild(agentMsg);
-            chatArea.scrollTop = chatArea.scrollHeight;
-
-            try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: prompt, session_id: sessionID })
-                });
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let accumulatedText = '';
-
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n');
-
-                    for (let line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const dataStr = line.replace('data: ', '').trim();
-                            if (dataStr.startsWith('{')) {
-                                try {
-                                    const ev = JSON.parse(dataStr);
-                                    if (ev.event === 'agent_thought') {
-                                        agentBubble.innerHTML = '<div class="thought-box">💭 ' + escapeHtml(ev.thought) + '</div>' + accumulatedText;
-                                    } else if (ev.event === 'agent_tool_call') {
-                                        agentBubble.innerHTML += '<div class="tool-box">⚡ [Action Tool] ' + escapeHtml(ev.tool) + '</div>';
-                                    } else if (ev.event === 'agent_message_chunk') {
-                                        accumulatedText += ev.chunk;
-                                        agentBubble.innerHTML = accumulatedText.replace(/\n/g, '<br>');
-                                    } else if (ev.event === 'finding_emitted') {
-                                        accumulatedText += '<div style="margin-top:8px; padding:8px; background:rgba(16,185,129,0.1); border-left:3px solid #10B981;">' +
-                                            '<span class="tag-supported">SUPPORTED</span> <strong>' + escapeHtml(ev.title) + '</strong><br>' +
-                                            '<small>' + escapeHtml(ev.claim_text) + '</small></div>';
-                                        agentBubble.innerHTML = accumulatedText;
-                                    }
-                                    chatArea.scrollTop = chatArea.scrollHeight;
-                                } catch (e) {}
-                            }
-                        }
-                    }
-                }
-            } catch (err) {
-                agentBubble.innerHTML += '<div style="color:#EF4444; margin-top:8px;">Terjadi kendala koneksi ke server daemon.</div>';
-            }
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.innerText = text || '';
-            return div.innerHTML;
-        }
-    </script>
-</body>
-</html>`, s.Port)
+		fmt.Fprint(w, RenderWorkspaceHTML(s.Port))
 	})
 
 	// Find free port if requested port is taken
@@ -1171,6 +2036,12 @@ func Start(ctx context.Context, requestedPort int, database *db.DB) (*Server, er
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		_ = s.httpServer.Shutdown(shutdownCtx)
+
+		s.botMu.Lock()
+		if s.BotService != nil && s.BotService.IsStarted() {
+			s.BotService.Stop()
+		}
+		s.botMu.Unlock()
 	}()
 
 	return s, nil

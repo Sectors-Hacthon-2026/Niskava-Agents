@@ -23,20 +23,24 @@ Panduan operasional dan strategi terfokus tim untuk memenangkan **Sectors Hackat
 
 ### Timeline Kritis Submisi
 * **19 Agustus 2026**: Pembukaan pendaftaran & periode pengembangan (*build period*).
-* **22 September 2026 (23:59 WIB)**: Batas akhir pendaftaran tim & penutupan onboarding.
-* **30 September 2026 (23:59 WIB)**: **Batas Akhir Submisi & Pembekuan Kode (Hard Deadline)**.
-* **1–8 Oktober 2026**: Periode Penjurian Asinkronus (berdasarkan video demo & repo GitHub).
-* **9 Oktober 2026**: Pengumuman Pemenang Resmi di website kompetisi dan Instagram (@sectors.app & @algoritma).
+* **7 Oktober 2026 (23:59 WIB)**: Batas akhir pendaftaran tim & penutupan onboarding (H-1 sebelum deadline submisi).
+* **8 Oktober 2026 (23:59 WIB)**: **Batas Akhir Submisi & Pembekuan Kode / Freeze (Hard Deadline)**.
+* **9–16 Oktober 2026**: Periode Penjurian Asinkronus (berdasarkan video demo & repo GitHub).
+* **17 Oktober 2026**: Pengumuman Pemenang Resmi di website kompetisi dan Instagram (@sectors.app & @algoritma).
 
 ---
 
 ## 2. Gate 0: Syarat Kelayakan Mutlak (Eligibility & Onboarding)
 
-Sesuai aturan resmi kompetisi (Rule 03 & 04):
-1. **Verifikasi Onboarding Akun Sectors:** Setiap anggota tim (1–4 orang) **wajib membuat akun Sectors dan menyelesaikan proses onboarding di sectors.app sebelum tim menulis satu baris pun kode proyek**.
-2. **Klaim Grant 1.000 Kredit:** Setelah seluruh anggota tervalidasi onboarding-nya, perwakilan tim mengklaim 1.000 kredit dari halaman tim di portal kompetisi.
-3. **Penguncian Roster (Roster Lock):** Begitu kredit diklaim, susunan anggota tim terkunci permanen—tidak dapat menambah atau mengubah anggota.
-4. **Larangan Akun Ganda:** Dilarang mendaftarkan akun ganda untuk memanipulasi kredit tambahan (pelanggaran berakibat diskualifikasi langsung).
+Sesuai aturan resmi kompetisi (Rule 03, 04, 05):
+1. **Domisili & Usia:** Terbuka untuk WNI atau penduduk berdomisili di Indonesia segala usia (peserta < 18 tahun wajib melampirkan persetujuan orang tua/wali saat registrasi untuk publikasi & penerimaan hadiah). Pendaftaran gratis.
+2. **Pengecualian Afiliasi:** Karyawan, kontraktor, juri, mentor, dan panitia dari Supertype, Sectors, dan Algoritma beserta keluarga inti dilarang berpartisipasi.
+3. **Verifikasi Onboarding Akun Sectors:** Setiap anggota tim (solo 1 orang atau tim 2–4 orang) **wajib membuat akun Sectors dan menyelesaikan proses onboarding di sectors.app sebelum tim menulis satu baris pun kode proyek**. Jika ada anggota yang belum onboarding sampai batas 7 Oktober, submisi tim dapat dinyatakan gugur/tidak valid.
+4. **Klaim Grant 1.000 Kredit:** Setelah seluruh anggota tervalidasi onboarding-nya, perwakilan tim mengklaim 1.000 kredit dari halaman tim di portal kompetisi. Kredit hanya berlaku selama build period (hangus saat event berakhir), tidak dapat dipindahtangankan/diuangkan.
+5. **Penguncian Roster (Roster Lock):** Begitu kredit diklaim, susunan anggota tim terkunci permanen—tidak dapat menambah atau mengubah anggota.
+6. **Larangan Akun Ganda & Rangkap Tim:** Tiap peserta hanya boleh terdaftar di 1 tim. Dilarang mendaftarkan akun ganda untuk manipulasi kredit tambahan (pelanggaran berakibat diskualifikasi langsung seluruh tim terkait).
+7. **Eksklusivitas Proyek & Git Commit:** Proyek harus murni dibuat khusus untuk Sectors Hackathon 2026 (tidak boleh mengambil proyek lama atau ikut lomba lain). Commit pertama pada repositori wajib jatuh di dalam rentang waktu build period (mulai 19 Agustus 2026). Dilarang meng-open-source proyek lama sesaat sebelum lomba hanya untuk di-reuse kodenya.
+8. **Penggunaan AI (Rule 07):** Penggunaan AI coding tools (code generation, auto-completion, coding agents) diperbolehkan penuh tanpa batasan dan tanpa kewajiban deklarasi. Juri hanya menilai hasil akhirnya.
 
 ---
 
@@ -60,43 +64,51 @@ Niskava memenuhi seluruh 6 kualifikasi resmi Track 1:
 
 | Kriteria Kualifikasi Resmi Track 1 | Bukti Implementasi Arsitektur Niskava Agent | Lokasi Dokumen Teknis |
 |---|---|---|
-| **1. Multi-step reasoning flows** | Pipeline investigasi 7 tahap otonom: Initiation $\to$ Baseline $\to$ Quant Anomaly $\to$ Gap Detection $\to$ OSINT Harvest $\to$ Evidence Correlation $\to$ Synthesis. | [`30-agent/01-investigation-pipeline.md`](../30-agent/01-investigation-pipeline.md) |
-| **2. Custom tool-use pipelines** | Orkestrasi alat dinamis: Pemanggilan deterministik Sectors v2 API, pencarian web OSINT terarah, dan korelasi temporal. | [`30-agent/02-skills-catalog.md`](../30-agent/02-skills-catalog.md) |
+| **1. Multi-step reasoning flows** | Pipeline investigasi 7 tahap otonom: Initiation $\to$ Baseline $\to$ Quant Anomaly $\to$ Gap Detection $\to$ News Harvest $\to$ Evidence Correlation $\to$ Synthesis. | [`30-agent/01-investigation-pipeline.md`](../30-agent/01-investigation-pipeline.md) |
+| **2. Custom tool-use pipelines** | Orkestrasi alat dinamis: Pemanggilan deterministik Sectors v2 API, penelusuran berita bursa & keterbukaan informasi terarah, dan korelasi temporal. | [`30-agent/02-skills-catalog.md`](../30-agent/02-skills-catalog.md) |
 | **3. Routing between data sources** | Pemisahan fakta kuantitatif (*Sectors Ground Truth*) dan narasi publik (*IDXnet, Corporate News, Web Signals*). | [`20-architecture/01-system-overview.md`](../20-architecture/01-system-overview.md) |
 | **4. Memory or state management** | **Local Conversational Graph Memory Engine (06-local-conversational-graph-memory)**: Menyimpan relasi entitas, catatan harga posisi, dan riwayat investigasi dalam graf asosiatif SQLite + NetworkX lintas sesi, sehingga agen bebas dari amnesia konteks. | [`30-agent/05-conversational-memory-engine.md`](../30-agent/05-conversational-memory-engine.md) |
-| **5. Autonomous task execution** | Agen secara mandiri merumuskan kueri pencarian berita berdasarkan tanggal anomali yang ditemukan oleh mesin NumPy tanpa campur tangan manusia. | [`20-architecture/06-osint-engine.md`](../20-architecture/06-osint-engine.md) |
-| **6. Purpose-built interface** | Antarmuka khusus analis pasar modal: Terminal TUI (`Bubbletea`) untuk kecepatan eksekusi dan Web Dashboard (*Cyber-OSINT / Bloomberg Terminal style*) untuk visualisasi bukti. | [`10-product/03-product-scope-and-surfaces.md`](03-product-scope-and-surfaces.md) |
+| **5. Autonomous task execution** | Agen secara mandiri merumuskan kueri pencarian berita berdasarkan tanggal anomali yang ditemukan oleh mesin NumPy tanpa campur tangan manusia. | [`20-architecture/06-news-engine.md`](../20-architecture/06-news-engine.md) |
+| **6. Purpose-built interface** | Antarmuka khusus analis pasar modal: Terminal TUI (`Bubbletea`) untuk kecepatan eksekusi dan Web Dashboard (*Market Intelligence / Bloomberg Terminal style*) untuk visualisasi bukti. | [`10-product/03-product-scope-and-surfaces.md`](03-product-scope-and-surfaces.md) |
 
 ---
 
 ## 5. Checklist Lengkap Submisi & Aturan Pembekuan (*Submission Freeze*)
 
-Submisi dilakukan melalui portal hackathon sebelum **30 September 2026 pukul 23:59 WIB**.
+Submisi dilakukan melalui portal hackathon sebelum **8 Oktober 2026 pukul 23:59 WIB**.
 
 ### Checklist Berkas Submisi
 - [ ] **1-Sentence Problem Statement**:
-  > *"Pelaku pasar modal Indonesia kehilangan momentum dan modal karena lambat memverifikasi penyebab lonjakan saham tidak wajar akibat terpisahnya data kuantitatif bursa (Sectors API) dengan konteks keterbukaan informasi dan berita pasar modal (OSINT)."*
+  > *"Pelaku pasar modal Indonesia kehilangan momentum dan modal karena lambat memverifikasi penyebab lonjakan saham tidak wajar akibat terpisahnya data kuantitatif bursa (Sectors API) dengan konteks keterbukaan informasi dan berita pasar modal."*
 - [ ] **Public GitHub Repository**:
-  - Dibuat dalam rentang waktu kompetisi (19 Agustus – 30 September 2026).
-  - Wajib tetap berstatus **publik selama minimal 90 hari** setelah pemenang diumumkan (hingga Januari 2027).
+  - Dibuat dalam rentang waktu kompetisi (19 Agustus – 8 Oktober 2026).
+  - Wajib tetap berstatus **publik selama minimal 90 hari** setelah pemenang diumumkan (hingga Januari 2027). Jika di-private sebelum itu, hak atas hadiah hangus.
   - Bersih dari *API Key* atau kredensial rahasia apa pun.
-  - Memiliki `README.md` yang mudah dijalankan oleh juri secara lokal.
+  - Memiliki `README.md` yang mudah dijalankan oleh juri secara lokal (live deployment tidak diwajibkan).
 - [ ] **1-Minute Video Teaser**:
   - Format rekaman layar produk berjalan nyata (YouTube/Medsos publik).
   - Fokus pada *hook*: Pergerakan anomali ANTM terdeteksi $\to$ CLI beraksi $\to$ Dashboard memetakan bukti.
 - [ ] **3-Minute Judging Video**:
   - Walkthrough lengkap: Penjelasan masalah, target audiens, arsitektur hybrid, demo eksekusi live, dan pembuktian jejak audit bukti.
-  - Link YouTube/Vimeo (Public atau Unlisted), Google Drive (akses publik aktif), atau Loom.
+  - Link YouTube/Vimeo (Public atau Unlisted), Google Drive (akses publik aktif), atau Loom. Video yang tidak bisa diakses tidak akan dinilai.
 - [ ] **Postingan Media Sosial Wajib**:
   - Dipublikasikan di **Instagram, LinkedIn, Threads, atau TikTok**.
   - **Wajib menandai (*tag*) akun resmi Sectors**.
-  - **Wajib menggunakan template thumbnail resmi** yang disediakan oleh panitia di portal.
-- [ ] **Team Snapshot**: Foto seluruh anggota tim terlampir pada form submisi.
+  - **Wajib menggunakan template thumbnail resmi** yang disediakan oleh panitia di Canva ([canva.link/mexgt4g89m17xln](https://canva.link/mexgt4g89m17xln)).
+- [ ] **Pemilihan Track & Nama Anggota**: Pemilihan track serta daftar nama peserta. (Catatan: juri berhak memindahkan track bila lebih cocok ke track lain daripada mendiskualifikasi).
+- [ ] **Bahasa Submisi & Video**: Bahasa Indonesia atau Inggris (keduanya bernilai setara, tidak ada preferensi bahasa dalam penilaian).
 
 ### Aturan Pembekuan (*Code Freeze Rule*)
-* Repositori dan aplikasi **langsung membeku permanen saat tombol submit ditekan** atau pada 30 September 23:59 WIB (mana yang tercapai lebih dulu).
+* Repositori dan aplikasi **langsung membeku permanen saat tombol submit ditekan** atau pada 8 Oktober 23:59 WIB (mana yang tercapai lebih dulu).
 * **DILARANG MELAKUKAN COMMIT, PUSH, ATAU EDIT APAPUN SETELAH FREEZE**, termasuk perbaikan bug kecil. Pelanggaran mengakibatkan diskualifikasi otomatis.
 * Satu-satunya pengecualian darurat adalah kebocoran API Key: lapor panitia di Slack `#support`, cabut/rotasi key, lalu push 1 commit khusus menghapus key tersebut.
+
+### Ketentuan Hadiah, Pajak & Hak Cipta (Rule 10 & 11)
+* **Pajak Hadiah:** Ditanggung sesuai regulasi hukum perpajakan yang berlaku di Indonesia.
+* **Verifikasi Identitas (Batas 7 Hari):** Panitia dapat meminta verifikasi identitas resmi sebelum pencairan hadiah. Kegagalan verifikasi dalam 7 hari dapat membatalkan hadiah dan dialihkan ke pemenang cadangan.
+* **Masa Kedaluwarsa Kredit Hadiah:** Hadiah kredit API Sectors pemenang berlaku selama 3 bulan sejak diterbitkan.
+* **Hak Kekayaan Intelektual (IP):** 100% milik peserta. Penyelenggara tidak mengklaim kepemilikan kode/produk yang dibangun selama acara.
+* **Kontak Dukungan Resmi:** Email `ask+hackathon@incoming.supertype.ai` dan Slack `#discussion` / `#support`.
 
 ---
 

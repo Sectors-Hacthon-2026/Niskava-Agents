@@ -1,47 +1,50 @@
-"""OSINT Intelligence MCP Tool Definitions and Dispatcher.
+"""Sectors News MCP Tool Definitions and Dispatcher.
 
 Complies strictly with:
 - Law 2: Strict Financial Non-Advisory Boundary (Factual observation)
-- Decision 07: Resilient Dual-Engine OSINT Architecture
+- Sectors News & Disclosure Engine Architecture (Sectors API v2 /v2/news/)
 - Anti-Prompt Injection: XML-wrapped <evidence_context>
 """
 
 from typing import Any, Dict, List, Optional
 from engine.mcp.tools.sectors import sanitize_ticker
-from engine.osint.harvester import DualEngineOSINTHarvester, OSINTItem
 from engine.sectors.client import SectorsAPIClient
+from engine.sectors.news_engine import NewsItem, SectorsNewsEngine
+
+# Backward compatibility alias
+NewsHarvester = SectorsNewsEngine
 
 
-def get_osint_tool_definitions() -> List[Dict[str, Any]]:
-    """Return standardized MCP schemas for OSINT tools."""
+def get_news_tool_definitions() -> List[Dict[str, Any]]:
+    """Return standardized MCP schemas for Sectors news tools."""
     return [
         {
-            "name": "osint_harvest_market_news",
-            "description": "Ambil berita bursa terkurasi dan keterbukaan informasi emiten via Dual-Engine OSINT (Sectors v2 News + Google News RSS Secondary Disclosure Dorking).",
+            "name": "news_harvest_market_news",
+            "description": "Harvest curated exchange news and corporate disclosures directly from Sectors Financial API v2 (/v2/news/).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "ticker": {
                         "type": "string",
-                        "description": "Kode ticker 4 huruf IDX (contoh: ANTM, BBRI)",
+                        "description": "4-letter IDX stock ticker symbol (e.g. ANTM, BBRI)",
                     },
                     "company_name": {
                         "type": "string",
-                        "description": "Nama resmi emiten (opsional, contoh: 'Aneka Tambang')",
+                        "description": "Official company name (optional, e.g. 'Aneka Tambang')",
                     },
                 },
                 "required": ["ticker"],
             },
         },
         {
-            "name": "osint_extract_article_content",
-            "description": "Ekstrak teks artikel bersih dari URL atau HTML mentah menggunakan Trafilatura, dibungkus dalam isolasi <evidence_context> untuk pertahanan anti-prompt injection.",
+            "name": "news_extract_article_content",
+            "description": "Extract clean article text from URL or raw HTML using Trafilatura, isolated inside <evidence_context> tags for anti-prompt injection defense.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "url_or_html": {
                         "type": "string",
-                        "description": "URL artikel web atau string HTML mentah yang akan dibersihkan",
+                        "description": "Web article URL or raw HTML string to clean",
                     },
                 },
                 "required": ["url_or_html"],
@@ -50,14 +53,18 @@ def get_osint_tool_definitions() -> List[Dict[str, Any]]:
     ]
 
 
-def execute_osint_tool(
-    harvester: DualEngineOSINTHarvester,
+# Backward-compat alias for schemas
+get_osint_tool_definitions = get_news_tool_definitions
+
+
+def execute_news_tool(
+    harvester: SectorsNewsEngine,
     sectors_client: Optional[SectorsAPIClient],
     name: str,
     arguments: Dict[str, Any],
 ) -> Any:
-    """Execute an OSINT tool call against DualEngineOSINTHarvester."""
-    if name == "osint_harvest_market_news":
+    """Execute a news tool call against SectorsNewsEngine."""
+    if name in ("news_harvest_market_news", "osint_harvest_market_news"):
         ticker = sanitize_ticker(arguments.get("ticker", ""))
         company_name = arguments.get("company_name")
 
@@ -71,14 +78,14 @@ def execute_osint_tool(
             except Exception:
                 pass
 
-        items: List[OSINTItem] = harvester.harvest(
+        items: List[NewsItem] = harvester.harvest(
             ticker=ticker,
             company_name=company_name,
             sectors_news_items=sectors_news,
         )
         return [item.model_dump() for item in items]
 
-    if name == "osint_extract_article_content":
+    if name in ("news_extract_article_content", "osint_extract_article_content"):
         url_or_html = arguments.get("url_or_html", "")
         clean_text = harvester.sanitize_article_text(url_or_html)
         if not clean_text:
@@ -98,4 +105,8 @@ def execute_osint_tool(
             "evidence_context": wrapped,
         }
 
-    raise ValueError(f"Unknown OSINT tool: {name}")
+    raise ValueError(f"Unknown news tool: {name}")
+
+
+# Backward-compat alias for executor
+execute_osint_tool = execute_news_tool

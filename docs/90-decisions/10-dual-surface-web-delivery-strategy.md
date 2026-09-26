@@ -35,7 +35,7 @@ Niskava Agent mengadopsi strategi **Dual-Surface Web Delivery (Zero-Dependency E
                     │                                             │
                     ▼                                             ▼
         [ Juri Tanpa Node.js ]                       [ Pengembang / Web Client ]
-   Embedded Cyber-OSINT Dashboard                 Decoupled Vite + React 18 SPA
+   Embedded Market Intelligence Dashboard                 Decoupled Vite + React 18 SPA
        (Built-in di server.go)                           (clients/web/)
   • Zero npm install / No build step            • Rich Interactive Candlestick Charts
   • Live SSE Chat Canvas & History              • Vis.js / Node Graph Exploration
@@ -43,7 +43,7 @@ Niskava Agent mengadopsi strategi **Dual-Surface Web Delivery (Zero-Dependency E
 ```
 
 ### Karakteristik Desain:
-1. **Tier 1: Embedded Single-Binary Cyber-OSINT Canvas (Bawaan `server.go`)**:
+1. **Tier 1: Embedded Single-Binary Market Intelligence Canvas (Bawaan `server.go`)**:
    * Server Go menyajikan Single-Page Web Canvas mandiri langsung dari memori biner pada root path `/`.
    * Mendukung koneksi live SSE (`/api/chat`), riwayat sesi multi-turn, preset pertanyaan cepat, tombol stop/abort, dan visualisasi graf interaktif Vis.js (`/graph`).
    * **Nol Instalasi Tambahan**: Berjalan seketika pada binary Go tanpa memerlukan Node.js atau file web eksternal apa pun di mesin pengguna.

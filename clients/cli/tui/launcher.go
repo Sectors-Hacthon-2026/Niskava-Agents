@@ -30,7 +30,7 @@ type LauncherModel struct {
 	Quitting  bool
 }
 
-// Styles adhering to Binance Dark Financial OSINT Palette Specification (#FCD535 Gold / #1E2329 Dark Slate)
+// Styles adhering to Binance Dark Financial Intelligence Palette Specification (#FCD535 Gold / #1E2329 Dark Slate)
 var (
 	colorPrdBrightGreen = lipgloss.Color("#FCD535") // Financial Gold Accent
 	colorPrdMutedGreen  = lipgloss.Color("#848E9C") // Slate Gray

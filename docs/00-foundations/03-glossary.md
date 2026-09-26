@@ -4,7 +4,7 @@
 **Versi Dokumen:** 1.0.0  
 **Terakhir Diperbarui:** 2026-09-16  
 
-Daftar istilah standar domain pasar modal Indonesia (IDX), rekayasa kecerdasan buatan (*AI Agents*), dan intelijen sumber terbuka (*OSINT*) yang digunakan dalam arsitektur dan dokumentasi Niskava Agent.
+Daftar istilah standar domain pasar modal Indonesia (IDX), rekayasa kecerdasan buatan (*AI Agents*), dan riset pasar modal terverifikasi yang digunakan dalam arsitektur dan dokumentasi Niskava Agent.
 
 ---
 
@@ -26,14 +26,14 @@ Daftar istilah standar domain pasar modal Indonesia (IDX), rekayasa kecerdasan b
 
 ---
 
-## 2. Domain AI Agent & Open Source Intelligence (OSINT)
+## 2. Domain AI Agent & Intelijen Pasar Terverifikasi
 
 | Istilah | Definisi & Konteks Penggunaan |
 |---|---|
 | **Autonomous Agent** | Program perangkat lunak cerdas yang mampu merencanakan langkah (*planning*), memilih instrumen (*tool use*), dan mengeksekusi investigasi hingga tuntas tanpa intervensi manual setiap langkah. |
 | **Evidence-First** | Paradigma arsitektur di mana setiap klaim harus diverifikasi terhadap fakta data terstruktur sebelum model bahasa (LLM) diizinkan menyimpulkan. |
 | **Evidence Gap** | Kesenjangan antara temuan anomali kuantitatif (misal: volume meledak 3.8x) dengan ketiadaan penjelasan resmi pada data fundamental saat ini. |
-| **Targeted OSINT** | Teknik pencarian data publik (berita, pengumuman bursa, laporan analis) yang dibatasi secara ketat pada jendela waktu anomali ($T_{anomaly} \pm 2\text{ hari}$) menggunakan query spesifik. |
+| **Targeted News Harvest** | Teknik pencarian data publik (berita, pengumuman bursa, laporan analis) yang dibatasi secara ketat pada jendela waktu anomali ($T_{anomaly} \pm 2\text{ hari}$) menggunakan query spesifik. |
 | **Ground Truth** | Titik acuan fakta mutlak dalam sistem (dalam hal ini data numerik resmi dari Sectors API v2). |
 | **Hallucination Mitigation** | Metode perlindungan sistem dari kesalahan fabrikasi fakta oleh LLM, dicapai dengan pemrosesan deterministik sebelum LLM dan taksonomi verifikasi bukti. |
 | **Confidence Score** | Skor probabilitas validitas temuan (skala 0.00 hingga 1.00) yang dihitung berdasarkan kualitas dan konsistensi sumber bukti. |

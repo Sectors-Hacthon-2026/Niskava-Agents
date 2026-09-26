@@ -61,7 +61,7 @@ Niskava Agent dibangun di atas arsitektur tripartit hybrid yang memadukan keanda
 │                                      │ Standardized Tool Calls              │
 │                                      ▼                                      │
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │ Layer 1: MCP & OSINT Primitives (Sectors MCP + Dual-Engine OSINT)     │  │
+│  │ Layer 1: Sectors MCP & News Engine Primitives (Sectors API v2)        │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -87,9 +87,9 @@ Niskava Agent dibangun di atas arsitektur tripartit hybrid yang memadukan keanda
   * **Session Persistence Manager (`backend/core/db/`)**: Berkomunikasi dengan database SQLite lokal (`chat_sessions`, `chat_messages`, `investigations`, `anomalies`, dll.) menggunakan driver murni Go (`modernc.org/sqlite`) tanpa kebutuhan compiler CGO. Dilengkapi *self-healing zombie recovery* saat inisialisasi.
   * **Subprocess IPC Runner (`backend/core/ipc/`)**: Mengelola eksekusi child process Python secara aman dengan scanning streaming JSON Lines menggunakan buffer 1 MB.
 * **Python Agent Engine (`backend/engine/`)**:
-  * **Universal Model-Agnostic ReAct Loop (`backend/engine/agent/`)**: Mengelola dialog multi-turn, pemanggilan tool deterministik otonom, dan sintesis bukti menggunakan antarmuka standar OpenAI-compatible (`/chat/completions`) tanpa vendor lock-in. Dilengkapi **Progressive Skill Disclosure (ADR-11)** dengan 4 gateway primitives (`execute_skill`, `query_sectors`, `search_osint`, `query_memory`) yang memangkas ukuran prompt sistem hingga ~716 token serta menyematkan rekomendasi langkah lanjutan proaktif.
+  * **Universal Model-Agnostic ReAct Loop (`backend/engine/agent/`)**: Mengelola dialog multi-turn, pemanggilan tool deterministik otonom, dan sintesis bukti menggunakan antarmuka standar OpenAI-compatible (`/chat/completions`) tanpa vendor lock-in. Dilengkapi **Progressive Skill Disclosure (ADR-11)** dengan 4 gateway primitives (`execute_skill`, `query_sectors`, `search_news`, `query_memory`) yang memangkas ukuran prompt sistem hingga ~716 token serta menyematkan rekomendasi langkah lanjutan proaktif.
   * **Deterministic Quant Anomaly (`backend/engine/quant/`)**: Menghitung $Z$-score volume ($V_z$), abnormal return ($R_t$), divergensi sektor ($D_t$), dan foreign flow $Z$-score ($F_z$) menggunakan library NumPy murni sesuai Hukum 1. LLM dilarang berhitung mandiri.
-  * **Sectors v2 API Client & Dual OSINT Engine (`backend/engine/sectors/` & `backend/engine/osint/`)**: Melakukan request terstruktur ke API Sectors untuk data candle, broker flow, mining extension, dan harvesting berita RSS BEI terkurasi dengan cache lokal disk.
+  * **Sectors v2 API Client & News Engine (`backend/engine/sectors/`)**: Melakukan request terstruktur ke API Sectors untuk data candle, broker flow, mining extension, serta penarikan berita bursa & keterbukaan informasi emiten terkurasi (`/v2/news/`) dengan cache lokal disk.
   * **Local Graph Memory (`backend/engine/memory/`)**: In-memory NetworkX DiGraph yang disinkronkan ke tabel SQLite `memory_nodes` & `memory_edges` dengan decay temporal.
   * **Streaming JSONL Emitter**: Mengirimkan update berkala (`agent_thought`, `agent_tool_call`, `agent_observation`, `agent_message_chunk`, `agent_message_complete`) dalam format JSON Lines ke STDOUT.
 
@@ -111,7 +111,7 @@ niskava/                         # Root direktori repositori implementasi
 │   │   ├── tui/                 # Bubbletea interactive terminal app & Glamour renderer
 │   │   └── setup.go             # Interactive Setup Wizard
 │   └── web/                     # React 18 + Vite + Tailwind CSS Workspace
-│       ├── src/                 # Komponen UI (Cyber-OSINT aesthetic, Recharts/Lightweight)
+│       ├── src/                 # Komponen UI (Market Intelligence aesthetic, Recharts/Lightweight)
 │       ├── package.json         # Dependensi frontend npm/vite
 │       ├── vite.config.ts       # Konfigurasi bundler (output dist/)
 │       └── tsconfig.json
@@ -127,10 +127,9 @@ niskava/                         # Root direktori repositori implementasi
 │   └── engine/                  # Python Agent Engine (3.11+)
 │       ├── agent/               # ReAct Agent loop, prompt templates, tools registry
 │       ├── quant/               # Anomali kuantitatif deterministik (NumPy/Pandas Z-Scores)
-│       ├── sectors/             # Sectors v2 API client & disk cache lokal
-│       ├── osint/               # Harvester berita RSS & keterbukaan IDX (trafilatura)
+│       ├── sectors/             # Sectors v2 API client, news engine & disk cache lokal
 │       ├── memory/              # Local Graph Memory Engine (NetworkX DiGraph)
-│       ├── tests/               # 182 unit tests komprehensif engine Python (100% green)
+│       ├── tests/               # 272 unit tests komprehensif engine Python (100% green)
 │       ├── runner.py            # Entrypoint IPC headless investigation pipeline
 │       └── pyproject.toml       # Dependensi modern Python (uv / pip)
 │
@@ -164,9 +163,10 @@ CLI Flags (Override Tertinggi)
 | **Python Engine Path** | `./backend/engine` (atau `backend.engine.runner`) | `NISKAVA_ENGINE_PATH` | `--engine-path` / `engine.entrypoint` | Runner menemukan entrypoint baik dalam root repo maupun lingkungan terpasang. |
 | **Web UI Assets** | `//go:embed clients/web/dist` | `NISKAVA_WEB_DIR` | `--web-dir` / `web.dist_path` | Mode produksi memakai embedded binary. Mode development dapat mengarahkan ke `clients/web/dist` lokal. |
 | **SQLite DB Path** | `~/.niskava/niskava.db` | `NISKAVA_DB_PATH` | `--db-path` / `storage.db_path` | Memungkinkan database diletakkan di lokasi kustom atau memori (`:memory:`) untuk testing isolasi. |
-| **HTTP Port** | `8080` | `NISKAVA_PORT` | `--port` / `server.port` | Port lokal REST/SSE dapat dipindah jika 8080 sedang digunakan. |
-| **LLM API Base** | `http://localhost:20128/v1` | `NISKAVA_LLM_API_BASE` | `--llm-api-base` / `llm.api_base` | Endpoint OpenAI-compatible (9router local proxy, Ollama, OpenRouter, vLLM). |
-| **LLM Model** | `hermes` | `NISKAVA_LLM_MODEL` | `--llm-model` / `llm.model` | Model id universal tanpa vendor lock-in. |
+| **HTTP Port** | `20128` (atau `8080`) | `NISKAVA_PORT` | `--port` / `server.port` | Port lokal REST/SSE dapat dipindah sesuai ketersediaan port. |
+| **LLM Inference Timeout** | `60.0` detik | `NISKAVA_LLM_TIMEOUT` | `/timeout` / `preferences.llm_timeout_secs` | Skala adaptif otomatis per iterasi ReAct: $\text{Base} + (N_{\text{obs}} \times 10\text{s})$, batas 10–300 detik. |
+| **LLM API Base** | `http://localhost:20128/v1` | `OPENAI_BASE_URL` | `--llm-api-base` / `auth.openai_base_url` | Endpoint OpenAI-compatible (9router local proxy, Ollama, OpenRouter, vLLM). |
+| **LLM Model** | `hermes` | `OPENAI_MODEL` | `--llm-model` / `auth.openai_model` | Model id universal tanpa vendor lock-in. |
 
 ---
 

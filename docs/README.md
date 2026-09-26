@@ -10,10 +10,10 @@
 
 ## 1. Ringkasan Eksekutif & Problem Statement
 
-**Niskava Agent** adalah platform orkestrasi investigasi finansial dan intelijen pasar modal Indonesia (IDX) otonom berbasis *evidence-first*, menggabungkan data kuantitatif **Sectors Financial API v2** dengan intelijen kualitatif eksternal **OSINT (News, Public Filings, Corporate Actions)**.
+**Niskava Agent** adalah platform orkestrasi investigasi finansial dan intelijen pasar modal Indonesia (IDX) otonom berbasis *evidence-first*, menggabungkan data kuantitatif **Sectors Financial API v2** dengan intelijen kualitatif eksternal **Kualitatif (Sectors News, Corporate Actions, Filings)**.
 
 ### 📌 1-Sentence Problem Statement (Resmi Submisi)
-> *"Pelaku pasar modal Indonesia kehilangan momentum dan modal karena lambat memverifikasi penyebab lonjakan saham tidak wajar akibat terpisahnya data kuantitatif bursa (Sectors API) dengan konteks keterbukaan informasi dan berita pasar modal (OSINT)."*
+> *"Pelaku pasar modal Indonesia kehilangan momentum dan modal karena lambat memverifikasi penyebab lonjakan saham tidak wajar akibat terpisahnya data kuantitatif bursa (Sectors API) dengan konteks keterbukaan informasi dan berita pasar modal ."*
 
 Slogan inti: **"Don't just answer questions. Investigate them."**
 
@@ -75,7 +75,9 @@ Untuk katalog lengkap setiap file beserta ringkasannya, buka **[`index.md`](inde
 | **Logika Agen** | [`30-agent/`](30-agent/) | 7-stage pipeline, katalog skills, taksonomi bukti, evaluasi & benchmark, engine memori graf lokal. |
 | **Keputusan** | [`90-decisions/`](90-decisions/) | Architecture Decision Records (`01` s/d `11`). |
 | **Konstitusi Agen** | [Root `AGENTS.md`](../AGENTS.md) | Konstitusi operasional agen AI, 6 hukum arsitektur, dan standar kode (Full English). |
+| **Manual CLI** | [`CLI_REFERENCE.md`](CLI_REFERENCE.md) | Manual referensi lengkap perintah baris perintah, flag, env vars, dan slash commands. |
 | **Integrasi Klien** | [`TEAM_CLIENTS_INTEGRATION_GUIDE.md`](TEAM_CLIENTS_INTEGRATION_GUIDE.md) | Single Source of Truth teknis untuk pengembang Web Workspace & CLI TUI. |
+| **Dokumentasi Publik**| [`../public/docs/`](../public/docs/) | Dokumentasi resmi berbahasa Inggris untuk pengguna akhir, juri, dan publik (Install, Architecture, Guide, FAQ). |
 | **Dinamika** | [`open-questions.md`](open-questions.md) | Daftar isu teknis terbuka yang sedang dievaluasi. |
 
 ---

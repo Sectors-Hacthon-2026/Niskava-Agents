@@ -51,14 +51,83 @@ def load_dotenv_fallback() -> None:
                         k, v = line.split("=", 1)
                         k = k.strip()
                         v = v.strip().strip("'\"")
-                        if k and k not in os.environ:
+                        # Only set non-empty values into os.environ so empty keys do not shadow valid ones
+                        if k and v and (k not in os.environ or not os.environ[k]):
                             os.environ[k] = v
             except OSError:
                 pass
 
 
+def load_config_yaml_fallback() -> None:
+    """Optional fallback to load credentials from ~/.niskava/config.yaml if not set in os.environ."""
+    config_path = os.path.expanduser("~/.niskava/config.yaml")
+    if not os.path.exists(config_path):
+        return
+    try:
+        cfg = None
+        try:
+            import yaml
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f)
+        except ImportError:
+            # Zero-dependency standard library parser for simple YAML key-value sections
+            cfg = {"auth": {}, "preferences": {}}
+            current_section = None
+            with open(config_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if not stripped or stripped.startswith("#"):
+                        continue
+                    if not line.startswith(" ") and not line.startswith("\t") and stripped.endswith(":"):
+                        current_section = stripped[:-1].strip()
+                        if current_section not in cfg:
+                            cfg[current_section] = {}
+                        continue
+                    if ":" in stripped and current_section:
+                        k, v = stripped.split(":", 1)
+                        k = k.strip()
+                        v = v.strip().strip("'\"")
+                        if v.lower() == "true":
+                            val = True
+                        elif v.lower() == "false":
+                            val = False
+                        else:
+                            val = v
+                        cfg[current_section][k] = val
+
+        if not isinstance(cfg, dict):
+            return
+        auth = cfg.get("auth", {})
+        if isinstance(auth, dict):
+            mapping = {
+                "SECTORS_API_KEY": auth.get("sectors_api_key"),
+                "SECTORS_BASE_URL": auth.get("sectors_base_url"),
+                "AI_PROVIDER": auth.get("ai_provider"),
+                "GEMINI_API_KEY": auth.get("gemini_api_key"),
+                "GEMINI_MODEL": auth.get("gemini_model"),
+                "OPENAI_API_KEY": auth.get("openai_api_key"),
+                "OPENAI_BASE_URL": auth.get("openai_base_url"),
+                "OPENAI_MODEL": auth.get("openai_model"),
+                "ANTHROPIC_API_KEY": auth.get("anthropic_api_key"),
+                "OLLAMA_BASE_URL": auth.get("ollama_base_url"),
+                "OLLAMA_MODEL": auth.get("ollama_model"),
+            }
+            for k, v in mapping.items():
+                if v and isinstance(v, str) and (k not in os.environ or not os.environ[k]):
+                    os.environ[k] = v
+        prefs = cfg.get("preferences", {})
+        if isinstance(prefs, dict):
+            if prefs.get("language") and "NISKAVA_LANG" not in os.environ:
+                os.environ["NISKAVA_LANG"] = str(prefs["language"])
+            if "offline_mode" in prefs and "NISKAVA_OFFLINE" not in os.environ:
+                os.environ["NISKAVA_OFFLINE"] = "1" if prefs["offline_mode"] else "0"
+    except Exception:
+        pass
+
+
 def main() -> None:
     load_dotenv_fallback()
+    load_config_yaml_fallback()
     parser = argparse.ArgumentParser(description="Niskava Python Agent Engine IPC Runner")
     parser.add_argument("--prompt", default=None, help="Free-form conversational user prompt")
     parser.add_argument("--ticker", default=None, help="Target IDX ticker (e.g. ANTM)")
@@ -67,6 +136,10 @@ def main() -> None:
     parser.add_argument("--db-path", default="~/.niskava/niskava.db", help="Path to local SQLite DB")
     parser.add_argument("--offline", action="store_true", help="Force offline mock mode")
     parser.add_argument("--export-graph-html", default=None, help="Export graph HTML to specified path")
+    parser.add_argument("--depth", type=int, default=1, help="Hop depth radius for ego graph")
+    parser.add_argument("--node-types", default=None, help="Comma-separated node types to filter")
+    parser.add_argument("--embed", action="store_true", help="Render lightweight embedded view for iframes")
+    parser.add_argument("--summary-graph", action="store_true", help="Output JSON text summary of graph to stdout")
     parser.add_argument("--language", "--lang", default=os.environ.get("NISKAVA_LANG", "id"), help="Interface and persona language ('id' or 'en')")
 
     args = parser.parse_args()
@@ -84,10 +157,37 @@ def main() -> None:
             db_path=args.db_path,
             mock_mode=mock_mode,
         )
+        if args.summary_graph:
+            from engine.memory.visualizer import GraphVisualizer
+            viz = GraphVisualizer(memory=registry.memory)
+            types = [t.strip().upper() for t in args.node_types.split(",")] if args.node_types else None
+            data = viz.export_graph_data(
+                session_id=args.session,
+                ticker=args.ticker,
+                depth=args.depth,
+                node_types=types,
+            )
+            print(json.dumps({
+                "total_nodes": len(data["nodes"]),
+                "total_edges": len(data["edges"]),
+                "nodes": [{"id": n["id"], "label": n.get("raw_label", n.get("label")), "group": n["group"]} for n in data["nodes"]],
+                "edges": [{"from": e["from"], "to": e["to"], "rel": e["relation"], "weight": e["effective_weight"]} for e in data["edges"]],
+                "stats": data.get("stats", {}),
+            }, indent=2, ensure_ascii=False))
+            return
+
         if args.export_graph_html:
             from engine.memory.visualizer import GraphVisualizer
             viz = GraphVisualizer(memory=registry.memory)
-            saved = viz.export_to_file(output_path=args.export_graph_html, session_id=args.session)
+            types = [t.strip().upper() for t in args.node_types.split(",")] if args.node_types else None
+            saved = viz.export_to_file(
+                output_path=args.export_graph_html,
+                session_id=args.session,
+                ticker=args.ticker,
+                depth=args.depth,
+                node_types=types,
+                embed=args.embed,
+            )
             emit_jsonl({
                 "event": "graph_exported",
                 "session_id": args.session or "ALL",

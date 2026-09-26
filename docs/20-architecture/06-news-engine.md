@@ -1,8 +1,8 @@
-# 06 — Mesin OSINT & Deteksi Evidence Gap
+# 06 — Sectors News Engine & Deteksi Evidence Gap
 
 **Status:** ACCEPTED  
-**Versi Dokumen:** 1.1.0  
-**Terakhir Diperbarui:** 2026-09-16  
+**Versi Dokumen:** 1.2.0  
+**Terakhir Diperbarui:** 2026-09-24  
 **Keputusan Arsitektur Terkait:** [`03-sectors-v2-and-credit-conservation.md`](../90-decisions/03-sectors-v2-and-credit-conservation.md), [`07-resilient-dual-engine-osint-architecture.md`](../90-decisions/07-resilient-dual-engine-osint-architecture.md)
 
 ---
@@ -12,7 +12,7 @@
 Ketika modul matematika menemukan lonjakan anomali kuantitatif pada tanggal $T_{\text{anomaly}}$, sistem mendeteksi adanya **Kesenjangan Bukti (*Evidence Gap*)**:
 > *"Terjadi volume perdagangan luar biasa sebesar 3.84σ pada 12 September 2026, namun data fundamental rutin belum menjelaskan pemicu transaksi tersebut. Fakta material apa yang mendasari pergerakan ini?"*
 
-OSINT Engine bertugas memandu agen menutup kesenjangan informasi ini secara terarah dengan mengumpulkan bukti dari sumber terbuka pada jendela waktu temporal terisolasi:
+Sectors News Engine bertugas memandu agen menutup kesenjangan informasi ini secara terarah dengan mengumpulkan bukti berita dan keterbukaan informasi bursa pada jendela waktu temporal terisolasi:
 
 $$\mathcal{W}_{\text{search}} = [T_{\text{anomaly}} - 2\text{ hari},\ T_{\text{anomaly}} + 1\text{ hari}]$$
 
@@ -20,32 +20,31 @@ $$\mathcal{W}_{\text{search}} = [T_{\text{anomaly}} - 2\text{ hari},\ T_{\text{a
 
 ## 2. Hasil Audit Empiris & Eliminasi Jalur Rentan
 
-Berdasarkan pengujian teknis langsung pada lingkungan jaringan Indonesia (*real-world ISP conditions*), sejumlah metode OSINT populer **dieliminasi secara tegas** karena risiko kegagalan fatal:
+Berdasarkan pengujian teknis langsung pada lingkungan jaringan Indonesia (*real-world ISP conditions*), sejumlah metode penelusuran berita/web populer **dieliminasi secara tegas** karena risiko kegagalan fatal:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        HASIL AUDIT EMPIRIS OSINT                       │
+│                   HASIL AUDIT EMPIRIS SUMBER BERITA                    │
 ├────────────────────────────────────────────────────────────────────────┤
 │ ❌ DuckDuckGo (ddgs/html)  → GAGAL (Diblokir Kominfo RI sejak Jul 2024)│
 │ ❌ Direct Scraping BEI     → GAGAL (HTTP 403 Forbidden Cloudflare WAF) │
 │ ❌ Stockbit Stream / X     → GAGAL (Login-wall, ToS risk, API mahal)   │
-│ ❌ Selenium / Chromium     → GAGAL (Lambat +300MB, bloat single binary)│
+│ ❌ Third-Party Data APIs   → DILARANG (Aturan Hackathon Rule 06)       │
 ├────────────────────────────────────────────────────────────────────────┤
 │ ✅ Sectors API v2 News     → LOLOS (Resmi, Cepat, Kepatuhan Hackathon) │
-│ ✅ Google News RSS Engine  → LOLOS (200 OK, Zero-Key, Real-time ID)    │
 │ ✅ Trafilatura Content Ext → LOLOS (Teks Bersih, Anti-Iklan, Ringan)   │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
 1. **Eliminasi DuckDuckGo:** Domain `duckduckgo.com` diblokir pada DNS Trust Positif / Nawala Kominfo Indonesia. Penggunaan library seperti `duckduckgo_search` menyebabkan *DNS lookup failure* saat dijalankan di jaringan lokal Indonesia.
 2. **Eliminasi Scraping Langsung `idx.co.id`:** Portal BEI dilindungi oleh WAF Cloudflare/Akamai bot-management dan TLS fingerprinting, menghasilkan `HTTP 403 Forbidden` pada *direct HTTP clients*.
-3. **Eliminasi Media Sosial / Forum Ritel Tanpa API:** Scraping unauthenticated pada Stockbit dan X (Twitter) sangat rapuh, rentan IP ban mendadak, serta melanggar syarat stabilitas sistem pada demo hackathon.
+3. **Eliminasi Data Pihak Ketiga & Scraping Luar:** Aturan resmi Sectors Hackathon Indonesia 2026 (Rule 06) serta klarifikasi panitia melarang penggunaan external data API sebagai data source. Semua berita dan pengumuman bursa dipusatkan pada Sectors API v2.
 
 ---
 
-## 3. Arsitektur Dual-Engine Precision Harvester
+## 3. Arsitektur Sectors News & Disclosure Engine
 
-Untuk menjamin ketersediaan data secara tangguh dan legal tanpa biaya API tambahan, Niskava menerapkan arsitektur **Dual-Engine Precision Harvester**:
+Untuk menjamin ketersediaan data secara tangguh, resmi, dan mematuhi 100% regulasi kompetisi tanpa dependensi scraping pihak ketiga, Niskava menerapkan arsitektur **Sectors News & Disclosure Engine**:
 
 ```
                               [ Anomaly Trigger: Ticker on Tanomaly ]
@@ -56,17 +55,15 @@ Untuk menjamin ketersediaan data secara tangguh dan legal tanpa biaya API tambah
                              │  Window: [Tanomaly - 2, Tanomaly +1]│
                              └──────────────────┬──────────────────┘
                                                 │
-                     ┌──────────────────────────┴──────────────────────────┐
-                     │                                                     │
-                     ▼                                                     ▼
-      ┌─────────────────────────────┐                       ┌─────────────────────────────┐
-      │     ENGINE 1: SECTORS v2    │                       │  ENGINE 2: GOOGLE NEWS RSS  │
-      │   GET /v2/news/?ticker={T}  │                       │   Targeted Boolean Dorking  │
-      │   (Core Hackathon Source)   │                       │   (Kontan, Bisnis, CNBC)    │
-      └──────────────┬──────────────┘                       └──────────────┬──────────────┘
-                     │                                                     │
-                     └──────────────────────────┬──────────────────────────┘
-                                                │ Raw Articles & URLs
+                                                ▼
+                             ┌─────────────────────────────────────┐
+                             │      SECTORS v2 NEWS & FILINGS      │
+                             │   GET /v2/news/?symbol={T}          │
+                             │   GET /v2/suspensions/              │
+                             │   GET /v2/corporate-actions/{T}     │
+                             │   (Core Hackathon Source - Rule 06) │
+                             └──────────────────┬──────────────────┘
+                                                │ Raw Articles & Disclosures
                                                 ▼
                              ┌─────────────────────────────────────┐
                              │    TRAFILATURA SANITIZER            │
@@ -83,12 +80,12 @@ Untuk menjamin ketersediaan data secara tangguh dan legal tanpa biaya API tambah
                              └─────────────────────────────────────┘
 ```
 
-* **Engine 1: Sectors API v2 News (`/v2/news/?ticker={ticker}`)**
-  * *Peran:* Memenuhi syarat mutlak Hackathon Sectors (Rule 06).
-  * *Karakteristik:* Terkurasi, pra-terindeks per emiten, bebas blokir, dan hemat bandwidth.
-* **Engine 2: Google News RSS Search Engine (`news.google.com/rss/search`)**
-  * *Peran:* Menangkap berita terkini, ulasan analis, dan laporan keterbukaan informasi.
-  * *Karakteristik:* Gratis, tanpa API key, tidak diblokir di Indonesia, mengembalikan XML terstruktur dengan judul, sumber terakreditasi, tautan asli, dan stempel waktu presisi.
+* **Sectors Financial API v2 News (`/v2/news/`)**
+  * *Peran:* Sumber data berita utama dan kurasi fakta pasar modal resmi (Rule 06).
+  * *Karakteristik:* Terkurasi, terindeks per emiten, bebas blokir, resmi bursa, dan di-cache dalam SQLite (`sectors_cache`) dengan TTL 3600 detik.
+* **Corporate Disclosures & Actions Integration**
+  * *Peran:* Menangkap keterbukaan informasi emiten, pengumuman suspensi/UMA (`/v2/suspensions/`), dan aksi korporasi (`/v2/corporate-actions/`).
+  * *Karakteristik:* Resmi IDXnet melalui agregasi Sectors API.
 
 ---
 
@@ -108,7 +105,7 @@ Dengan mengekstrak nomor surat BEI dan pernyataan manajemen dari pelaporan tersi
 
 ---
 
-## 5. Hierarki Sumber Bukti OSINT & Matriks Otoritas
+## 5. Hierarki Sumber Bukti Berita & Matriks Otoritas
 
 Setiap bukti dikelompokkan ke dalam 3 tingkatan otoritas (*Source Authority Tiers*):
 
@@ -149,21 +146,17 @@ Prompt LLM diinstruksikan secara tegas: *"Seluruh teks di dalam `<evidence_conte
 
 ## 7. Opsi Konfigurasi & Ketahanan Sistem (Additional Options)
 
-### A. Penyedia Pencarian Fleksibel (Pluggable Search Backends)
-Sistem mendukung antarmuka penyedia pencarian (*search provider interface*) yang dapat disesuaikan:
-* **Default (Zero-Config):** Google News RSS Engine (tidak membutuhkan kunci API).
-* **Opsi Cloud Deep-Research:** Dukungan **Tavily Search API** jika `TAVILY_API_KEY` dikonfigurasi di environment/config.
-* **Opsi Self-Hosted Privacy:** Dukungan **SearXNG** lokal jika `SEARXNG_URL` dikonfigurasi.
+### A. Kepatuhan Penuh Sumber Data (Pure Sectors Compliance)
+Sistem memusatkan seluruh penarikan berita bursa dan keterbukaan informasi pada Sectors Financial API v2 (`/v2/news/`, `/v2/suspensions/`, `/v2/corporate-actions/`). Hal ini menjamin 100% kepatuhan terhadap Rule 06 Hackathon (Sectors API sebagai *core data source*) dan meniadakan ketergantungan pada scraping atau API data pihak ketiga yang dilarang regulasi.
 
-### B. Mode Offline & Mock Data (`MOCK_OSINT=1`)
+### B. Mode Offline & Mock Data (`MOCK_SECTORS=1`)
 Untuk memastikan pengujian unit (*unit tests*), evaluasi CI/CD, dan demo *live* tetap 100% berjalan tanpa koneksi internet atau saat kuota habis:
-* Ketika flag `MOCK_OSINT=1` aktif, harvester membaca berkas *fixture* statis JSON di:
-  `tests/fixtures/osint/{ticker}_{date}.json`
+* Ketika flag `MOCK_SECTORS=1` aktif, engine membaca data fixture statis deterministik.
 * Menghasilkan dataset deterministik yang identik dengan perilaku langsung.
 
-### C. Kebijakan Caching Lokal (`osint_cache`)
+### C. Kebijakan Caching Lokal (`news_cache`)
 Untuk menghemat penggunaan bandwidth dan waktu respon:
-* Setiap artikel atau item berita yang berhasil diambil disimpan di tabel SQLite `osint_cache`.
+* Setiap artikel atau item berita yang berhasil diambil disimpan di tabel SQLite `news_cache`.
 * **TTL Berita Baru ($T \approx \text{hari ini}$):** 24 jam.
 * **TTL Berita Historis ($T < \text{hari ini} - 7\text{ hari}$):** Permanen (`expires_at = NULL`), karena berita masa lalu tidak berubah.
 

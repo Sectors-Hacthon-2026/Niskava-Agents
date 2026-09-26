@@ -92,3 +92,34 @@ def test_real_connection_error_shows_unable_to_connect(tmp_path):
     assert "Unable to Connect to AI Provider" in response_text or "Gagal Terhubung" in response_text, (
         f"Real connection error should show 'Unable to Connect'. Got: {response_text[:300]}"
     )
+
+
+def test_provider_service_unavailable_shows_provider_error(tmp_path):
+    """Ketika upstream provider mengembalikan pesan 'The model service is temporarily unavailable',
+    pesan error harus menunjukkan AI Provider Error, BUKAN ReAct Analysis Limit Reached."""
+    agent, events = _make_agent(tmp_path)
+
+    def mock_post(*args, **kwargs):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = json.dumps({
+            "error": {"message": "The model service is temporarily unavailable. Please try again."}
+        })
+        return mock_resp
+
+    with patch("requests.post", side_effect=mock_post):
+        result = agent._run_universal_chat_cycle(
+            session_id="TEST-ERRCLASS-003",
+            user_prompt="halo",
+            history=[],
+            start_time=0.0,
+        )
+
+    assert result.get("status") == "ERROR"
+    response_text = result.get("response", "")
+
+    # MUST be classified as provider error, NOT analysis limit
+    assert "ReAct Analysis Limit Reached" not in response_text
+    assert "Batas Penalaran ReAct Tercapai" not in response_text
+    assert "AI Provider" in response_text or "Unable to Connect" in response_text
+    assert "investigate ANTM" not in response_text

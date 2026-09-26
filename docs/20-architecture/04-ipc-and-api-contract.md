@@ -198,7 +198,10 @@ Go Core Daemon menjalankan HTTP REST & Server-Sent Events (SSE) server lokal pad
 | `GET` | `/graph` | Halaman visualisasi graf interaktif Vis.js di browser | `-` | HTML interaktif Vis.js Network |
 | `GET` | `/api/sessions` | Riwayat sesi investigasi pipeline headless | `-` | JSON daftar sesi `investigations` |
 | `GET` | `/api/investigations/{id}` | Detail lengkap hasil anomali & bukti investigasi | URL Param `{id}` | JSON objek investigasi, anomalies, findings, timeline |
-| `GET` | `/` | Web Workspace AI Assistant Canvas (Cyber-OSINT) | `-` | HTML/CSS/JS Single-Page Web Dashboard |
+| `GET` | `/api/settings` | Mengambil konfigurasi aktif tersanitasi (Masked View) | `-` | JSON `{auth: {...}, preferences: {...}, storage: {...}}` |
+| `PATCH` | `/api/settings` | Memperbarui konfigurasi sistem secara dinamis | `{"preferences": {"llm_timeout_secs": 60.0}}` | JSON Masked View konfigurasi terupdate |
+| `POST` | `/api/settings/test-connection`| Menguji konektivitas live ke endpoint provider AI / Sectors | `{"provider": "gemini", "base_url": "...", "api_key": "..."}` | JSON `{"ok": true, "message": "...", "latency_ms": 120}` |
+| `GET` | `/` | Web Workspace AI Assistant Canvas (Market Intelligence) | `-` | HTML/CSS/JS Single-Page Web Dashboard |
 
 ---
 

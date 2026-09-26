@@ -50,11 +50,21 @@ BENCHMARK_DATASET: List[BenchmarkCase] = [
 ]
 
 
+import os
+import tempfile
+
 class BenchmarkEvaluator:
     """Evaluates Niskava Agent accuracy against historical ground truth."""
 
-    def __init__(self, db_path: str = "~/.niskava/niskava.db", mock_mode: bool = True):
-        self.pipeline = InvestigationPipeline(db_path=db_path, mock_mode=mock_mode)
+    def __init__(self, db_path: Optional[str] = None, mock_mode: bool = True):
+        if db_path is None:
+            # Create an isolated temporary test database to prevent polluting production memory
+            self._temp_dir = tempfile.mkdtemp(prefix="niskava_bench_")
+            resolved_db = os.path.join(self._temp_dir, "benchmark.db")
+        else:
+            resolved_db = os.path.expanduser(db_path)
+            self._temp_dir = None
+        self.pipeline = InvestigationPipeline(db_path=resolved_db, mock_mode=mock_mode)
 
     def run_benchmark(self, dataset: Optional[List[BenchmarkCase]] = None) -> Dict[str, Any]:
         """Execute benchmark suite and calculate precision, recall, and compliance metrics."""

@@ -211,7 +211,10 @@ class SectorsAPIClient:
     def get_news(self, symbol: Optional[str] = None) -> List[Dict[str, Any]]:
         """Fetch curated financial news."""
         endpoint = "/news/"
-        params = {"symbol": symbol.upper()} if symbol else {}
+        params: Dict[str, Any] = {}
+        if symbol:
+            clean = symbol.upper()
+            params = {"symbol": clean, "ticker": clean}
         raw = self._request(endpoint, params, ttl_seconds=3600)
         return self._normalize_list_response(raw)
 
@@ -282,7 +285,18 @@ class SectorsAPIClient:
 
     def _generate_mock_data(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Any:
         """Generate realistic mock data fixtures for offline development and CI tests."""
-        symbol = (params.get("symbol") if params else None) or "ANTM"
+        raw_sym = params.get("symbol") if params else None
+        if not raw_sym and params and "ticker" in params:
+            raw_sym = params.get("ticker")
+        clean_sym = str(raw_sym).upper().strip() if raw_sym else None
+        if not clean_sym:
+            for prefix in ("/daily/", "/company/report/", "/foreign-flow/", "/quarterly-financials/", "/broker-summary-top/"):
+                if prefix in endpoint:
+                    parts = endpoint.split(prefix)[-1].strip("/").split("/")
+                    if parts and parts[0]:
+                        clean_sym = parts[0].upper()
+                        break
+        symbol = clean_sym or "ANTM"
         if "/daily/" in endpoint:
             # 30 days of synthetic candles with a volume surge on day 25
             candles = []
@@ -325,14 +339,76 @@ class SectorsAPIClient:
             ]
 
         if "/news/" in endpoint:
+            today = datetime.now()
+            today_str = today.strftime("%Y-%m-%d")
+            yesterday_str = (today - timedelta(days=1)).strftime("%Y-%m-%d")
+
+            is_index_or_general = clean_sym is None or clean_sym in ("IHSG", "IDX", "COMPOSITE", "^JKSE")
+            if is_index_or_general:
+                return [
+                    {
+                        "title": "IHSG Menguat Ditopang Arus Masuk Modal Asing dan Kinerja Saham Blue Chip",
+                        "source": "Bisnis Indonesia",
+                        "url": "https://market.bisnis.com/read/ihsg-menguat-modal-asing",
+                        "publish_date": f"{today_str}T09:15:00Z",
+                        "snippet": "Indeks Harga Saham Gabungan (IHSG) bergerak menguat pada perdagangan hari ini didorong net buy investor asing di saham-saham perbankan dan komoditas.",
+                    },
+                    {
+                        "title": "Sektor Perbankan Catat Net Inflow Signifikan, Saham BBCA dan BBRI Menguat",
+                        "source": "CNBC Indonesia",
+                        "url": "https://cnbcindonesia.com/market/sektor-perbankan-net-inflow-bbca-bbri",
+                        "publish_date": f"{today_str}T08:30:00Z",
+                        "snippet": "Sektor perbankan membukukan akumulasi foreign flow yang kuat seiring kenaikan laba bersih dan penyaluran kredit konsisten perbankan nasional.",
+                    },
+                    {
+                        "title": "Sektor Tambang Bergairah: ANTM Resmikan Uji Coba Smelter Feronikel Baru di Halmahera",
+                        "source": "IDX Channel",
+                        "url": "https://idxchannel.com/market/antm-smelter-halmahera",
+                        "publish_date": f"{yesterday_str}T14:20:00Z",
+                        "snippet": "PT Aneka Tambang Tbk (ANTM) mengumumkan penyelesaian proyek hilirisasi dan ekspansi kapasitas smelter nikel di Indonesia timur.",
+                    },
+                    {
+                        "title": "Transisi Energi dan Ketahanan Infrastruktur Dorong Prospek Emiten Migas dan Batubara",
+                        "source": "Kontan",
+                        "url": "https://investasi.kontan.co.id/news/transisi-energi-infrastruktur-migas-batubara",
+                        "publish_date": f"{yesterday_str}T11:00:00Z",
+                        "snippet": "Permintaan energi global yang stabil memberikan katalis positif bagi emiten sektor energi dan pengembangan infrastruktur pendukung.",
+                    },
+                ]
+
+            if clean_sym == "ANTM":
+                return [
+                    {
+                        "title": "ANTM Resmikan Uji Coba Smelter Feronikel Baru di Halmahera",
+                        "source": "IDX Channel",
+                        "url": "https://idxchannel.com/market/antm-smelter-halmahera",
+                        "publish_date": f"{today_str}T07:30:00Z",
+                        "snippet": "PT Aneka Tambang Tbk (ANTM) mengumumkan penyelesaian proyek hilirisasi nikel...",
+                    },
+                    {
+                        "title": "Keterbukaan Informasi: ANTM Laporkan Kinerja Produksi dan Penjualan Emas Serta Nikel",
+                        "source": "IDXnet Disclosures",
+                        "url": "https://idx.co.id/filings/ANTM-laporan-produksi-2026.pdf",
+                        "publish_date": f"{yesterday_str}T16:00:00Z",
+                        "snippet": "Manajemen PT Aneka Tambang Tbk menyampaikan pembaruan operasional komoditas emas dan bauksit.",
+                    },
+                ]
+
             return [
                 {
-                    "title": "ANTM Resmikan Uji Coba Smelter Feronikel Baru di Halmahera",
+                    "title": f"{clean_sym} Catat Penguatan Signifikan Didukung Kinerja Operasional dan Sentimen Pasar",
                     "source": "IDX Channel",
-                    "url": "https://idxchannel.com/market/antm-smelter-halmahera",
-                    "publish_date": "2026-09-12T07:30:00Z",
-                    "snippet": "PT Aneka Tambang Tbk (ANTM) mengumumkan penyelesaian proyek hilirisasi nikel...",
-                }
+                    "url": f"https://idxchannel.com/market/{clean_sym.lower()}-kinerja-positif",
+                    "publish_date": f"{today_str}T08:30:00Z",
+                    "snippet": f"Emiten {clean_sym} membukukan performa solid di pasar saham seiring perkembangan ekspansi dan stabilitas kinerja finansial.",
+                },
+                {
+                    "title": f"Keterbukaan Informasi: {clean_sym} Laporkan Perkembangan Aksi Korporasi",
+                    "source": "IDXnet Disclosures",
+                    "url": f"https://idx.co.id/filings/{clean_sym.lower()}-disclosure",
+                    "publish_date": f"{yesterday_str}T16:45:00Z",
+                    "snippet": f"Manajemen {clean_sym} menyampaikan laporan berkala terkait aksi korporasi dan prospek bisnis.",
+                },
             ]
 
         if "/suspensions/" in endpoint:
@@ -443,9 +519,26 @@ class SectorsAPIClient:
 
         if "/subsectors/" in endpoint:
             return [
-                {"sector": "Basic Materials", "subsector": "metals-and-minerals-mining"},
                 {"sector": "Energy", "subsector": "oil-gas-and-coal"},
+                {"sector": "Energy", "subsector": "alternative-energy"},
+                {"sector": "Basic Materials", "subsector": "metals-and-minerals-mining"},
+                {"sector": "Basic Materials", "subsector": "chemicals"},
+                {"sector": "Basic Materials", "subsector": "building-materials"},
+                {"sector": "Industrials", "subsector": "industrial-goods"},
+                {"sector": "Industrials", "subsector": "machinery"},
+                {"sector": "Consumer Non-Cyclicals", "subsector": "food-and-beverage"},
+                {"sector": "Consumer Non-Cyclicals", "subsector": "household-and-personal-care"},
+                {"sector": "Consumer Cyclicals", "subsector": "automotive-and-components"},
+                {"sector": "Consumer Cyclicals", "subsector": "retail"},
+                {"sector": "Healthcare", "subsector": "pharmaceuticals-and-healthcare-products"},
                 {"sector": "Financials", "subsector": "banks"},
+                {"sector": "Financials", "subsector": "financing-services"},
+                {"sector": "Financials", "subsector": "insurance"},
+                {"sector": "Properties & Real Estate", "subsector": "real-estate-development"},
+                {"sector": "Technology", "subsector": "software-and-it-services"},
+                {"sector": "Infrastructure", "subsector": "telecommunications"},
+                {"sector": "Infrastructure", "subsector": "transportation-infrastructure"},
+                {"sector": "Transportation & Logistics", "subsector": "logistics-and-deliveries"},
             ]
 
         return {"status": "ok", "mock": True}
