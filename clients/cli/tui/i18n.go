@@ -705,6 +705,122 @@ var TUIStrings = map[string]map[string]string{
 		"en": "Resume a specific chat session by ID (/resume <SESSION_ID>)",
 		"id": "Lanjutkan sesi obrolan tertentu berdasarkan ID (/resume <ID_SESI>)",
 	},
+	"sessions_chat_title": {
+		"en": "\n💬 AI CHAT SESSION HISTORY (CONVERSATIONAL SESSIONS)",
+		"id": "\n💬 RIWAYAT SESI CHAT AI (CONVERSATIONAL SESSIONS)",
+	},
+	"sessions_chat_empty": {
+		"en": "  (No saved chat sessions found)",
+		"id": "  (Belum ada riwayat sesi chat tersimpan)",
+	},
+	"sessions_chat_tip": {
+		"en": "Tip: Use 'niskava -s <SESSION_ID>' or '/resume <ID>' in REPL to resume session.",
+		"id": "Tip: Gunakan 'niskava -s <SESSION_ID>' atau '/resume <ID>' di REPL untuk melanjutkan sesi.",
+	},
+	"sessions_inv_title": {
+		"en": "\n📊 MARKET AUDIT INVESTIGATION HISTORY (PIPELINE SESSIONS)",
+		"id": "\n📊 RIWAYAT INVESTIGASI AUDIT PASAR (PIPELINE SESSIONS)",
+	},
+	"sessions_inv_empty": {
+		"en": "  (No investigation history found)",
+		"id": "  (Belum ada riwayat investigasi)",
+	},
+	"sessions_delete_success": {
+		"en": "✓ Session '%s' and its chat history deleted from SQLite.",
+		"id": "✓ Sesi '%s' dan riwayat percakapannya berhasil dihapus dari SQLite.",
+	},
+	"sessions_search_empty": {
+		"en": "No chat messages found matching keyword '%s'.",
+		"id": "Tidak ditemukan percakapan dengan kata kunci '%s'.",
+	},
+	"sessions_search_title": {
+		"en": "\n🔍 CHAT MESSAGE SEARCH RESULTS ('%s')",
+		"id": "\n🔍 HASIL PENCARIAN PESAN CHAT ('%s')",
+	},
+	"sessions_export_no_history": {
+		"en": "No chat history found for session '%s'",
+		"id": "tidak ada riwayat percakapan untuk sesi '%s'",
+	},
+	"sessions_export_disclaimer": {
+		"en": "\n*Disclaimer: Niskava Agent is an autonomous capital market intelligence platform for the Indonesia Stock Exchange (IDX), NOT a licensed investment advisor. All findings are presented descriptively for research and fact-verification purposes and NOT investment recommendations.*\n",
+		"id": "\n*Disclaimer: Niskava Agent adalah platform intelijen pasar modal otonom untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi berizin. Seluruh temuan disajikan secara deskriptif untuk tujuan riset verifikasi fakta dan BUKAN rekomendasi investasi.*\n",
+	},
+	"sessions_export_success": {
+		"en": "✓ Audit report successfully exported to: %s",
+		"id": "✓ Laporan audit berhasil diekspor ke: %s",
+	},
+	"slash_export_db_err": {
+		"en": "⚠ SQLite database is not available for export.",
+		"id": "⚠ Database SQLite tidak tersedia untuk ekspor.",
+	},
+	"slash_export_empty": {
+		"en": "⚠ No chat history to export for session %s",
+		"id": "⚠ Tidak ada riwayat obrolan untuk diekspor pada sesi %s",
+	},
+	"slash_export_write_err": {
+		"en": "⚠ Failed to write export file: %v",
+		"id": "⚠ Gagal menulis berkas ekspor: %v",
+	},
+	"slash_fork_db_err": {
+		"en": "⚠ SQLite database is not available for forking.",
+		"id": "⚠ Database SQLite tidak tersedia untuk forking.",
+	},
+	"slash_fork_err": {
+		"en": "⚠ Failed to fork session: %v",
+		"id": "⚠ Gagal mencabangkan sesi: %v",
+	},
+	"slash_fork_success": {
+		"en": "✓ Session successfully forked from %s -> %s ('%s')",
+		"id": "✓ Sesi berhasil dicabangkan dari %s -> %s ('%s')",
+	},
+	"slash_search_usage": {
+		"en": "⚠ Usage: /search <keyword> (e.g. /search ANTM)",
+		"id": "⚠ Gunakan: /search <kata_kunci> (contoh: /search ANTM)",
+	},
+	"slash_search_title_repl": {
+		"en": "🔍 Chat History Search Results ('%s'):",
+		"id": "🔍 Hasil Pencarian Riwayat ('%s'):",
+	},
+	"slash_anomalies_empty": {
+		"en": "ℹ No quantitative anomalies detected in active session.",
+		"id": "ℹ Tidak ada anomali kuantitatif terdeteksi pada sesi aktif saat ini.",
+	},
+	"slash_anomalies_title": {
+		"en": "🚨 Quantitative Anomalies Detected:",
+		"id": "🚨 Anomali Kuantitatif Terdeteksi:",
+	},
+	"slash_skills_title": {
+		"en": "🛠️ Catalog of Niskava's 6 Market Intelligence Domain SOPs:",
+		"id": "🛠️ Katalog 6 Domain SOP Intelijen Pasar Niskava:",
+	},
+	"slash_cache_clean_err": {
+		"en": "⚠ Failed to clean cache: %v",
+		"id": "⚠ Gagal membersihkan cache: %v",
+	},
+	"slash_cache_clean_success": {
+		"en": "✓ Successfully cleaned %d expired Sectors v2 cache entries.",
+		"id": "✓ Berhasil membersihkan %d entri cache Sectors v2 yang kadaluarsa.",
+	},
+	"slash_cache_stats_err": {
+		"en": "⚠ Failed to retrieve cache stats: %v",
+		"id": "⚠ Gagal mengambil statistik cache: %v",
+	},
+	"slash_cache_stats_title": {
+		"en": "📊 Sectors API v2 Cache Stats (Law 5):",
+		"id": "📊 Statistik Cache Sectors API v2 (Law 5):",
+	},
+	"slash_cache_stats_total": {
+		"en": "  • Total Cache Entries : %d",
+		"id": "  • Total Entri Cache   : %d",
+	},
+	"slash_cache_stats_expired": {
+		"en": "  • Expired Entries     : %d",
+		"id": "  • Entri Kadaluarsa    : %d",
+	},
+	"slash_cache_stats_hint": {
+		"en": "  (Use '/cache clean' to purge expired entries)\n",
+		"id": "  (Gunakan '/cache clean' untuk membersihkan entri kadaluarsa)\n",
+	},
 }
 
 // T retrieves localized string for ActiveLanguage, falling back to "en".

@@ -34,13 +34,13 @@ func printFormattedSessions(database *db.DB, sType string, limit int, w io.Write
 			return fmt.Errorf("failed to retrieve chat sessions: %w", err)
 		}
 
-		fmt.Fprintln(w, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FCD535")).Render("\n💬 RIWAYAT SESI CHAT AI (CONVERSATIONAL SESSIONS)"))
+		fmt.Fprintln(w, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FCD535")).Render(tui.T("sessions_chat_title")))
 		fmt.Fprintln(w, "─────────────────────────────────────────────────────────────────────────────")
 		fmt.Fprintf(w, "%-22s %-24s %-8s %-16s %s\n", "SESSION ID", "TITLE", "MSGS", "UPDATED AT", "PREVIEW")
 		fmt.Fprintln(w, "─────────────────────────────────────────────────────────────────────────────")
 
 		if len(chats) == 0 {
-			fmt.Fprintln(w, "  (Belum ada riwayat sesi chat tersimpan)")
+			fmt.Fprintln(w, tui.T("sessions_chat_empty"))
 		} else {
 			for _, s := range chats {
 				preview := s.LastMessagePreview
@@ -62,7 +62,7 @@ func printFormattedSessions(database *db.DB, sType string, limit int, w io.Write
 			}
 		}
 		fmt.Fprintln(w, "─────────────────────────────────────────────────────────────────────────────")
-		fmt.Fprintln(w, lipgloss.NewStyle().Foreground(lipgloss.Color("#848E9C")).Italic(true).Render("Tip: Gunakan 'niskava -s <SESSION_ID>' atau '/resume <ID>' di REPL untuk melanjutkan sesi."))
+		fmt.Fprintln(w, lipgloss.NewStyle().Foreground(lipgloss.Color("#848E9C")).Italic(true).Render(tui.T("sessions_chat_tip")))
 	}
 
 	if sType == "all" || sType == "investigation" || sType == "investigations" || sType == "inv" {
@@ -71,13 +71,13 @@ func printFormattedSessions(database *db.DB, sType string, limit int, w io.Write
 			return fmt.Errorf("failed to retrieve investigations: %w", err)
 		}
 
-		fmt.Fprintln(w, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FCD535")).Render("\n📊 RIWAYAT INVESTIGASI AUDIT PASAR (PIPELINE SESSIONS)"))
+		fmt.Fprintln(w, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FCD535")).Render(tui.T("sessions_inv_title")))
 		fmt.Fprintln(w, "─────────────────────────────────────────────────────────────────────────────")
 		fmt.Fprintf(w, "%-22s %-8s %-12s %-16s %s\n", "SESSION ID", "TICKER", "STATUS", "STARTED AT", "SUMMARY")
 		fmt.Fprintln(w, "─────────────────────────────────────────────────────────────────────────────")
 
 		if len(investigations) == 0 {
-			fmt.Fprintln(w, "  (Belum ada riwayat investigasi)")
+			fmt.Fprintln(w, tui.T("sessions_inv_empty"))
 		} else {
 			for _, inv := range investigations {
 				summary := "-"
@@ -180,7 +180,7 @@ var sessionsDeleteCmd = &cobra.Command{
 			return fmt.Errorf("failed to delete session '%s': %w", sessionID, err)
 		}
 		fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#0ECB81")).Bold(true).Render(
-			fmt.Sprintf("✓ Sesi '%s' dan riwayat percakapannya berhasil dihapus dari SQLite.", sessionID),
+			tui.TF("sessions_delete_success", sessionID),
 		))
 		return nil
 	},
@@ -200,12 +200,12 @@ var sessionsSearchCmd = &cobra.Command{
 			return fmt.Errorf("failed to search messages: %w", err)
 		}
 		if len(results) == 0 {
-			fmt.Printf("Tidak ditemukan percakapan dengan kata kunci '%s'.\n", keyword)
+			fmt.Println(tui.TF("sessions_search_empty", keyword))
 			return nil
 		}
 
 		fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FCD535")).Render(
-			fmt.Sprintf("\n🔍 HASIL PENCARIAN PESAN CHAT ('%s')", keyword),
+			tui.TF("sessions_search_title", keyword),
 		))
 		fmt.Println("─────────────────────────────────────────────────────────────────────────────")
 		for idx, r := range results {
@@ -241,7 +241,7 @@ var sessionsExportCmd = &cobra.Command{
 
 		history, err := appDB.GetChatHistory(sessionID, 100)
 		if err != nil || len(history) == 0 {
-			return fmt.Errorf("tidak ada riwayat percakapan untuk sesi '%s'", sessionID)
+			return fmt.Errorf("%s", tui.TF("sessions_export_no_history", sessionID))
 		}
 
 		var content string
@@ -263,7 +263,7 @@ var sessionsExportCmd = &cobra.Command{
 					sb.WriteString(fmt.Sprintf("### ⚡ Niskava Agent Findings\n%s\n\n---\n\n", m.Content))
 				}
 			}
-			sb.WriteString("\n*Disclaimer: Niskava Agent adalah platform intelijen pasar modal otonom untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi berizin. Seluruh temuan disajikan secara deskriptif untuk tujuan riset verifikasi fakta dan BUKAN rekomendasi investasi.*\n")
+			sb.WriteString(tui.T("sessions_export_disclaimer"))
 			content = sb.String()
 		}
 
@@ -272,7 +272,7 @@ var sessionsExportCmd = &cobra.Command{
 		}
 
 		fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#0ECB81")).Bold(true).Render(
-			fmt.Sprintf("✓ Laporan audit berhasil diekspor ke: %s", outPath),
+			tui.TF("sessions_export_success", outPath),
 		))
 		return nil
 	},
