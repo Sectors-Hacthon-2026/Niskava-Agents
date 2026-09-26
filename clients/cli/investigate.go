@@ -9,6 +9,7 @@ import (
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/db"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/server"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/clients/cli/tui"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -81,6 +82,18 @@ var investigateCmd = &cobra.Command{
 			EnvOverrides: cfg.BuildSubprocessEnv(),
 		}
 
+		// If --interactive / -i flag is set, launch Live REPL immediately pre-focused on target ticker
+		if interactiveFlag {
+			srv, err := server.Start(ctx, cfg.Server.Port, appDB, cfg)
+			if err != nil {
+				return fmt.Errorf("failed to start background daemon for interactive mode: %w", err)
+			}
+			srv.ConfigPath = cfgFile
+			initialPrompt := fmt.Sprintf("Lakukan investigasi anomali volume dan verifikasi bukti untuk saham %s", ticker)
+			_ = tui.RunLiveREPLWithInitialPrompt(cfg, appDB, srv.URL, sessionID, initialPrompt)
+			return nil
+		}
+
 		eventsChan, errChan := ipc.RunSubprocess(ctx, runnerParams)
 
 		model := tui.NewModel(ticker, daysFlag, cfg.Storage.DBPath, eventsChan, errChan)
@@ -89,8 +102,32 @@ var investigateCmd = &cobra.Command{
 			return fmt.Errorf("error running interactive TUI: %w", err)
 		}
 
+		// Option A: If running in an interactive terminal, offer CTA to transition into Live REPL
+		if isTerminalInput() {
+			fmt.Printf("\n [Enter / y] Lanjutkan diskusi interaktif untuk emiten %s? (y/N): ", ticker)
+			var resp string
+			_, _ = fmt.Scanln(&resp)
+			resp = strings.TrimSpace(strings.ToLower(resp))
+			if resp == "" || resp == "y" || resp == "yes" {
+				srv, err := server.Start(ctx, cfg.Server.Port, appDB, cfg)
+				if err == nil {
+					srv.ConfigPath = cfgFile
+					initialPrompt := fmt.Sprintf("Berdasarkan hasil audit %s yang baru saja dilakukan, analisis temuan dan berita lebih lanjut.", ticker)
+					_ = tui.RunLiveREPLWithInitialPrompt(cfg, appDB, srv.URL, sessionID, initialPrompt)
+				}
+			}
+		}
+
 		return nil
 	},
+}
+
+func isTerminalInput() bool {
+	fileInfo, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return (fileInfo.Mode() & os.ModeCharDevice) != 0
 }
 
 func init() {

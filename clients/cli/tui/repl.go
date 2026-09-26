@@ -391,6 +391,15 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 // If initialSessionID is provided and non-empty, it resumes that session directly.
 // Returns replBackSentinel ("__back__") if user typed /back to return to launcher, or "" if user exited.
 func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSessionID ...string) string {
+	sessID := ""
+	if len(initialSessionID) > 0 {
+		sessID = initialSessionID[0]
+	}
+	return RunLiveREPLWithInitialPrompt(cfg, appDB, serverURL, sessID, "")
+}
+
+// RunLiveREPLWithInitialPrompt starts an interactive REPL pre-seeded with an initial prompt.
+func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL string, initialSessionID string, initialPrompt string) string {
 	// Determine active model display
 	modelLabel := cfg.Auth.OpenAIModel
 	if modelLabel == "" {
@@ -402,19 +411,24 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 	}
 
 	sessionID := fmt.Sprintf("CHAT-%s-%04d", time.Now().Format("20060102"), time.Now().Unix()%10000)
-	if len(initialSessionID) > 0 && strings.TrimSpace(initialSessionID[0]) != "" {
-		sessionID = strings.TrimSpace(initialSessionID[0])
+	if strings.TrimSpace(initialSessionID) != "" {
+		sessionID = strings.TrimSpace(initialSessionID)
 	}
 
 	renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
 
-	if len(initialSessionID) > 0 && strings.TrimSpace(initialSessionID[0]) != "" {
+	if strings.TrimSpace(initialSessionID) != "" {
 		renderResumedHistory(appDB, sessionID)
 	}
 
 	promptPrefix := fmt.Sprintf("niskava [%s] >", modelLabel)
 
 	var promptHistory []string
+
+	if strings.TrimSpace(initialPrompt) != "" {
+		promptHistory = append(promptHistory, initialPrompt)
+		executeChatTurn(initialPrompt, sessionID, serverURL, cfg, appDB)
+	}
 
 	for {
 		// Run interactive Bubbletea prompt input with live OpenCode slash popup and prompt history
