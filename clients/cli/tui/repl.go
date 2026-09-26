@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -500,6 +501,184 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 
 		if lower == "/health" {
 			printHealth(cfg)
+			continue
+		}
+
+		if lower == "/doctor" {
+			printHealth(cfg)
+			continue
+		}
+
+		if strings.HasPrefix(lower, "/export") {
+			parts := strings.Fields(input)
+			format := "md"
+			if len(parts) > 1 && strings.ToLower(parts[1]) == "json" {
+				format = "json"
+			}
+			filename := fmt.Sprintf("niskava_report_%s.%s", sessionID, format)
+			if appDB == nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render("⚠ Database SQLite tidak tersedia untuk ekspor."))
+				continue
+			}
+			history, errH := appDB.GetChatHistory(sessionID, 100)
+			if errH != nil || len(history) == 0 {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(fmt.Sprintf("⚠ Tidak ada riwayat obrolan untuk diekspor pada sesi %s", sessionID)))
+				continue
+			}
+			var content string
+			if format == "json" {
+				var jsonMsgs []map[string]interface{}
+				for _, m := range history {
+					jsonMsgs = append(jsonMsgs, map[string]interface{}{
+						"id":         m.ID,
+						"role":       m.Role,
+						"content":    m.Content,
+						"created_at": m.CreatedAt,
+					})
+				}
+				data, _ := json.MarshalIndent(map[string]interface{}{
+					"session_id": sessionID,
+					"messages":   jsonMsgs,
+				}, "", "  ")
+				content = string(data)
+			} else {
+				var sb strings.Builder
+				sb.WriteString(fmt.Sprintf("# Niskava Agent — Audit & Research Report\n\n"))
+				sb.WriteString(fmt.Sprintf("- **Session ID:** `%s`\n", sessionID))
+				sb.WriteString(fmt.Sprintf("- **Date:** `%s`\n", time.Now().Format("2006-01-02 15:04:05 MST")))
+				sb.WriteString(fmt.Sprintf("- **Model:** `%s`\n\n---\n\n", modelLabel))
+				for _, m := range history {
+					if m.Role == "user" {
+						sb.WriteString(fmt.Sprintf("### 👤 User Prompt\n> %s\n\n", m.Content))
+					} else if m.Role == "assistant" {
+						sb.WriteString(fmt.Sprintf("### ⚡ Niskava Agent Findings\n%s\n\n---\n\n", m.Content))
+					}
+				}
+				sb.WriteString("\n*Disclaimer: Niskava Agent adalah platform intelijen pasar modal otonom untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi berizin. Seluruh temuan disajikan secara deskriptif untuk tujuan riset verifikasi fakta dan BUKAN rekomendasi investasi.*\n")
+				content = sb.String()
+			}
+			if errW := os.WriteFile(filename, []byte(content), 0644); errW != nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(fmt.Sprintf("⚠ Gagal menulis berkas ekspor: %v", errW)))
+			} else {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true).Render(fmt.Sprintf("✓ Laporan berhasil diekspor ke: %s", filename)))
+			}
+			continue
+		}
+
+		if strings.HasPrefix(lower, "/fork") {
+			if appDB == nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render("⚠ Database SQLite tidak tersedia untuk forking."))
+				continue
+			}
+			parts := strings.SplitN(input, " ", 2)
+			newTitle := "Forked Analysis Session"
+			if len(parts) > 1 && strings.TrimSpace(parts[1]) != "" {
+				newTitle = strings.TrimSpace(parts[1])
+			}
+			newSessionID := fmt.Sprintf("CHAT-FORK-%s-%04d", time.Now().Format("20060102"), time.Now().Unix()%10000)
+			errFork := appDB.ForkChatSession(sessionID, newSessionID, newTitle, "")
+			if errFork != nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(fmt.Sprintf("⚠ Gagal mencabangkan sesi: %v", errFork)))
+				continue
+			}
+			prevID := sessionID
+			sessionID = newSessionID
+			fmt.Print("\033[H\033[2J")
+			renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
+			fmt.Println(lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true).Render(fmt.Sprintf("✓ Sesi berhasil dicabangkan dari %s -> %s ('%s')", prevID, sessionID, newTitle)))
+			renderResumedHistory(appDB, sessionID)
+			continue
+		}
+
+		if strings.HasPrefix(lower, "/search") {
+			parts := strings.SplitN(input, " ", 2)
+			if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render("⚠ Gunakan: /search <kata_kunci> (contoh: /search ANTM)"))
+				continue
+			}
+			kw := strings.TrimSpace(parts[1])
+			if appDB == nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render("⚠ Database SQLite tidak tersedia."))
+				continue
+			}
+			results, errSearch := appDB.SearchChatMessages(kw, 10)
+			if errSearch != nil || len(results) == 0 {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(fmt.Sprintf("⚠ Tidak ditemukan percakapan dengan kata kunci '%s'", kw)))
+				continue
+			}
+			fmt.Println("\n" + lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(fmt.Sprintf("🔍 Hasil Pencarian Riwayat ('%s'):", kw)))
+			for idx, r := range results {
+				snip := r.Content
+				if len(snip) > 100 {
+					snip = snip[:97] + "..."
+				}
+				fmt.Printf("  %d. [%s] [%s] %s: %s\n", idx+1, r.SessionID, r.CreatedAt, r.Role, snip)
+			}
+			fmt.Println()
+			continue
+		}
+
+		if lower == "/anomalies" {
+			if appDB == nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render("⚠ Database SQLite tidak tersedia."))
+				continue
+			}
+			anomalies, errA := appDB.GetAnomaliesByInvestigation(sessionID)
+			if errA != nil || len(anomalies) == 0 {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render("ℹ Tidak ada anomali kuantitatif terdeteksi pada sesi aktif saat ini."))
+				continue
+			}
+			fmt.Println("\n" + lipgloss.NewStyle().Bold(true).Foreground(ColorDanger).Render("🚨 Anomali Kuantitatif Terdeteksi:"))
+			for idx, a := range anomalies {
+				fmt.Printf("  %d. Tgl: %s | Metrik: %-22s | Val: %.2f (Baseline: %.2f) | Z-Score: %.2f\n     Deskripsi: %s\n",
+					idx+1, a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore, a.Description)
+			}
+			fmt.Println()
+			continue
+		}
+
+		if lower == "/skills" {
+			fmt.Println("\n" + lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render("🛠️ Katalog 6 Domain SOP Intelijen Pasar Niskava:"))
+			skills := []struct{ Name, SOP, Desc string }{
+				{"market_anomaly_recon", "SOP-01", "Volume Z-Score (Vz ≥ 2.5) & Price Breakout Forensics"},
+				{"event_causality_audit", "SOP-02", "7-Stage SOP Temporal News & Corporate Filing Verification"},
+				{"insider_bandarmology", "SOP-03", "Top 1/3/5 Broker Concentration & Accumulation/Distribution Audit"},
+				{"financial_health_stress", "SOP-04", "Altman Z-Score & Piotroski F-Score Balance Sheet Stress Testing"},
+				{"mining_commodity_divergence", "SOP-05", "Nickel/Coal/Gold Sector Beta & Commodity Price Divergence"},
+				{"peer_valuation_benchmark", "SOP-06", "IDX Sector Peer Multiples & Relative Valuation Benchmarking"},
+			}
+			for _, s := range skills {
+				fmt.Printf("  • %-28s [%s] : %s\n", lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(s.Name), s.SOP, s.Desc)
+			}
+			fmt.Println()
+			continue
+		}
+
+		if strings.HasPrefix(lower, "/cache") {
+			if appDB == nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render("⚠ Database SQLite tidak tersedia."))
+				continue
+			}
+			parts := strings.Fields(input)
+			if len(parts) > 1 && strings.ToLower(parts[1]) == "clean" {
+				n, errC := appDB.CleanExpiredCache()
+				if errC != nil {
+					fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(fmt.Sprintf("⚠ Gagal membersihkan cache: %v", errC)))
+				} else {
+					fmt.Println(lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true).Render(fmt.Sprintf("✓ Berhasil membersihkan %d entri cache Sectors v2 yang kadaluarsa.", n)))
+				}
+			} else {
+				stats, errS := appDB.GetSectorsCacheStats()
+				if errS != nil {
+					fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(fmt.Sprintf("⚠ Gagal mengambil statistik cache: %v", errS)))
+				} else {
+					fmt.Println("\n" + lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render("📊 Statistik Cache Sectors API v2 (Law 5):"))
+					fmt.Printf("  • Total Entri Cache : %d\n", stats.TotalEntries)
+					fmt.Printf("  • Permanent (Candles): %d (0 credit cost)\n", stats.PermanentEntries)
+					fmt.Printf("  • Expired Entries   : %d\n", stats.ExpiredEntries)
+					fmt.Println(lipgloss.NewStyle().Foreground(ColorMuted).Render("  (Gunakan '/cache clean' untuk membersihkan entri kadaluarsa)\n"))
+				}
+			}
 			continue
 		}
 

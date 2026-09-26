@@ -221,6 +221,34 @@ var TUIStrings = map[string]map[string]string{
 		"en": "Set LLM timeout: /timeout [fast|balanced|deep|local|<seconds>]",
 		"id": "Atur timeout LLM: /timeout [fast|balanced|deep|local|<detik>]",
 	},
+	"slash_export_desc": {
+		"en": "Export active session transcript to Markdown or JSON report file",
+		"id": "Ekspor transkrip sesi aktif ke berkas laporan Markdown atau JSON",
+	},
+	"slash_fork_desc": {
+		"en": "Fork active chat session into a new branched session ID",
+		"id": "Cabangkan sesi obrolan aktif ke ID sesi baru (OpenCode)",
+	},
+	"slash_search_desc": {
+		"en": "Search historical chat messages from local SQLite storage",
+		"id": "Cari riwayat percakapan lama di SQLite dari prompt REPL",
+	},
+	"slash_anomalies_desc": {
+		"en": "Display table of detected volume & price quantitative anomalies",
+		"id": "Tampilkan tabel anomali kuantitatif volume & harga terdeteksi",
+	},
+	"slash_skills_desc": {
+		"en": "Display catalog of Niskava's 6 domain SOP intelligence skills",
+		"id": "Tampilkan katalog 6 domain SOP intelijen pasar Niskava",
+	},
+	"slash_doctor_desc": {
+		"en": "Run comprehensive system health & diagnostics check inline",
+		"id": "Jalankan pemeriksaan diagnostik sistem komprehensif di REPL",
+	},
+	"slash_cache_desc": {
+		"en": "Inspect Sectors v2 API credit cache stats or purge expired entries",
+		"id": "Inspeksi statistik cache kuota Sectors v2 & bersihkan cache kadaluarsa",
+	},
 	"slash_timeout_set": {
 		"en": "✓ Inference timeout set to %.0fs (%s). Saved to config.",
 		"id": "✓ Timeout inferensi diatur %.0fd (%s). Tersimpan ke config.",
@@ -759,6 +787,13 @@ func GetLocalizedSlashCommands() []SlashCommand {
 		{Command: "/back", Category: "NAV", Description: T("slash_back_desc")},
 		{Command: "/chats", Category: "NAV", Description: T("slash_chats_desc")},
 		{Command: "/resume", Category: "INTEL", Description: T("slash_resume_desc")},
+		{Command: "/export", Category: "INTEL", Description: T("slash_export_desc")},
+		{Command: "/fork", Category: "INTEL", Description: T("slash_fork_desc")},
+		{Command: "/search", Category: "INTEL", Description: T("slash_search_desc")},
+		{Command: "/anomalies", Category: "INTEL", Description: T("slash_anomalies_desc")},
+		{Command: "/skills", Category: "INTEL", Description: T("slash_skills_desc")},
+		{Command: "/doctor", Category: "SYSTEM", Description: T("slash_doctor_desc")},
+		{Command: "/cache", Category: "SYSTEM", Description: T("slash_cache_desc")},
 		{Command: "/reset", Category: "SYSTEM", Description: T("slash_reset_desc")},
 		{Command: "/graph", Category: "INTEL", Description: T("slash_graph_desc")},
 		{Command: "/clear", Category: "SYSTEM", Description: T("slash_clear_desc")},
