@@ -62,7 +62,7 @@ venv.bak/
 
 # --- Go & Binaries ---
 /bin/*
-!/bin/index.js
+!/bin/*.js
 /niskava
 *.exe
 *.exe~
