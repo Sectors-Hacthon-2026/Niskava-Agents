@@ -705,6 +705,34 @@ var TUIStrings = map[string]map[string]string{
 		"en": "Resume a specific chat session by ID (/resume <SESSION_ID>)",
 		"id": "Lanjutkan sesi obrolan tertentu berdasarkan ID (/resume <ID_SESI>)",
 	},
+	"session_selector_showing": {
+		"en": "--- Showing %d-%d of %d sessions ---",
+		"id": "--- Menampilkan %d-%d dari %d sesi ---",
+	},
+	"skill_desc_sop01": {
+		"en": "Volume Z-Score (Vz ≥ 2.5) & Price Breakout Forensics",
+		"id": "Forensik Anomali Volume Z-Score (Vz ≥ 2.5) & Lonjakan Harga",
+	},
+	"skill_desc_sop02": {
+		"en": "7-Stage SOP Temporal News & Corporate Filing Verification",
+		"id": "Verifikasi Kausalitas Berita & Keterbukaan Informasi SOP 7-Tahap",
+	},
+	"skill_desc_sop03": {
+		"en": "Top 1/3/5 Broker Concentration & Accumulation/Distribution Audit",
+		"id": "Audit Konsentrasi Broker Top 1/3/5 & Akumulasi/Distribusi Bandarmologi",
+	},
+	"skill_desc_sop04": {
+		"en": "Altman Z-Score & Piotroski F-Score Balance Sheet Stress Testing",
+		"id": "Uji Ketahanan Neraca Keuangan Altman Z-Score & Piotroski F-Score",
+	},
+	"skill_desc_sop05": {
+		"en": "Nickel/Coal/Gold Sector Beta & Commodity Price Divergence",
+		"id": "Beta Sektor & Divergensi Harga Komoditas Tambang (Nikel/Batu Bara/Emas)",
+	},
+	"skill_desc_sop06": {
+		"en": "IDX Sector Peer Multiples & Relative Valuation Benchmarking",
+		"id": "Tolok Ukur Valuasi Relatif & Multiples Peer Sektor Bursa Efek Indonesia",
+	},
 	"sessions_chat_title": {
 		"en": "\n💬 AI CHAT SESSION HISTORY (CONVERSATIONAL SESSIONS)",
 		"id": "\n💬 RIWAYAT SESI CHAT AI (CONVERSATIONAL SESSIONS)",

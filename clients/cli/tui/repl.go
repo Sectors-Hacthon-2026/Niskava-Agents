@@ -639,16 +639,16 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 
 		if lower == "/skills" {
 			fmt.Println("\n" + lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(T("slash_skills_title")))
-			skills := []struct{ Name, SOP, Desc string }{
-				{"market_anomaly_recon", "SOP-01", "Volume Z-Score (Vz ≥ 2.5) & Price Breakout Forensics"},
-				{"event_causality_audit", "SOP-02", "7-Stage SOP Temporal News & Corporate Filing Verification"},
-				{"insider_bandarmology", "SOP-03", "Top 1/3/5 Broker Concentration & Accumulation/Distribution Audit"},
-				{"financial_health_stress", "SOP-04", "Altman Z-Score & Piotroski F-Score Balance Sheet Stress Testing"},
-				{"mining_commodity_divergence", "SOP-05", "Nickel/Coal/Gold Sector Beta & Commodity Price Divergence"},
-				{"peer_valuation_benchmark", "SOP-06", "IDX Sector Peer Multiples & Relative Valuation Benchmarking"},
+			skills := []struct{ Name, SOP, DescKey string }{
+				{"market_anomaly_recon", "SOP-01", "skill_desc_sop01"},
+				{"event_causality_audit", "SOP-02", "skill_desc_sop02"},
+				{"insider_bandarmology", "SOP-03", "skill_desc_sop03"},
+				{"financial_health_stress", "SOP-04", "skill_desc_sop04"},
+				{"mining_commodity_divergence", "SOP-05", "skill_desc_sop05"},
+				{"peer_valuation_benchmark", "SOP-06", "skill_desc_sop06"},
 			}
 			for _, s := range skills {
-				fmt.Printf("  • %-28s [%s] : %s\n", lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(s.Name), s.SOP, s.Desc)
+				fmt.Printf("  • %-28s [%s] : %s\n", lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(s.Name), s.SOP, T(s.DescKey))
 			}
 			fmt.Println()
 			continue
