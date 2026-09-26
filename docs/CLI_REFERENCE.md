@@ -281,23 +281,37 @@ niskava bot --token "7123456789:AAHxyz..."
 ---
 
 ### 3.6 `niskava sessions`
-Menampilkan daftar riwayat sesi percakapan dan sesi investigasi yang tersimpan di basis data SQLite lokal.
+Menampilkan, mencari, menghapus, dan mengekspor riwayat sesi percakapan dan sesi investigasi yang tersimpan di basis data SQLite lokal.
 
 ```bash
-niskava sessions [flags]
+niskava sessions [subcommand] [flags]
 ```
+
+#### Subperintah:
+* `niskava sessions [list]` : Menampilkan daftar sesi percakapan AI dan investigasi audit.
+* `niskava sessions delete <SESSION_ID>` : Menghapus sesi percakapan dan seluruh riwayat perannya secara permanen dari SQLite.
+* `niskava sessions search <KEYWORD>` : Mencari kata kunci tertentu di seluruh riwayat obrolan pesan SQLite.
+* `niskava sessions export <SESSION_ID> [--format md|json] [--out path]` : Mengekspor transkrip laporan audit sesi ke berkas Markdown atau JSON.
 
 #### Flags Khusus:
 * `-n, --limit <int>`: Jumlah maksimum sesi yang ditampilkan (default: `20`).
 * `-t, --type <string>`: Filter tipe sesi: `'chat'`, `'investigation'`, atau `'all'` (default: `'all'`).
+* `-f, --format <string>`: Format ekspor pada `export`: `'md'` atau `'json'` (default: `'md'`).
+* `-o, --out <path>`: Path berkas output pada `export`.
 
 #### Contoh Penggunaan:
 ```bash
 # Menampilkan 10 sesi terakhir
-niskava sessions -n 10
+niskava sessions list -n 10
 
-# Menampilkan sesi investigasi formal saja
-niskava sessions --type investigation
+# Mencari percakapan bertema ANTM
+niskava sessions search ANTM
+
+# Mengekspor sesi ke format Markdown
+niskava sessions export CHAT-20260926-0001 --format md --out ./laporan_antm.md
+
+# Menghapus sesi
+niskava sessions delete CHAT-20260926-0001
 ```
 
 ---

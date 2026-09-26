@@ -220,6 +220,10 @@ for TICKER in "${WATCHLIST[@]}"; do
   fi
 done
 
+# Cari dan ekspor sesi audit terbaru ke Markdown
+niskava sessions list -n 5
+niskava sessions export CHAT-20260926-0001 --format md --out "$REPORT_DIR/summary_report.md"
+
 # Ekspor grafik memori gabungan hari ini
 niskava graph -o "$REPORT_DIR/market_graph.html"
 

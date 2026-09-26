@@ -196,13 +196,19 @@ Running `niskava` without arguments launches the terminal HUD, while `niskava te
 - Autocomplete slash commands: `/help`, `/chats`, `/resume <id>`, `/timeout`, `/export`, `/fork`, `/search`, `/anomalies`, `/skills`, `/doctor`, `/cache`, `/graph`, `/web`, `/sessions`, `/health`, `/lang`, `/reset`, `/clear`, `/back`, `/exit`.
 
 ### 2. Autonomous Headless & Interactive Investigation CLI
-Execute a full 7-stage investigation directly from the shell, or pass `-i` to jump directly into an interactive session:
+Execute a full 7-stage investigation directly from the shell, or manage local SQLite session history with subcommands:
 ```bash
 # Headless run:
 ./niskava investigate ANTM --days 30
 
 # Interactive run pre-focused on ticker:
 ./niskava investigate ANTM -i
+
+# Manage session history & audit trails:
+./niskava sessions list
+./niskava sessions delete CHAT-20260926-0001
+./niskava sessions search ANTM
+./niskava sessions export CHAT-20260926-0001 --format md
 ```
 Flags:
 - `-i, --interactive`: Launches an interactive REPL session pre-seeded with the target ticker prompt post-investigation.
