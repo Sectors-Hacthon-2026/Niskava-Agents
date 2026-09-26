@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -705,6 +706,17 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				if !lastSignalTime.IsZero() && now.Sub(lastSignalTime) <= 2*time.Second {
 					interrupted.Store(true)
 					fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorDanger).Bold(true).Render(strings.TrimSpace(T("repl_execution_cancelled"))))
+					if usingDaemon {
+						go func(sURL, sID string) {
+							abortURL := fmt.Sprintf("%s/api/chat/sessions/%s/abort", sURL, sID)
+							req, _ := http.NewRequest("POST", abortURL, nil)
+							if req != nil {
+								req.Header.Set("Content-Type", "application/json")
+							}
+							client := &http.Client{Timeout: 1500 * time.Millisecond}
+							_, _ = client.Do(req)
+						}(serverURL, sessionID)
+					}
 					cancel()
 					return
 				}
