@@ -44,4 +44,10 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          npm publish --access public
+          CURRENT_VER=$(node -e 'console.log(require("./package.json").version)')
+          REMOTE_VER=$(npm view @zyrexnns/niskava-agent version 2>/dev/null || echo "")
+          if [ "$CURRENT_VER" = "$REMOTE_VER" ]; then
+            echo "Version $CURRENT_VER is already published on NPM. Skipping publish."
+          else
+            npm publish --access public
+          fi
