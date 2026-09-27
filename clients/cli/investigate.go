@@ -16,11 +16,13 @@ import (
 )
 
 var (
-	daysFlag        int
-	offlineFlag     bool
-	interactiveFlag bool
-	pyBinFlag       string
-	enginePath      string
+	daysFlag         int
+	offlineFlag      bool
+	interactiveFlag  bool
+	pyBinFlag        string
+	enginePath       string
+	invExportFmtFlag string
+	invExportOutFlag string
 )
 
 var investigateCmd = &cobra.Command{
@@ -32,11 +34,11 @@ and compiles evidence classified into SUPPORTED, UNCERTAIN, or CONTRADICTED find
 	Example: `  # Run 30-day headless investigation:
   niskava investigate ANTM
 
-  # Run investigation and open interactive REPL pre-focused on ticker:
-  niskava investigate ANTM -i
+  # Run investigation and export report to Markdown:
+  niskava investigate ANTM --days 30 --export-format md --export-out ANTM_Report.md
 
-  # Run 90-day offline investigation:
-  niskava investigate BBRI --days 90 --offline`,
+  # Run investigation and open interactive REPL pre-focused on ticker:
+  niskava investigate ANTM -i`,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ticker := strings.ToUpper(strings.TrimSpace(args[0]))
@@ -113,6 +115,34 @@ and compiles evidence classified into SUPPORTED, UNCERTAIN, or CONTRADICTED find
 			return fmt.Errorf("error running interactive TUI: %w", err)
 		}
 
+		// Export report if export flag was set
+		if invExportFmtFlag != "" || invExportOutFlag != "" {
+			exportFmt := strings.ToLower(strings.TrimSpace(invExportFmtFlag))
+			if exportFmt == "" {
+				exportFmt = "md"
+			}
+			outPath := invExportOutFlag
+			if outPath == "" {
+				outPath = fmt.Sprintf("niskava_investigation_%s.%s", sessionID, exportFmt)
+			}
+
+			var sb strings.Builder
+			sb.WriteString(fmt.Sprintf("# Niskava Agent — Audit & Investigation Report (%s)\n\n", ticker))
+			sb.WriteString(fmt.Sprintf("- **Session ID:** `%s`\n", sessionID))
+			sb.WriteString(fmt.Sprintf("- **Ticker:** `%s`\n", ticker))
+			sb.WriteString(fmt.Sprintf("- **Date:** `%s`\n\n---\n\n", time.Now().Format("2006-01-02 15:04:05 MST")))
+
+			if invData, errInv := appDB.GetInvestigation(sessionID); errInv == nil && invData != nil {
+				if invData.SummaryText != nil && *invData.SummaryText != "" {
+					sb.WriteString(fmt.Sprintf("## ⚡ Executive Summary\n%s\n\n---\n\n", *invData.SummaryText))
+				}
+			}
+
+			sb.WriteString(tui.T("sessions_export_disclaimer"))
+			_ = os.WriteFile(outPath, []byte(sb.String()), 0644)
+			fmt.Printf("\n✓ Investigation report exported to: %s\n", outPath)
+		}
+
 		// Option A: If running in an interactive terminal, offer CTA to transition into Live REPL
 		if isTerminalInput() {
 			fmt.Printf("\n [Enter / y] Lanjutkan diskusi interaktif untuk emiten %s? (y/N): ", ticker)
@@ -147,6 +177,8 @@ func init() {
 	investigateCmd.Flags().BoolVarP(&interactiveFlag, "interactive", "i", false, "run in interactive conversational investigation mode")
 	investigateCmd.Flags().StringVar(&pyBinFlag, "python-bin", "", "path to python binary")
 	investigateCmd.Flags().StringVar(&enginePath, "engine-path", "", "path to python engine directory")
+	investigateCmd.Flags().StringVarP(&invExportFmtFlag, "export-format", "f", "", "export report format: 'md' or 'json'")
+	investigateCmd.Flags().StringVarP(&invExportOutFlag, "export-out", "o", "", "output report file path (e.g. report.md)")
 
 	investigateCmd.ValidArgs = []string{
 		"BBCA", "BBRI", "BMRI", "BBNI", "TLKM",

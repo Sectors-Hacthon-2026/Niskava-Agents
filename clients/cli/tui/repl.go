@@ -628,11 +628,20 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_anomalies_empty")))
 				continue
 			}
-			fmt.Println("\n" + lipgloss.NewStyle().Bold(true).Foreground(ColorDanger).Render(T("slash_anomalies_title")))
-			for idx, a := range anomalies {
-				fmt.Println(TF("slash_anomalies_item", idx+1, a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore, a.Description))
+			var events []ipc.Event
+			ticker := "IDX"
+			for _, a := range anomalies {
+				events = append(events, ipc.Event{
+					Ticker:        ticker,
+					AnomalyDate:   a.AnomalyDate,
+					MetricType:    a.MetricType,
+					MetricValue:   a.MetricValue,
+					BaselineValue: a.BaselineValue,
+					ZScore:        a.ZScore,
+					Description:   a.Description,
+				})
 			}
-			fmt.Println()
+			fmt.Println(RenderASCIIAnomalyChart(ticker, events, 30))
 			continue
 		}
 
