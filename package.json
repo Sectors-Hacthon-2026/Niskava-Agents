@@ -24,6 +24,8 @@
     "!backend/engine/evals",
     "!**/__pycache__",
     "!**/*.pyc",
+    "!**/.pytest_cache",
+    "!**/.pytest_cache/**",
     "public",
     "README.md",
     "LICENSE"

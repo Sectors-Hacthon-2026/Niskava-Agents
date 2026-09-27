@@ -27,14 +27,12 @@ const isWindows = process.platform === 'win32';
 
 function checkPythonRuntime() {
     // 1. Check user-space ~/.niskava/venv first before system PATH
-    const home = os.homedir() || process.env.HOME || '';
-    if (home) {
-        const venvPy = isWindows 
-            ? path.join(home, '.niskava', 'venv', 'Scripts', 'python.exe')
-            : path.join(home, '.niskava', 'venv', 'bin', 'python3');
-        if (fs.existsSync(venvPy)) {
-            return venvPy;
-        }
+    const venvDir = path.join(getNiskavaHome(), 'venv');
+    const venvPy = isWindows 
+        ? path.join(venvDir, 'Scripts', 'python.exe')
+        : path.join(venvDir, 'bin', 'python3');
+    if (fs.existsSync(venvPy)) {
+        return venvPy;
     }
 
     const candidates = isWindows ? ['python', 'py'] : ['python3', 'python'];
@@ -94,6 +92,11 @@ function downloadBinary(assetName, destPath) {
                 fileStream.on('finish', () => {
                     fileStream.close(() => {
                         try {
+                            const stat = fs.statSync(tempPath);
+                            if (stat.size < 1024 * 1024) {
+                                try { fs.unlinkSync(tempPath); } catch (_) {}
+                                return reject(new Error(`Downloaded binary is incomplete or truncated (${stat.size} bytes). Minimum size is 1MB.`));
+                            }
                             if (!isWindows) {
                                 fs.chmodSync(tempPath, 0o755);
                             }
@@ -102,6 +105,7 @@ function downloadBinary(assetName, destPath) {
                             console.log('\x1b[32m[✓] Binary downloaded and cached successfully in ~/.niskava/bin\x1b[0m\n');
                             resolve(destPath);
                         } catch (renameErr) {
+                            try { fs.unlinkSync(tempPath); } catch (_) {}
                             reject(renameErr);
                         }
                     });
@@ -127,10 +131,15 @@ async function ensureBinary() {
     // 1. Check if binary is already cached in user home (~/.niskava/bin/)
     if (fs.existsSync(targetBinary)) {
         try {
-            if (!isWindows) fs.chmodSync(targetBinary, 0o755);
-            return targetBinary;
+            const stat = fs.statSync(targetBinary);
+            if (stat.size >= 1024 * 1024) {
+                if (!isWindows) fs.chmodSync(targetBinary, 0o755);
+                return targetBinary;
+            }
+            console.warn(`\x1b[33m[!] Cached binary in ~/.niskava/bin is truncated (${stat.size} bytes). Re-downloading...\x1b[0m`);
+            try { fs.unlinkSync(targetBinary); } catch (_) {}
         } catch (_) {
-            return targetBinary;
+            try { fs.unlinkSync(targetBinary); } catch (_) {}
         }
     }
 
@@ -138,11 +147,12 @@ async function ensureBinary() {
     const localRepoBinary = path.join(ROOT_DIR, 'bin', isWindows ? 'niskava.exe' : 'niskava');
     if (fs.existsSync(localRepoBinary)) {
         try {
-            if (!isWindows) fs.chmodSync(localRepoBinary, 0o755);
-            return localRepoBinary;
-        } catch (_) {
-            return localRepoBinary;
-        }
+            const stat = fs.statSync(localRepoBinary);
+            if (stat.size >= 1024 * 1024) {
+                if (!isWindows) fs.chmodSync(localRepoBinary, 0o755);
+                return localRepoBinary;
+            }
+        } catch (_) {}
     }
 
     // 3. Attempt to download precompiled platform binary from GitHub Releases
@@ -189,7 +199,7 @@ async function main() {
 
     // Guidance if Python 3.11+ is missing (for quantitative calculations)
     const pythonCmd = checkPythonRuntime();
-    if (!pythonCmd && !process.env.NISKAVA_PYTHON_PATH) {
+    if (!pythonCmd && !process.env.NISKAVA_PYTHON_PATH && !process.env.NISKAVA_PYTHON_BIN) {
         console.warn('\x1b[33m[!] Note: Python 3.11+ was not detected on PATH.\x1b[0m');
         console.warn('    Deep quantitative calculations and anomaly recon require Python 3.11+.\x1b[0m');
         if (process.platform === 'linux') {
@@ -208,7 +218,11 @@ async function main() {
         env: {
             ...process.env,
             NISKAVA_ROOT: ROOT_DIR,
-            ...(pythonCmd ? { NISKAVA_PYTHON_PATH: pythonCmd } : {})
+            ...(pythonCmd ? {
+                NISKAVA_PYTHON_PATH: pythonCmd,
+                NISKAVA_PYTHON_BIN: pythonCmd,
+                NISKAVA_PYTHON: pythonCmd
+            } : {})
         }
     });
 
@@ -221,12 +235,14 @@ async function main() {
         process.exit(code || 0);
     });
 
-    process.on('SIGINT', () => {
-        if (child && !child.killed) child.kill('SIGINT');
-    });
-    process.on('SIGTERM', () => {
-        if (child && !child.killed) child.kill('SIGTERM');
-    });
+    if (!isWindows) {
+        process.on('SIGINT', () => {
+            if (child && !child.killed) child.kill('SIGINT');
+        });
+        process.on('SIGTERM', () => {
+            if (child && !child.killed) child.kill('SIGTERM');
+        });
+    }
 }
 
 main().catch((err) => {

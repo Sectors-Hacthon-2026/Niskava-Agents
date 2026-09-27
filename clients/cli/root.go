@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/db"
@@ -13,6 +14,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )
+
+// Version defines the release version of Niskava Agent.
+const Version = "0.1.4"
 
 var (
 	cfgFile     string
@@ -71,7 +75,7 @@ and qualitative market disclosures/news.`,
 		activeCursor := 0
 		for {
 			fmt.Print("\033[H\033[2J")
-			launcher := tui.NewLauncherModelWithHealthAndCursor(srv.URL, "v1.0.0", hasAPIKey, activeCursor)
+			launcher := tui.NewLauncherModelWithHealthAndCursor(srv.URL, "v"+Version, hasAPIKey, activeCursor)
 			p := tea.NewProgram(launcher, tea.WithAltScreen())
 			m, err := p.Run()
 			if err != nil {
@@ -144,7 +148,19 @@ func Execute() {
 	}
 }
 
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print the current Niskava Agent version",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("niskava version %s (%s/%s, %s)\n", Version, runtime.GOOS, runtime.GOARCH, runtime.Version())
+	},
+}
+
 func init() {
+	RootCmd.Version = Version
+	RootCmd.SetVersionTemplate("niskava version {{.Version}}\n")
+	RootCmd.AddCommand(versionCmd)
+
 	RootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is ~/.niskava/config.yaml)")
 	RootCmd.PersistentFlags().StringVarP(&langFlag, "lang", "l", "", "language preference: 'en' for English (default) or 'id' for Indonesian")
 	RootCmd.PersistentFlags().StringVarP(&sessionFlag, "session", "s", "", "chat session ID to resume directly (e.g. CHAT-20260921-0001)")

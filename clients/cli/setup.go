@@ -234,14 +234,18 @@ NISKAVA_LLM_TIMEOUT=%.2f
 	)
 }
 
-// SaveSetupConfiguration writes both local .env and global ~/.niskava/config.yaml with 0600 permissions.
+// SaveSetupConfiguration writes both user-space ~/.niskava/config.yaml, ~/.niskava/.env, and best-effort local .env.
 func SaveSetupConfiguration(p SetupParams) error {
 	envContent := BuildEnvContent(p)
-	if err := os.WriteFile(".env", []byte(envContent), 0600); err != nil {
-		return fmt.Errorf("failed to save .env file: %w", err)
+
+	// 1. Primary persistence: ~/.niskava/.env and ~/.niskava/config.yaml
+	homeDir, _ := os.UserHomeDir()
+	if homeDir != "" {
+		niskavaDir := filepath.Join(homeDir, ".niskava")
+		_ = os.MkdirAll(niskavaDir, 0700)
+		_ = os.WriteFile(filepath.Join(niskavaDir, ".env"), []byte(envContent), 0600)
 	}
 
-	// Persist to ~/.niskava/config.yaml for CLI-Web synchronization
 	cfg, err := config.Load("")
 	if err != nil || cfg == nil {
 		cfg = config.DefaultConfig()
@@ -263,7 +267,16 @@ func SaveSetupConfiguration(p SetupParams) error {
 		cfg.Engine.PythonBin = p.PythonBin
 	}
 
-	_ = config.SaveConfig(cfg)
+	if err := config.SaveConfig(cfg); err != nil {
+		return fmt.Errorf("failed to save configuration file: %w", err)
+	}
+
+	// 2. Best-effort local .env in current directory (non-fatal if current working directory is read-only)
+	if err := os.WriteFile(".env", []byte(envContent), 0600); err != nil {
+		fmt.Printf("  %s Note: Could not write local .env in current directory (%v). User configuration in ~/.niskava/config.yaml will be active.\n",
+			wizardWarnBadgeStyle.Render("[!]"), err)
+	}
+
 	return nil
 }
 
@@ -326,9 +339,33 @@ func TestLiveConnection(ctx context.Context, target, baseURL, apiKey string) (bo
 	return false, fmt.Sprintf("Endpoint returned HTTP %d", resp.StatusCode), elapsed
 }
 
-// DetectPythonEnvironment checks for .venv or system python3 and verifies runtime compatibility.
+// DetectPythonEnvironment checks for environment variables, config overrides, .venv, or system python3 and verifies runtime compatibility.
 func DetectPythonEnvironment() (string, string, bool) {
-	venvCandidates := []string{
+	candidates := make([]string, 0, 16)
+
+	// 1. Environment variable overrides
+	for _, envKey := range []string{"NISKAVA_PYTHON_BIN", "NISKAVA_PYTHON", "NISKAVA_PYTHON_PATH"} {
+		if custom := os.Getenv(envKey); custom != "" {
+			candidates = append(candidates, custom)
+		}
+	}
+
+	// 2. Configured Python from config.yaml
+	if cfg != nil && cfg.Engine.PythonBin != "" && cfg.Engine.PythonBin != "python3" && cfg.Engine.PythonBin != "python" {
+		candidates = append(candidates, cfg.Engine.PythonBin)
+	}
+
+	// 3. User home ~/.niskava/venv
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		candidates = append(candidates,
+			filepath.Join(home, ".niskava", "venv", "bin", "python3"),
+			filepath.Join(home, ".niskava", "venv", "bin", "python"),
+			filepath.Join(home, ".niskava", "venv", "Scripts", "python.exe"),
+		)
+	}
+
+	// 4. Local workspace virtual environments
+	candidates = append(candidates,
 		filepath.Join(".venv", "bin", "python3"),
 		filepath.Join(".venv", "bin", "python"),
 		filepath.Join(".venv", "Scripts", "python.exe"),
@@ -341,26 +378,31 @@ func DetectPythonEnvironment() (string, string, bool) {
 		filepath.Join("backend", "engine", "venv", "bin", "python3"),
 		filepath.Join("backend", "engine", "venv", "bin", "python"),
 		filepath.Join("backend", "engine", "venv", "Scripts", "python.exe"),
-	}
+	)
 
-	if home, err := os.UserHomeDir(); err == nil && home != "" {
-		userVenvs := []string{
-			filepath.Join(home, ".niskava", "venv", "bin", "python3"),
-			filepath.Join(home, ".niskava", "venv", "bin", "python"),
-			filepath.Join(home, ".niskava", "venv", "Scripts", "python.exe"),
-		}
-		venvCandidates = append(userVenvs, venvCandidates...)
-	}
-
-	for _, cand := range venvCandidates {
-		if _, err := os.Stat(cand); err == nil {
-			// Test if required quantitative packages are available
-			cmd := exec.Command(cand, "-c", "import requests, numpy, pydantic, networkx, yaml; print('ok')")
-			if out, err := cmd.Output(); err == nil && strings.TrimSpace(string(out)) == "ok" {
-				return cand, "Virtual environment (.venv) active with quantitative dependencies", true
+	var lastCandidateWithMissingDeps string
+	for _, cand := range candidates {
+		candPath := cand
+		if _, err := os.Stat(candPath); err != nil {
+			if lp, errLp := exec.LookPath(candPath); errLp == nil {
+				candPath = lp
+			} else {
+				continue
 			}
-			return cand, "Virtual environment found, but quantitative dependencies are missing (numpy, pydantic, networkx)", false
 		}
+
+		// Test if required quantitative packages are available
+		cmd := exec.Command(candPath, "-c", "import requests, numpy, pydantic, networkx, yaml; print('ok')")
+		if out, err := cmd.Output(); err == nil && strings.TrimSpace(string(out)) == "ok" {
+			return candPath, "Python environment active with quantitative dependencies", true
+		}
+		if lastCandidateWithMissingDeps == "" {
+			lastCandidateWithMissingDeps = candPath
+		}
+	}
+
+	if lastCandidateWithMissingDeps != "" {
+		return lastCandidateWithMissingDeps, "Python environment found, but quantitative dependencies are missing (numpy, pydantic, networkx)", false
 	}
 
 	// Fallback to system python3 / python

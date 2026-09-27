@@ -119,20 +119,14 @@ func ResolvePythonBin(configuredBin string) string {
 	}
 
 	// Environment variable overrides
-	if custom := os.Getenv("NISKAVA_PYTHON_BIN"); custom != "" {
-		if _, err := os.Stat(custom); err == nil {
-			return custom
-		}
-		if path, err := exec.LookPath(custom); err == nil {
-			return path
-		}
-	}
-	if custom := os.Getenv("NISKAVA_PYTHON"); custom != "" {
-		if _, err := os.Stat(custom); err == nil {
-			return custom
-		}
-		if path, err := exec.LookPath(custom); err == nil {
-			return path
+	for _, envKey := range []string{"NISKAVA_PYTHON_BIN", "NISKAVA_PYTHON", "NISKAVA_PYTHON_PATH"} {
+		if custom := os.Getenv(envKey); custom != "" {
+			if _, err := os.Stat(custom); err == nil {
+				return custom
+			}
+			if path, err := exec.LookPath(custom); err == nil {
+				return path
+			}
 		}
 	}
 
