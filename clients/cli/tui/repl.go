@@ -81,6 +81,109 @@ type SlashCommand struct {
 	Command     string
 	Category    string
 	Description string
+	FormatHint  string
+}
+
+var isCompactMode = false
+
+// RenderSOPBadge renders a styled visual pill badge for SOP execution tools.
+func RenderSOPBadge(toolName string) string {
+	sopMap := map[string]string{
+		"market_anomaly_recon":        "SOP-01",
+		"event_causality_audit":       "SOP-02",
+		"insider_bandarmology":        "SOP-03",
+		"financial_health_stress":     "SOP-04",
+		"mining_commodity_divergence": "SOP-05",
+		"peer_valuation_benchmark":    "SOP-06",
+	}
+
+	sopID, isSOP := sopMap[toolName]
+	if isSOP {
+		badgeText := fmt.Sprintf("🛠️ %s: %s", sopID, toolName)
+		return lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#00F0FF")).
+			Background(lipgloss.Color("#0B192C")).
+			Padding(0, 1).
+			Render(badgeText)
+	}
+
+	if toolName == "quant_gate" || toolName == "compute_quant_anomalies" {
+		return lipgloss.NewStyle().
+			Bold(true).
+			Foreground(ColorSuccess).
+			Render(fmt.Sprintf("📊 NUMPY: %s", toolName))
+	}
+
+	if strings.Contains(toolName, "news") || strings.Contains(toolName, "disclosure") {
+		return lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#E066FF")).
+			Render(fmt.Sprintf("📰 NEWS: %s", toolName))
+	}
+
+	if strings.Contains(toolName, "memory") || strings.Contains(toolName, "graph") {
+		return lipgloss.NewStyle().
+			Bold(true).
+			Foreground(ColorWarning).
+			Render(fmt.Sprintf("🔍 MEMORY: %s", toolName))
+	}
+
+	return toolCallStyle.Render(fmt.Sprintf("⚡ TOOL: %s", toolName))
+}
+
+// RenderConfidenceBar renders a visual progress mini-bar representing discrete confidence scores.
+func RenderConfidenceBar(verificationStat string, score float64) string {
+	if score < 0 {
+		score = 0
+	} else if score > 1.0 {
+		score = 1.0
+	}
+	totalBlocks := 10
+	filled := int(score*float64(totalBlocks) + 0.5)
+	if filled > totalBlocks {
+		filled = totalBlocks
+	}
+	empty := totalBlocks - filled
+
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", empty)
+	pct := int(score * 100)
+
+	badge := supportedBadgeStyle.Render("[SUPPORTED]")
+	barStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess)
+
+	switch verificationStat {
+	case "UNCERTAIN":
+		badge = uncertainBadgeStyle.Render("[UNCERTAIN]")
+		barStyle = lipgloss.NewStyle().Bold(true).Foreground(ColorWarning)
+	case "CONTRADICTED":
+		badge = contradictedBadgeStyle.Render("[CONTRADICTED]")
+		barStyle = lipgloss.NewStyle().Bold(true).Foreground(ColorDanger)
+	}
+
+	return fmt.Sprintf("%s %s %d%%", badge, barStyle.Render(bar), pct)
+}
+
+func replaceIgnoreCase(src, target, replacement string) string {
+	if target == "" {
+		return src
+	}
+	srcLower := strings.ToLower(src)
+	targetLower := strings.ToLower(target)
+	var sb strings.Builder
+	start := 0
+	for {
+		idx := strings.Index(srcLower[start:], targetLower)
+		if idx == -1 {
+			sb.WriteString(src[start:])
+			break
+		}
+		matchPos := start + idx
+		sb.WriteString(src[start:matchPos])
+		sb.WriteString(replacement)
+		start = matchPos + len(target)
+	}
+	return sb.String()
 }
 
 // ParseTimeoutCommand parses "/timeout <arg>" and returns the resolved timeout in seconds.
@@ -241,9 +344,18 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
+		case tea.KeyCtrlV:
+			isCompactMode = !isCompactMode
+			m.TextInput.SetValue("/compact")
+			m.SubmittedValue = "/compact"
+			return m, tea.Quit
+
 		case tea.KeyTab:
 			if m.SlashActive && len(m.FilteredCommands) > 0 {
 				selected := m.FilteredCommands[m.SlashCursor].Command
+				if !strings.HasSuffix(selected, " ") {
+					selected += " "
+				}
 				m.TextInput.SetValue(selected)
 				m.TextInput.SetCursor(len(selected))
 				m.SlashActive = false
@@ -349,6 +461,10 @@ func (m ReplInputModel) View() string {
 				cmdR := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(cmdStr)
 				descR := lipgloss.NewStyle().Foreground(ColorFg).Render(descStr)
 				popupLines = append(popupLines, fmt.Sprintf("%s%s%s%s", lipgloss.NewStyle().Foreground(ColorAccent).Render(cursor), cmdR, catBadge, descR))
+				if sc.FormatHint != "" {
+					hintR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("    " + sc.FormatHint)
+					popupLines = append(popupLines, hintR)
+				}
 			} else {
 				cmdR := lipgloss.NewStyle().Foreground(ColorAccent).Render(cmdStr)
 				descR := lipgloss.NewStyle().Foreground(ColorMuted).Render(descStr)
@@ -506,8 +622,83 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			continue
 		}
 
-		if lower == "/doctor" {
-			printHealth(cfg)
+		if lower == "/compact" {
+			isCompactMode = !isCompactMode
+			status := "OFF"
+			if isCompactMode {
+				status = "ON (Intermediate monologue collapsed)"
+			}
+			fmt.Println(lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true).Render(TF("slash_compact_toggled", status)))
+			continue
+		}
+
+		if strings.HasPrefix(lower, "/find") {
+			parts := strings.SplitN(input, " ", 2)
+			if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_find_usage")))
+				continue
+			}
+			kw := strings.TrimSpace(parts[1])
+			if appDB == nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(T("repl_db_unavailable")))
+				continue
+			}
+			history, errH := appDB.GetChatHistory(sessionID, 100)
+			if errH != nil || len(history) == 0 {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(TF("slash_find_empty", sessionID)))
+				continue
+			}
+			var matches []db.ChatMessage
+			kwLower := strings.ToLower(kw)
+			for _, msg := range history {
+				if strings.Contains(strings.ToLower(msg.Content), kwLower) {
+					matches = append(matches, msg)
+				}
+			}
+			if len(matches) == 0 {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(TF("slash_find_no_match", kw)))
+				continue
+			}
+			fmt.Println("\n" + lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(TF("slash_find_results_header", len(matches), kw)))
+			highlightStyle := lipgloss.NewStyle().Background(ColorWarning).Foreground(ColorBg).Bold(true)
+			for idx, m := range matches {
+				roleLabel := "👤 USER"
+				if m.Role == "assistant" {
+					roleLabel = "⚡ NISKAVA"
+				}
+				highlightedContent := replaceIgnoreCase(m.Content, kw, highlightStyle.Render(kw))
+				fmt.Printf("  %d. [%s] [%s]\n%s\n\n", idx+1, roleLabel, m.CreatedAt, highlightedContent)
+			}
+			continue
+		}
+
+		if lower == "/copy" {
+			if appDB == nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(T("repl_db_unavailable")))
+				continue
+			}
+			history, errH := appDB.GetChatHistory(sessionID, 20)
+			if errH != nil || len(history) == 0 {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(TF("slash_copy_empty", sessionID)))
+				continue
+			}
+			var lastAssistantMsg string
+			for i := len(history) - 1; i >= 0; i-- {
+				if history[i].Role == "assistant" {
+					lastAssistantMsg = history[i].Content
+					break
+				}
+			}
+			if lastAssistantMsg == "" {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_copy_no_assistant")))
+				continue
+			}
+			errCopy := CopyToClipboard(lastAssistantMsg)
+			if errCopy != nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("slash_copy_err", errCopy)))
+			} else {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true).Render(T("slash_copy_success")))
+			}
 			continue
 		}
 
@@ -1050,7 +1241,9 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 			case ipc.EventAgentThought:
 				lastThought = ev.Thought
 				fmt.Print("\r\033[K")
-				fmt.Printf("💭 %s\n", thoughtStyle.Render(ev.Thought))
+				if !isCompactMode {
+					fmt.Printf("💭 %s\n", thoughtStyle.Render(ev.Thought))
+				}
 				vMsg := strings.TrimPrefix(TF("thinking_synthesize", modelLabel), "  ⠋ ")
 				statusText.Store(vMsg)
 
@@ -1064,13 +1257,15 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				if toolName == "search_osint" {
 					toolName = "search_news"
 				}
-				fmt.Printf("⚡ %s%s\n", toolCallStyle.Render("[TOOL CALL: "+toolName+"]"), argsJSON)
+				fmt.Printf("%s%s\n", RenderSOPBadge(toolName), lipgloss.NewStyle().Foreground(ColorMuted).Render(argsJSON))
 				tMsg := strings.TrimPrefix(TF("tool_executing", toolName), "  ⠋ ")
 				statusText.Store(tMsg)
 
 			case ipc.EventAgentObservation:
 				fmt.Print("\r\033[K")
-				fmt.Printf("🔎 %s\n", observationStyle.Render(ev.Summary))
+				if !isCompactMode {
+					fmt.Printf("🔎 %s\n", observationStyle.Render(ev.Summary))
+				}
 				sMsg := strings.TrimPrefix(TF("thinking_synthesize", modelLabel), "  ⠋ ")
 				statusText.Store(sMsg)
 
@@ -1085,15 +1280,8 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 
 			case ipc.EventFindingEmitted:
 				fmt.Print("\r\033[K")
-				badge := supportedBadgeStyle.Render("[SUPPORTED]")
-				switch ev.VerificationStat {
-				case "UNCERTAIN":
-					badge = uncertainBadgeStyle.Render("[UNCERTAIN]")
-				case "CONTRADICTED":
-					badge = contradictedBadgeStyle.Render("[CONTRADICTED]")
-				}
-				fmt.Printf("\n%s %s (Confidence: %.0f%%)\n", badge, lipgloss.NewStyle().Bold(true).Render(ev.Title), ev.ConfidenceScore*100)
-				fmt.Printf("   %s\n", ev.ClaimText)
+				confBar := RenderConfidenceBar(ev.VerificationStat, ev.ConfidenceScore)
+				fmt.Printf("\n%s %s\n   %s\n", confBar, lipgloss.NewStyle().Bold(true).Render(ev.Title), ev.ClaimText)
 
 			case ipc.EventAgentMessageChunk:
 				assistantResponse.WriteString(ev.Chunk)

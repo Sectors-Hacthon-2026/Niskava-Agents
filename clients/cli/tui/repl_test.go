@@ -542,3 +542,45 @@ func TestRenderSessionErrorDoesNotLeakRawANSI(t *testing.T) {
 		t.Errorf("expected SESSION ERROR in rendered card, got: %s", rendered)
 	}
 }
+
+func TestRenderSOPBadge(t *testing.T) {
+	badge01 := RenderSOPBadge("market_anomaly_recon")
+	if !strings.Contains(badge01, "SOP-01") || !strings.Contains(badge01, "market_anomaly_recon") {
+		t.Errorf("expected SOP-01 badge for market_anomaly_recon, got: %s", badge01)
+	}
+
+	badgeQuant := RenderSOPBadge("compute_quant_anomalies")
+	if !strings.Contains(badgeQuant, "NUMPY") {
+		t.Errorf("expected NUMPY badge for compute_quant_anomalies, got: %s", badgeQuant)
+	}
+
+	badgeNews := RenderSOPBadge("harvest_market_news")
+	if !strings.Contains(badgeNews, "NEWS") {
+		t.Errorf("expected NEWS badge for harvest_market_news, got: %s", badgeNews)
+	}
+}
+
+func TestRenderConfidenceBar(t *testing.T) {
+	barSupported := RenderConfidenceBar("SUPPORTED", 0.85)
+	if !strings.Contains(barSupported, "[SUPPORTED]") || !strings.Contains(barSupported, "85%") {
+		t.Errorf("expected [SUPPORTED] 85%% in confidence bar, got: %s", barSupported)
+	}
+
+	barUncertain := RenderConfidenceBar("UNCERTAIN", 0.55)
+	if !strings.Contains(barUncertain, "[UNCERTAIN]") || !strings.Contains(barUncertain, "55%") {
+		t.Errorf("expected [UNCERTAIN] 55%% in confidence bar, got: %s", barUncertain)
+	}
+
+	barContradicted := RenderConfidenceBar("CONTRADICTED", 0.20)
+	if !strings.Contains(barContradicted, "[CONTRADICTED]") || !strings.Contains(barContradicted, "20%") {
+		t.Errorf("expected [CONTRADICTED] 20%% in confidence bar, got: %s", barContradicted)
+	}
+}
+
+func TestReplaceIgnoreCase(t *testing.T) {
+	src := "The ANTM stock volume surge was caused by ANTM dividend news."
+	got := replaceIgnoreCase(src, "ANTM", "[HIGHLIGHT]")
+	if !strings.Contains(got, "[HIGHLIGHT]") {
+		t.Errorf("expected replacement in replaceIgnoreCase, got: %s", got)
+	}
+}

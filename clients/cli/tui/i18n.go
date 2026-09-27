@@ -949,6 +949,54 @@ var TUIStrings = map[string]map[string]string{
 		"en": "### ⚡ Niskava Agent Findings",
 		"id": "### ⚡ Temuan Niskava Agent",
 	},
+	"slash_compact_desc": {
+		"en": "Toggle compact view mode (collapse intermediate monologue & thinking logs)",
+		"id": "Beralih mode ringkas (sembunyikan monolog & log penalaran sementara)",
+	},
+	"slash_compact_toggled": {
+		"en": "⚡ Compact view mode: %s",
+		"id": "⚡ Mode tampilan ringkas: %s",
+	},
+	"slash_find_desc": {
+		"en": "Search & highlight messages in active session history matching keyword",
+		"id": "Cari & sorot pesan dalam riwayat sesi aktif yang sesuai kata kunci",
+	},
+	"slash_find_usage": {
+		"en": "Usage: /find <keyword> (e.g. /find dividend)",
+		"id": "Penggunaan: /find <kata_kunci> (contoh: /find dividen)",
+	},
+	"slash_find_empty": {
+		"en": "No history found for session %s.",
+		"id": "Tidak ada riwayat ditemukan untuk sesi %s.",
+	},
+	"slash_find_no_match": {
+		"en": "No messages found matching '%s' in current session.",
+		"id": "Tidak ada pesan yang cocok dengan '%s' di sesi ini.",
+	},
+	"slash_find_results_header": {
+		"en": "🔎 FOUND %d MESSAGES MATCHING '%s':",
+		"id": "🔎 DITEMUKAN %d PESAN YANG COCOK DENGAN '%s':",
+	},
+	"slash_copy_desc": {
+		"en": "Copy active investigation report summary to OS clipboard",
+		"id": "Salin ringkasan laporan investigasi aktif ke clipboard OS",
+	},
+	"slash_copy_empty": {
+		"en": "No messages available to copy in session %s.",
+		"id": "Tidak ada pesan yang dapat disalin pada sesi %s.",
+	},
+	"slash_copy_no_assistant": {
+		"en": "No assistant response found to copy.",
+		"id": "Tidak ada balasan asisten yang ditemukan untuk disalin.",
+	},
+	"slash_copy_err": {
+		"en": "Failed to copy report to clipboard: %v",
+		"id": "Gagal menyalin laporan ke clipboard: %v",
+	},
+	"slash_copy_success": {
+		"en": "📋 Latest investigation report copied to OS clipboard!",
+		"id": "📋 Ringkasan laporan investigasi terbaru berhasil disalin ke clipboard!",
+	},
 }
 
 // T retrieves localized string for ActiveLanguage, falling back to "en".
@@ -1027,25 +1075,28 @@ func GetLocalizedLauncherItems() []LauncherItem {
 // GetLocalizedSlashCommands returns slash commands localized according to ActiveLanguage.
 func GetLocalizedSlashCommands() []SlashCommand {
 	return []SlashCommand{
-		{Command: "/help", Category: "SYSTEM", Description: T("slash_help_desc")},
-		{Command: "/back", Category: "NAV", Description: T("slash_back_desc")},
-		{Command: "/chats", Category: "NAV", Description: T("slash_chats_desc")},
-		{Command: "/resume", Category: "INTEL", Description: T("slash_resume_desc")},
-		{Command: "/export", Category: "INTEL", Description: T("slash_export_desc")},
-		{Command: "/fork", Category: "INTEL", Description: T("slash_fork_desc")},
-		{Command: "/search", Category: "INTEL", Description: T("slash_search_desc")},
-		{Command: "/anomalies", Category: "INTEL", Description: T("slash_anomalies_desc")},
-		{Command: "/skills", Category: "INTEL", Description: T("slash_skills_desc")},
-		{Command: "/doctor", Category: "SYSTEM", Description: T("slash_doctor_desc")},
-		{Command: "/cache", Category: "SYSTEM", Description: T("slash_cache_desc")},
-		{Command: "/reset", Category: "SYSTEM", Description: T("slash_reset_desc")},
-		{Command: "/graph", Category: "INTEL", Description: T("slash_graph_desc")},
-		{Command: "/clear", Category: "SYSTEM", Description: T("slash_clear_desc")},
-		{Command: "/web", Category: "NAV", Description: T("slash_web_desc")},
-		{Command: "/sessions", Category: "INTEL", Description: T("slash_sessions_desc")},
-		{Command: "/health", Category: "SYSTEM", Description: T("slash_health_desc")},
-		{Command: "/lang", Category: "SYSTEM", Description: T("slash_lang_desc")},
-		{Command: "/timeout", Category: "SYSTEM", Description: T("slash_timeout_desc")},
-		{Command: "/exit", Category: "SYSTEM", Description: T("slash_exit_desc")},
+		{Command: "/help", Category: "SYSTEM", Description: T("slash_help_desc"), FormatHint: "└─ 💡 Format: /help"},
+		{Command: "/back", Category: "NAV", Description: T("slash_back_desc"), FormatHint: "└─ 💡 Format: /back"},
+		{Command: "/chats", Category: "NAV", Description: T("slash_chats_desc"), FormatHint: "└─ 💡 Format: /chats"},
+		{Command: "/compact", Category: "UX", Description: T("slash_compact_desc"), FormatHint: "└─ 💡 Format: /compact [toggle collapsed logs]"},
+		{Command: "/find", Category: "INTEL", Description: T("slash_find_desc"), FormatHint: "└─ 💡 Format: /find <keyword> (e.g. /find dividend)"},
+		{Command: "/copy", Category: "INTEL", Description: T("slash_copy_desc"), FormatHint: "└─ 💡 Format: /copy [copy report summary to OS clipboard]"},
+		{Command: "/resume", Category: "INTEL", Description: T("slash_resume_desc"), FormatHint: "└─ 💡 Format: /resume <session_id>"},
+		{Command: "/export", Category: "INTEL", Description: T("slash_export_desc"), FormatHint: "└─ 💡 Format: /export [md|json]"},
+		{Command: "/fork", Category: "INTEL", Description: T("slash_fork_desc"), FormatHint: "└─ 💡 Format: /fork [new title]"},
+		{Command: "/search", Category: "INTEL", Description: T("slash_search_desc"), FormatHint: "└─ 💡 Format: /search <keyword>"},
+		{Command: "/anomalies", Category: "INTEL", Description: T("slash_anomalies_desc"), FormatHint: "└─ 💡 Format: /anomalies"},
+		{Command: "/skills", Category: "INTEL", Description: T("slash_skills_desc"), FormatHint: "└─ 💡 Format: /skills"},
+		{Command: "/doctor", Category: "SYSTEM", Description: T("slash_doctor_desc"), FormatHint: "└─ 💡 Format: /doctor"},
+		{Command: "/cache", Category: "SYSTEM", Description: T("slash_cache_desc"), FormatHint: "└─ 💡 Format: /cache [clean]"},
+		{Command: "/reset", Category: "SYSTEM", Description: T("slash_reset_desc"), FormatHint: "└─ 💡 Format: /reset"},
+		{Command: "/graph", Category: "INTEL", Description: T("slash_graph_desc"), FormatHint: "└─ 💡 Format: /graph"},
+		{Command: "/clear", Category: "SYSTEM", Description: T("slash_clear_desc"), FormatHint: "└─ 💡 Format: /clear"},
+		{Command: "/web", Category: "NAV", Description: T("slash_web_desc"), FormatHint: "└─ 💡 Format: /web"},
+		{Command: "/sessions", Category: "INTEL", Description: T("slash_sessions_desc"), FormatHint: "└─ 💡 Format: /sessions"},
+		{Command: "/health", Category: "SYSTEM", Description: T("slash_health_desc"), FormatHint: "└─ 💡 Format: /health"},
+		{Command: "/lang", Category: "SYSTEM", Description: T("slash_lang_desc"), FormatHint: "└─ 💡 Format: /lang [en|id]"},
+		{Command: "/timeout", Category: "SYSTEM", Description: T("slash_timeout_desc"), FormatHint: "└─ 💡 Format: /timeout [fast|balanced|deep|local|<secs>]"},
+		{Command: "/exit", Category: "SYSTEM", Description: T("slash_exit_desc"), FormatHint: "└─ 💡 Format: /exit"},
 	}
 }
