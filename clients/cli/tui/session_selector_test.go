@@ -127,3 +127,98 @@ func TestSessionSelectorModel_LiveKeywordFilter(t *testing.T) {
 		t.Fatalf("expected view to contain filter header with 'bbca', got: %s", view)
 	}
 }
+
+func TestSessionSelectorModel_PinHotkey(t *testing.T) {
+	sessions := []db.ChatSession{
+		{ID: "CHAT-1", Title: "Sesi ANTM", IsPinned: false, UpdatedAt: "2026-09-20T10:00:00Z"},
+		{ID: "CHAT-2", Title: "Sesi BBCA", IsPinned: false, UpdatedAt: "2026-09-21T10:00:00Z"},
+	}
+	model := NewSessionSelectorModel(sessions)
+
+	// Press Ctrl+P on first session
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m := updated.(SessionSelectorModel)
+
+	if !m.Sessions[0].IsPinned {
+		t.Fatalf("expected first session in sorted list to be pinned")
+	}
+	if !strings.Contains(m.View(), "📌") {
+		t.Fatalf("expected view to render pin badge 📌")
+	}
+}
+
+func TestSessionSelectorModel_DeleteConfirmation(t *testing.T) {
+	sessions := []db.ChatSession{
+		{ID: "CHAT-1", Title: "Sesi ANTM"},
+	}
+	model := NewSessionSelectorModel(sessions)
+
+	// Press Ctrl+D to trigger deletion dialog
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlD})
+	m := updated.(SessionSelectorModel)
+
+	if !m.ConfirmDelete {
+		t.Fatalf("expected ConfirmDelete to be true")
+	}
+
+	// Press 'n' to cancel deletion
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	m = updated.(SessionSelectorModel)
+	if m.ConfirmDelete {
+		t.Fatalf("expected ConfirmDelete to be false after 'n'")
+	}
+}
+
+func TestSessionSelectorModel_ExportModal(t *testing.T) {
+	sessions := []db.ChatSession{
+		{ID: "CHAT-1", Title: "Sesi ANTM", LastMessagePreview: "Hasil investigasi ANTM"},
+	}
+	model := NewSessionSelectorModel(sessions)
+
+	// Press Ctrl+E to open export modal
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlE})
+	m := updated.(SessionSelectorModel)
+
+	if !m.ExportModalActive {
+		t.Fatalf("expected ExportModalActive to be true")
+	}
+
+	view := m.View()
+	if !strings.Contains(view, "EXPORT SESSION TRANSCRIPT") {
+		t.Fatalf("expected view to render export modal title")
+	}
+
+	// Press Enter to export
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(SessionSelectorModel)
+	if m.ExportModalActive {
+		t.Fatalf("expected ExportModalActive to be false after Enter")
+	}
+}
+
+func TestExportSessionTranscript(t *testing.T) {
+	session := &db.ChatSession{
+		ID:                 "TEST-EXPORT-001",
+		Title:              "Riset ANTM Export Test",
+		LastMessagePreview: "Hasil pengamatan ANTM",
+		UpdatedAt:          time.Now().Format(time.RFC3339),
+	}
+
+	// Test Markdown export (format 0)
+	mdPath, err := ExportSessionTranscript(nil, session, 0)
+	if err != nil {
+		t.Fatalf("failed to export markdown: %v", err)
+	}
+	if !strings.HasSuffix(mdPath, ".md") {
+		t.Fatalf("expected .md extension, got %s", mdPath)
+	}
+
+	// Test JSON export (format 1)
+	jsonPath, err := ExportSessionTranscript(nil, session, 1)
+	if err != nil {
+		t.Fatalf("failed to export json: %v", err)
+	}
+	if !strings.HasSuffix(jsonPath, ".json") {
+		t.Fatalf("expected .json extension, got %s", jsonPath)
+	}
+}
