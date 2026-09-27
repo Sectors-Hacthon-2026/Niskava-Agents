@@ -2,7 +2,8 @@
 
 **Autonomous Financial Market Intelligence Orchestration Platform for the Indonesia Stock Exchange (IDX)**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![NPM Version](https://img.shields.io/npm/v/@zyrexnns/niskava-agent.svg?style=flat&color=CB3837)](https://www.npmjs.com/package/@zyrexnns/niskava-agent)
 [![Track](https://img.shields.io/badge/Sectors%20Hackathon%202026-Track%201%3A%20AI%20Agents%20%26%20Assistants-0969da.svg)](https://hackathon.sectors.app/)
 [![Target Market](https://img.shields.io/badge/Market-IDX%20%28Indonesia%20Stock%20Exchange%29-1a7f37.svg)](#)
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8.svg)](https://go.dev/)
@@ -113,7 +114,37 @@ All development on Niskava Agent is strictly governed by six foundational archit
 
 ## Quick Start
 
-### 1. Fast Automated Installation (One-Liner)
+### 🚀 Instant Run via NPX / NPM (Zero-Clone)
+
+Run Niskava Agent directly in your terminal without cloning or manual compilation:
+
+```bash
+# 1. Run interactive setup wizard (configure AI provider & Sectors key)
+npx @zyrexnns/niskava-agent setup
+
+# 2. Run system doctor to verify environment
+npx @zyrexnns/niskava-agent doctor
+
+# 3. Launch interactive REPL research terminal
+npx @zyrexnns/niskava-agent
+
+# 4. Start local web workspace daemon (:20128)
+npx @zyrexnns/niskava-agent serve
+```
+
+Or install globally on your machine:
+```bash
+npm install -g @zyrexnns/niskava-agent
+
+# Then run anywhere:
+niskava setup
+niskava investigate ANTM --days 30
+niskava serve
+```
+
+---
+
+### 1. Fast Automated Installation (Clone & One-Liner Script)
 
 Clone the repository and run the automated installer for your operating system:
 

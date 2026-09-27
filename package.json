@@ -1,0 +1,52 @@
+{
+  "name": "@zyrexnns/niskava-agent",
+  "version": "0.1.3",
+  "description": "Autonomous Financial Market Intelligence Orchestration Platform for Indonesia Stock Exchange (IDX)",
+  "main": "bin/index.js",
+  "bin": {
+    "niskava": "./bin/index.js",
+    "niskava-agent": "./bin/index.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node tests/npm_launcher_test.js",
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "files": [
+    "bin/index.js",
+    "bin/resolver.js",
+    "scripts/postinstall.js",
+    "backend/engine",
+    "!backend/engine/tests",
+    "!backend/engine/evals",
+    "!**/__pycache__",
+    "!**/*.pyc",
+    "public",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sectors-Hacthon-2026/Niskava-Agents.git"
+  },
+  "keywords": [
+    "idx",
+    "stock-exchange",
+    "market-intelligence",
+    "sectors-api",
+    "financial-ai",
+    "agentic",
+    "react-agent"
+  ],
+  "author": "Niskava Team (zyrexnns)",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/Sectors-Hacthon-2026/Niskava-Agents/issues"
+  },
+  "homepage": "https://github.com/Sectors-Hacthon-2026/Niskava-Agents#readme"
+}

@@ -1,0 +1,63 @@
+name: Release & Publish to NPM
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  publish-npm:
+    name: Build Multi-Platform & Publish to NPM
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup Go Environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: '>=1.24.0'
+          cache: true
+
+      - name: Setup Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile Native Go Core Binary
+        run: |
+          mkdir -p bin
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/niskava ./cmd/niskava
+          chmod +x bin/niskava bin/index.js
+
+      - name: Publish Package to NPM
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          CURRENT_VER=$(node -e 'console.log(require("./package.json").version)')
+          EXISTS=$(node -e "
+            const { execSync } = require('child_process');
+            try {
+              const out = execSync('npm view @zyrexnns/niskava-agent versions --json', { encoding: 'utf8' });
+              const versions = JSON.parse(out);
+              const exists = Array.isArray(versions) ? versions.includes('$CURRENT_VER') : versions === '$CURRENT_VER';
+              console.log(exists ? 'yes' : 'no');
+            } catch (_) {
+              console.log('no');
+            }
+          ")
+          if [ "$EXISTS" = "yes" ]; then
+            echo "Version $CURRENT_VER is already published on NPM. Skipping publish."
+          else
+            npm publish --access public || echo "Publish skipped or completed."
+          fi
