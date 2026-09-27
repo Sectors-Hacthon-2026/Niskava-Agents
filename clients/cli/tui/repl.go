@@ -543,15 +543,15 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 				content = string(data)
 			} else {
 				var sb strings.Builder
-				sb.WriteString(fmt.Sprintf("# Niskava Agent — Audit & Research Report\n\n"))
+				sb.WriteString(fmt.Sprintf("%s\n\n", T("slash_export_report_title")))
 				sb.WriteString(fmt.Sprintf("- **Session ID:** `%s`\n", sessionID))
 				sb.WriteString(fmt.Sprintf("- **Date:** `%s`\n", time.Now().Format("2006-01-02 15:04:05 MST")))
 				sb.WriteString(fmt.Sprintf("- **Model:** `%s`\n\n---\n\n", modelLabel))
 				for _, m := range history {
 					if m.Role == "user" {
-						sb.WriteString(fmt.Sprintf("### 👤 User Prompt\n> %s\n\n", m.Content))
+						sb.WriteString(fmt.Sprintf("%s\n> %s\n\n", T("slash_export_user_prompt"), m.Content))
 					} else if m.Role == "assistant" {
-						sb.WriteString(fmt.Sprintf("### ⚡ Niskava Agent Findings\n%s\n\n---\n\n", m.Content))
+						sb.WriteString(fmt.Sprintf("%s\n%s\n\n---\n\n", T("slash_export_findings"), m.Content))
 					}
 				}
 				sb.WriteString(T("sessions_export_disclaimer"))
@@ -571,7 +571,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 				continue
 			}
 			parts := strings.SplitN(input, " ", 2)
-			newTitle := "Forked Analysis Session"
+			newTitle := T("slash_fork_default_title")
 			if len(parts) > 1 && strings.TrimSpace(parts[1]) != "" {
 				newTitle = strings.TrimSpace(parts[1])
 			}
@@ -630,8 +630,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			}
 			fmt.Println("\n" + lipgloss.NewStyle().Bold(true).Foreground(ColorDanger).Render(T("slash_anomalies_title")))
 			for idx, a := range anomalies {
-				fmt.Printf("  %d. Tgl: %s | Metrik: %-22s | Val: %.2f (Baseline: %.2f) | Z-Score: %.2f\n     Deskripsi: %s\n",
-					idx+1, a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore, a.Description)
+				fmt.Println(TF("slash_anomalies_item", idx+1, a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore, a.Description))
 			}
 			fmt.Println()
 			continue
@@ -674,7 +673,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 				} else {
 					fmt.Println("\n" + lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(T("slash_cache_stats_title")))
 					fmt.Printf("%s\n", TF("slash_cache_stats_total", stats.TotalEntries))
-					fmt.Printf("  • Permanent (Candles): %d (0 credit cost)\n", stats.PermanentEntries)
+					fmt.Printf("%s\n", TF("slash_cache_stats_perm", stats.PermanentEntries))
 					fmt.Printf("%s\n", TF("slash_cache_stats_expired", stats.ExpiredEntries))
 					fmt.Println(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("slash_cache_stats_hint")))
 				}
@@ -699,6 +698,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 				}
 			}
 			cfg.Preferences.Language = ActiveLanguage
+			_ = config.SaveConfig(cfg)
 
 			fmt.Print("\033[H\033[2J")
 			renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)

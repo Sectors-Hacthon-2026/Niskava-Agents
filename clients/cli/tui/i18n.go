@@ -845,9 +845,85 @@ var TUIStrings = map[string]map[string]string{
 		"en": "  • Expired Entries     : %d",
 		"id": "  • Entri Kadaluarsa    : %d",
 	},
+	"slash_cache_stats_perm": {
+		"en": "  • Permanent (Candles) : %d (0 credit cost)",
+		"id": "  • Permanen (Candle)   : %d (tanpa biaya kredit)",
+	},
 	"slash_cache_stats_hint": {
 		"en": "  (Use '/cache clean' to purge expired entries)\n",
 		"id": "  (Gunakan '/cache clean' untuk membersihkan entri kadaluarsa)\n",
+	},
+	"slash_anomalies_item": {
+		"en": "  %d. Date: %s | Metric: %-22s | Val: %.2f (Baseline: %.2f) | Z-Score: %.2f\n     Description: %s",
+		"id": "  %d. Tgl: %s | Metrik: %-22s | Val: %.2f (Baseline: %.2f) | Z-Score: %.2f\n     Deskripsi: %s",
+	},
+	"health_lbl_daemon_url": {
+		"en": "Local Daemon URL",
+		"id": "URL Daemon Lokal",
+	},
+	"health_lbl_db_path": {
+		"en": "Database Path   ",
+		"id": "Jalur Database  ",
+	},
+	"health_lbl_python_bin": {
+		"en": "Python Engine   ",
+		"id": "Engine Python   ",
+	},
+	"health_lbl_sectors_key": {
+		"en": "Sectors API Key ",
+		"id": "Sectors API Key ",
+	},
+	"health_lbl_engine": {
+		"en": "Inference Engine",
+		"id": "Engine Inferensi",
+	},
+	"health_lbl_model": {
+		"en": "Active Model    ",
+		"id": "Model Aktif     ",
+	},
+	"health_lbl_model_key": {
+		"en": "Model API Key   ",
+		"id": "API Key Model   ",
+	},
+	"web_launch_title": {
+		"en": "🌐 NISKAVA WEB WORKSPACE (VISUAL MARKET INTELLIGENCE CANVAS)",
+		"id": "🌐 NISKAVA WEB WORKSPACE (CANVAS INTELIJEN PASAR VISUAL)",
+	},
+	"web_launch_lbl_status": {
+		"en": "Local Server Status",
+		"id": "Status Server Lokal",
+	},
+	"web_launch_lbl_url": {
+		"en": "Browser Access URL ",
+		"id": "URL Akses Browser  ",
+	},
+	"web_launch_lbl_features": {
+		"en": "Canvas Features    ",
+		"id": "Fitur-Fitur Canvas ",
+	},
+	"web_launch_lbl_sovereignty": {
+		"en": "Data Sovereignty   ",
+		"id": "Kedaulatan Data    ",
+	},
+	"web_launch_opening": {
+		"en": "⚡ Opening default web browser automatically...",
+		"id": "⚡ Membuka browser web default secara otomatis...",
+	},
+	"slash_fork_default_title": {
+		"en": "Forked Analysis Session",
+		"id": "Sesi Analisis Cabangan",
+	},
+	"slash_export_report_title": {
+		"en": "# Niskava Agent — Audit & Research Report",
+		"id": "# Niskava Agent — Laporan Riset & Audit",
+	},
+	"slash_export_user_prompt": {
+		"en": "### 👤 User Prompt",
+		"id": "### 👤 Pertanyaan Pengguna",
+	},
+	"slash_export_findings": {
+		"en": "### ⚡ Niskava Agent Findings",
+		"id": "### ⚡ Temuan Niskava Agent",
 	},
 }
 
