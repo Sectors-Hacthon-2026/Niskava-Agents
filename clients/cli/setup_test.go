@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -87,6 +89,20 @@ func TestDetectPythonEnvironment(t *testing.T) {
 	t.Logf("Detected Python: bin=%s ready=%v desc=%s", bin, ready, desc)
 }
 
+func TestDetectPythonEnvironmentChecksRequiredPackages(t *testing.T) {
+	bin, desc, ready := DetectPythonEnvironment()
+	if bin == "" {
+		t.Fatal("expected non-empty python binary")
+	}
+	// If ready is true, verify that numpy, pydantic, etc. actually import without error
+	if ready {
+		cmd := exec.Command(bin, "-c", "import requests, numpy, pydantic, networkx")
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("DetectPythonEnvironment reported ready=true, but imports failed: %v (desc: %s)", err, desc)
+		}
+	}
+}
+
 func TestTestLiveConnection_MockServer(t *testing.T) {
 	// Create mock OpenAI-compatible server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -137,5 +153,19 @@ func TestBuildEnvContentTimeoutDefaultsTo60(t *testing.T) {
 	content := BuildEnvContent(p)
 	if !strings.Contains(content, "NISKAVA_LLM_TIMEOUT=60.00") {
 		t.Errorf("expected NISKAVA_LLM_TIMEOUT=60.00 in .env content, got:\n%s", content)
+	}
+}
+
+func TestGetLaunchCommandHint(t *testing.T) {
+	// If running outside repo root with go.mod, hint should be 'niskava'
+	hintStandalone := getLaunchCommandHint("/tmp/random-folder-xyz")
+	if hintStandalone != "niskava" {
+		t.Errorf("expected 'niskava', got '%s'", hintStandalone)
+	}
+
+	wd, _ := os.Getwd()
+	hintInRepo := getLaunchCommandHint(wd)
+	if !strings.Contains(hintInRepo, "cmd/niskava") && !strings.Contains(hintInRepo, "bin/niskava") {
+		t.Errorf("expected repo-specific command in repo, got '%s'", hintInRepo)
 	}
 }

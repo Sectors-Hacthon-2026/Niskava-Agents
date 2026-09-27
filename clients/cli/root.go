@@ -114,6 +114,7 @@ and qualitative market disclosures/news.`,
 					if selLang != "" {
 						tui.SetLanguage(selLang)
 						cfg.Preferences.Language = tui.ActiveLanguage
+						_ = config.SaveConfig(cfg)
 					}
 				}
 

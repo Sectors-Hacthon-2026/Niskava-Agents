@@ -41,11 +41,16 @@ Mode REPL (*Read-Eval-Print Loop*) memberikan pengalaman terminal cerdas untuk b
 
 ### 3.1 Memulai Sesi REPL
 ```bash
-# Melalui launcher utama:
-niskava -> Pilih 'Terminal (REPL)'
+# Melalui subcommand langsung (aliases: repl, chat):
+niskava terminal
+niskava repl
+niskava chat
 
 # Atau langsung membuka REPL untuk sesi tertentu:
-niskava --session SES-20260924-ANTM
+niskava terminal --session SES-20260924-ANTM
+
+# Atau melalui investigasi interaktif emiten:
+niskava investigate ANTM -i
 ```
 
 ### 3.2 Navigasi & Pintasan Keyboard
@@ -57,7 +62,7 @@ niskava --session SES-20260924-ANTM
 | `/` | Memicu jendela popup filter *Slash Commands* otomatis |
 | `Esc` | Menutup jendela popup slash command tanpa keluar dari REPL |
 | `Tab` | Melengkapi auto-complete perintah slash yang sedang diketik |
-| `Ctrl + C` (Saat streaming) | Mengirim sinyal pembatalan turn (*Abort ReAct Turn*) tanpa mematikan aplikasi |
+| `Ctrl + C` (Saat streaming) | Mengirim sinyal HTTP POST `/abort` ke daemon server tanpa mematikan aplikasi |
 | `Ctrl + C` (Saat idle, 2x) | Keluar dari aplikasi dengan aman (*Double-press Exit Guard*) |
 
 ### 3.3 Daftar Slash Commands
@@ -70,6 +75,13 @@ Ketik karakter garis miring (`/`) pada baris input untuk menampilkan daftar peri
 │ /chats     [NAV]    Buka daftar riwayat sesi obrolan interaktif           │
 │ /resume    [INTEL]  Melanjutkan investigasi sesi sebelumnya via ID        │
 │ /timeout   [SYSTEM] Atur batas waktu inferensi LLM (fast/balanced/deep/N) │
+│ /export    [INTEL]  Ekspor laporan sesi aktif ke berkas .md atau .json    │
+│ /fork      [INTEL]  Cabangkan sesi aktif ke ID sesi baru (OpenCode)       │
+│ /search    [INTEL]  Cari percakapan lama di SQLite dari REPL prompt       │
+│ /anomalies [INTEL]  Tampilkan tabel anomali kuantitatif terdeteksi        │
+│ /skills    [INTEL]  Tampilkan katalog 6 domain SOP terdaftar              │
+│ /doctor    [SYSTEM] Jalankan pemeriksaan diagnostik sistem di REPL        │
+│ /cache     [SYSTEM] Cek statistik kuota API & bersihkan cache kadaluarsa  │
 │ /graph     [INTEL]  Buka visualisasi Knowledge Graph di browser           │
 │ /web       [NAV]    Luncurkan Web Workspace Dashboard di browser          │
 │ /sessions  [INTEL]  Daftar riwayat sesi investigasi & obrolan             │
@@ -207,6 +219,10 @@ for TICKER in "${WATCHLIST[@]}"; do
     echo "[✗] Audit $TICKER gagal." >&2
   fi
 done
+
+# Cari dan ekspor sesi audit terbaru ke Markdown
+niskava sessions list -n 5
+niskava sessions export CHAT-20260926-0001 --format md --out "$REPORT_DIR/summary_report.md"
 
 # Ekspor grafik memori gabungan hari ini
 niskava graph -o "$REPORT_DIR/market_graph.html"

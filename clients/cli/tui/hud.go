@@ -222,12 +222,12 @@ func PrintHealthDiagnostics(cfg *config.Config, serverURL string) {
 		daemonURL = "http://localhost:8080"
 	}
 	fmt.Printf("• %s: %s %s\n",
-		lblStyle.Render("Local Daemon URL"),
+		lblStyle.Render(T("health_lbl_daemon_url")),
 		valStyle.Render(daemonURL),
 		statusAliveStyle.Render("[ALIVE]"))
 
 	fmt.Printf("• %s: %s\n",
-		lblStyle.Render("Database Path   "),
+		lblStyle.Render(T("health_lbl_db_path")),
 		valStyle.Render(cfg.Storage.DBPath))
 
 	pyBin := cfg.Engine.PythonBin
@@ -241,7 +241,7 @@ func PrintHealthDiagnostics(cfg *config.Config, serverURL string) {
 		}
 	}
 	fmt.Printf("• %s: %s %s\n",
-		lblStyle.Render("Python Engine   "),
+		lblStyle.Render(T("health_lbl_python_bin")),
 		valStyle.Render(pyBin),
 		pyStatus)
 
@@ -254,7 +254,7 @@ func PrintHealthDiagnostics(cfg *config.Config, serverURL string) {
 		}
 	}
 	fmt.Printf("• %s: %s\n",
-		lblStyle.Render("Sectors API Key "),
+		lblStyle.Render(T("health_lbl_sectors_key")),
 		secKeyText)
 
 	prov := cfg.Auth.AIProvider
@@ -287,16 +287,16 @@ func PrintHealthDiagnostics(cfg *config.Config, serverURL string) {
 	}
 
 	fmt.Printf("• %s: %s %s\n",
-		lblStyle.Render("Inference Engine"),
+		lblStyle.Render(T("health_lbl_engine")),
 		valStyle.Render(fmt.Sprintf("%s (%s)", strings.ToUpper(prov), baseURL)),
 		statusAliveStyle.Render("[CONFIGURED]"))
 
 	fmt.Printf("• %s: %s\n",
-		lblStyle.Render("Active Model    "),
+		lblStyle.Render(T("health_lbl_model")),
 		lblStyle.Render(activeModel))
 
 	fmt.Printf("• %s: %s\n",
-		lblStyle.Render("Model API Key   "),
+		lblStyle.Render(T("health_lbl_model_key")),
 		modelKeyText)
 
 	fmt.Println(dividerStyle.Render("─────────────────────────────────────────────────────────────────────────────"))
@@ -341,12 +341,12 @@ func PrintWebWorkspaceLaunchScreen(serverURL string) {
 		Foreground(ColorMuted)
 
 	var b strings.Builder
-	b.WriteString(headerStyle.Render("🌐 NISKAVA WEB WORKSPACE (VISUAL MARKET INTELLIGENCE CANVAS)") + "\n\n")
-	b.WriteString(fmt.Sprintf("• %s : %s %s\n", lblStyle.Render("Local Server Status"), statusStyle.Render("[ONLINE]"), mutedStyle.Render("(Go SSE Gateway + React SPA)")))
-	b.WriteString(fmt.Sprintf("• %s : %s\n", lblStyle.Render("Browser Access URL "), urlStyle.Render(serverURL)))
-	b.WriteString(fmt.Sprintf("• %s : %s\n", lblStyle.Render("Canvas Features    "), valStyle.Render("TradingView Anomaly Markers, ReAct SSE Stream, Evidence Matrix")))
-	b.WriteString(fmt.Sprintf("• %s : %s\n\n", lblStyle.Render("Data Sovereignty   "), valStyle.Render("100% Local-First SQLite Persistence (~/.niskava/niskava.db)")))
-	b.WriteString(mutedStyle.Render("⚡ Opening default web browser automatically..."))
+	b.WriteString(headerStyle.Render(T("web_launch_title")) + "\n\n")
+	b.WriteString(fmt.Sprintf("• %s : %s %s\n", lblStyle.Render(T("web_launch_lbl_status")), statusStyle.Render("[ONLINE]"), mutedStyle.Render("(Go SSE Gateway + React SPA)")))
+	b.WriteString(fmt.Sprintf("• %s : %s\n", lblStyle.Render(T("web_launch_lbl_url")), urlStyle.Render(serverURL)))
+	b.WriteString(fmt.Sprintf("• %s : %s\n", lblStyle.Render(T("web_launch_lbl_features")), valStyle.Render("TradingView Anomaly Markers, ReAct SSE Stream, Evidence Matrix")))
+	b.WriteString(fmt.Sprintf("• %s : %s\n\n", lblStyle.Render(T("web_launch_lbl_sovereignty")), valStyle.Render("100% Local-First SQLite Persistence (~/.niskava/niskava.db)")))
+	b.WriteString(mutedStyle.Render(T("web_launch_opening")))
 
 	fmt.Println()
 	fmt.Println(cardStyle.Render(b.String()))

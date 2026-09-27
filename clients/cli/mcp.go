@@ -62,16 +62,21 @@ Example Claude Desktop configuration (~/.config/Claude/claude_desktop_config.jso
 		}()
 
 		wd, _ := os.Getwd()
+		resolvedRoot := ipc.ResolveRepoRoot(wd)
 
 		proc := exec.CommandContext(ctx, pythonBin, "-u", "-m", "engine.mcp.server")
-		proc.Dir = wd
+		proc.Dir = resolvedRoot
 		proc.Stdin = os.Stdin
 		proc.Stdout = os.Stdout
 		proc.Stderr = os.Stderr
 
 		// Build environment
 		proc.Env = os.Environ()
-		pythonPath := filepath.Join(wd, "backend") + string(filepath.ListSeparator) + wd
+		backendDir := filepath.Join(resolvedRoot, "backend")
+		pythonPath := backendDir + string(filepath.ListSeparator) + resolvedRoot
+		if wd != "" && wd != resolvedRoot {
+			pythonPath += string(filepath.ListSeparator) + wd
+		}
 		if existing := os.Getenv("PYTHONPATH"); existing != "" {
 			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
 		}

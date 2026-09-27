@@ -16,6 +16,7 @@ const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
+const os = require('os');
 const { getTargetBinaryPath, getPlatformAssetName, getNiskavaHome } = require('./resolver');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -25,6 +26,17 @@ const GITHUB_REPO = 'Sectors-Hacthon-2026/Niskava-Agents';
 const isWindows = process.platform === 'win32';
 
 function checkPythonRuntime() {
+    // 1. Check user-space ~/.niskava/venv first before system PATH
+    const home = os.homedir() || process.env.HOME || '';
+    if (home) {
+        const venvPy = isWindows 
+            ? path.join(home, '.niskava', 'venv', 'Scripts', 'python.exe')
+            : path.join(home, '.niskava', 'venv', 'bin', 'python3');
+        if (fs.existsSync(venvPy)) {
+            return venvPy;
+        }
+    }
+
     const candidates = isWindows ? ['python', 'py'] : ['python3', 'python'];
     for (const cmd of candidates) {
         try {
@@ -195,7 +207,8 @@ async function main() {
         stdio: 'inherit',
         env: {
             ...process.env,
-            NISKAVA_ROOT: ROOT_DIR
+            NISKAVA_ROOT: ROOT_DIR,
+            ...(pythonCmd ? { NISKAVA_PYTHON_PATH: pythonCmd } : {})
         }
     });
 

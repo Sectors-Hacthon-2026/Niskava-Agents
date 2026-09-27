@@ -1950,9 +1950,14 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 		}
 
 		wd, _ := os.Getwd()
+		resolvedRoot := ipc.ResolveRepoRoot(wd)
 		cmd := exec.CommandContext(r.Context(), pythonBin, args...)
-		cmd.Dir = wd
-		pythonPath := filepath.Join(wd, "backend") + string(filepath.ListSeparator) + wd
+		cmd.Dir = resolvedRoot
+		backendDir := filepath.Join(resolvedRoot, "backend")
+		pythonPath := backendDir + string(filepath.ListSeparator) + resolvedRoot
+		if wd != "" && wd != resolvedRoot {
+			pythonPath += string(filepath.ListSeparator) + wd
+		}
 		if existing := os.Getenv("PYTHONPATH"); existing != "" {
 			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
 		}
