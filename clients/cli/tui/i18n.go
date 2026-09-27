@@ -221,6 +221,34 @@ var TUIStrings = map[string]map[string]string{
 		"en": "Set LLM timeout: /timeout [fast|balanced|deep|local|<seconds>]",
 		"id": "Atur timeout LLM: /timeout [fast|balanced|deep|local|<detik>]",
 	},
+	"slash_export_desc": {
+		"en": "Export active session transcript to Markdown or JSON report file",
+		"id": "Ekspor transkrip sesi aktif ke berkas laporan Markdown atau JSON",
+	},
+	"slash_fork_desc": {
+		"en": "Fork active chat session into a new branched session ID",
+		"id": "Cabangkan sesi obrolan aktif ke ID sesi baru (OpenCode)",
+	},
+	"slash_search_desc": {
+		"en": "Search historical chat messages from local SQLite storage",
+		"id": "Cari riwayat percakapan lama di SQLite dari prompt REPL",
+	},
+	"slash_anomalies_desc": {
+		"en": "Display table of detected volume & price quantitative anomalies",
+		"id": "Tampilkan tabel anomali kuantitatif volume & harga terdeteksi",
+	},
+	"slash_skills_desc": {
+		"en": "Display catalog of Niskava's 6 domain SOP intelligence skills",
+		"id": "Tampilkan katalog 6 domain SOP intelijen pasar Niskava",
+	},
+	"slash_doctor_desc": {
+		"en": "Run comprehensive system health & diagnostics check inline",
+		"id": "Jalankan pemeriksaan diagnostik sistem komprehensif di REPL",
+	},
+	"slash_cache_desc": {
+		"en": "Inspect Sectors v2 API credit cache stats or purge expired entries",
+		"id": "Inspeksi statistik cache kuota Sectors v2 & bersihkan cache kadaluarsa",
+	},
 	"slash_timeout_set": {
 		"en": "✓ Inference timeout set to %.0fs (%s). Saved to config.",
 		"id": "✓ Timeout inferensi diatur %.0fd (%s). Tersimpan ke config.",
@@ -677,6 +705,226 @@ var TUIStrings = map[string]map[string]string{
 		"en": "Resume a specific chat session by ID (/resume <SESSION_ID>)",
 		"id": "Lanjutkan sesi obrolan tertentu berdasarkan ID (/resume <ID_SESI>)",
 	},
+	"session_selector_showing": {
+		"en": "--- Showing %d-%d of %d sessions ---",
+		"id": "--- Menampilkan %d-%d dari %d sesi ---",
+	},
+	"skill_desc_sop01": {
+		"en": "Volume Z-Score (Vz ≥ 2.5) & Price Breakout Forensics",
+		"id": "Forensik Anomali Volume Z-Score (Vz ≥ 2.5) & Lonjakan Harga",
+	},
+	"skill_desc_sop02": {
+		"en": "7-Stage SOP Temporal News & Corporate Filing Verification",
+		"id": "Verifikasi Kausalitas Berita & Keterbukaan Informasi SOP 7-Tahap",
+	},
+	"skill_desc_sop03": {
+		"en": "Top 1/3/5 Broker Concentration & Accumulation/Distribution Audit",
+		"id": "Audit Konsentrasi Broker Top 1/3/5 & Akumulasi/Distribusi Bandarmologi",
+	},
+	"skill_desc_sop04": {
+		"en": "Altman Z-Score & Piotroski F-Score Balance Sheet Stress Testing",
+		"id": "Uji Ketahanan Neraca Keuangan Altman Z-Score & Piotroski F-Score",
+	},
+	"skill_desc_sop05": {
+		"en": "Nickel/Coal/Gold Sector Beta & Commodity Price Divergence",
+		"id": "Beta Sektor & Divergensi Harga Komoditas Tambang (Nikel/Batu Bara/Emas)",
+	},
+	"skill_desc_sop06": {
+		"en": "IDX Sector Peer Multiples & Relative Valuation Benchmarking",
+		"id": "Tolok Ukur Valuasi Relatif & Multiples Peer Sektor Bursa Efek Indonesia",
+	},
+	"sessions_chat_title": {
+		"en": "\n💬 AI CHAT SESSION HISTORY (CONVERSATIONAL SESSIONS)",
+		"id": "\n💬 RIWAYAT SESI CHAT AI (CONVERSATIONAL SESSIONS)",
+	},
+	"sessions_chat_empty": {
+		"en": "  (No saved chat sessions found)",
+		"id": "  (Belum ada riwayat sesi chat tersimpan)",
+	},
+	"sessions_chat_tip": {
+		"en": "Tip: Use 'niskava -s <SESSION_ID>' or '/resume <ID>' in REPL to resume session.",
+		"id": "Tip: Gunakan 'niskava -s <SESSION_ID>' atau '/resume <ID>' di REPL untuk melanjutkan sesi.",
+	},
+	"sessions_inv_title": {
+		"en": "\n📊 MARKET AUDIT INVESTIGATION HISTORY (PIPELINE SESSIONS)",
+		"id": "\n📊 RIWAYAT INVESTIGASI AUDIT PASAR (PIPELINE SESSIONS)",
+	},
+	"sessions_inv_empty": {
+		"en": "  (No investigation history found)",
+		"id": "  (Belum ada riwayat investigasi)",
+	},
+	"sessions_delete_success": {
+		"en": "✓ Session '%s' and its chat history deleted from SQLite.",
+		"id": "✓ Sesi '%s' dan riwayat percakapannya berhasil dihapus dari SQLite.",
+	},
+	"sessions_search_empty": {
+		"en": "No chat messages found matching keyword '%s'.",
+		"id": "Tidak ditemukan percakapan dengan kata kunci '%s'.",
+	},
+	"sessions_search_title": {
+		"en": "\n🔍 CHAT MESSAGE SEARCH RESULTS ('%s')",
+		"id": "\n🔍 HASIL PENCARIAN PESAN CHAT ('%s')",
+	},
+	"sessions_export_no_history": {
+		"en": "No chat history found for session '%s'",
+		"id": "tidak ada riwayat percakapan untuk sesi '%s'",
+	},
+	"sessions_export_disclaimer": {
+		"en": "\n*Disclaimer: Niskava Agent is an autonomous capital market intelligence platform for the Indonesia Stock Exchange (IDX), NOT a licensed investment advisor. All findings are presented descriptively for research and fact-verification purposes and NOT investment recommendations.*\n",
+		"id": "\n*Disclaimer: Niskava Agent adalah platform intelijen pasar modal otonom untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi berizin. Seluruh temuan disajikan secara deskriptif untuk tujuan riset verifikasi fakta dan BUKAN rekomendasi investasi.*\n",
+	},
+	"sessions_export_success": {
+		"en": "✓ Audit report successfully exported to: %s",
+		"id": "✓ Laporan audit berhasil diekspor ke: %s",
+	},
+	"slash_export_db_err": {
+		"en": "⚠ SQLite database is not available for export.",
+		"id": "⚠ Database SQLite tidak tersedia untuk ekspor.",
+	},
+	"slash_export_empty": {
+		"en": "⚠ No chat history to export for session %s",
+		"id": "⚠ Tidak ada riwayat obrolan untuk diekspor pada sesi %s",
+	},
+	"slash_export_write_err": {
+		"en": "⚠ Failed to write export file: %v",
+		"id": "⚠ Gagal menulis berkas ekspor: %v",
+	},
+	"slash_fork_db_err": {
+		"en": "⚠ SQLite database is not available for forking.",
+		"id": "⚠ Database SQLite tidak tersedia untuk forking.",
+	},
+	"slash_fork_err": {
+		"en": "⚠ Failed to fork session: %v",
+		"id": "⚠ Gagal mencabangkan sesi: %v",
+	},
+	"slash_fork_success": {
+		"en": "✓ Session successfully forked from %s -> %s ('%s')",
+		"id": "✓ Sesi berhasil dicabangkan dari %s -> %s ('%s')",
+	},
+	"slash_search_usage": {
+		"en": "⚠ Usage: /search <keyword> (e.g. /search ANTM)",
+		"id": "⚠ Gunakan: /search <kata_kunci> (contoh: /search ANTM)",
+	},
+	"slash_search_title_repl": {
+		"en": "🔍 Chat History Search Results ('%s'):",
+		"id": "🔍 Hasil Pencarian Riwayat ('%s'):",
+	},
+	"slash_anomalies_empty": {
+		"en": "ℹ No quantitative anomalies detected in active session.",
+		"id": "ℹ Tidak ada anomali kuantitatif terdeteksi pada sesi aktif saat ini.",
+	},
+	"slash_anomalies_title": {
+		"en": "🚨 Quantitative Anomalies Detected:",
+		"id": "🚨 Anomali Kuantitatif Terdeteksi:",
+	},
+	"slash_skills_title": {
+		"en": "🛠️ Catalog of Niskava's 6 Market Intelligence Domain SOPs:",
+		"id": "🛠️ Katalog 6 Domain SOP Intelijen Pasar Niskava:",
+	},
+	"slash_cache_clean_err": {
+		"en": "⚠ Failed to clean cache: %v",
+		"id": "⚠ Gagal membersihkan cache: %v",
+	},
+	"slash_cache_clean_success": {
+		"en": "✓ Successfully cleaned %d expired Sectors v2 cache entries.",
+		"id": "✓ Berhasil membersihkan %d entri cache Sectors v2 yang kadaluarsa.",
+	},
+	"slash_cache_stats_err": {
+		"en": "⚠ Failed to retrieve cache stats: %v",
+		"id": "⚠ Gagal mengambil statistik cache: %v",
+	},
+	"slash_cache_stats_title": {
+		"en": "📊 Sectors API v2 Cache Stats (Law 5):",
+		"id": "📊 Statistik Cache Sectors API v2 (Law 5):",
+	},
+	"slash_cache_stats_total": {
+		"en": "  • Total Cache Entries : %d",
+		"id": "  • Total Entri Cache   : %d",
+	},
+	"slash_cache_stats_expired": {
+		"en": "  • Expired Entries     : %d",
+		"id": "  • Entri Kadaluarsa    : %d",
+	},
+	"slash_cache_stats_perm": {
+		"en": "  • Permanent (Candles) : %d (0 credit cost)",
+		"id": "  • Permanen (Candle)   : %d (tanpa biaya kredit)",
+	},
+	"slash_cache_stats_hint": {
+		"en": "  (Use '/cache clean' to purge expired entries)\n",
+		"id": "  (Gunakan '/cache clean' untuk membersihkan entri kadaluarsa)\n",
+	},
+	"slash_anomalies_item": {
+		"en": "  %d. Date: %s | Metric: %-22s | Val: %.2f (Baseline: %.2f) | Z-Score: %.2f\n     Description: %s",
+		"id": "  %d. Tgl: %s | Metrik: %-22s | Val: %.2f (Baseline: %.2f) | Z-Score: %.2f\n     Deskripsi: %s",
+	},
+	"health_lbl_daemon_url": {
+		"en": "Local Daemon URL",
+		"id": "URL Daemon Lokal",
+	},
+	"health_lbl_db_path": {
+		"en": "Database Path   ",
+		"id": "Jalur Database  ",
+	},
+	"health_lbl_python_bin": {
+		"en": "Python Engine   ",
+		"id": "Engine Python   ",
+	},
+	"health_lbl_sectors_key": {
+		"en": "Sectors API Key ",
+		"id": "Sectors API Key ",
+	},
+	"health_lbl_engine": {
+		"en": "Inference Engine",
+		"id": "Engine Inferensi",
+	},
+	"health_lbl_model": {
+		"en": "Active Model    ",
+		"id": "Model Aktif     ",
+	},
+	"health_lbl_model_key": {
+		"en": "Model API Key   ",
+		"id": "API Key Model   ",
+	},
+	"web_launch_title": {
+		"en": "🌐 NISKAVA WEB WORKSPACE (VISUAL MARKET INTELLIGENCE CANVAS)",
+		"id": "🌐 NISKAVA WEB WORKSPACE (CANVAS INTELIJEN PASAR VISUAL)",
+	},
+	"web_launch_lbl_status": {
+		"en": "Local Server Status",
+		"id": "Status Server Lokal",
+	},
+	"web_launch_lbl_url": {
+		"en": "Browser Access URL ",
+		"id": "URL Akses Browser  ",
+	},
+	"web_launch_lbl_features": {
+		"en": "Canvas Features    ",
+		"id": "Fitur-Fitur Canvas ",
+	},
+	"web_launch_lbl_sovereignty": {
+		"en": "Data Sovereignty   ",
+		"id": "Kedaulatan Data    ",
+	},
+	"web_launch_opening": {
+		"en": "⚡ Opening default web browser automatically...",
+		"id": "⚡ Membuka browser web default secara otomatis...",
+	},
+	"slash_fork_default_title": {
+		"en": "Forked Analysis Session",
+		"id": "Sesi Analisis Cabangan",
+	},
+	"slash_export_report_title": {
+		"en": "# Niskava Agent — Audit & Research Report",
+		"id": "# Niskava Agent — Laporan Riset & Audit",
+	},
+	"slash_export_user_prompt": {
+		"en": "### 👤 User Prompt",
+		"id": "### 👤 Pertanyaan Pengguna",
+	},
+	"slash_export_findings": {
+		"en": "### ⚡ Niskava Agent Findings",
+		"id": "### ⚡ Temuan Niskava Agent",
+	},
 }
 
 // T retrieves localized string for ActiveLanguage, falling back to "en".
@@ -759,6 +1007,13 @@ func GetLocalizedSlashCommands() []SlashCommand {
 		{Command: "/back", Category: "NAV", Description: T("slash_back_desc")},
 		{Command: "/chats", Category: "NAV", Description: T("slash_chats_desc")},
 		{Command: "/resume", Category: "INTEL", Description: T("slash_resume_desc")},
+		{Command: "/export", Category: "INTEL", Description: T("slash_export_desc")},
+		{Command: "/fork", Category: "INTEL", Description: T("slash_fork_desc")},
+		{Command: "/search", Category: "INTEL", Description: T("slash_search_desc")},
+		{Command: "/anomalies", Category: "INTEL", Description: T("slash_anomalies_desc")},
+		{Command: "/skills", Category: "INTEL", Description: T("slash_skills_desc")},
+		{Command: "/doctor", Category: "SYSTEM", Description: T("slash_doctor_desc")},
+		{Command: "/cache", Category: "SYSTEM", Description: T("slash_cache_desc")},
 		{Command: "/reset", Category: "SYSTEM", Description: T("slash_reset_desc")},
 		{Command: "/graph", Category: "INTEL", Description: T("slash_graph_desc")},
 		{Command: "/clear", Category: "SYSTEM", Description: T("slash_clear_desc")},

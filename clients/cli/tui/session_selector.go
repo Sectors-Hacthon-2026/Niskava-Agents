@@ -201,7 +201,7 @@ func (m SessionSelectorModel) View() string {
 	}
 
 	if totalFiltered > maxVisible {
-		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(fmt.Sprintf("--- Showing %d-%d of %d sessions ---", windowStart+1, windowEnd, totalFiltered)) + "\n\n")
+		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(TF("session_selector_showing", windowStart+1, windowEnd, totalFiltered)) + "\n\n")
 	}
 
 	for i := windowStart; i < windowEnd; i++ {

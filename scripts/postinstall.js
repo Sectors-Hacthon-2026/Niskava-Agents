@@ -18,7 +18,12 @@ const isWindows = process.platform === 'win32';
 async function preDownload() {
     const targetBinary = getTargetBinaryPath(PKG_VERSION);
     if (fs.existsSync(targetBinary)) {
-        return; // Already present
+        try {
+            if (fs.statSync(targetBinary).size >= 1024 * 1024) {
+                return; // Already present and valid
+            }
+            fs.unlinkSync(targetBinary);
+        } catch (_) {}
     }
 
     const assetName = getPlatformAssetName();
@@ -63,6 +68,11 @@ async function preDownload() {
             fileStream.on('finish', () => {
                 fileStream.close(() => {
                     try {
+                        const stat = fs.statSync(tempPath);
+                        if (stat.size < 1024 * 1024) {
+                            try { fs.unlinkSync(tempPath); } catch (_) {}
+                            return;
+                        }
                         if (!isWindows) fs.chmodSync(tempPath, 0o755);
                         fs.renameSync(tempPath, targetBinary);
                         console.log(`\x1b[32m[@niskava/agent] Binary successfully cached to ${targetBinary}\x1b[0m`);

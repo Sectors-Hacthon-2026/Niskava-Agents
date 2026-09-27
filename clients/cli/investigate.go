@@ -9,23 +9,37 @@ import (
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/db"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/server"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/clients/cli/tui"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )
 
 var (
-	daysFlag        int
-	offlineFlag     bool
-	interactiveFlag bool
-	pyBinFlag       string
-	enginePath      string
+	daysFlag         int
+	offlineFlag      bool
+	interactiveFlag  bool
+	pyBinFlag        string
+	enginePath       string
+	invExportFmtFlag string
+	invExportOutFlag string
 )
 
 var investigateCmd = &cobra.Command{
 	Use:   "investigate [TICKER]",
 	Short: "Run autonomous investigation on an IDX ticker (e.g. ANTM)",
-	Args:  cobra.ExactArgs(1),
+	Long: `Run an autonomous 7-stage investigation pipeline on an IDX ticker (e.g. ANTM, BBCA).
+Executes quantitative anomaly calculations, harvests contemporaneous news/disclosures,
+and compiles evidence classified into SUPPORTED, UNCERTAIN, or CONTRADICTED findings.`,
+	Example: `  # Run 30-day headless investigation:
+  niskava investigate ANTM
+
+  # Run investigation and export report to Markdown:
+  niskava investigate ANTM --days 30 --export-format md --export-out ANTM_Report.md
+
+  # Run investigation and open interactive REPL pre-focused on ticker:
+  niskava investigate ANTM -i`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ticker := strings.ToUpper(strings.TrimSpace(args[0]))
 		if len(ticker) < 4 || len(ticker) > 5 {
@@ -81,6 +95,18 @@ var investigateCmd = &cobra.Command{
 			EnvOverrides: cfg.BuildSubprocessEnv(),
 		}
 
+		// If --interactive / -i flag is set, launch Live REPL immediately pre-focused on target ticker
+		if interactiveFlag {
+			srv, err := server.Start(ctx, cfg.Server.Port, appDB, cfg)
+			if err != nil {
+				return fmt.Errorf("failed to start background daemon for interactive mode: %w", err)
+			}
+			srv.ConfigPath = cfgFile
+			initialPrompt := fmt.Sprintf("Lakukan investigasi anomali volume dan verifikasi bukti untuk saham %s", ticker)
+			_ = tui.RunLiveREPLWithInitialPrompt(cfg, appDB, srv.URL, sessionID, initialPrompt)
+			return nil
+		}
+
 		eventsChan, errChan := ipc.RunSubprocess(ctx, runnerParams)
 
 		model := tui.NewModel(ticker, daysFlag, cfg.Storage.DBPath, eventsChan, errChan)
@@ -89,8 +115,80 @@ var investigateCmd = &cobra.Command{
 			return fmt.Errorf("error running interactive TUI: %w", err)
 		}
 
+		// Export report if export flag was set
+		if invExportFmtFlag != "" || invExportOutFlag != "" {
+			exportFmt := strings.ToLower(strings.TrimSpace(invExportFmtFlag))
+			if exportFmt == "" {
+				exportFmt = "md"
+			}
+			outPath := invExportOutFlag
+			if outPath == "" {
+				outPath = fmt.Sprintf("niskava_investigation_%s.%s", sessionID, exportFmt)
+			}
+
+			var sb strings.Builder
+			sb.WriteString(fmt.Sprintf("# Niskava Agent — Audit & Investigation Report (%s)\n\n", ticker))
+			sb.WriteString(fmt.Sprintf("- **Session ID:** `%s`\n", sessionID))
+			sb.WriteString(fmt.Sprintf("- **Ticker:** `%s`\n", ticker))
+			sb.WriteString(fmt.Sprintf("- **Date:** `%s`\n\n---\n\n", time.Now().Format("2006-01-02 15:04:05 MST")))
+
+			if invData, errInv := appDB.GetInvestigation(sessionID); errInv == nil && invData != nil {
+				if invData.SummaryText != nil && *invData.SummaryText != "" {
+					sb.WriteString(fmt.Sprintf("## ⚡ Executive Summary\n%s\n\n---\n\n", *invData.SummaryText))
+				}
+			}
+
+			if anomalies, errA := appDB.GetAnomaliesByInvestigation(sessionID); errA == nil && len(anomalies) > 0 {
+				sb.WriteString(fmt.Sprintf("## 📊 Quantitative Anomalies (%d Detected)\n\n", len(anomalies)))
+				sb.WriteString("| # | Date | Metric | Value | Baseline | Z-Score | Description |\n")
+				sb.WriteString("|---|---|---|---|---|---|---|\n")
+				for idx, a := range anomalies {
+					sb.WriteString(fmt.Sprintf("| %d | %s | %s | %.2f | %.2f | %.2fσ | %s |\n",
+						idx+1, a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore, a.Description))
+				}
+				sb.WriteString("\n---\n\n")
+			}
+
+			if findings, errF := appDB.ListFindingsByInvestigation(sessionID); errF == nil && len(findings) > 0 {
+				sb.WriteString(fmt.Sprintf("## 🔍 Verified Intelligence Findings (%d Emitted)\n\n", len(findings)))
+				for idx, f := range findings {
+					sb.WriteString(fmt.Sprintf("### %d. [%s] %s (Confidence: %.0f%%)\n", idx+1, f.VerificationStatus, f.Title, f.ConfidenceScore*100))
+					sb.WriteString(fmt.Sprintf("%s\n\n", f.ClaimText))
+				}
+				sb.WriteString("---\n\n")
+			}
+
+			sb.WriteString(tui.T("sessions_export_disclaimer"))
+			_ = os.WriteFile(outPath, []byte(sb.String()), 0644)
+			fmt.Printf("\n✓ Investigation report exported to: %s\n", outPath)
+		}
+
+		// Option A: If running in an interactive terminal, offer CTA to transition into Live REPL
+		if isTerminalInput() {
+			fmt.Printf("\n Lanjutkan diskusi interaktif untuk emiten %s? (y/N): ", ticker)
+			var resp string
+			_, _ = fmt.Scanln(&resp)
+			resp = strings.TrimSpace(strings.ToLower(resp))
+			if resp == "y" || resp == "yes" {
+				srv, err := server.Start(ctx, cfg.Server.Port, appDB, cfg)
+				if err == nil {
+					srv.ConfigPath = cfgFile
+					initialPrompt := fmt.Sprintf("Berdasarkan hasil audit %s yang baru saja dilakukan, analisis temuan dan berita lebih lanjut.", ticker)
+					_ = tui.RunLiveREPLWithInitialPrompt(cfg, appDB, srv.URL, sessionID, initialPrompt)
+				}
+			}
+		}
+
 		return nil
 	},
+}
+
+func isTerminalInput() bool {
+	fileInfo, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return (fileInfo.Mode() & os.ModeCharDevice) != 0
 }
 
 func init() {
@@ -99,6 +197,8 @@ func init() {
 	investigateCmd.Flags().BoolVarP(&interactiveFlag, "interactive", "i", false, "run in interactive conversational investigation mode")
 	investigateCmd.Flags().StringVar(&pyBinFlag, "python-bin", "", "path to python binary")
 	investigateCmd.Flags().StringVar(&enginePath, "engine-path", "", "path to python engine directory")
+	investigateCmd.Flags().StringVarP(&invExportFmtFlag, "export-format", "f", "", "export report format: 'md' or 'json'")
+	investigateCmd.Flags().StringVarP(&invExportOutFlag, "export-out", "o", "", "output report file path (e.g. report.md)")
 
 	investigateCmd.ValidArgs = []string{
 		"BBCA", "BBRI", "BMRI", "BBNI", "TLKM",

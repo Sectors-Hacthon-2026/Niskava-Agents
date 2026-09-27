@@ -234,14 +234,18 @@ NISKAVA_LLM_TIMEOUT=%.2f
 	)
 }
 
-// SaveSetupConfiguration writes both local .env and global ~/.niskava/config.yaml with 0600 permissions.
+// SaveSetupConfiguration writes both user-space ~/.niskava/config.yaml, ~/.niskava/.env, and best-effort local .env.
 func SaveSetupConfiguration(p SetupParams) error {
 	envContent := BuildEnvContent(p)
-	if err := os.WriteFile(".env", []byte(envContent), 0600); err != nil {
-		return fmt.Errorf("failed to save .env file: %w", err)
+
+	// 1. Primary persistence: ~/.niskava/.env and ~/.niskava/config.yaml
+	homeDir, _ := os.UserHomeDir()
+	if homeDir != "" {
+		niskavaDir := filepath.Join(homeDir, ".niskava")
+		_ = os.MkdirAll(niskavaDir, 0700)
+		_ = os.WriteFile(filepath.Join(niskavaDir, ".env"), []byte(envContent), 0600)
 	}
 
-	// Persist to ~/.niskava/config.yaml for CLI-Web synchronization
 	cfg, err := config.Load("")
 	if err != nil || cfg == nil {
 		cfg = config.DefaultConfig()
@@ -263,7 +267,16 @@ func SaveSetupConfiguration(p SetupParams) error {
 		cfg.Engine.PythonBin = p.PythonBin
 	}
 
-	_ = config.SaveConfig(cfg)
+	if err := config.SaveConfig(cfg); err != nil {
+		return fmt.Errorf("failed to save configuration file: %w", err)
+	}
+
+	// 2. Best-effort local .env in current directory (non-fatal if current working directory is read-only)
+	if err := os.WriteFile(".env", []byte(envContent), 0600); err != nil {
+		fmt.Printf("  %s Note: Could not write local .env in current directory (%v). User configuration in ~/.niskava/config.yaml will be active.\n",
+			wizardWarnBadgeStyle.Render("[!]"), err)
+	}
+
 	return nil
 }
 
@@ -326,9 +339,33 @@ func TestLiveConnection(ctx context.Context, target, baseURL, apiKey string) (bo
 	return false, fmt.Sprintf("Endpoint returned HTTP %d", resp.StatusCode), elapsed
 }
 
-// DetectPythonEnvironment checks for .venv or system python3 and verifies runtime compatibility.
+// DetectPythonEnvironment checks for environment variables, config overrides, .venv, or system python3 and verifies runtime compatibility.
 func DetectPythonEnvironment() (string, string, bool) {
-	venvCandidates := []string{
+	candidates := make([]string, 0, 16)
+
+	// 1. Environment variable overrides
+	for _, envKey := range []string{"NISKAVA_PYTHON_BIN", "NISKAVA_PYTHON", "NISKAVA_PYTHON_PATH"} {
+		if custom := os.Getenv(envKey); custom != "" {
+			candidates = append(candidates, custom)
+		}
+	}
+
+	// 2. Configured Python from config.yaml
+	if cfg != nil && cfg.Engine.PythonBin != "" && cfg.Engine.PythonBin != "python3" && cfg.Engine.PythonBin != "python" {
+		candidates = append(candidates, cfg.Engine.PythonBin)
+	}
+
+	// 3. User home ~/.niskava/venv
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		candidates = append(candidates,
+			filepath.Join(home, ".niskava", "venv", "bin", "python3"),
+			filepath.Join(home, ".niskava", "venv", "bin", "python"),
+			filepath.Join(home, ".niskava", "venv", "Scripts", "python.exe"),
+		)
+	}
+
+	// 4. Local workspace virtual environments
+	candidates = append(candidates,
 		filepath.Join(".venv", "bin", "python3"),
 		filepath.Join(".venv", "bin", "python"),
 		filepath.Join(".venv", "Scripts", "python.exe"),
@@ -341,36 +378,55 @@ func DetectPythonEnvironment() (string, string, bool) {
 		filepath.Join("backend", "engine", "venv", "bin", "python3"),
 		filepath.Join("backend", "engine", "venv", "bin", "python"),
 		filepath.Join("backend", "engine", "venv", "Scripts", "python.exe"),
+	)
+
+	var lastCandidateWithMissingDeps string
+	for _, cand := range candidates {
+		candPath := cand
+		if _, err := os.Stat(candPath); err != nil {
+			if lp, errLp := exec.LookPath(candPath); errLp == nil {
+				candPath = lp
+			} else {
+				continue
+			}
+		}
+
+		// Test if required quantitative packages are available
+		cmd := exec.Command(candPath, "-c", "import requests, numpy, pydantic, networkx, yaml; print('ok')")
+		if out, err := cmd.Output(); err == nil && strings.TrimSpace(string(out)) == "ok" {
+			return candPath, "Python environment active with quantitative dependencies", true
+		}
+		if lastCandidateWithMissingDeps == "" {
+			lastCandidateWithMissingDeps = candPath
+		}
 	}
 
-	for _, cand := range venvCandidates {
-		if _, err := os.Stat(cand); err == nil {
-			// Test if numpy is available in venv
-			cmd := exec.Command(cand, "-c", "import numpy; print('ok')")
-			if out, err := cmd.Output(); err == nil && strings.TrimSpace(string(out)) == "ok" {
-				return cand, "Virtual environment (.venv) active with quantitative dependencies", true
-			}
-			return cand, "Virtual environment (.venv) found, but dependencies may need: pip install -r backend/engine/requirements.txt", false
-		}
+	if lastCandidateWithMissingDeps != "" {
+		return lastCandidateWithMissingDeps, "Python environment found, but quantitative dependencies are missing (numpy, pydantic, networkx)", false
 	}
 
 	// Fallback to system python3 / python
 	sysLookups := []string{"python3", "python"}
 	for _, name := range sysLookups {
 		if path, err := exec.LookPath(name); err == nil {
-			cmd := exec.Command(path, "--version")
-			if out, err := cmd.CombinedOutput(); err == nil {
-				verStr := strings.TrimSpace(string(out))
-				return path, fmt.Sprintf("System %s detected (%s). Recommendation: run 'make venv' for isolated runtime", name, verStr), true
+			cmdVer := exec.Command(path, "--version")
+			verStr := "Python 3"
+			if out, err := cmdVer.CombinedOutput(); err == nil {
+				verStr = strings.TrimSpace(string(out))
 			}
-			return path, fmt.Sprintf("System %s detected", name), true
+			// Test if required packages are present in system python
+			cmdImport := exec.Command(path, "-c", "import requests, numpy, pydantic, networkx, yaml; print('ok')")
+			if out, err := cmdImport.Output(); err == nil && strings.TrimSpace(string(out)) == "ok" {
+				return path, fmt.Sprintf("System %s detected (%s) with required dependencies", name, verStr), true
+			}
+			return path, fmt.Sprintf("System %s detected (%s), but required dependencies (numpy, pydantic, networkx, yaml) are missing", name, verStr), false
 		}
 	}
 
 	return "python3", "Python interpreter not found on PATH. Please install Python 3.11+", false
 }
 
-// BootstrapPythonEnvironment creates a virtual environment in rootDir/.venv and installs requirements.txt.
+// BootstrapPythonEnvironment creates a virtual environment and installs requirements.
 func BootstrapPythonEnvironment(rootDir, sysPython string) (string, error) {
 	if sysPython == "" || sysPython == "python3" || sysPython == "python" {
 		if path, err := exec.LookPath("python3"); err == nil {
@@ -388,7 +444,26 @@ func BootstrapPythonEnvironment(rootDir, sysPython string) (string, error) {
 		}
 	}
 
-	venvDir := filepath.Join(rootDir, ".venv")
+	// Determine venv destination: inside repo if in a git repo, otherwise in ~/.niskava/venv
+	var venvDir string
+	home, _ := os.UserHomeDir()
+	if rootDir != "" {
+		if _, err := os.Stat(filepath.Join(rootDir, "go.mod")); err == nil {
+			venvDir = filepath.Join(rootDir, ".venv")
+		}
+	}
+	if venvDir == "" {
+		if home != "" {
+			venvDir = filepath.Join(home, ".niskava", "venv")
+		} else {
+			venvDir = filepath.Join(rootDir, ".venv")
+		}
+	}
+
+	if err := os.MkdirAll(filepath.Dir(venvDir), 0755); err != nil {
+		return "", fmt.Errorf("failed to create parent directory for virtualenv: %w", err)
+	}
+
 	cmdVenv := exec.Command(sysPython, "-m", "venv", venvDir)
 	if out, err := cmdVenv.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("failed to create virtual environment: %s (%w)", strings.TrimSpace(string(out)), err)
@@ -418,20 +493,26 @@ func BootstrapPythonEnvironment(rootDir, sysPython string) (string, error) {
 	// Locate requirements.txt
 	reqCandidates := []string{
 		filepath.Join(rootDir, "backend", "engine", "requirements.txt"),
+		filepath.Join(os.Getenv("NISKAVA_ROOT"), "backend", "engine", "requirements.txt"),
 		filepath.Join(rootDir, "requirements.txt"),
 	}
 	var reqPath string
 	for _, cand := range reqCandidates {
-		if _, err := os.Stat(cand); err == nil {
-			reqPath = cand
-			break
+		if cand != "" {
+			if _, err := os.Stat(cand); err == nil {
+				reqPath = cand
+				break
+			}
 		}
 	}
-	if reqPath == "" {
-		return "", fmt.Errorf("backend/engine/requirements.txt not found in %s", rootDir)
-	}
 
-	cmdPip := exec.Command(pipBin, "install", "-r", reqPath)
+	var cmdPip *exec.Cmd
+	if reqPath != "" {
+		cmdPip = exec.Command(pipBin, "install", "-r", reqPath)
+	} else {
+		// Fallback to direct package installation when requirements.txt is absent (standalone npm)
+		cmdPip = exec.Command(pipBin, "install", "requests>=2.31.0", "numpy>=1.26.0", "pydantic>=2.5.0", "networkx>=3.2.0", "feedparser>=6.0.10", "trafilatura>=1.6.0", "pyyaml>=6.0")
+	}
 	if out, err := cmdPip.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("failed to install requirements via pip: %s (%w)", strings.TrimSpace(string(out)), err)
 	}
@@ -766,7 +847,8 @@ func RunInteractiveSetup() error {
 		fmt.Printf("%s %s\n", wizardSuccessBadgeStyle.Render("[✓ CONNECTED]"), wizardMutedStyle.Render(msg))
 	} else {
 		fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("[! NOTICE]"), wizardMutedStyle.Render(msg))
-		fmt.Println(wizardMutedStyle.Render("    (Configuration will still be saved. You can verify network or update keys anytime)."))
+		fmt.Println(wizardMutedStyle.Render("    Warning: The AI gateway endpoint appears offline or unreachable."))
+		fmt.Println(wizardMutedStyle.Render("    (Configuration will still be saved. Ensure your local gateway/LLM is running before querying)."))
 	}
 
 	if sectorsKey != "" {
@@ -776,6 +858,9 @@ func RunInteractiveSetup() error {
 			fmt.Printf("%s %s\n", wizardSuccessBadgeStyle.Render("[✓ CONNECTED]"), wizardMutedStyle.Render(secMsg))
 		} else {
 			fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("[! NOTICE]"), wizardMutedStyle.Render(secMsg))
+			if strings.Contains(secMsg, "401") {
+				fmt.Println(wizardMutedStyle.Render("    Note: Sectors API key returned HTTP 401 Unauthorized. Niskava will use Offline/Mock data until a valid key is provided."))
+			}
 		}
 	}
 
@@ -891,10 +976,30 @@ func RunInteractiveSetup() error {
 	} else {
 		completeBox.WriteString(fmt.Sprintf("  • Sectors  : Live Key Configured (%s)\n", config.MaskSecret(sectorsKey)))
 	}
+	wd, _ := os.Getwd()
+	launchCmd := getLaunchCommandHint(wd)
 	completeBox.WriteString("\n" + wizardMutedStyle.Render("Launch Niskava Terminal & Web Workspace with:\n"))
-	completeBox.WriteString("  " + wizardStepStyle.Render("./bin/niskava") + wizardMutedStyle.Render(" (or 'go run ./cmd/niskava')"))
+	completeBox.WriteString("  " + wizardStepStyle.Render(launchCmd))
 	fmt.Println(setupCardStyle.Render(completeBox.String()))
 	fmt.Println()
 
 	return nil
+}
+
+// getLaunchCommandHint returns the appropriate launch instruction based on environment.
+func getLaunchCommandHint(dir string) string {
+	if dir != "" {
+		curr := dir
+		for i := 0; i < 15; i++ {
+			if _, err := os.Stat(filepath.Join(curr, "go.mod")); err == nil {
+				return "./bin/niskava (or 'go run ./cmd/niskava')"
+			}
+			parent := filepath.Dir(curr)
+			if parent == curr || parent == "" {
+				break
+			}
+			curr = parent
+		}
+	}
+	return "niskava"
 }

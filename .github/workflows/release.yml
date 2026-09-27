@@ -34,11 +34,28 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Compile Native Go Core Binary
+      - name: Compile Multi-Platform Go Binaries
         run: |
           mkdir -p bin
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/niskava ./cmd/niskava
-          chmod +x bin/niskava bin/index.js
+          # Linux AMD64 & ARM64
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/niskava-linux-amd64 ./cmd/niskava
+          cp bin/niskava-linux-amd64 bin/niskava
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o bin/niskava-linux-arm64 ./cmd/niskava
+          # macOS Intel & Apple Silicon
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o bin/niskava-darwin-amd64 ./cmd/niskava
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o bin/niskava-darwin-arm64 ./cmd/niskava
+          # Windows AMD64
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o bin/niskava-windows-amd64.exe ./cmd/niskava
+          chmod +x bin/niskava* bin/index.js
+
+      - name: Publish GitHub Release Assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME=${GITHUB_REF_NAME:-v$(node -e 'console.log(require("./package.json").version)')}
+          echo "Releasing assets for tag: $TAG_NAME"
+          gh release view "$TAG_NAME" || gh release create "$TAG_NAME" --title "$TAG_NAME" --generate-notes --prerelease=false
+          gh release upload "$TAG_NAME" bin/niskava-linux-amd64 bin/niskava-linux-arm64 bin/niskava-darwin-amd64 bin/niskava-darwin-arm64 bin/niskava-windows-amd64.exe --clobber
 
       - name: Publish Package to NPM
         env:

@@ -201,7 +201,10 @@ Configure your AI provider (OpenRouter, Gemini, Ollama, DeepSeek, Groq) and Sect
   ```
 - **Interactive Terminal REPL & HUD:**
   ```bash
-  ./bin/niskava
+  ./bin/niskava terminal
+  # Or via short aliases:
+  ./bin/niskava repl
+  ./bin/niskava chat
   ```
 - **Quick Desktop Launchers:**
   - Linux/macOS: `./run.sh`
@@ -213,26 +216,39 @@ Configure your AI provider (OpenRouter, Gemini, Ollama, DeepSeek, Groq) and Sect
 
 Niskava provides multiple interaction surfaces for different workflows:
 
-### 1. Interactive Terminal UI (TUI) HUD Launcher
-Running `niskava` without arguments launches the terminal HUD:
+### 1. Interactive Terminal UI (TUI) HUD Launcher & Direct REPL
+Running `niskava` without arguments launches the terminal HUD, while `niskava terminal` (or `niskava repl` / `niskava chat`) jumps directly into the research REPL:
 ```bash
-./niskava
+./niskava terminal
 ```
 - Interactive HUD launcher with diagnostics, session resume, and setup wizard.
 - Prompt-driven interactive REPL with **Up/Down arrow prompt history** navigation.
 - Live animated **Braille progress spinner** (`⠋`) showing real-time ReAct phase transitions.
-- Autocomplete slash commands: `/investigate <TICKER>`, `/screen`, `/health <TICKER>`, `/memory`, `/lang`, `/clear`, `/exit`.
+- Autocomplete slash commands: `/help`, `/chats`, `/resume <id>`, `/timeout`, `/export`, `/fork`, `/search`, `/anomalies`, `/skills`, `/doctor`, `/cache`, `/graph`, `/web`, `/sessions`, `/health`, `/lang`, `/reset`, `/clear`, `/back`, `/exit`.
 
-### 2. Autonomous Headless Investigation CLI
-Execute a full 7-stage investigation directly from the shell:
+### 2. Autonomous Headless & Interactive Investigation CLI
+Execute a full 7-stage investigation directly from the shell, or manage local SQLite session history with subcommands:
 ```bash
+# Headless run:
 ./niskava investigate ANTM --days 30
+
+# Interactive run pre-focused on ticker:
+./niskava investigate ANTM -i
+
+# Manage session history & audit trails:
+./niskava sessions list
+./niskava sessions delete CHAT-20260926-0001
+./niskava sessions search ANTM
+./niskava sessions export CHAT-20260926-0001 --format md
 ```
 Flags:
+- `-i, --interactive`: Launches an interactive REPL session pre-seeded with the target ticker prompt post-investigation.
 - `--days <N>`: Trading sessions to analyze (default: 30).
 - `--offline`: Runs in offline mode using local mock fixtures without issuing live API requests.
 - `--lang <en|id>`: Output language (`en` for English, `id` for Indonesian).
 - `--verbose, -v`: Prints detailed debug logs and IPC payload messages.
+
+*Post-investigation CTA:* Running headless in an interactive terminal prompts `[Enter / y] Lanjutkan diskusi interaktif untuk emiten <TICKER>?` to seamlessly transition into live research.
 
 ### 3. Local Web Workspace
 Launch the background REST/SSE server and interactive visual canvas:
