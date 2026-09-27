@@ -131,4 +131,3 @@ func TestSessionsSubcommands_DeleteSearchExport(t *testing.T) {
 		t.Fatalf("expected empty chat history after deletion, got %d msgs", len(history))
 	}
 }
-

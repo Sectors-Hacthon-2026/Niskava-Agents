@@ -531,3 +531,14 @@ func TestParseTimeoutCommand(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderSessionErrorDoesNotLeakRawANSI(t *testing.T) {
+	errText := "engine subprocess error: test error"
+	rendered := renderSessionErrorCard(errText)
+	if strings.Contains(rendered, "[38;2;") && !strings.Contains(rendered, "\x1b[38;2;") {
+		t.Errorf("detected broken ANSI escape sequence in error card: %s", rendered)
+	}
+	if !strings.Contains(rendered, "SESSION ERROR") {
+		t.Errorf("expected SESSION ERROR in rendered card, got: %s", rendered)
+	}
+}

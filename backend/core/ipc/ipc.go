@@ -157,6 +157,19 @@ func ResolvePythonBin(configuredBin string) string {
 		}
 	}
 
+	// User-space ~/.niskava/venv lookup
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		for _, cand := range []string{
+			filepath.Join(home, ".niskava", "venv", "Scripts", "python.exe"),
+			filepath.Join(home, ".niskava", "venv", "bin", "python3"),
+			filepath.Join(home, ".niskava", "venv", "bin", "python"),
+		} {
+			if _, err := os.Stat(cand); err == nil {
+				return cand
+			}
+		}
+	}
+
 	// System PATH lookups
 	var lookups []string
 	if runtime.GOOS == "windows" {
@@ -185,7 +198,17 @@ func FindPythonBinary() string {
 // ResolveRepoRoot traverses upwards from hintDir or the current executable to locate
 // the project root containing go.mod, backend/engine, or .git.
 func ResolveRepoRoot(hintDir string) string {
-	startDirs := make([]string, 0, 3)
+	// 1. Honor explicit NISKAVA_ROOT environment variable (passed by npm launcher or dev env)
+	if envRoot := os.Getenv("NISKAVA_ROOT"); envRoot != "" {
+		if _, err := os.Stat(filepath.Join(envRoot, "backend", "engine", "runner.py")); err == nil {
+			return envRoot
+		}
+		if _, err := os.Stat(filepath.Join(envRoot, "package.json")); err == nil {
+			return envRoot
+		}
+	}
+
+	startDirs := make([]string, 0, 4)
 	if hintDir != "" {
 		startDirs = append(startDirs, hintDir)
 	}
@@ -229,6 +252,12 @@ func ResolveEnginePath(repoRoot, customEngine string) string {
 	if env := os.Getenv("NISKAVA_ENGINE_PATH"); env != "" {
 		if _, err := os.Stat(env); err == nil {
 			return env
+		}
+	}
+	if envRoot := os.Getenv("NISKAVA_ROOT"); envRoot != "" {
+		cand := filepath.Join(envRoot, "backend", "engine")
+		if _, err := os.Stat(cand); err == nil {
+			return cand
 		}
 	}
 	cand := filepath.Join(repoRoot, "backend", "engine")
@@ -314,6 +343,9 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 		// Ensure PYTHONPATH includes backend directory, WorkDir, and environment PYTHONPATH
 		backendDir := filepath.Join(workDir, "backend")
 		pythonPath := backendDir + string(filepath.ListSeparator) + workDir
+		if params.WorkDir != "" && params.WorkDir != workDir {
+			pythonPath = pythonPath + string(filepath.ListSeparator) + params.WorkDir
+		}
 		if existing := os.Getenv("PYTHONPATH"); existing != "" {
 			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
 		}

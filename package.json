@@ -1,6 +1,6 @@
 {
   "name": "@zyrexnns/niskava-agent",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Autonomous Financial Market Intelligence Orchestration Platform for Indonesia Stock Exchange (IDX)",
   "main": "bin/index.js",
   "bin": {
@@ -19,6 +19,7 @@
     "bin/resolver.js",
     "scripts/postinstall.js",
     "backend/engine",
+    "backend/engine/requirements.txt",
     "!backend/engine/tests",
     "!backend/engine/evals",
     "!**/__pycache__",

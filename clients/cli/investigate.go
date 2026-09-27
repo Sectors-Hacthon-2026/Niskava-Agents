@@ -39,7 +39,7 @@ and compiles evidence classified into SUPPORTED, UNCERTAIN, or CONTRADICTED find
 
   # Run investigation and open interactive REPL pre-focused on ticker:
   niskava investigate ANTM -i`,
-	Args:  cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ticker := strings.ToUpper(strings.TrimSpace(args[0]))
 		if len(ticker) < 4 || len(ticker) > 5 {
@@ -138,6 +138,26 @@ and compiles evidence classified into SUPPORTED, UNCERTAIN, or CONTRADICTED find
 				}
 			}
 
+			if anomalies, errA := appDB.GetAnomaliesByInvestigation(sessionID); errA == nil && len(anomalies) > 0 {
+				sb.WriteString(fmt.Sprintf("## 📊 Quantitative Anomalies (%d Detected)\n\n", len(anomalies)))
+				sb.WriteString("| # | Date | Metric | Value | Baseline | Z-Score | Description |\n")
+				sb.WriteString("|---|---|---|---|---|---|---|\n")
+				for idx, a := range anomalies {
+					sb.WriteString(fmt.Sprintf("| %d | %s | %s | %.2f | %.2f | %.2fσ | %s |\n",
+						idx+1, a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore, a.Description))
+				}
+				sb.WriteString("\n---\n\n")
+			}
+
+			if findings, errF := appDB.ListFindingsByInvestigation(sessionID); errF == nil && len(findings) > 0 {
+				sb.WriteString(fmt.Sprintf("## 🔍 Verified Intelligence Findings (%d Emitted)\n\n", len(findings)))
+				for idx, f := range findings {
+					sb.WriteString(fmt.Sprintf("### %d. [%s] %s (Confidence: %.0f%%)\n", idx+1, f.VerificationStatus, f.Title, f.ConfidenceScore*100))
+					sb.WriteString(fmt.Sprintf("%s\n\n", f.ClaimText))
+				}
+				sb.WriteString("---\n\n")
+			}
+
 			sb.WriteString(tui.T("sessions_export_disclaimer"))
 			_ = os.WriteFile(outPath, []byte(sb.String()), 0644)
 			fmt.Printf("\n✓ Investigation report exported to: %s\n", outPath)
@@ -145,11 +165,11 @@ and compiles evidence classified into SUPPORTED, UNCERTAIN, or CONTRADICTED find
 
 		// Option A: If running in an interactive terminal, offer CTA to transition into Live REPL
 		if isTerminalInput() {
-			fmt.Printf("\n [Enter / y] Lanjutkan diskusi interaktif untuk emiten %s? (y/N): ", ticker)
+			fmt.Printf("\n Lanjutkan diskusi interaktif untuk emiten %s? (y/N): ", ticker)
 			var resp string
 			_, _ = fmt.Scanln(&resp)
 			resp = strings.TrimSpace(strings.ToLower(resp))
-			if resp == "" || resp == "y" || resp == "yes" {
+			if resp == "y" || resp == "yes" {
 				srv, err := server.Start(ctx, cfg.Server.Port, appDB, cfg)
 				if err == nil {
 					srv.ConfigPath = cfgFile

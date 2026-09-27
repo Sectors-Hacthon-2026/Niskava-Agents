@@ -98,6 +98,7 @@ Examples:
 		}
 		pythonBin = ipc.ResolvePythonBin(pythonBin)
 		wd, _ := os.Getwd()
+		resolvedRoot := ipc.ResolveRepoRoot(wd)
 
 		// 2. Terminal text summary inspection
 		if graphTextFlag {
@@ -115,8 +116,12 @@ Examples:
 			}
 
 			proc := exec.Command(pythonBin, execArgs...)
-			proc.Dir = wd
-			pythonPath := filepath.Join(wd, "backend") + string(filepath.ListSeparator) + wd
+			proc.Dir = resolvedRoot
+			backendDir := filepath.Join(resolvedRoot, "backend")
+			pythonPath := backendDir + string(filepath.ListSeparator) + resolvedRoot
+			if wd != "" && wd != resolvedRoot {
+				pythonPath += string(filepath.ListSeparator) + wd
+			}
 			if existing := os.Getenv("PYTHONPATH"); existing != "" {
 				pythonPath = pythonPath + string(filepath.ListSeparator) + existing
 			}
@@ -205,8 +210,12 @@ Examples:
 		fmt.Printf(tui.T("graph_exporting"), expandedOutput)
 
 		proc := exec.Command(pythonBin, execArgs...)
-		proc.Dir = wd
-		pythonPath := filepath.Join(wd, "backend") + string(filepath.ListSeparator) + wd
+		proc.Dir = resolvedRoot
+		backendDir := filepath.Join(resolvedRoot, "backend")
+		pythonPath := backendDir + string(filepath.ListSeparator) + resolvedRoot
+		if wd != "" && wd != resolvedRoot {
+			pythonPath += string(filepath.ListSeparator) + wd
+		}
 		if existing := os.Getenv("PYTHONPATH"); existing != "" {
 			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
 		}

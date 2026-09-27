@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -212,5 +213,63 @@ func TestResolveRepoRootAndEngine(t *testing.T) {
 	engine := ResolveEnginePath(root, "")
 	if !strings.HasSuffix(engine, filepath.Join("backend", "engine")) {
 		t.Errorf("unexpected resolved engine path: %s", engine)
+	}
+}
+
+func TestResolveRepoRootWithNiskavaRootEnv(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "niskava_root_test_*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	engineDir := filepath.Join(tempDir, "backend", "engine")
+	if err := os.MkdirAll(engineDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	runnerFile := filepath.Join(engineDir, "runner.py")
+	if err := os.WriteFile(runnerFile, []byte("# runner"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("NISKAVA_ROOT", tempDir)
+
+	resolved := ResolveRepoRoot("/some/unrelated/empty/dir")
+	if resolved != tempDir {
+		t.Fatalf("expected resolved root to be %s from NISKAVA_ROOT, got %s", tempDir, resolved)
+	}
+
+	engineResolved := ResolveEnginePath(resolved, "")
+	if engineResolved != engineDir {
+		t.Fatalf("expected resolved engine path to be %s, got %s", engineDir, engineResolved)
+	}
+}
+
+func TestResolvePythonBinFromUserHomeVenv(t *testing.T) {
+	tempHome, err := os.MkdirTemp("", "niskava_home_venv_*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempHome)
+
+	var venvPy string
+	if runtime.GOOS == "windows" {
+		venvPy = filepath.Join(tempHome, ".niskava", "venv", "Scripts", "python.exe")
+	} else {
+		venvPy = filepath.Join(tempHome, ".niskava", "venv", "bin", "python3")
+	}
+	if err := os.MkdirAll(filepath.Dir(venvPy), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(venvPy, []byte("#!/bin/sh\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	resolved := ResolvePythonBin("")
+	if resolved != venvPy {
+		t.Fatalf("expected resolved python to be %s from ~/.niskava/venv, got %s", venvPy, resolved)
 	}
 }

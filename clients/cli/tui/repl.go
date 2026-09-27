@@ -973,6 +973,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 		lastThought       string
 		totalAnomalies    int
 		totalFindings     int
+		sessionError      string
 	)
 
 	turnStart := time.Now()
@@ -1015,12 +1016,16 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 		case ev, ok := <-eventsChan:
 			if !ok {
 				stopSpinner()
-				// Process finished: clear spinner and render final markdown
+				// Process finished: clear spinner and render output
 				fmt.Print("\r\033[K")
-				renderFinalMarkdown(assistantResponse.String())
+				if sessionError != "" {
+					fmt.Print(renderSessionErrorCard(sessionError))
+				} else {
+					renderFinalMarkdown(assistantResponse.String())
+				}
 
 				// Save assistant response in SQLite if running standalone subprocess
-				if !usingDaemon && appDB != nil && assistantResponse.Len() > 0 {
+				if !usingDaemon && appDB != nil && assistantResponse.Len() > 0 && sessionError == "" {
 					asstMsg := &db.ChatMessage{
 						ID:        fmt.Sprintf("MSG-%d", time.Now().UnixNano()),
 						SessionID: sessionID,
@@ -1107,18 +1112,20 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 
 			case ipc.EventSessionError:
 				fmt.Print("\r\033[K")
-				if assistantResponse.Len() == 0 {
-					errBox := lipgloss.NewStyle().
-						Border(lipgloss.RoundedBorder()).
-						BorderForeground(ColorDanger).
-						Padding(0, 1).
-						Foreground(ColorFg).
-						Render(fmt.Sprintf("❌ [SESSION ERROR]: %s", ev.Error))
-					assistantResponse.WriteString(errBox)
-				}
+				sessionError = ev.Error
 			}
 		}
 	}
+}
+
+func renderSessionErrorCard(errMessage string) string {
+	errBox := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(ColorDanger).
+		Padding(0, 1).
+		Foreground(ColorFg).
+		Render(fmt.Sprintf("❌ [SESSION ERROR]: %s", errMessage))
+	return "\n" + errBox + "\n"
 }
 
 func renderCompletionBadge(duration time.Duration, sessionID, model string, anomalies, findings int) string {

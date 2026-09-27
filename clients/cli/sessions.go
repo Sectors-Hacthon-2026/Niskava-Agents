@@ -135,7 +135,7 @@ func runSessionsInteractive(cmd *cobra.Command, database *db.DB) string {
 var sessionsCmd = &cobra.Command{
 	Use:   "sessions",
 	Short: "Manage and inspect chat and investigation sessions from local SQLite storage",
-	Long: `List, search, delete, and export historical chat sessions and investigation audit trails from local SQLite storage.`,
+	Long:  `List, search, delete, and export historical chat sessions and investigation audit trails from local SQLite storage.`,
 	Example: `  # List 20 recent sessions:
   niskava sessions
   niskava sessions list
