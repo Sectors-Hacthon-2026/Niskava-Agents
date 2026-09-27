@@ -413,6 +413,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			}
 
 			_ = config.SaveConfig(s.Config, s.ConfigPath)
+			_ = config.SaveDotEnv(s.Config)
 			view := s.Config.MaskedView()
 			s.cfgMu.Unlock()
 
@@ -983,6 +984,22 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			}
 		}
 
+		homeDir, _ := os.UserHomeDir()
+		dotEnvPath := filepath.Join(homeDir, ".niskava", ".env")
+
+		s.cfgMu.RLock()
+		activeCfg := s.Config
+		s.cfgMu.RUnlock()
+
+		aiProv := "gemini"
+		isOffline := false
+		if activeCfg != nil {
+			if activeCfg.Auth.AIProvider != "" {
+				aiProv = activeCfg.Auth.AIProvider
+			}
+			isOffline = activeCfg.Preferences.OfflineMode || os.Getenv("MOCK_SECTORS") == "1"
+		}
+
 		sendJSON(w, http.StatusOK, map[string]interface{}{
 			"status":              "OK",
 			"app":                 "Niskava Agent",
@@ -993,6 +1010,10 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			"database_path":       dbPath,
 			"database_size_bytes": dbSizeBytes,
 			"total_sessions":      totalSessions,
+			"config_path":         s.ConfigPath,
+			"dotenv_path":         dotEnvPath,
+			"ai_provider":         aiProv,
+			"offline_mode":        isOffline,
 			"timestamp":           time.Now().UTC().Format(time.RFC3339),
 		})
 	})
