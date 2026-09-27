@@ -487,7 +487,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			}
 			if cfg.Preferences.OfflineMode || os.Getenv("MOCK_SECTORS") == "1" {
 				resp.Success = true
-				resp.Message = "Sectors mock mode active (offline testing)"
+				resp.Message = "[MOCK MODE] Sectors mock mode aktif (simulasi data lokal)"
 				break
 			}
 
@@ -555,7 +555,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			}
 			if cfg.Preferences.OfflineMode {
 				resp.Success = true
-				resp.Message = "Offline mode active (mock verification)"
+				resp.Message = "[MOCK MODE] Offline mode active (mock verification)"
 				break
 			}
 			client := &http.Client{Timeout: 5 * time.Second}
@@ -590,7 +590,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			baseURL = strings.TrimRight(baseURL, "/")
 			if cfg.Preferences.OfflineMode {
 				resp.Success = true
-				resp.Message = "Offline mode active (mock verification)"
+				resp.Message = "[MOCK MODE] Offline mode active (mock verification)"
 				break
 			}
 			client := &http.Client{Timeout: 5 * time.Second}
@@ -628,8 +628,37 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				resp.Message = "Anthropic API key is not configured"
 				break
 			}
-			resp.Success = true
-			resp.Message = "Anthropic key format verified"
+			if cfg.Preferences.OfflineMode {
+				resp.Success = true
+				resp.Message = "[MOCK MODE] Offline mode active (mock verification)"
+				break
+			}
+			client := &http.Client{Timeout: 5 * time.Second}
+			httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://api.anthropic.com/v1/models", nil)
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Failed to build request: %v", err)
+				break
+			}
+			httpReq.Header.Set("x-api-key", key)
+			httpReq.Header.Set("anthropic-version", "2023-06-01")
+			httpResp, err := client.Do(httpReq)
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Connection failed: %v", err)
+				break
+			}
+			defer httpResp.Body.Close()
+			if httpResp.StatusCode == http.StatusOK {
+				resp.Success = true
+				resp.Message = "Anthropic API key verified successfully"
+			} else if httpResp.StatusCode == http.StatusUnauthorized || httpResp.StatusCode == http.StatusForbidden {
+				resp.Success = false
+				resp.Message = "Invalid Anthropic API key (Unauthorized)"
+			} else {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Anthropic API returned HTTP %d", httpResp.StatusCode)
+			}
 		}
 
 		resp.LatencyMs = time.Since(start).Milliseconds()
@@ -1032,18 +1061,29 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			return
 		}
 
-		cleaned, err := database.CleanExpiredCache()
+		flushAll := r.URL.Query().Get("all") == "1" || r.URL.Query().Get("all") == "true"
+		var cleaned int64
+		var err error
+
+		if flushAll {
+			cleaned, err = database.FlushAllSectorsCache()
+		} else {
+			cleaned, err = database.CleanExpiredCache()
+		}
+
 		if err != nil {
-			http.Error(w, fmt.Sprintf(`{"error": "failed to clean expired cache: %v"}`, err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf(`{"error": "failed to clean cache: %v"}`, err), http.StatusInternalServerError)
 			return
 		}
 
 		sendJSON(w, http.StatusOK, map[string]interface{}{
 			"status":          "ok",
 			"cleaned_entries": cleaned,
+			"flushed_all":     flushAll,
 			"timestamp":       time.Now().UTC().Format(time.RFC3339),
 		})
 	})
+
 
 	// 2. Chat Sessions Collection API (GET list, POST create)
 	mux.HandleFunc("/api/chat/sessions", func(w http.ResponseWriter, r *http.Request) {
