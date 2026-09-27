@@ -440,49 +440,7 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 		offline = s.cfg.Preferences.OfflineMode
 		pythonBin = s.cfg.Engine.PythonBin
 		enginePath = s.cfg.Engine.EnginePath
-
-		if s.cfg.Auth.AIProvider != "" {
-			envOverrides["AI_PROVIDER"] = s.cfg.Auth.AIProvider
-		}
-		if s.cfg.Auth.SectorsAPIKey != "" {
-			envOverrides["SECTORS_API_KEY"] = s.cfg.Auth.SectorsAPIKey
-		}
-		if s.cfg.Auth.SectorsBaseURL != "" {
-			envOverrides["SECTORS_BASE_URL"] = s.cfg.Auth.SectorsBaseURL
-		}
-		if s.cfg.Auth.GeminiAPIKey != "" {
-			envOverrides["GEMINI_API_KEY"] = s.cfg.Auth.GeminiAPIKey
-		}
-		if s.cfg.Auth.GeminiModel != "" {
-			envOverrides["GEMINI_MODEL"] = s.cfg.Auth.GeminiModel
-		}
-		if s.cfg.Auth.OpenAIAPIKey != "" {
-			envOverrides["OPENAI_API_KEY"] = s.cfg.Auth.OpenAIAPIKey
-		}
-		if s.cfg.Auth.OpenAIBaseURL != "" {
-			envOverrides["OPENAI_BASE_URL"] = s.cfg.Auth.OpenAIBaseURL
-		}
-		if s.cfg.Auth.OpenAIModel != "" {
-			envOverrides["OPENAI_MODEL"] = s.cfg.Auth.OpenAIModel
-		}
-		if s.cfg.Auth.AnthropicAPIKey != "" {
-			envOverrides["ANTHROPIC_API_KEY"] = s.cfg.Auth.AnthropicAPIKey
-		}
-		if s.cfg.Auth.OllamaBaseURL != "" {
-			envOverrides["OLLAMA_BASE_URL"] = s.cfg.Auth.OllamaBaseURL
-		}
-		if s.cfg.Auth.OllamaModel != "" {
-			envOverrides["OLLAMA_MODEL"] = s.cfg.Auth.OllamaModel
-		}
-		if s.cfg.Preferences.Language != "" {
-			envOverrides["NISKAVA_LANG"] = s.cfg.Preferences.Language
-		}
-		if s.cfg.Preferences.OfflineMode {
-			envOverrides["NISKAVA_OFFLINE"] = "1"
-		}
-		if s.cfg.Preferences.DefaultMarket != "" {
-			envOverrides["DEFAULT_MARKET"] = s.cfg.Preferences.DefaultMarket
-		}
+		envOverrides = s.cfg.BuildSubprocessEnv()
 	}
 
 	runnerParams := ipc.RunnerParams{
