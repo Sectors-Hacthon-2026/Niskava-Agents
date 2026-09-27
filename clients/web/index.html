@@ -969,6 +969,48 @@
             align-items: center;
             gap: 8px;
         }
+        .data-freshness-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: rgba(16, 185, 129, 0.1);
+            color: #10B981;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            user-select: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .data-freshness-badge.cached {
+            background: rgba(245, 158, 11, 0.1);
+            color: #F59E0B;
+            border-color: rgba(245, 158, 11, 0.25);
+        }
+        .data-freshness-badge.offline {
+            background: rgba(239, 68, 68, 0.1);
+            color: #EF4444;
+            border-color: rgba(239, 68, 68, 0.25);
+        }
+        .data-freshness-badge:hover {
+            filter: brightness(1.15);
+        }
+        .pulse-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: currentColor;
+            display: inline-block;
+            box-shadow: 0 0 6px currentColor;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+
         .btn-collapse-sidebar {
             width: 34px;
             height: 34px;
@@ -2817,11 +2859,22 @@
                         <span id="currentSessionLabel" data-i18n="header_session_default">Percakapan AI</span>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
                     </div>
+                    <!-- Data Freshness & Real-Time Badge -->
+                    <div class="data-freshness-badge" id="dataFreshnessBadge" data-tooltip="Status Sumber Data Pasar (Klik untuk refresh)" data-i18n-tooltip="data_freshness_tooltip" title="Status Data IDX: Live (EOD)">
+                        <span class="pulse-dot"></span>
+                        <span id="labelFreshnessStatus">IDX Live (EOD)</span>
+                    </div>
                 </div>
 
                 <div class="header-right">
+                    <!-- Force Refresh Live Data & Flush Cache -->
+                    <button class="btn-header-icon" id="btnForceRefreshData" aria-label="Tarik Data Live & Bersihkan Cache" data-tooltip="Tarik Data Live Terbaru (Bypass Cache)" data-i18n-tooltip="header_refresh_tooltip" title="Tarik Data Live Terbaru (Bypass Cache)">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                    </button>
+
                     <!-- Export Full Session Report -->
                     <button class="btn-header-icon" id="btnExportSession" aria-label="Ekspor Laporan Sesi" data-tooltip="Ekspor Percakapan (Markdown)" data-i18n-tooltip="header_export_tooltip" title="Unduh Laporan Riset Resmi (Markdown)">
+
                         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                     </button>
 
@@ -3156,7 +3209,7 @@
                             <button class="composer-tool-btn" id="btnAttach" aria-label="Lampirkan Dokumen" data-tooltip="Lampirkan Dokumen" data-i18n-tooltip="btn_attach_tooltip" title="Lampirkan Dokumen">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
                             </button>
-                            <button class="composer-tool-btn active" id="btnToolWeb" aria-label="Toggle Web OSINT">
+                            <button class="composer-tool-btn active" id="btnToolWeb" aria-label="Toggle Web Intelligence">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="21" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                                 <span>Web</span>
                             </button>
@@ -3164,7 +3217,12 @@
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
                                 <span>Tools</span>
                             </button>
+                            <button class="composer-tool-btn" id="btnForceFresh" aria-label="Toggle Force Refresh Live Data" data-tooltip="Tarik Data Live Terbaru (Bypass Cache)" title="Tarik Data Live Terbaru (Bypass Cache)">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                                <span id="labelForceFreshBtn">Live Fresh</span>
+                            </button>
                         </div>
+
 
                         <div class="composer-actions-right">
                             <div class="model-select-badge">
@@ -3220,6 +3278,15 @@
                 <button class="modal-tab-btn" data-tab="tab-diagnostics" data-i18n="tab_diagnostics">Diagnostik Sistem</button>
             </div>
 
+            <!-- SSoT Storage Indicator -->
+            <div style="margin: 0 24px 10px 24px; padding: 7px 12px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.22); border-radius: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-secondary);">
+                <span style="display:flex; align-items:center; gap:6px;">
+                    <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#10B981; box-shadow:0 0 5px #10B981;"></span>
+                    <strong style="color:var(--text-primary);">Penyimpanan Konfigurasi (.env):</strong> Tersinkronisasi Otomatis (~/.niskava/.env &amp; ./.env)
+                </span>
+                <span style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);" id="modalConfigSyncTime">Dual Sync SSoT</span>
+            </div>
+
             <!-- Modal Body -->
             <div class="modal-body">
                 <!-- Tab 1: Kredensial API & LLM -->
@@ -3241,10 +3308,10 @@
                                 <span data-i18n="label_ai_provider">Provider AI Aktif</span>
                             </label>
                             <select class="form-input" id="selectAiProvider">
-                                <option value="gemini" data-i18n="opt_gemini">Google Gemini (Disarankan)</option>
-                                <option value="openai" data-i18n="opt_openai">OpenAI / Compatible Gateway</option>
-                                <option value="ollama" data-i18n="opt_ollama">Ollama (Lokal / On-Premise)</option>
-                                <option value="anthropic" data-i18n="opt_anthropic">Anthropic Claude</option>
+                                <option value="openai" data-i18n="opt_openai">9router / OpenAI Compatible Gateway (Local: localhost:20128 / Hermes)</option>
+                                <option value="gemini" data-i18n="opt_gemini">Google Gemini (AI Studio)</option>
+                                <option value="ollama" data-i18n="opt_ollama">Ollama (Lokal On-Premise - deepseek-r1 / llama3)</option>
+                                <option value="anthropic" data-i18n="opt_anthropic">Anthropic Claude (claude-3-5-sonnet)</option>
                             </select>
                         </div>
 
@@ -3331,6 +3398,9 @@
                                 <input type="checkbox" id="toggleOfflineMode" style="cursor:pointer; width:16px; height:16px;">
                             </label>
                             <span style="font-size:11px; color:var(--text-muted);" data-i18n="desc_offline_mode">Gunakan data sintetis lokal tanpa memotong kuota kredit Sectors API v2 (offline_mode).</span>
+                            <div id="offlineModeWarningBanner" style="display:none; margin-top:8px; padding:8px 12px; background:rgba(245, 158, 11, 0.1); border:1px solid rgba(245, 158, 11, 0.3); border-radius:8px; font-size:11.5px; color:#F59E0B; line-height:1.4;">
+                                ⚠️ <strong>Mode Offline Aktif:</strong> Permintaan pasar disimulasikan dari snapshot fixture lokal untuk menghemat 1.000 kredit Sectors (Kepatuhan Law 5).
+                            </div>
                         </div>
 
                         <div class="form-row">
@@ -3371,8 +3441,14 @@
                         </div>
 
                         <div class="form-row">
-                            <label class="form-label"><span data-i18n="label_tele_token">Telegram Bot Token</span></label>
-                            <input type="password" class="form-input" id="inputTeleToken" placeholder="7123456789:AAH... (Kosongkan jika tidak diubah)" data-i18n-placeholder="tele_token_placeholder">
+                            <label class="form-label" style="justify-content:space-between;">
+                                <span data-i18n="label_tele_token">Telegram Bot Token</span>
+                                <span id="statusTeleToken" class="panel-card-badge" style="color:var(--text-muted);">Belum Ada Token</span>
+                            </label>
+                            <div class="form-input-group">
+                                <input type="password" class="form-input" id="inputTeleToken" autocomplete="new-password" placeholder="7123456789:AAH... (Kosongkan jika tidak diubah)" data-i18n-placeholder="tele_token_placeholder">
+                                <button class="btn-test-conn" id="btnUnlockTeleToken" type="button" style="display:none; white-space:nowrap; background:var(--bg-card-hover); border:1px solid var(--border-subtle); color:var(--text-primary);">Ganti Token</button>
+                            </div>
                         </div>
 
                         <div class="form-row">
@@ -4845,6 +4921,45 @@
                 });
             }
 
+            // Force Refresh Live Data & Flush Cache Handler
+            const btnForceRefreshData = document.getElementById('btnForceRefreshData');
+            const dataFreshnessBadge = document.getElementById('dataFreshnessBadge');
+            async function triggerForceRefresh() {
+                try {
+                    const icon = btnForceRefreshData ? btnForceRefreshData.querySelector('svg') : null;
+                    if (icon) icon.style.animation = 'spin 0.6s linear infinite';
+                    const res = await fetch(`${API_BASE}/api/system/cache/clean?all=1`, { method: 'POST' });
+                    if (icon) icon.style.animation = '';
+                    if (res.ok) {
+                        const json = await res.json();
+                        const count = json.cleaned_entries || 0;
+                        showToast(currentLang === 'en' ? `Cache Flushed (${count} entries). Next request pulls 100% fresh live data!` : `Cache dibersihkan (${count} entri). Permintaan berikutnya menarik data 100% live!`);
+                    } else {
+                        showToast(currentLang === 'en' ? 'Failed to flush cache.' : 'Gagal membersihkan cache.');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    showToast(currentLang === 'en' ? 'Network error flushing cache.' : 'Gagal menghubungi server.');
+                }
+            }
+            if (btnForceRefreshData) {
+                btnForceRefreshData.addEventListener('click', triggerForceRefresh);
+            }
+            if (dataFreshnessBadge) {
+                dataFreshnessBadge.addEventListener('click', triggerForceRefresh);
+            }
+
+            // Live Fresh Toggle in Composer
+            const btnForceFresh = document.getElementById('btnForceFresh');
+            if (btnForceFresh) {
+                btnForceFresh.addEventListener('click', () => {
+                    btnForceFresh.classList.toggle('active');
+                    const isActive = btnForceFresh.classList.contains('active');
+                    showToast(isActive ? (currentLang === 'en' ? 'Live Fresh sync enabled: queries bypass cache.' : 'Sinkronisasi Live Fresh aktif: kueri memprioritaskan data pasar teranyar.') : (currentLang === 'en' ? 'Live Fresh sync disabled.' : 'Sinkronisasi Live Fresh dinonaktifkan.'));
+                });
+            }
+
+
             // 5. New Research button
             btnNewResearch.addEventListener('click', () => {
                 currentSessionId = 'WEB-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(1000 + Math.random() * 9000);
@@ -5579,6 +5694,31 @@
                             group.style.display = 'none';
                         }
                     });
+
+                    // Preset auto-fill helper if field is blank
+                    if (prov === 'gemini') {
+                        if (inputGeminiModel && !inputGeminiModel.value.trim()) {
+                            inputGeminiModel.value = 'gemini-2.0-flash';
+                        }
+                    } else if (prov === 'openai') {
+                        if (inputOpenaiBaseUrl && !inputOpenaiBaseUrl.value.trim()) {
+                            inputOpenaiBaseUrl.value = 'http://localhost:20128/v1';
+                        }
+                        if (inputOpenaiModel && !inputOpenaiModel.value.trim()) {
+                            inputOpenaiModel.value = 'hermes';
+                        }
+                    } else if (prov === 'ollama') {
+                        if (inputOllamaBaseUrl && !inputOllamaBaseUrl.value.trim()) {
+                            inputOllamaBaseUrl.value = 'http://localhost:11434';
+                        }
+                        if (inputOllamaModel && !inputOllamaModel.value.trim()) {
+                            inputOllamaModel.value = 'deepseek-r1:8b';
+                        }
+                    } else if (prov === 'anthropic') {
+                        if (inputAnthropicModel && !inputAnthropicModel.value.trim()) {
+                            inputAnthropicModel.value = 'claude-3-5-sonnet-20241022';
+                        }
+                    }
                 }
                 if (selectAiProvider) {
                     selectAiProvider.addEventListener('change', updateProviderVisibility);
@@ -5587,6 +5727,16 @@
                 // Preferences Elements
                 const toggleOfflineMode = document.getElementById('toggleOfflineMode');
                 const timeoutSlider = document.getElementById('timeout-slider');
+                const offlineModeWarningBanner = document.getElementById('offlineModeWarningBanner');
+
+                function updateOfflineWarning() {
+                    if (offlineModeWarningBanner && toggleOfflineMode) {
+                        offlineModeWarningBanner.style.display = toggleOfflineMode.checked ? 'block' : 'none';
+                    }
+                }
+                if (toggleOfflineMode) {
+                    toggleOfflineMode.addEventListener('change', updateOfflineWarning);
+                }
 
                 // Telegram Elements
                 const teleBotStatusBadge = document.getElementById('teleBotStatusBadge');
@@ -5594,9 +5744,23 @@
                 const btnStartTeleBot = document.getElementById('btnStartTeleBot');
                 const btnStopTeleBot = document.getElementById('btnStopTeleBot');
                 const inputTeleToken = document.getElementById('inputTeleToken');
+                const statusTeleToken = document.getElementById('statusTeleToken');
+                const btnUnlockTeleToken = document.getElementById('btnUnlockTeleToken');
                 const inputTeleUsers = document.getElementById('inputTeleUsers');
                 const inputTeleTestChatId = document.getElementById('inputTeleTestChatId');
                 const btnSendTeleTest = document.getElementById('btnSendTeleTest');
+
+                if (btnUnlockTeleToken) {
+                    btnUnlockTeleToken.addEventListener('click', () => {
+                        if (inputTeleToken) {
+                            inputTeleToken.disabled = false;
+                            inputTeleToken.value = '';
+                            inputTeleToken.placeholder = '7123456789:AAH... (Masukkan token baru)';
+                            inputTeleToken.focus();
+                        }
+                        btnUnlockTeleToken.style.display = 'none';
+                    });
+                }
 
                 // Cache & Diagnostics Elements
                 const statCacheTotal = document.getElementById('statCacheTotal');
@@ -6180,14 +6344,35 @@
                         if (data.preferences) {
                             if (toggleOfflineMode && typeof data.preferences.offline_mode === 'boolean') {
                                 toggleOfflineMode.checked = data.preferences.offline_mode;
+                                updateOfflineWarning();
                             }
                             if (data.preferences && data.preferences.llm_timeout_secs) {
                                 populateTimeoutSlider(data.preferences.llm_timeout_secs);
                             }
                         }
+
+                        // Update Data Freshness Badge in Header
+                        const badge = document.getElementById('dataFreshnessBadge');
+                        const label = document.getElementById('labelFreshnessStatus');
+                        if (badge && label) {
+                            if (data.preferences && data.preferences.offline_mode) {
+                                badge.className = 'data-freshness-badge offline';
+                                label.textContent = currentLang === 'en' ? 'Offline (Mock Data)' : 'Mode Offline (Mock Data)';
+                                badge.title = currentLang === 'en' ? 'Running in offline simulation mode' : 'Berjalan dalam mode simulasi offline';
+                            } else if (data.auth && data.auth.has_sectors_key) {
+                                badge.className = 'data-freshness-badge';
+                                label.textContent = 'IDX Live (EOD)';
+                                badge.title = currentLang === 'en' ? 'Sectors Financial API v2 Active (Click to Flush Cache)' : 'Sectors Financial API v2 Aktif (Klik untuk Flush Cache)';
+                            } else {
+                                badge.className = 'data-freshness-badge cached';
+                                label.textContent = currentLang === 'en' ? 'No Sectors Key' : 'Belum Ada Kunci IDX';
+                                badge.title = currentLang === 'en' ? 'Configure SECTORS_API_KEY in Settings' : 'Konfigurasi SECTORS_API_KEY di Pengaturan';
+                            }
+                        }
                     } catch (e) {
                         console.warn('Gagal memuat konfigurasi settings:', e);
                     }
+
                 }
 
                 // Provider Live Connection Test
@@ -6348,6 +6533,30 @@
                         }
                         if (telePollerHeartbeat) {
                             telePollerHeartbeat.classList.toggle('active', isRunning);
+                        }
+                        if (statusTeleToken) {
+                            if (data.has_token) {
+                                statusTeleToken.textContent = currentLang === 'en' ? 'Token Saved' : 'Token Tersimpan';
+                                statusTeleToken.style.color = '#10B981';
+                                if (inputTeleToken) {
+                                    inputTeleToken.disabled = true;
+                                    inputTeleToken.placeholder = '●●●●●●●●●● (Tersimpan & Terproteksi)';
+                                    inputTeleToken.value = '';
+                                }
+                                if (btnUnlockTeleToken) {
+                                    btnUnlockTeleToken.style.display = 'inline-block';
+                                }
+                            } else {
+                                statusTeleToken.textContent = currentLang === 'en' ? 'No Token' : 'Belum Ada Token';
+                                statusTeleToken.style.color = 'var(--text-muted)';
+                                if (inputTeleToken) {
+                                    inputTeleToken.disabled = false;
+                                    inputTeleToken.placeholder = '7123456789:AAH... (Masukkan token bot)';
+                                }
+                                if (btnUnlockTeleToken) {
+                                    btnUnlockTeleToken.style.display = 'none';
+                                }
+                            }
                         }
                         if (data.allowed_users && Array.isArray(data.allowed_users)) {
                             currentTeleUsers = [...data.allowed_users];
@@ -6551,7 +6760,7 @@
                         if (inputAnthropicModel && inputAnthropicModel.value.trim()) {
                             payload.auth.anthropic_model = inputAnthropicModel.value.trim();
                         }
-                        if (inputTeleToken && inputTeleToken.value.trim()) {
+                        if (inputTeleToken && !inputTeleToken.disabled && inputTeleToken.value.trim()) {
                             payload.telegram.bot_token = inputTeleToken.value.trim();
                         }
                         payload.telegram.allowed_users = currentTeleUsers;
