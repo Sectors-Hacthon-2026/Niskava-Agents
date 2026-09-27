@@ -17,7 +17,16 @@ import requests
 from engine.utils.resilience import RetryConfig, execute_with_retry
 
 
+class SectorsAPIError(Exception):
+    """Raised when Sectors Financial API request fails in online mode."""
+
+    def __init__(self, message: str, status_code: Optional[int] = None):
+        super().__init__(message)
+        self.status_code = status_code
+
+
 class SectorsAPIClient:
+
     """Client for Sectors Financial API v2 with transparent local SQLite caching."""
 
     BASE_URL = "https://api.sectors.app/v2"
@@ -132,23 +141,32 @@ class SectorsAPIClient:
         endpoint: str,
         params: Optional[Dict[str, Any]] = None,
         ttl_seconds: Optional[int] = None,
+        force_refresh: bool = False,
     ) -> Any:
         cache_key = self._generate_cache_key(endpoint, params)
-        cached = self._get_cache(cache_key)
-        if cached is not None:
-            return cached
+        if not force_refresh:
+            cached = self._get_cache(cache_key)
+            if cached is not None:
+                return cached
 
-        if self.mock_mode or not self.api_key:
+        # Mode mock HANYA aktif jika eksplisit diset mock_mode=True atau MOCK_SECTORS=1/NISKAVA_OFFLINE=1
+        if self.mock_mode:
             mock_data = self._generate_mock_data(endpoint, params)
             self._set_cache(cache_key, endpoint, mock_data, ttl_seconds)
             return mock_data
 
+        if not self.api_key:
+            raise SectorsAPIError(
+                "SECTORS_API_KEY belum dikonfigurasi. Silakan periksa file .env atau buka menu Pengaturan.",
+                status_code=401,
+            )
+
         try:
             url = f"{self.base_url}{endpoint}"
             cfg = RetryConfig(
-                max_retries=3,
-                initial_delay=1.0,
-                max_delay=8.0,
+                max_retries=2,
+                initial_delay=0.5,
+                max_delay=4.0,
                 backoff_factor=2.0,
                 jitter=True,
                 retryable_statuses={429, 500, 502, 503, 504},
@@ -161,10 +179,13 @@ class SectorsAPIClient:
             data = resp.json()
             self._set_cache(cache_key, endpoint, data, ttl_seconds)
             return data
-        except Exception:
-            mock_data = self._generate_mock_data(endpoint, params)
-            self._set_cache(cache_key, endpoint, mock_data, ttl_seconds)
-            return mock_data
+        except requests.exceptions.HTTPError as e:
+            status = e.response.status_code if e.response is not None else None
+            raise SectorsAPIError(f"Sectors API HTTP {status}: {e}", status_code=status) from e
+        except requests.exceptions.RequestException as e:
+            raise SectorsAPIError(f"Gagal terhubung ke Sectors API: {e}") from e
+        except Exception as e:
+            raise SectorsAPIError(f"Terjadi kesalahan saat memproses data Sectors API: {e}") from e
 
     @staticmethod
     def _normalize_list_response(raw: Any) -> List[Dict[str, Any]]:
@@ -180,7 +201,11 @@ class SectorsAPIClient:
         return []
 
     def get_daily_candles(
-        self, symbol: str, start: Optional[str] = None, end: Optional[str] = None
+        self,
+        symbol: str,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        force_refresh: bool = False,
     ) -> List[Dict[str, Any]]:
         """Retrieve daily OHLCV candlestick data."""
         endpoint = f"/daily/{symbol.upper()}/"
@@ -189,72 +214,76 @@ class SectorsAPIClient:
             params["start"] = start
         if end:
             params["end"] = end
-        # Historical candlestick data is permanently cached (ttl=None)
-        raw = self._request(endpoint, params, ttl_seconds=None)
+        # Historical candlestick data is cached; force_refresh bypasses cache
+        raw = self._request(endpoint, params, ttl_seconds=None, force_refresh=force_refresh)
         return self._normalize_list_response(raw)
 
     def get_company_report(
-        self, symbol: str, sections: str = "valuation,financials,peers"
+        self, symbol: str, sections: str = "valuation,financials,peers", force_refresh: bool = False
     ) -> Dict[str, Any]:
         """Fetch company fundamental report (cached for 24 hours)."""
         endpoint = f"/company/report/{symbol.upper()}/"
         params = {"sections": sections}
-        res = self._request(endpoint, params, ttl_seconds=86400)
+        res = self._request(endpoint, params, ttl_seconds=86400, force_refresh=force_refresh)
         return res if isinstance(res, dict) else {}
 
-    def get_foreign_flow(self, symbol: str) -> List[Dict[str, Any]]:
+    def get_foreign_flow(self, symbol: str, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Retrieve Foreign Flow Net Inflow data."""
         endpoint = f"/foreign-flow/{symbol.upper()}/"
-        raw = self._request(endpoint, ttl_seconds=86400)
+        raw = self._request(endpoint, ttl_seconds=86400, force_refresh=force_refresh)
         return self._normalize_list_response(raw)
 
-    def get_news(self, symbol: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_news(self, symbol: Optional[str] = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Fetch curated financial news."""
         endpoint = "/news/"
         params: Dict[str, Any] = {}
         if symbol:
             clean = symbol.upper()
             params = {"symbol": clean, "ticker": clean}
-        raw = self._request(endpoint, params, ttl_seconds=3600)
+        raw = self._request(endpoint, params, ttl_seconds=3600, force_refresh=force_refresh)
         return self._normalize_list_response(raw)
 
-    def get_suspensions(self, symbol: str) -> List[Dict[str, Any]]:
+    def get_suspensions(self, symbol: str, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Fetch exchange suspension and UMA notices with official PDF links."""
         endpoint = "/suspensions/"
         params = {"symbol": symbol.upper()}
-        raw = self._request(endpoint, params, ttl_seconds=86400)
+        raw = self._request(endpoint, params, ttl_seconds=86400, force_refresh=force_refresh)
         return self._normalize_list_response(raw)
 
-    def get_corporate_actions(self, symbol: str) -> List[Dict[str, Any]]:
+    def get_corporate_actions(self, symbol: str, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Fetch scheduled corporate actions (dividends, splits, rights issue)."""
         endpoint = f"/corporate-actions/{symbol.upper()}/"
-        raw = self._request(endpoint, ttl_seconds=86400)
+        raw = self._request(endpoint, ttl_seconds=86400, force_refresh=force_refresh)
         return self._normalize_list_response(raw)
 
-    def get_filings(self, symbol: str) -> List[Dict[str, Any]]:
+    def get_filings(self, symbol: str, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Fetch insider trading and substantial shareholder filings."""
         endpoint = "/filings/"
         params = {"symbol": symbol.upper()}
-        raw = self._request(endpoint, params, ttl_seconds=86400)
+        raw = self._request(endpoint, params, ttl_seconds=86400, force_refresh=force_refresh)
         return self._normalize_list_response(raw)
 
-    def get_broker_summary(self, symbol: str) -> Dict[str, Any]:
+    def get_broker_summary(self, symbol: str, force_refresh: bool = False) -> Dict[str, Any]:
         """Fetch top broker accumulation and distribution summary."""
         endpoint = f"/broker-summary-top/{symbol.upper()}/"
-        return self._request(endpoint, ttl_seconds=86400)
+        return self._request(endpoint, ttl_seconds=86400, force_refresh=force_refresh)
 
-    def get_subsector_peers(self, subsector: str) -> Dict[str, Any]:
+    def get_subsector_peers(self, subsector: str, force_refresh: bool = False) -> Dict[str, Any]:
         """Fetch industrial subsector peers and valuation benchmarks."""
         endpoint = f"/subsector/{subsector.lower()}/"
-        return self._request(endpoint, ttl_seconds=604800)
+        return self._request(endpoint, ttl_seconds=604800, force_refresh=force_refresh)
 
-    def get_mining_detail(self, slug: str) -> Dict[str, Any]:
+    def get_mining_detail(self, slug: str, force_refresh: bool = False) -> Dict[str, Any]:
         """Fetch operational mining concession and smelter details."""
         endpoint = f"/mining-company-detail/{slug.lower()}/"
-        return self._request(endpoint, ttl_seconds=2592000)
+        return self._request(endpoint, ttl_seconds=2592000, force_refresh=force_refresh)
 
     def get_commodity_price(
-        self, commodity: str, start_year: Optional[int] = None, end_year: Optional[int] = None
+        self,
+        commodity: str,
+        start_year: Optional[int] = None,
+        end_year: Optional[int] = None,
+        force_refresh: bool = False,
     ) -> List[Dict[str, Any]]:
         """Fetch historical commodity spot benchmark prices (e.g. nickel, coal, gold)."""
         endpoint = f"/commodity-price/{commodity.lower()}/"
@@ -263,25 +292,25 @@ class SectorsAPIClient:
             params["start_year"] = start_year
         if end_year:
             params["end_year"] = end_year
-        return self._request(endpoint, params, ttl_seconds=604800)
+        return self._request(endpoint, params, ttl_seconds=604800, force_refresh=force_refresh)
 
     def get_quarterly_financials(
-        self, symbol: str, report_date: Optional[str] = None
+        self, symbol: str, report_date: Optional[str] = None, force_refresh: bool = False
     ) -> List[Dict[str, Any]]:
         """Fetch quarterly financial reports and balance sheet line items."""
         endpoint = f"/quarterly-financials/{symbol.upper()}/"
         params = {"report_date": report_date} if report_date else {}
-        return self._request(endpoint, params, ttl_seconds=2592000)
+        return self._request(endpoint, params, ttl_seconds=2592000, force_refresh=force_refresh)
 
-    def get_broker_registry(self) -> List[Dict[str, Any]]:
+    def get_broker_registry(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Fetch IDX broker directory with domicile (foreign/domestic) and cohort (retail/institution)."""
         endpoint = "/broker-registry/"
-        return self._request(endpoint, ttl_seconds=2592000)
+        return self._request(endpoint, ttl_seconds=2592000, force_refresh=force_refresh)
 
-    def get_subsectors(self) -> List[Dict[str, Any]]:
+    def get_subsectors(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Fetch complete list of official IDX sectors and subsectors."""
         endpoint = "/subsectors/"
-        return self._request(endpoint, ttl_seconds=2592000)
+        return self._request(endpoint, ttl_seconds=2592000, force_refresh=force_refresh)
 
     def _generate_mock_data(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Any:
         """Generate realistic mock data fixtures for offline development and CI tests."""
