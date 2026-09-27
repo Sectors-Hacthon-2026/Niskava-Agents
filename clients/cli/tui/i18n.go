@@ -682,8 +682,32 @@ var TUIStrings = map[string]map[string]string{
 		"id": "💬 PILIH SESI CHAT UNTUK DILANJUTKAN",
 	},
 	"session_selector_hint": {
-		"en": "[↑/↓/j/k Nav  •  Type to Filter  •  Enter Select  •  Esc Clear/Back]",
-		"id": "[↑/↓/j/k Navigasi  •  Ketik untuk Filter  •  Enter Pilih  •  Esc Batal]",
+		"en": "[↑/↓ Nav  •  Ctrl+P Pin  •  Ctrl+D Delete  •  Ctrl+E Export  •  Ctrl+Y Copy  •  Enter Load  •  Esc Back]",
+		"id": "[↑/↓ Navigasi  •  Ctrl+P Pin  •  Ctrl+D Hapus  •  Ctrl+E Ekspor  •  Ctrl+Y Salin  •  Enter Buka  •  Esc Batal]",
+	},
+	"session_selector_delete_confirm": {
+		"en": "⚠️  DELETE SESSION: Are you sure you want to delete session '%s'? [y/N]",
+		"id": "⚠️  HAPUS SESI: Apakah Anda yakin ingin menghapus sesi '%s'? [y/N]",
+	},
+	"session_selector_export_title": {
+		"en": "📥 EXPORT SESSION TRANSCRIPT",
+		"id": "📥 EKSPOR TRANSKRIP SESI",
+	},
+	"session_selector_exported_notice": {
+		"en": "✅ Session exported successfully to %s",
+		"id": "✅ Sesi berhasil diekspor ke %s",
+	},
+	"session_selector_copied_notice": {
+		"en": "📋 Summary copied to system clipboard!",
+		"id": "📋 Ringkasan berhasil disalin ke clipboard!",
+	},
+	"session_selector_pinned_notice": {
+		"en": "📌 Session pinned to top of list",
+		"id": "📌 Sesi disematkan di posisi paling atas",
+	},
+	"session_selector_unpinned_notice": {
+		"en": "📌 Session unpinned",
+		"id": "📌 Sematan sesi dilepas",
 	},
 	"session_selector_empty": {
 		"en": "No previous chat sessions found in local SQLite database.",
