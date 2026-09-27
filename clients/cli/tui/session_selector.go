@@ -153,9 +153,10 @@ func ExportSessionTranscript(appDB *db.DB, session *db.ChatSession, formatIndex 
 	}
 
 	ext := "md"
-	if formatIndex == 1 {
+	switch formatIndex {
+	case 1:
 		ext = "json"
-	} else if formatIndex == 2 {
+	case 2:
 		ext = "txt"
 	}
 
@@ -445,7 +446,8 @@ func (m SessionSelectorModel) View() string {
 	var b strings.Builder
 
 	title := T("session_selector_title")
-	b.WriteString(sessionTitleStyle.Render(title) + "\n\n")
+	b.WriteString(sessionTitleStyle.Render(title))
+	b.WriteString("\n\n")
 
 	// Render confirmation delete dialog if active
 	if m.ConfirmDelete && m.DeleteTarget != nil {
@@ -496,7 +498,8 @@ func (m SessionSelectorModel) View() string {
 
 	// Render temporary status notice message if active
 	if m.StatusNotice != "" && time.Since(m.StatusNoticeTime) <= 4*time.Second {
-		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(m.StatusNotice) + "\n\n")
+		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(m.StatusNotice))
+		b.WriteString("\n\n")
 	}
 
 	// Always render visible search/filter bar box
@@ -510,15 +513,18 @@ func (m SessionSelectorModel) View() string {
 	}
 
 	searchBar := fmt.Sprintf("🔍 Filter: [ %s ] (%d/%d)", searchVal, totalFiltered, totalAll)
-	b.WriteString(searchBar + "\n\n")
+	b.WriteString(searchBar)
+	b.WriteString("\n\n")
 
 	if totalAll == 0 {
-		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("session_selector_empty")) + "\n")
+		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("session_selector_empty")))
+		b.WriteString("\n")
 		return "\n" + sessionBoxStyle.Render(b.String()) + "\n"
 	}
 
 	if totalFiltered == 0 {
-		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("session_selector_no_match")) + "\n")
+		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("session_selector_no_match")))
+		b.WriteString("\n")
 		return "\n" + sessionBoxStyle.Render(b.String()) + "\n"
 	}
 
@@ -535,7 +541,8 @@ func (m SessionSelectorModel) View() string {
 	}
 
 	if totalFiltered > maxVisible {
-		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(TF("session_selector_showing", windowStart+1, windowEnd, totalFiltered)) + "\n\n")
+		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(TF("session_selector_showing", windowStart+1, windowEnd, totalFiltered)))
+		b.WriteString("\n\n")
 	}
 
 	for i := windowStart; i < windowEnd; i++ {
@@ -571,15 +578,22 @@ func (m SessionSelectorModel) View() string {
 		previewLine := fmt.Sprintf("    ↳ %s", preview)
 
 		if i == m.Cursor {
-			b.WriteString(sessionCursorStyle.Render("> ") + sessionActiveStyle.Render(lineTitle) + "\n")
-			b.WriteString(lipgloss.NewStyle().Foreground(ColorAccent).Render(previewLine) + "\n")
+			b.WriteString(sessionCursorStyle.Render("> "))
+			b.WriteString(sessionActiveStyle.Render(lineTitle))
+			b.WriteString("\n")
+			b.WriteString(lipgloss.NewStyle().Foreground(ColorAccent).Render(previewLine))
+			b.WriteString("\n")
 		} else {
-			b.WriteString("  " + lipgloss.NewStyle().Foreground(ColorFg).Render(lineTitle) + "\n")
-			b.WriteString(sessionMetaStyle.Render(previewLine) + "\n")
+			b.WriteString("  ")
+			b.WriteString(lipgloss.NewStyle().Foreground(ColorFg).Render(lineTitle))
+			b.WriteString("\n")
+			b.WriteString(sessionMetaStyle.Render(previewLine))
+			b.WriteString("\n")
 		}
 	}
 
-	b.WriteString("\n" + lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(T("session_selector_hint")))
+	b.WriteString("\n")
+	b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(T("session_selector_hint")))
 
 	return "\n" + sessionBoxStyle.Render(b.String()) + "\n"
 }

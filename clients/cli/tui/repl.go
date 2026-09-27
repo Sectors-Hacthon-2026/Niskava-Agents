@@ -113,10 +113,6 @@ func ParseTimeoutCommand(input string) (float64, bool) {
 	return secs, true
 }
 
-func getDefaultSlashCommands() []SlashCommand {
-	return GetLocalizedSlashCommands()
-}
-
 // ReplInputModel is the Bubbletea interactive text input model with OpenCode-style slash popup and prompt history navigation.
 type ReplInputModel struct {
 	TextInput        textinput.Model
@@ -295,7 +291,9 @@ func (m ReplInputModel) View() string {
 	var b strings.Builder
 
 	// Render input prompt box
-	b.WriteString("\n" + m.TextInput.View() + "\n")
+	b.WriteString("\n")
+	b.WriteString(m.TextInput.View())
+	b.WriteString("\n")
 
 	// Render long prompt drafting character counter indicator if input is long (>50 chars)
 	val := strings.TrimSpace(m.TextInput.Value())
@@ -304,13 +302,15 @@ func (m ReplInputModel) View() string {
 			Foreground(ColorMuted).
 			Italic(true).
 			Render(fmt.Sprintf("  ✍️  Long Prompt Active (%d chars) • [Enter to execute, Esc to clear]", len(val)))
-		b.WriteString(countPill + "\n")
+		b.WriteString(countPill)
+		b.WriteString("\n")
 	}
 
 	// Render double-press exit warning hint if active
 	if m.ExitWarning && !m.LastExitTime.IsZero() && time.Since(m.LastExitTime) <= 2*time.Second {
 		warningStr := lipgloss.NewStyle().Bold(true).Foreground(ColorWarning).Render(T("repl_exit_confirm"))
-		b.WriteString(warningStr + "\n")
+		b.WriteString(warningStr)
+		b.WriteString("\n")
 	}
 
 	// Render OpenCode-style Slash Autocomplete Popup Box when slash active
@@ -356,7 +356,8 @@ func (m ReplInputModel) View() string {
 			}
 		}
 
-		b.WriteString(boxStyle.Render(strings.Join(popupLines, "\n")) + "\n")
+		b.WriteString(boxStyle.Render(strings.Join(popupLines, "\n")))
+		b.WriteString("\n")
 	}
 
 	return b.String()
@@ -377,10 +378,11 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 	fmt.Println(divider)
 
 	for _, msg := range history {
-		if msg.Role == "user" {
+		switch msg.Role {
+		case "user":
 			userBox := userBubbleStyle.Render(TF("repl_user_label", msg.Content))
 			fmt.Println(userBox)
-		} else if msg.Role == "assistant" {
+		case "assistant":
 			fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(T("repl_agent_label")))
 			renderFinalMarkdown(msg.Content)
 		}
@@ -548,9 +550,10 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 				sb.WriteString(fmt.Sprintf("- **Date:** `%s`\n", time.Now().Format("2006-01-02 15:04:05 MST")))
 				sb.WriteString(fmt.Sprintf("- **Model:** `%s`\n\n---\n\n", modelLabel))
 				for _, m := range history {
-					if m.Role == "user" {
+					switch m.Role {
+					case "user":
 						sb.WriteString(fmt.Sprintf("%s\n> %s\n\n", T("slash_export_user_prompt"), m.Content))
-					} else if m.Role == "assistant" {
+					case "assistant":
 						sb.WriteString(fmt.Sprintf("%s\n%s\n\n---\n\n", T("slash_export_findings"), m.Content))
 					}
 				}
@@ -1082,11 +1085,11 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 
 			case ipc.EventFindingEmitted:
 				fmt.Print("\r\033[K")
-				totalFindings++
 				badge := supportedBadgeStyle.Render("[SUPPORTED]")
-				if ev.VerificationStat == "UNCERTAIN" {
+				switch ev.VerificationStat {
+				case "UNCERTAIN":
 					badge = uncertainBadgeStyle.Render("[UNCERTAIN]")
-				} else if ev.VerificationStat == "CONTRADICTED" {
+				case "CONTRADICTED":
 					badge = contradictedBadgeStyle.Render("[CONTRADICTED]")
 				}
 				fmt.Printf("\n%s %s (Confidence: %.0f%%)\n", badge, lipgloss.NewStyle().Bold(true).Render(ev.Title), ev.ConfidenceScore*100)

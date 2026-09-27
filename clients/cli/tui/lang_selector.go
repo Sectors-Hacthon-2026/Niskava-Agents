@@ -110,7 +110,8 @@ func (m LangSelectorModel) View() string {
 	var b strings.Builder
 
 	title := T("lang_selector_title")
-	b.WriteString(langTitleStyle.Render(title) + "\n\n")
+	b.WriteString(langTitleStyle.Render(title))
+	b.WriteString("\n\n")
 
 	for i, l := range m.Languages {
 		shortcut := fmt.Sprintf("[%d]", i+1)
@@ -121,13 +122,18 @@ func (m LangSelectorModel) View() string {
 		}
 
 		if i == m.Cursor {
-			b.WriteString(langCursorStyle.Render("▶ ") + lipgloss.NewStyle().Bold(true).Foreground(ColorFg).Render(lineStr) + "\n")
+			b.WriteString(langCursorStyle.Render("▶ "))
+			b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(ColorFg).Render(lineStr))
+			b.WriteString("\n")
 		} else {
-			b.WriteString("  " + lipgloss.NewStyle().Foreground(ColorMuted).Render(lineStr) + "\n")
+			b.WriteString("  ")
+			b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(lineStr))
+			b.WriteString("\n")
 		}
 	}
 
-	b.WriteString("\n" + lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(T("lang_selector_hint")))
+	b.WriteString("\n")
+	b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(T("lang_selector_hint")))
 
 	return "\n" + langBoxStyle.Render(b.String()) + "\n"
 }

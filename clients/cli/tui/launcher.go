@@ -37,7 +37,6 @@ var (
 	colorPrdDarkGreen   = lipgloss.Color("#1E2329") // Dark Slate
 	colorPrdWhite       = lipgloss.Color("#FFFFFF") // Pure White
 	colorPrdLightGray   = lipgloss.Color("#848E9C") // Muted Slate Gray
-	colorPrdDimGray     = lipgloss.Color("#848E9C") // Dimmed Slate Gray
 	colorPrdStatusOK    = lipgloss.Color("#0ECB81") // Financial Green OK
 	colorPrdStatusErr   = lipgloss.Color("#F6465D") // Financial Red Error
 
@@ -204,26 +203,37 @@ func (m LauncherModel) View() string {
 
 	for _, line := range asciiLines {
 		if noColor {
-			b.WriteString(line + "\n")
+			b.WriteString(line)
+			b.WriteString("\n")
 		} else {
-			b.WriteString(bannerStyle.Render(line) + "\n")
+			b.WriteString(bannerStyle.Render(line))
+			b.WriteString("\n")
 		}
 	}
 
 	tagline := T("launcher_tagline")
 	if noColor {
-		b.WriteString("  " + tagline + "\n")
+		b.WriteString("  ")
+		b.WriteString(tagline)
+		b.WriteString("\n")
 	} else {
-		b.WriteString("  " + taglineStyle.Render(tagline) + "\n")
+		b.WriteString("  ")
+		b.WriteString(taglineStyle.Render(tagline))
+		b.WriteString("\n")
 	}
 
 	// 2. Solid Muted Green Separator
 	sepWidth := 78
 	solidLine := strings.Repeat("─", sepWidth)
 	if noColor {
-		b.WriteString("  " + solidLine + "\n")
+		b.WriteString("  ")
+		b.WriteString(solidLine)
+		b.WriteString("\n")
 	} else {
-		b.WriteString("  " + accentBarStyle.Render("▍") + separatorLineStyle.Render(solidLine) + "\n")
+		b.WriteString("  ")
+		b.WriteString(accentBarStyle.Render("▍"))
+		b.WriteString(separatorLineStyle.Render(solidLine))
+		b.WriteString("\n")
 	}
 
 	// 3. Compact Menu Items List (Only active item displays description to fit within 24-line terminal)
@@ -257,9 +267,14 @@ func (m LauncherModel) View() string {
 
 	// 4. Solid Separator Line before Status Bar
 	if noColor {
-		b.WriteString("  " + solidLine + "\n")
+		b.WriteString("  ")
+		b.WriteString(solidLine)
+		b.WriteString("\n")
 	} else {
-		b.WriteString("  " + accentBarStyle.Render("▍") + separatorLineStyle.Render(solidLine) + "\n")
+		b.WriteString("  ")
+		b.WriteString(accentBarStyle.Render("▍"))
+		b.WriteString(separatorLineStyle.Render(solidLine))
+		b.WriteString("\n")
 	}
 
 	// 5. Persistent Status Bar
@@ -301,9 +316,11 @@ func (m LauncherModel) View() string {
 	)
 
 	if noColor {
-		b.WriteString(statusContent + "\n")
+		b.WriteString(statusContent)
+		b.WriteString("\n")
 	} else {
-		b.WriteString(statusBarBgStyle.Render(statusContent) + "\n")
+		b.WriteString(statusBarBgStyle.Render(statusContent))
+		b.WriteString("\n")
 	}
 
 	return b.String()

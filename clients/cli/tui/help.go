@@ -37,11 +37,14 @@ func GetFullHelpGuideString() string {
 
 	var b strings.Builder
 
-	b.WriteString(RenderConstellationLine(85) + "\n")
+	b.WriteString(RenderConstellationLine(85))
+	b.WriteString("\n")
 	b.WriteString(fmt.Sprintf(" %s\n", headerStyle.Render(T("help_full_title"))))
-	b.WriteString(RenderConstellationLine(85) + "\n\n")
+	b.WriteString(RenderConstellationLine(85))
+	b.WriteString("\n\n")
 
-	b.WriteString(sectionStyle.Render(T("help_sec1_title")) + "\n")
+	b.WriteString(sectionStyle.Render(T("help_sec1_title")))
+	b.WriteString("\n")
 	b.WriteString(fmt.Sprintf("   • %s : %s\n", keyStyle.Render("[Up/Down ↑/↓] or [k/j]"), T("help_sec1_updown")))
 	b.WriteString(fmt.Sprintf("   • %s          : %s\n", keyStyle.Render("[Enter]"), T("help_sec1_enter")))
 	b.WriteString(fmt.Sprintf("   • %s        : %s\n", keyStyle.Render("Direct Hotkeys"), T("help_sec1_hotkeys")))
@@ -54,14 +57,16 @@ func GetFullHelpGuideString() string {
 	b.WriteString(fmt.Sprintf("     - %s : %s\n", keyStyle.Render("[Q] / [7]"), T("help_sec1_key_q")))
 	b.WriteString(fmt.Sprintf("     - %s : %s\n\n", keyStyle.Render("[E] / [8]"), T("help_sec1_key_e")))
 
-	b.WriteString(sectionStyle.Render(T("help_sec2_title")) + "\n")
+	b.WriteString(sectionStyle.Render(T("help_sec2_title")))
+	b.WriteString("\n")
 	b.WriteString(fmt.Sprintf("   • %s:\n     %s\n", descStyle.Render("[W] Web UI Workspace"), T("help_sec2_web_desc")))
 	b.WriteString(fmt.Sprintf("   • %s:\n     %s\n", descStyle.Render("[T] Terminal UI (REPL)"), T("help_sec2_term_desc")))
 	b.WriteString(fmt.Sprintf("   • %s:\n     %s\n", descStyle.Render("[S] Session History"), T("help_sec2_sessions_desc")))
 	b.WriteString(fmt.Sprintf("   • %s:\n     %s\n", descStyle.Render("[C] Health Check"), T("help_sec2_health_desc")))
 	b.WriteString(fmt.Sprintf("   • %s:\n\n     %s\n", descStyle.Render("[Q] Quick Setup Wizard"), T("help_sec2_setup_desc")))
 
-	b.WriteString(sectionStyle.Render(T("help_sec3_title")) + "\n")
+	b.WriteString(sectionStyle.Render(T("help_sec3_title")))
+	b.WriteString("\n")
 	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/help"), T("slash_help_desc")))
 	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/chats"), T("slash_chats_desc")))
 	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/resume <id>"), T("slash_resume_desc")))
@@ -82,7 +87,8 @@ func GetFullHelpGuideString() string {
 	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/lang"), T("slash_lang_desc")))
 	b.WriteString(fmt.Sprintf("   • %-20s : %s\n\n", cmdStyle.Render("/exit, quit"), T("slash_exit_desc")))
 
-	b.WriteString(sectionStyle.Render(T("help_sec4_title")) + "\n")
+	b.WriteString(sectionStyle.Render(T("help_sec4_title")))
+	b.WriteString("\n")
 	b.WriteString(fmt.Sprintf("   • %s : Launch interactive REPL directly (aliases: repl, chat).\n", mutedStyle.Render("niskava terminal [flags]")))
 	b.WriteString(fmt.Sprintf("   • %s : Run audit & open live REPL pre-focused on ticker.\n", mutedStyle.Render("niskava investigate <TICKER> -i")))
 	b.WriteString(fmt.Sprintf("   • %s : Single-line headless 7-stage investigation.\n", mutedStyle.Render("niskava investigate <TICKER> --days 30")))
@@ -97,7 +103,8 @@ func GetFullHelpGuideString() string {
 	b.WriteString(fmt.Sprintf("   • %s : Export Knowledge Graph HTML.\n", mutedStyle.Render("niskava graph --open")))
 	b.WriteString(fmt.Sprintf("   • %s : Generate shell autocompletion script.\n\n", mutedStyle.Render("niskava completion [bash|zsh|fish|powershell]")))
 
-	b.WriteString(RenderConstellationLine(85) + "\n")
+	b.WriteString(RenderConstellationLine(85))
+	b.WriteString("\n")
 
 	return b.String()
 }
