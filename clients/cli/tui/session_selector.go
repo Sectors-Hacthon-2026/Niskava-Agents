@@ -231,6 +231,10 @@ func ExportSessionTranscript(appDB *db.DB, session *db.ChatSession, formatIndex 
 	return outPath, nil
 }
 
+func isControlRune(msg tea.KeyMsg, asciiCode rune) bool {
+	return len(msg.Runes) == 1 && msg.Runes[0] == asciiCode
+}
+
 func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	filtered := m.getFilteredSessions()
 
@@ -238,10 +242,17 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		k := strings.ToLower(msg.String())
 
+		isCtrlC := msg.Type == tea.KeyCtrlC || k == "ctrl+c"
+		isCtrlD := msg.Type == tea.KeyCtrlD || k == "ctrl+d" || isControlRune(msg, 4)
+		isCtrlP := msg.Type == tea.KeyCtrlP || k == "ctrl+p" || isControlRune(msg, 16)
+		isCtrlE := msg.Type == tea.KeyCtrlE || k == "ctrl+e" || isControlRune(msg, 5)
+		isCtrlY := msg.Type == tea.KeyCtrlY || k == "ctrl+y" || isControlRune(msg, 25)
+		isEsc := msg.Type == tea.KeyEsc || k == "esc"
+		isDelete := msg.Type == tea.KeyDelete || k == "delete"
+
 		// Mode A: Confirmation Delete Dialog Active
 		if m.ConfirmDelete {
-			switch k {
-			case "y":
+			if k == "y" {
 				if m.DeleteTarget != nil {
 					targetID := m.DeleteTarget.ID
 					if m.AppDB != nil {
@@ -262,8 +273,7 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.DeleteTarget = nil
 				m.Cursor = 0
 				return m, nil
-
-			case "n", "esc":
+			} else if k == "n" || isEsc {
 				m.ConfirmDelete = false
 				m.DeleteTarget = nil
 				return m, nil
@@ -273,24 +283,21 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Mode B: Interactive Export Modal Dialog Active
 		if m.ExportModalActive {
-			switch k {
-			case "up", "k":
+			if msg.Type == tea.KeyUp || k == "up" || k == "k" {
 				if m.ExportFormatIndex > 0 {
 					m.ExportFormatIndex--
 				} else {
 					m.ExportFormatIndex = 2
 				}
 				return m, nil
-
-			case "down", "j":
+			} else if msg.Type == tea.KeyDown || k == "down" || k == "j" {
 				if m.ExportFormatIndex < 2 {
 					m.ExportFormatIndex++
 				} else {
 					m.ExportFormatIndex = 0
 				}
 				return m, nil
-
-			case "enter":
+			} else if msg.Type == tea.KeyEnter || k == "enter" {
 				if len(filtered) > 0 && m.Cursor >= 0 && m.Cursor < len(filtered) {
 					target := filtered[m.Cursor]
 					outPath, err := ExportSessionTranscript(m.AppDB, &target, m.ExportFormatIndex)
@@ -303,8 +310,7 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.ExportModalActive = false
 				return m, nil
-
-			case "esc":
+			} else if isEsc {
 				m.ExportModalActive = false
 				return m, nil
 			}
@@ -312,8 +318,7 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Mode C: Normal Session Selector Navigation & Hotkeys
-		switch k {
-		case "esc", "ctrl+c":
+		if isEsc || isCtrlC {
 			if m.FilterQuery != "" {
 				m.FilterQuery = ""
 				m.Cursor = 0
@@ -321,16 +326,19 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.Canceled = true
 			return m, tea.Quit
+		}
 
-		case "ctrl+d", "delete":
+		if isCtrlD || isDelete {
 			if len(filtered) > 0 && m.Cursor >= 0 && m.Cursor < len(filtered) {
 				target := filtered[m.Cursor]
 				m.DeleteTarget = &target
 				m.ConfirmDelete = true
 				return m, nil
 			}
+			return m, nil
+		}
 
-		case "ctrl+p":
+		if isCtrlP {
 			if len(filtered) > 0 && m.Cursor >= 0 && m.Cursor < len(filtered) {
 				target := filtered[m.Cursor]
 				newPinned := !target.IsPinned
@@ -353,14 +361,18 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.StatusNoticeTime = time.Now()
 				return m, nil
 			}
+			return m, nil
+		}
 
-		case "ctrl+e":
+		if isCtrlE {
 			if len(filtered) > 0 && m.Cursor >= 0 && m.Cursor < len(filtered) {
 				m.ExportModalActive = true
 				return m, nil
 			}
+			return m, nil
+		}
 
-		case "ctrl+y":
+		if isCtrlY {
 			if len(filtered) > 0 && m.Cursor >= 0 && m.Cursor < len(filtered) {
 				target := filtered[m.Cursor]
 				textToCopy := fmt.Sprintf("[%s] %s\nSummary: %s", target.ID, target.Title, target.LastMessagePreview)
@@ -372,37 +384,53 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.StatusNoticeTime = time.Now()
 				return m, nil
 			}
+			return m, nil
+		}
 
-		case "up", "k":
+		if msg.Type == tea.KeyUp || k == "up" || (m.FilterQuery == "" && k == "k") {
 			if m.Cursor > 0 {
 				m.Cursor--
 			} else if len(filtered) > 0 {
 				m.Cursor = len(filtered) - 1
 			}
+			return m, nil
+		}
 
-		case "down", "j":
+		if msg.Type == tea.KeyDown || k == "down" || (m.FilterQuery == "" && k == "j") {
 			if m.Cursor < len(filtered)-1 {
 				m.Cursor++
 			} else {
 				m.Cursor = 0
 			}
+			return m, nil
+		}
 
-		case "backspace":
+		if msg.Type == tea.KeyBackspace || k == "backspace" {
 			if len(m.FilterQuery) > 0 {
 				m.FilterQuery = m.FilterQuery[:len(m.FilterQuery)-1]
 				m.Cursor = 0
 			}
+			return m, nil
+		}
 
-		case "enter":
+		if msg.Type == tea.KeyEnter || k == "enter" {
 			if len(filtered) > 0 && m.Cursor >= 0 && m.Cursor < len(filtered) {
 				selected := filtered[m.Cursor]
 				m.SelectedSession = &selected
 			}
 			return m, tea.Quit
+		}
 
-		default:
-			if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
-				m.FilterQuery += string(msg.Runes)
+		// Strictly filter text input: Only append printable runes (rune >= 32 and rune != 127)
+		if len(msg.Runes) > 0 {
+			hasPrintable := false
+			for _, r := range msg.Runes {
+				if r >= 32 && r != 127 {
+					m.FilterQuery += string(r)
+					hasPrintable = true
+				}
+			}
+			if hasPrintable {
 				m.Cursor = 0
 			}
 		}

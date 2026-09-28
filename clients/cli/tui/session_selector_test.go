@@ -222,3 +222,39 @@ func TestExportSessionTranscript(t *testing.T) {
 		t.Fatalf("expected .json extension, got %s", jsonPath)
 	}
 }
+
+func TestControlKeysDoNotCorruptFilterQuery(t *testing.T) {
+	sessions := []db.ChatSession{
+		{ID: "CHAT-001", Title: "Riset Saham ANTM"},
+	}
+	model := NewSessionSelectorModel(sessions)
+
+	// Simulate Ctrl+P keypress with rune 16
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlP, Runes: []rune{16}})
+	m := updated.(SessionSelectorModel)
+
+	if m.FilterQuery != "" {
+		t.Fatalf("expected FilterQuery to remain empty after Ctrl+P, got: %q", m.FilterQuery)
+	}
+
+	// Simulate Ctrl+D keypress with rune 4
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyCtrlD, Runes: []rune{4}})
+	m = updated.(SessionSelectorModel)
+
+	if m.FilterQuery != "" {
+		t.Fatalf("expected FilterQuery to remain empty after Ctrl+D, got: %q", m.FilterQuery)
+	}
+
+	// Cancel deletion confirmation dialog so model returns to normal mode
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updated.(SessionSelectorModel)
+
+	// Verify printable typing works
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	m = updated.(SessionSelectorModel)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	m = updated.(SessionSelectorModel)
+	if m.FilterQuery != "an" {
+		t.Fatalf("expected FilterQuery to be 'an', got: %q", m.FilterQuery)
+	}
+}
