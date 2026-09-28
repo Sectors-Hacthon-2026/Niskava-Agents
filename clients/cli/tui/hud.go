@@ -114,7 +114,8 @@ func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 	matrixPattern := matrixDotStyle.Render("· · · · · · · · · · · · · · · ") +
 		statusDotStyle.Render("☉") +
 		matrixDotStyle.Render(" · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · ·")
-	b.WriteString(matrixPattern + "\n")
+	b.WriteString(matrixPattern)
+	b.WriteString("\n")
 
 	// 2. Big Block ASCII Art Banner: NISKAVA
 	asciiBanner := []string{
@@ -127,19 +128,24 @@ func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 	}
 
 	for _, line := range asciiBanner {
-		b.WriteString(hudTitleStyle.Render(line) + "\n")
+		b.WriteString(hudTitleStyle.Render(line))
+		b.WriteString("\n")
 	}
 
 	// 3. Status Dots Indicator
 	b.WriteString("\n")
-	b.WriteString(statusDotStyle.Render("● ● ● ●") + "  " + lipgloss.NewStyle().Foreground(ColorMuted).Render(T("hud_system_online")))
+	b.WriteString(statusDotStyle.Render("● ● ● ●"))
+	b.WriteString("  ")
+	b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("hud_system_online")))
 	b.WriteString("\n\n")
 
 	// 4. Motto Tagline
-	b.WriteString(hudSubtitleStyle.Render("I think, therefore I process.  —  \"Don't just answer questions. Investigate them.\"") + "\n\n")
+	b.WriteString(hudSubtitleStyle.Render("I think, therefore I process.  —  \"Don't just answer questions. Investigate them.\""))
+	b.WriteString("\n\n")
 
 	// 5. Upper Constellation Line
-	b.WriteString(RenderConstellationLine(85) + "\n\n")
+	b.WriteString(RenderConstellationLine(85))
+	b.WriteString("\n\n")
 
 	// 6. Metadata HUD Stats Panel
 	if modelLabel == "" {
@@ -171,14 +177,20 @@ func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 		lblStr := fmt.Sprintf("  %-14s", spec.Label)
 		valStr := spec.Val
 		if spec.IsHL {
-			b.WriteString(labelStyle.Render(lblStr) + valueHighlightStyle.Render(valStr) + "\n")
+			b.WriteString(labelStyle.Render(lblStr))
+			b.WriteString(valueHighlightStyle.Render(valStr))
+			b.WriteString("\n")
 		} else {
-			b.WriteString(labelStyle.Render(lblStr) + valueStyle.Render(valStr) + "\n")
+			b.WriteString(labelStyle.Render(lblStr))
+			b.WriteString(valueStyle.Render(valStr))
+			b.WriteString("\n")
 		}
 	}
 
 	// 7. Lower Constellation Line
-	b.WriteString("\n" + RenderConstellationLine(85) + "\n")
+	b.WriteString("\n")
+	b.WriteString(RenderConstellationLine(85))
+	b.WriteString("\n")
 
 	return b.String()
 }
@@ -341,7 +353,8 @@ func PrintWebWorkspaceLaunchScreen(serverURL string) {
 		Foreground(ColorMuted)
 
 	var b strings.Builder
-	b.WriteString(headerStyle.Render(T("web_launch_title")) + "\n\n")
+	b.WriteString(headerStyle.Render(T("web_launch_title")))
+	b.WriteString("\n\n")
 	b.WriteString(fmt.Sprintf("• %s : %s %s\n", lblStyle.Render(T("web_launch_lbl_status")), statusStyle.Render("[ONLINE]"), mutedStyle.Render("(Go SSE Gateway + React SPA)")))
 	b.WriteString(fmt.Sprintf("• %s : %s\n", lblStyle.Render(T("web_launch_lbl_url")), urlStyle.Render(serverURL)))
 	b.WriteString(fmt.Sprintf("• %s : %s\n", lblStyle.Render(T("web_launch_lbl_features")), valStyle.Render("TradingView Anomaly Markers, ReAct SSE Stream, Evidence Matrix")))

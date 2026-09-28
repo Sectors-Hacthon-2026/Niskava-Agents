@@ -105,6 +105,8 @@ type Model struct {
 	Err            error
 	EventsChan     <-chan ipc.Event
 	ErrChan        <-chan error
+	Width          int
+	Height         int
 }
 
 // NewModel creates an interactive TUI model.
@@ -160,6 +162,11 @@ func (m Model) Init() tea.Cmd {
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.Width = msg.Width
+		m.Height = msg.Height
+		return m, nil
+
 	case tea.KeyMsg:
 		if msg.String() == "q" || msg.String() == "ctrl+c" {
 			return m, tea.Quit
@@ -229,18 +236,21 @@ func (m Model) View() string {
 	b.WriteString(T("target_label"))
 	b.WriteString(tickerBadgeStyle.Render(m.Ticker))
 	b.WriteString(fmt.Sprintf(T("observation_horizon"), m.Days))
-	b.WriteString(RenderConstellationLine(80) + "\n\n")
+	b.WriteString(RenderConstellationLine(80))
+	b.WriteString("\n\n")
 
 	// 2. Live Thought Stream (ReAct Inner Monologue)
 	if m.CurrentThought != "" {
 		thoughtHeader := lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(T("agent_reasoning"))
 		b.WriteString(fmt.Sprintf("%s\n", thoughtHeader))
-		b.WriteString(thoughtBoxStyle.Render(m.CurrentThought) + "\n\n")
+		b.WriteString(thoughtBoxStyle.Render(m.CurrentThought))
+		b.WriteString("\n\n")
 	}
 
 	// 3. Dynamic Tool Invocations
 	if len(m.ToolActivities) > 0 {
-		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(ColorFg).Render(T("tool_activity")) + "\n")
+		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(ColorFg).Render(T("tool_activity")))
+		b.WriteString("\n")
 		for _, act := range m.ToolActivities {
 			if act.Done {
 				b.WriteString(fmt.Sprintf("  %s %s\n", toolDoneStyle.Render("✔"), lipgloss.NewStyle().Bold(true).Render(act.ToolName)))
@@ -261,13 +271,15 @@ func (m Model) View() string {
 			anomLines = append(anomLines, fmt.Sprintf("• [%s] %s (Z-Score: %.2fσ | Return: %+.2f%%)\n  %s",
 				a.AnomalyDate, a.MetricType, a.ZScore, a.PriceChangePct, a.Description))
 		}
-		b.WriteString(anomalyBoxStyle.Render(fmt.Sprintf("%s\n%s", T("anomaly_detected"), strings.Join(anomLines, "\n"))) + "\n\n")
+		b.WriteString(anomalyBoxStyle.Render(fmt.Sprintf("%s\n%s", T("anomaly_detected"), strings.Join(anomLines, "\n"))))
+		b.WriteString("\n\n")
 	}
 
 	// 5. Findings Section (Audit Trail 3-Tier Taxonomy)
 	if len(m.Findings) > 0 {
 		b.WriteString("─────────────────────────────────────────────────────────────────────────────\n")
-		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(ColorFg).Render(T("audit_trail_summary")) + "\n")
+		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(ColorFg).Render(T("audit_trail_summary")))
+		b.WriteString("\n")
 
 		for _, f := range m.Findings {
 			var badge string
@@ -291,13 +303,15 @@ func (m Model) View() string {
 	// 6. Final Summary
 	if m.Summary != "" {
 		b.WriteString("\n─────────────────────────────────────────────────────────────────────────────\n")
-		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(m.Summary) + "\n")
+		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(m.Summary))
+		b.WriteString("\n")
 	}
 
 	// 7. Non-Advisory Disclaimer Footer (Law 2 / Hackathon Rule 12)
 	b.WriteString("\n")
 	disclaimerText := T("financial_disclaimer")
-	b.WriteString(disclaimerBoxStyle.Render(disclaimerText) + "\n\n")
+	b.WriteString(disclaimerBoxStyle.Render(disclaimerText))
+	b.WriteString("\n\n")
 
 	// 8. Navigation hint
 	if m.SessionID != "" {

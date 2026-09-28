@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -125,5 +126,172 @@ func TestSessionSelectorModel_LiveKeywordFilter(t *testing.T) {
 	view := model.View()
 	if !strings.Contains(view, "bbca") || !strings.Contains(view, "Filter:") {
 		t.Fatalf("expected view to contain filter header with 'bbca', got: %s", view)
+	}
+}
+
+func TestSessionSelectorModel_PinHotkey(t *testing.T) {
+	sessions := []db.ChatSession{
+		{ID: "CHAT-1", Title: "Sesi ANTM", IsPinned: false, UpdatedAt: "2026-09-20T10:00:00Z"},
+		{ID: "CHAT-2", Title: "Sesi BBCA", IsPinned: false, UpdatedAt: "2026-09-21T10:00:00Z"},
+	}
+	model := NewSessionSelectorModel(sessions)
+
+	// Press Ctrl+P on first session
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m := updated.(SessionSelectorModel)
+
+	if !m.Sessions[0].IsPinned {
+		t.Fatalf("expected first session in sorted list to be pinned")
+	}
+	if !strings.Contains(m.View(), "📌") {
+		t.Fatalf("expected view to render pin badge 📌")
+	}
+}
+
+func TestSessionSelectorModel_DeleteConfirmation(t *testing.T) {
+	sessions := []db.ChatSession{
+		{ID: "CHAT-1", Title: "Sesi ANTM"},
+	}
+	model := NewSessionSelectorModel(sessions)
+
+	// Press Ctrl+D to trigger deletion dialog
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlD})
+	m := updated.(SessionSelectorModel)
+
+	if !m.ConfirmDelete {
+		t.Fatalf("expected ConfirmDelete to be true")
+	}
+
+	// Press 'n' to cancel deletion
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	m = updated.(SessionSelectorModel)
+	if m.ConfirmDelete {
+		t.Fatalf("expected ConfirmDelete to be false after 'n'")
+	}
+}
+
+func TestSessionSelectorModel_ExportModal(t *testing.T) {
+	sessions := []db.ChatSession{
+		{ID: "CHAT-1", Title: "Sesi ANTM", LastMessagePreview: "Hasil investigasi ANTM"},
+	}
+	model := NewSessionSelectorModel(sessions)
+
+	// Press Ctrl+E to open export modal
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlE})
+	m := updated.(SessionSelectorModel)
+
+	if !m.ExportModalActive {
+		t.Fatalf("expected ExportModalActive to be true")
+	}
+
+	view := m.View()
+	if !strings.Contains(view, "EXPORT SESSION TRANSCRIPT") {
+		t.Fatalf("expected view to render export modal title")
+	}
+
+	// Press Enter to export
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(SessionSelectorModel)
+	if m.ExportModalActive {
+		t.Fatalf("expected ExportModalActive to be false after Enter")
+	}
+}
+
+func TestExportSessionTranscript(t *testing.T) {
+	session := &db.ChatSession{
+		ID:                 "TEST-EXPORT-001",
+		Title:              "Riset ANTM Export Test",
+		LastMessagePreview: "Hasil pengamatan ANTM",
+		UpdatedAt:          time.Now().Format(time.RFC3339),
+	}
+
+	// Test Markdown export (format 0)
+	mdPath, err := ExportSessionTranscript(nil, session, 0)
+	if err != nil {
+		t.Fatalf("failed to export markdown: %v", err)
+	}
+	if !strings.HasSuffix(mdPath, ".md") {
+		t.Fatalf("expected .md extension, got %s", mdPath)
+	}
+
+	// Test JSON export (format 1)
+	jsonPath, err := ExportSessionTranscript(nil, session, 1)
+	if err != nil {
+		t.Fatalf("failed to export json: %v", err)
+	}
+	if !strings.HasSuffix(jsonPath, ".json") {
+		t.Fatalf("expected .json extension, got %s", jsonPath)
+	}
+}
+
+func TestControlKeysDoNotCorruptFilterQuery(t *testing.T) {
+	sessions := []db.ChatSession{
+		{ID: "CHAT-001", Title: "Riset Saham ANTM"},
+	}
+	model := NewSessionSelectorModel(sessions)
+
+	// Simulate Ctrl+P keypress with rune 16
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlP, Runes: []rune{16}})
+	m := updated.(SessionSelectorModel)
+
+	if m.FilterQuery != "" {
+		t.Fatalf("expected FilterQuery to remain empty after Ctrl+P, got: %q", m.FilterQuery)
+	}
+
+	// Simulate Ctrl+D keypress with rune 4
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyCtrlD, Runes: []rune{4}})
+	m = updated.(SessionSelectorModel)
+
+	if m.FilterQuery != "" {
+		t.Fatalf("expected FilterQuery to remain empty after Ctrl+D, got: %q", m.FilterQuery)
+	}
+
+	// Cancel deletion confirmation dialog so model returns to normal mode
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updated.(SessionSelectorModel)
+
+	// Verify printable typing works
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	m = updated.(SessionSelectorModel)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	m = updated.(SessionSelectorModel)
+	if m.FilterQuery != "an" {
+		t.Fatalf("expected FilterQuery to be 'an', got: %q", m.FilterQuery)
+	}
+}
+
+func TestSessionSelector_PgUpPgDownHomeEnd(t *testing.T) {
+	var sessions []db.ChatSession
+	for i := 1; i <= 10; i++ {
+		sessions = append(sessions, db.ChatSession{ID: fmt.Sprintf("CHAT-%d", i), Title: fmt.Sprintf("Session %d", i)})
+	}
+	model := NewSessionSelectorModel(sessions)
+
+	// End key jumps to last item (index 9)
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	m := updated.(SessionSelectorModel)
+	if m.Cursor != 9 {
+		t.Fatalf("expected cursor at 9 after End key, got %d", m.Cursor)
+	}
+
+	// Home key jumps to first item (index 0)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyHome})
+	m = updated.(SessionSelectorModel)
+	if m.Cursor != 0 {
+		t.Fatalf("expected cursor at 0 after Home key, got %d", m.Cursor)
+	}
+
+	// PgDn key advances cursor by 5
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	m = updated.(SessionSelectorModel)
+	if m.Cursor != 5 {
+		t.Fatalf("expected cursor at 5 after PgDn key, got %d", m.Cursor)
+	}
+
+	// PgUp key rewinds cursor by 5
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m = updated.(SessionSelectorModel)
+	if m.Cursor != 0 {
+		t.Fatalf("expected cursor at 0 after PgUp key, got %d", m.Cursor)
 	}
 }

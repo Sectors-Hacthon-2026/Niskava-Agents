@@ -542,3 +542,127 @@ func TestRenderSessionErrorDoesNotLeakRawANSI(t *testing.T) {
 		t.Errorf("expected SESSION ERROR in rendered card, got: %s", rendered)
 	}
 }
+
+func TestRenderSOPBadge(t *testing.T) {
+	badge01 := RenderSOPBadge("market_anomaly_recon")
+	if !strings.Contains(badge01, "SOP-01") || !strings.Contains(badge01, "market_anomaly_recon") {
+		t.Errorf("expected SOP-01 badge for market_anomaly_recon, got: %s", badge01)
+	}
+
+	badgeQuant := RenderSOPBadge("compute_quant_anomalies")
+	if !strings.Contains(badgeQuant, "NUMPY") {
+		t.Errorf("expected NUMPY badge for compute_quant_anomalies, got: %s", badgeQuant)
+	}
+
+	badgeNews := RenderSOPBadge("harvest_market_news")
+	if !strings.Contains(badgeNews, "NEWS") {
+		t.Errorf("expected NEWS badge for harvest_market_news, got: %s", badgeNews)
+	}
+}
+
+func TestRenderConfidenceBar(t *testing.T) {
+	barSupported := RenderConfidenceBar("SUPPORTED", 0.85)
+	if !strings.Contains(barSupported, "[SUPPORTED]") || !strings.Contains(barSupported, "85%") {
+		t.Errorf("expected [SUPPORTED] 85%% in confidence bar, got: %s", barSupported)
+	}
+
+	barUncertain := RenderConfidenceBar("UNCERTAIN", 0.55)
+	if !strings.Contains(barUncertain, "[UNCERTAIN]") || !strings.Contains(barUncertain, "55%") {
+		t.Errorf("expected [UNCERTAIN] 55%% in confidence bar, got: %s", barUncertain)
+	}
+
+	barContradicted := RenderConfidenceBar("CONTRADICTED", 0.20)
+	if !strings.Contains(barContradicted, "[CONTRADICTED]") || !strings.Contains(barContradicted, "20%") {
+		t.Errorf("expected [CONTRADICTED] 20%% in confidence bar, got: %s", barContradicted)
+	}
+}
+
+func TestReplaceIgnoreCase(t *testing.T) {
+	src := "The ANTM stock volume surge was caused by ANTM dividend news."
+	got := replaceIgnoreCase(src, "ANTM", "[HIGHLIGHT]")
+	if !strings.Contains(got, "[HIGHLIGHT]") {
+		t.Errorf("expected replacement in replaceIgnoreCase, got: %s", got)
+	}
+}
+
+func TestReplInputModelWindowedViewportScrolling(t *testing.T) {
+	model := NewReplInputModel("niskava [hermes] >")
+	model.TextInput.SetValue("/")
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	m := updated.(ReplInputModel)
+
+	if !m.SlashActive {
+		t.Fatalf("expected SlashActive to be true")
+	}
+
+	// Move cursor down 6 times (past maxVisible=5 window)
+	for i := 0; i < 6; i++ {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m = updated.(ReplInputModel)
+	}
+
+	if m.SlashCursor != 6 {
+		t.Errorf("expected SlashCursor to be 6, got %d", m.SlashCursor)
+	}
+	if m.SlashScrollOffset != 2 {
+		t.Errorf("expected SlashScrollOffset to be 2 when cursor is 6, got %d", m.SlashScrollOffset)
+	}
+
+	// Verify rendered view contains compact count header in ID and EN
+	SetLanguage("id")
+	viewStrID := m.View()
+	if !strings.Contains(viewStrID, "PERINTAH SLASH (7 dari") {
+		t.Errorf("expected Indonesian windowed header in view, got: %s", viewStrID)
+	}
+
+	SetLanguage("en")
+	viewStrEN := m.View()
+	if !strings.Contains(viewStrEN, "SLASH COMMANDS (7 of") {
+		t.Errorf("expected English windowed header in view, got: %s", viewStrEN)
+	}
+}
+
+func TestRenderToastPill(t *testing.T) {
+	toast := RenderToastPill("✓ Copied to clipboard!")
+	if !strings.Contains(toast, "Copied to clipboard!") {
+		t.Errorf("expected toast text in RenderToastPill, got: %s", toast)
+	}
+
+	if RenderToastPill("") != "" {
+		t.Errorf("expected empty string for empty toast message")
+	}
+}
+
+func TestSlashPopupJumpKeys(t *testing.T) {
+	model := NewReplInputModelWithHistory("niskava >", nil)
+	model.SlashActive = true
+	model.FilteredCommands = GetLocalizedSlashCommands()
+
+	// End key should jump to last item
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	m := updated.(ReplInputModel)
+	if m.SlashCursor != len(m.FilteredCommands)-1 {
+		t.Fatalf("expected cursor at last item %d, got %d", len(m.FilteredCommands)-1, m.SlashCursor)
+	}
+
+	// Home key should jump to first item
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyHome})
+	m = updated.(ReplInputModel)
+	if m.SlashCursor != 0 {
+		t.Fatalf("expected cursor at 0 after Home key, got %d", m.SlashCursor)
+	}
+
+	// PgDn key should advance cursor by 5
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	m = updated.(ReplInputModel)
+	if m.SlashCursor != 5 {
+		t.Fatalf("expected cursor at 5 after PgDn key, got %d", m.SlashCursor)
+	}
+
+	// PgUp key should rewind cursor back
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m = updated.(ReplInputModel)
+	if m.SlashCursor != 0 {
+		t.Fatalf("expected cursor at 0 after PgUp key, got %d", m.SlashCursor)
+	}
+}
