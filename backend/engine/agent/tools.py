@@ -12,9 +12,10 @@ from typing import Any, Callable, Dict, List, Optional
 
 from engine.memory.graph_memory import LocalGraphMemory
 from engine.quant.anomaly import AnomalyResult, detect_historical_anomalies
-from engine.sectors.client import SectorsAPIClient
+from engine.sectors.client import SectorsAPIClient, SectorsAPIError
 from engine.sectors.news_engine import NewsItem, SectorsNewsEngine
 from engine.skills.registry import SkillsRegistry
+
 
 # Backward compatibility alias
 OSINTItem = NewsItem
@@ -141,21 +142,38 @@ class NiskavaToolRegistry:
             )
 
         client_method = getattr(self.sectors_client, method_name)
+        force_refresh = False
+        if isinstance(params, dict):
+            force_refresh = bool(params.get("force_refresh", False))
 
-        if domain == "subsectors":
-            return client_method()
+        try:
+            kwargs = {}
+            if force_refresh:
+                kwargs["force_refresh"] = True
 
-        # Domains with a non-ticker primary key
-        if domain == "subsector_peers":
-            slug = params.get("subsector", clean_ticker.lower())
-            return client_method(slug)
-        if domain == "mining_detail":
-            slug = params.get("slug", clean_ticker.lower())
-            return client_method(slug)
+            if domain == "subsectors":
+                return client_method(**kwargs)
 
-        return client_method(clean_ticker)
+            # Domains with a non-ticker primary key
+            if domain == "subsector_peers":
+                slug = params.get("subsector", clean_ticker.lower()) if isinstance(params, dict) else clean_ticker.lower()
+                return client_method(slug, **kwargs)
+            if domain == "mining_detail":
+                slug = params.get("slug", clean_ticker.lower()) if isinstance(params, dict) else clean_ticker.lower()
+                return client_method(slug, **kwargs)
 
-    def search_news(self, ticker: str, query: str = "") -> List[Dict[str, Any]]:
+            return client_method(clean_ticker, **kwargs)
+
+        except SectorsAPIError as err:
+            return {
+                "error": True,
+                "error_type": "SECTORS_API_ERROR",
+                "status_code": err.status_code,
+                "message": f"Koneksi Sectors Financial API gagal: {str(err)}. Periksa koneksi internet atau SECTORS_API_KEY di Pengaturan.",
+            }
+
+
+    def search_news(self, ticker: str, query: str = "", force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Universal gateway to the Sectors News and Corporate Disclosure engine.
 
         Fetches curated news and corporate disclosures directly from Sectors
@@ -164,32 +182,43 @@ class NiskavaToolRegistry:
         Args:
             ticker: IDX 4-letter ticker. Pass empty string for general market news.
             query: Optional search keyword or context filter.
+            force_refresh: Whether to bypass cache and fetch latest news.
 
         Returns:
             List of dicts, each with keys: title, source_name, source_url, publication_date, snippet.
         """
         clean_ticker = ticker.upper() if ticker else ""
 
-        if not clean_ticker or clean_ticker in _INDEX_TICKERS:
-            sectors_news = self.sectors_client.get_news(None)
-            items: List[NewsItem] = self.news_harvester.harvest(
-                ticker="IHSG",
-                company_name="Pasar Modal Indonesia",
+        try:
+            if not clean_ticker or clean_ticker in _INDEX_TICKERS:
+                sectors_news = self.sectors_client.get_news(None, force_refresh=force_refresh)
+                items: List[NewsItem] = self.news_harvester.harvest(
+                    ticker="IHSG",
+                    company_name="Pasar Modal Indonesia",
+                    sectors_news_items=sectors_news,
+                    query=query,
+                )
+                return [item.model_dump() for item in items]
+
+            report = self.get_company_fundamentals(clean_ticker)
+            company_name = report.get("company_name", clean_ticker) if isinstance(report, dict) else clean_ticker
+            sectors_news = self.sectors_client.get_news(clean_ticker, force_refresh=force_refresh)
+            items = self.news_harvester.harvest(
+                ticker=clean_ticker,
+                company_name=company_name,
                 sectors_news_items=sectors_news,
                 query=query,
             )
             return [item.model_dump() for item in items]
+        except SectorsAPIError as err:
+            return [{
+                "title": f"Gagal mengambil berita terkini: {str(err)}",
+                "source_name": "Sectors API",
+                "source_url": "",
+                "publication_date": "",
+                "snippet": "Terjadi kendala saat menghubungi Sectors Financial API. Silakan periksa kunci API Anda di Settings.",
+            }]
 
-        report = self.get_company_fundamentals(clean_ticker)
-        company_name = report.get("company_name", clean_ticker)
-        sectors_news = self.sectors_client.get_news(clean_ticker)
-        items = self.news_harvester.harvest(
-            ticker=clean_ticker,
-            company_name=company_name,
-            sectors_news_items=sectors_news,
-            query=query,
-        )
-        return [item.model_dump() for item in items]
 
     # Backward-compatible alias
     search_osint = search_news

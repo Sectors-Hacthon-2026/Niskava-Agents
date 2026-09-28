@@ -1,0 +1,171 @@
+:root, html[data-theme="light"] {
+            --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+
+            /* Light Mode (Anti-Glare Warm Matte): Background #EBE8E1, Surface #EDEAE3, Card #F4F2EB, Text #1C1E1B, Muted #686E67, Gold #FCD535 */
+            --bg-body: #EBE8E1;
+            --bg-sidebar: #EDEAE3;
+            --bg-main: #EBE8E1;
+            --bg-panel: #EDEAE3;
+            --bg-card: #F4F2EB;
+            --bg-card-hover: #E3DFD6;
+            --bg-input: #FAF8F3;
+            --bg-elevated: #F4F2EB;
+
+            --border-subtle: #DCD7CC;
+            --border-strong: #C8C2B5;
+            --border-focus: #FCD535;
+
+            --text-primary: #1C1E1B;
+            --text-secondary: #3B403A;
+            --text-muted: #686E67;
+            --text-faint: #919890;
+
+            --primary: #FCD535;
+            --primary-dark: #1C1E1B;
+            --primary-light: rgba(252, 213, 53, 0.22);
+            --primary-hover: #F0B90B;
+            --primary-text: #1C1E1B;
+            --primary-gradient: linear-gradient(135deg, #FCD535 0%, #F5AC00 100%);
+            --accent-gradient: linear-gradient(135deg, #FCD535 0%, #F0B90B 100%);
+            --code-color: #B45309;
+            --accent-text: #946300;
+
+            --pill-active-bg: rgba(252, 213, 53, 0.25);
+            --pill-active-text: #1C1E1B;
+            --pill-active-border: #E5B80B;
+
+            --badge-green-bg: #E1F5EC;
+            --badge-green-text: #03A66D;
+            --badge-green-border: #9DE4C4;
+
+            --badge-amber-bg: rgba(252, 213, 53, 0.24);
+            --badge-amber-text: #78350F;
+            --badge-amber-border: #E5B80B;
+
+            --badge-red-bg: #FAEBEC;
+            --badge-red-text: #CF304A;
+            --badge-red-border: #F6A8B3;
+
+            --badge-blue-bg: rgba(252, 213, 53, 0.2);
+            --badge-blue-text: #1C1E1B;
+            --badge-blue-border: #E5B80B;
+
+            --badge-purple-bg: #F4EDFA;
+            --badge-purple-text: #6B21A8;
+            --badge-purple-border: #E2CAFB;
+
+            --shadow-subtle: 0 1px 3px rgba(28, 30, 27, 0.06), 0 1px 2px rgba(28, 30, 27, 0.04);
+            --shadow-card: 0 2px 8px rgba(28, 30, 27, 0.06), 0 1px 2px rgba(28, 30, 27, 0.04);
+            --shadow-floating: 0 16px 40px rgba(28, 30, 27, 0.12), 0 4px 12px rgba(28, 30, 27, 0.06);
+            --shadow-composer: 0 12px 32px rgba(28, 30, 27, 0.08);
+
+            --hero-glow: none;
+            --scrollbar-thumb: #C8C2B5;
+            --scrollbar-track: transparent;
+        }
+
+        html[data-theme="dark"] {
+            /* Dark Mode: Background #0A0B0D, Surface #121419, Card #15181D, Text #E7E9E4, Muted #858B87, Gold #FCD535 */
+            --bg-body: #0A0B0D;
+            --bg-sidebar: #0A0B0D;
+            --bg-main: #0A0B0D;
+            --bg-panel: #121419;
+            --bg-card: #15181D;
+            --bg-card-hover: #1C2027;
+            --bg-input: #121419;
+            --bg-elevated: #15181D;
+
+            --border-subtle: #1F232B;
+            --border-strong: #2D323E;
+            --border-focus: #FCD535;
+
+            --text-primary: #E7E9E4;
+            --text-secondary: #CBD0C8;
+            --text-muted: #858B87;
+            --text-faint: #5D635F;
+
+            --primary: #FCD535;
+            --primary-dark: #F0B90B;
+            --primary-light: rgba(252, 213, 53, 0.16);
+            --primary-hover: #F0B90B;
+            --primary-text: #0A0B0D;
+            --primary-gradient: linear-gradient(135deg, #FCD535 0%, #F5AC00 100%);
+            --accent-gradient: linear-gradient(135deg, #FCD535 0%, #F0B90B 100%);
+            --code-color: #FCD535;
+            --accent-text: #FCD535;
+
+            --pill-active-bg: rgba(252, 213, 53, 0.18);
+            --pill-active-text: #FCD535;
+            --pill-active-border: rgba(252, 213, 53, 0.45);
+
+            --badge-green-bg: rgba(14, 203, 129, 0.16);
+            --badge-green-text: #0ECB81;
+            --badge-green-border: rgba(14, 203, 129, 0.35);
+
+            --badge-amber-bg: rgba(252, 213, 53, 0.18);
+            --badge-amber-text: #FCD535;
+            --badge-amber-border: rgba(252, 213, 53, 0.4);
+
+            --badge-red-bg: rgba(246, 70, 93, 0.16);
+            --badge-red-text: #F6465D;
+            --badge-red-border: rgba(246, 70, 93, 0.35);
+
+            --badge-blue-bg: rgba(252, 213, 53, 0.15);
+            --badge-blue-text: #FCD535;
+            --badge-blue-border: rgba(252, 213, 53, 0.35);
+
+            --badge-purple-bg: rgba(192, 132, 252, 0.15);
+            --badge-purple-text: #C084FC;
+            --badge-purple-border: rgba(192, 132, 252, 0.3);
+
+            --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.5);
+            --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.6);
+            --shadow-floating: 0 20px 60px rgba(0, 0, 0, 0.8);
+            --shadow-composer: 0 16px 40px rgba(0, 0, 0, 0.6);
+
+            --hero-glow: none;
+            --scrollbar-thumb: #222630;
+            --scrollbar-track: transparent;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+        ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 999px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* Buttons & interactive resets */
+        button {
+            font-family: var(--font-main);
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: inherit;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+        }
+        button:focus-visible, input:focus-visible, textarea:focus-visible {
+            outline: 2px solid var(--border-focus);
+            outline-offset: 2px;
+        }

@@ -226,3 +226,82 @@ func TestLLMTimeoutSecsClamp(t *testing.T) {
 		t.Errorf("expected clamped to 300.00, got %q", env2["NISKAVA_LLM_TIMEOUT"])
 	}
 }
+
+func TestSaveDotEnv_DualSync(t *testing.T) {
+	tempDir := t.TempDir()
+	origWd, _ := os.Getwd()
+	defer func() {
+		_ = os.Chdir(origWd)
+	}()
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("failed to chdir to tempDir: %v", err)
+	}
+
+	// Create a local .env in the working directory
+	localEnv := filepath.Join(tempDir, ".env")
+	if err := os.WriteFile(localEnv, []byte("AI_PROVIDER=openai\nSECTORS_API_KEY=old_sectors_key\n"), 0600); err != nil {
+		t.Fatalf("failed to create local .env: %v", err)
+	}
+
+	customHomeEnv := filepath.Join(tempDir, "user_home", ".env")
+	cfg := DefaultConfig()
+	cfg.Auth.AIProvider = "gemini"
+	cfg.Auth.SectorsAPIKey = "new_sectors_key_999"
+	cfg.Telegram.Enabled = true
+
+	// Call SaveDotEnv targeting customHomeEnv
+	err := SaveDotEnv(cfg, customHomeEnv)
+	if err != nil {
+		t.Fatalf("SaveDotEnv failed: %v", err)
+	}
+
+	// Verify customHomeEnv has AI_PROVIDER=gemini and SECTORS_API_KEY=new_sectors_key_999
+	homeData, err := os.ReadFile(customHomeEnv)
+	if err != nil {
+		t.Fatalf("failed to read home .env: %v", err)
+	}
+	if !strings.Contains(string(homeData), "AI_PROVIDER=gemini") {
+		t.Errorf("expected home .env to contain AI_PROVIDER=gemini, got: %s", string(homeData))
+	}
+	if !strings.Contains(string(homeData), "SECTORS_API_KEY=new_sectors_key_999") {
+		t.Errorf("expected home .env to contain new_sectors_key_999, got: %s", string(homeData))
+	}
+
+	// Verify local .env in cwd was ALSO updated to AI_PROVIDER=gemini and new_sectors_key_999
+	localData, err := os.ReadFile(localEnv)
+	if err != nil {
+		t.Fatalf("failed to read local .env: %v", err)
+	}
+	if !strings.Contains(string(localData), "AI_PROVIDER=gemini") {
+		t.Errorf("expected local .env to be dual-synced to AI_PROVIDER=gemini, got: %s", string(localData))
+	}
+	if !strings.Contains(string(localData), "SECTORS_API_KEY=new_sectors_key_999") {
+		t.Errorf("expected local .env to be dual-synced to new_sectors_key_999, got: %s", string(localData))
+	}
+}
+
+func TestBuildSubprocessEnv_OfflineAndTimeout(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Preferences.OfflineMode = false
+	cfg.Preferences.LLMTimeoutSecs = 120.0
+
+	env := cfg.BuildSubprocessEnv()
+	if env["NISKAVA_OFFLINE"] != "0" {
+		t.Errorf("expected NISKAVA_OFFLINE=0 when OfflineMode=false, got %q", env["NISKAVA_OFFLINE"])
+	}
+	if env["MOCK_SECTORS"] != "0" {
+		t.Errorf("expected MOCK_SECTORS=0 when OfflineMode=false, got %q", env["MOCK_SECTORS"])
+	}
+	if env["NISKAVA_LLM_TIMEOUT"] != "120.00" {
+		t.Errorf("expected NISKAVA_LLM_TIMEOUT=120.00, got %q", env["NISKAVA_LLM_TIMEOUT"])
+	}
+
+	cfg.Preferences.OfflineMode = true
+	envOffline := cfg.BuildSubprocessEnv()
+	if envOffline["NISKAVA_OFFLINE"] != "1" {
+		t.Errorf("expected NISKAVA_OFFLINE=1 when OfflineMode=true, got %q", envOffline["NISKAVA_OFFLINE"])
+	}
+	if envOffline["MOCK_SECTORS"] != "1" {
+		t.Errorf("expected MOCK_SECTORS=1 when OfflineMode=true, got %q", envOffline["MOCK_SECTORS"])
+	}
+}

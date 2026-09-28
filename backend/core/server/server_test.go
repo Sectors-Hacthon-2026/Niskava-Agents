@@ -229,6 +229,26 @@ func TestTestConnectionEndpoint(t *testing.T) {
 	if data["success"] != true {
 		t.Errorf("expected success true in offline mode, got %+v", data)
 	}
+	msg, _ := data["message"].(string)
+	if !strings.Contains(msg, "[MOCK MODE]") {
+		t.Errorf("expected [MOCK MODE] in message, got %s", msg)
+	}
+
+	// 3. Anthropic target in offline mode
+	resp3, err := http.Post(srv.URL+"/api/settings/test-connection", "application/json", strings.NewReader(`{"target":"anthropic","api_key":"sk-ant-test"}`))
+	if err != nil {
+		t.Fatalf("POST test-connection anthropic failed: %v", err)
+	}
+	defer resp3.Body.Close()
+	var data3 map[string]interface{}
+	_ = json.NewDecoder(resp3.Body).Decode(&data3)
+	if data3["success"] != true {
+		t.Errorf("expected success true in offline mode for anthropic, got %+v", data3)
+	}
+	msg3, _ := data3["message"].(string)
+	if !strings.Contains(msg3, "[MOCK MODE]") {
+		t.Errorf("expected [MOCK MODE] in anthropic message, got %s", msg3)
+	}
 }
 
 func TestChatSessions_REST_Endpoints(t *testing.T) {
@@ -988,6 +1008,23 @@ func TestSystemEndpoints(t *testing.T) {
 	}
 	if clean["status"] != "ok" {
 		t.Errorf("expected clean status 'ok', got %v", clean["status"])
+	}
+
+	// 4. POST /api/system/cache/clean?all=1 (Flush all cache)
+	resp4, err := http.Post(srv.URL+"/api/system/cache/clean?all=1", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST /api/system/cache/clean?all=1 failed: %v", err)
+	}
+	defer resp4.Body.Close()
+	if resp4.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp4.StatusCode)
+	}
+	var cleanAll map[string]interface{}
+	if err := json.NewDecoder(resp4.Body).Decode(&cleanAll); err != nil {
+		t.Fatalf("failed to decode clean all response: %v", err)
+	}
+	if cleanAll["flushed_all"] != true {
+		t.Errorf("expected flushed_all true, got %v", cleanAll["flushed_all"])
 	}
 }
 

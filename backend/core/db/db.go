@@ -1629,3 +1629,12 @@ func (d *DB) CleanExpiredCache() (int64, error) {
 	}
 	return res.RowsAffected()
 }
+
+// FlushAllSectorsCache clears all entries from sectors_cache to guarantee 100% fresh real-time data.
+func (d *DB) FlushAllSectorsCache() (int64, error) {
+	res, err := d.conn.Exec(`DELETE FROM sectors_cache`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to flush sectors cache: %w", err)
+	}
+	return res.RowsAffected()
+}
