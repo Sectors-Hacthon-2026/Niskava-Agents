@@ -218,20 +218,21 @@ func ParseTimeoutCommand(input string) (float64, bool) {
 
 // ReplInputModel is the Bubbletea interactive text input model with OpenCode-style slash popup and prompt history navigation.
 type ReplInputModel struct {
-	TextInput        textinput.Model
-	PromptPrefix     string
-	SlashCommands    []SlashCommand
-	FilteredCommands []SlashCommand
-	SlashCursor      int
-	SlashActive      bool
-	SubmittedValue   string
-	Quitting         bool
-	LastExitTime     time.Time
-	ExitWarning      bool
-	History          []string
-	HistoryIndex     int
-	DraftValue       string
-	NavigatingHist   bool
+	TextInput         textinput.Model
+	PromptPrefix      string
+	SlashCommands     []SlashCommand
+	FilteredCommands  []SlashCommand
+	SlashCursor       int
+	SlashScrollOffset int
+	SlashActive       bool
+	SubmittedValue    string
+	Quitting          bool
+	LastExitTime      time.Time
+	ExitWarning       bool
+	History           []string
+	HistoryIndex      int
+	DraftValue        string
+	NavigatingHist    bool
 }
 
 // NewReplInputModel initializes the interactive REPL prompt input.
@@ -298,10 +299,20 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyUp:
 			if m.SlashActive && len(m.FilteredCommands) > 0 {
+				maxVisible := 5
 				if m.SlashCursor > 0 {
 					m.SlashCursor--
 				} else {
 					m.SlashCursor = len(m.FilteredCommands) - 1
+					if len(m.FilteredCommands) > maxVisible {
+						m.SlashScrollOffset = len(m.FilteredCommands) - maxVisible
+					} else {
+						m.SlashScrollOffset = 0
+					}
+					return m, nil
+				}
+				if m.SlashCursor < m.SlashScrollOffset {
+					m.SlashScrollOffset = m.SlashCursor
 				}
 				return m, nil
 			}
@@ -322,10 +333,16 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyDown:
 			if m.SlashActive && len(m.FilteredCommands) > 0 {
+				maxVisible := 5
 				if m.SlashCursor < len(m.FilteredCommands)-1 {
 					m.SlashCursor++
 				} else {
 					m.SlashCursor = 0
+					m.SlashScrollOffset = 0
+					return m, nil
+				}
+				if m.SlashCursor >= m.SlashScrollOffset+maxVisible {
+					m.SlashScrollOffset = m.SlashCursor - maxVisible + 1
 				}
 				return m, nil
 			}
@@ -389,10 +406,12 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.SlashCursor >= len(m.FilteredCommands) {
 			m.SlashCursor = 0
+			m.SlashScrollOffset = 0
 		}
 	} else {
 		m.SlashActive = false
 		m.SlashCursor = 0
+		m.SlashScrollOffset = 0
 		m.FilteredCommands = m.SlashCommands
 	}
 
@@ -425,14 +444,26 @@ func (m ReplInputModel) View() string {
 		b.WriteString("\n")
 	}
 
-	// Render OpenCode-style Slash Autocomplete Popup Box when slash active
+	// Render OpenCode-style Slash Autocomplete Popup Box when slash active (Compact Max 5 Viewport)
 	if m.SlashActive && len(m.FilteredCommands) > 0 {
+		maxVisible := 5
+		if m.SlashCursor < m.SlashScrollOffset {
+			m.SlashScrollOffset = m.SlashCursor
+		} else if m.SlashCursor >= m.SlashScrollOffset+maxVisible {
+			m.SlashScrollOffset = m.SlashCursor - maxVisible + 1
+		}
+
+		endIdx := m.SlashScrollOffset + maxVisible
+		if endIdx > len(m.FilteredCommands) {
+			endIdx = len(m.FilteredCommands)
+		}
+
 		popupHeader := lipgloss.NewStyle().
 			Bold(true).
 			Foreground(ColorBg).
 			Background(ColorAccent).
 			Padding(0, 1).
-			Render(T("slash_popup_header"))
+			Render(TF("slash_popup_header", m.SlashCursor+1, len(m.FilteredCommands)))
 
 		boxStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -442,7 +473,8 @@ func (m ReplInputModel) View() string {
 		var popupLines []string
 		popupLines = append(popupLines, popupHeader)
 
-		for i, sc := range m.FilteredCommands {
+		for i := m.SlashScrollOffset; i < endIdx; i++ {
+			sc := m.FilteredCommands[i]
 			cursor := "  "
 			if i == m.SlashCursor {
 				cursor = "> "
@@ -470,6 +502,13 @@ func (m ReplInputModel) View() string {
 				descR := lipgloss.NewStyle().Foreground(ColorMuted).Render(descStr)
 				popupLines = append(popupLines, fmt.Sprintf("  %s%s%s", cmdR, catBadge, descR))
 			}
+		}
+
+		hiddenRemaining := len(m.FilteredCommands) - endIdx
+		if hiddenRemaining > 0 {
+			footerText := TF("slash_popup_more", hiddenRemaining)
+			footerR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(footerText)
+			popupLines = append(popupLines, footerR)
 		}
 
 		b.WriteString(boxStyle.Render(strings.Join(popupLines, "\n")))

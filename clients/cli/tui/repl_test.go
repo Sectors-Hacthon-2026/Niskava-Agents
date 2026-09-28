@@ -584,3 +584,40 @@ func TestReplaceIgnoreCase(t *testing.T) {
 		t.Errorf("expected replacement in replaceIgnoreCase, got: %s", got)
 	}
 }
+
+func TestReplInputModelWindowedViewportScrolling(t *testing.T) {
+	model := NewReplInputModel("niskava [hermes] >")
+	model.TextInput.SetValue("/")
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	m := updated.(ReplInputModel)
+
+	if !m.SlashActive {
+		t.Fatalf("expected SlashActive to be true")
+	}
+
+	// Move cursor down 6 times (past maxVisible=5 window)
+	for i := 0; i < 6; i++ {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m = updated.(ReplInputModel)
+	}
+
+	if m.SlashCursor != 6 {
+		t.Errorf("expected SlashCursor to be 6, got %d", m.SlashCursor)
+	}
+	if m.SlashScrollOffset != 2 {
+		t.Errorf("expected SlashScrollOffset to be 2 when cursor is 6, got %d", m.SlashScrollOffset)
+	}
+
+	// Verify rendered view contains compact count header in ID and EN
+	SetLanguage("id")
+	viewStrID := m.View()
+	if !strings.Contains(viewStrID, "PERINTAH SLASH (7 dari") {
+		t.Errorf("expected Indonesian windowed header in view, got: %s", viewStrID)
+	}
+
+	SetLanguage("en")
+	viewStrEN := m.View()
+	if !strings.Contains(viewStrEN, "SLASH COMMANDS (7 of") {
+		t.Errorf("expected English windowed header in view, got: %s", viewStrEN)
+	}
+}
