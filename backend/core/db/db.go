@@ -1638,4 +1638,3 @@ func (d *DB) FlushAllSectorsCache() (int64, error) {
 	}
 	return res.RowsAffected()
 }
-

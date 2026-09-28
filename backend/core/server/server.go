@@ -1084,7 +1084,6 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 		})
 	})
 
-
 	// 2. Chat Sessions Collection API (GET list, POST create)
 	mux.HandleFunc("/api/chat/sessions", func(w http.ResponseWriter, r *http.Request) {
 		if enableCORS(w, r) {

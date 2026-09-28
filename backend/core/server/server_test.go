@@ -1028,7 +1028,6 @@ func TestSystemEndpoints(t *testing.T) {
 	}
 }
 
-
 func TestDynamicSettingsAndSubprocessEnv(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

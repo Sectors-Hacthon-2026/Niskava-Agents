@@ -305,5 +305,3 @@ func TestBuildSubprocessEnv_OfflineAndTimeout(t *testing.T) {
 		t.Errorf("expected MOCK_SECTORS=1 when OfflineMode=true, got %q", envOffline["MOCK_SECTORS"])
 	}
 }
-
-

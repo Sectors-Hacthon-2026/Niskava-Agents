@@ -542,7 +542,6 @@ func SaveDotEnv(cfg *Config, targetPath ...string) error {
 	return nil
 }
 
-
 // SaveConfig persists configuration to the specified destination.
 // If the destination ends in .yaml or .yml, it writes YAML for backward compatibility.
 // Otherwise, it persists directly to .env as the authoritative Single Source of Truth.
