@@ -1001,6 +1001,22 @@ var TUIStrings = map[string]map[string]string{
 		"en": "📋 Latest investigation report copied to OS clipboard!",
 		"id": "📋 Ringkasan laporan investigasi terbaru berhasil disalin ke clipboard!",
 	},
+	"slash_compare_desc": {
+		"en": "Compare two investigation sessions side-by-side (/compare <ID1|TICKER1> <ID2|TICKER2>)",
+		"id": "Bandingkan dua sesi investigasi bersandingan (/compare <ID1|TICKER1> <ID2|TICKER2>)",
+	},
+	"slash_compare_usage": {
+		"en": "Usage: /compare <SESSION_ID1|TICKER1> <SESSION_ID2|TICKER2> (e.g. /compare ANTM INCO)",
+		"id": "Penggunaan: /compare <ID1|TICKER1> <ID2|TICKER2> (contoh: /compare ANTM INCO)",
+	},
+	"slash_compare_not_found": {
+		"en": "Session or ticker '%s' not found in database.",
+		"id": "Sesi atau kode saham '%s' tidak ditemukan di database.",
+	},
+	"slash_compare_title": {
+		"en": "📊 SIDE-BY-SIDE AUDIT COMPARISON: %s VS %s",
+		"id": "📊 PERBANDINGAN AUDIT BERSANDINGAN: %s VS %s",
+	},
 }
 
 // T retrieves localized string for ActiveLanguage, falling back to "en".
@@ -1085,6 +1101,7 @@ func GetLocalizedSlashCommands() []SlashCommand {
 		{Command: "/compact", Category: "UX", Description: T("slash_compact_desc"), FormatHint: "└─ Format: /compact [toggle collapsed logs]"},
 		{Command: "/find", Category: "INTEL", Description: T("slash_find_desc"), FormatHint: "└─ Format: /find <keyword> (e.g. /find dividend)"},
 		{Command: "/copy", Category: "INTEL", Description: T("slash_copy_desc"), FormatHint: "└─ Format: /copy [copy report summary to OS clipboard]"},
+		{Command: "/compare", Category: "INTEL", Description: T("slash_compare_desc"), FormatHint: "└─ Format: /compare <ID1|TICKER1> <ID2|TICKER2>"},
 		{Command: "/resume", Category: "INTEL", Description: T("slash_resume_desc"), FormatHint: "└─ Format: /resume <session_id>"},
 		{Command: "/export", Category: "INTEL", Description: T("slash_export_desc"), FormatHint: "└─ Format: /export [md|json]"},
 		{Command: "/fork", Category: "INTEL", Description: T("slash_fork_desc"), FormatHint: "└─ Format: /fork [new title]"},

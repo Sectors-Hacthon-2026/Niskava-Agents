@@ -741,6 +741,31 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			continue
 		}
 
+		if strings.HasPrefix(lower, "/compare") {
+			parts := strings.Fields(input)
+			if len(parts) < 3 {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_compare_usage")))
+				continue
+			}
+			id1, id2 := parts[1], parts[2]
+			if appDB == nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(T("repl_db_unavailable")))
+				continue
+			}
+			sess1, history1, err1 := resolveSessionOrSearch(appDB, id1)
+			if err1 != nil || sess1 == nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("slash_compare_not_found", id1)))
+				continue
+			}
+			sess2, history2, err2 := resolveSessionOrSearch(appDB, id2)
+			if err2 != nil || sess2 == nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("slash_compare_not_found", id2)))
+				continue
+			}
+			fmt.Println(RenderSideBySideCompare(sess1, sess2, history1, history2))
+			continue
+		}
+
 		if strings.HasPrefix(lower, "/export") {
 			parts := strings.Fields(input)
 			format := "md"
@@ -1394,17 +1419,24 @@ func printHelp() {
 	fmt.Println(T("help_header"))
 	fmt.Println(T("help_prompt_desc"))
 	fmt.Println(T("help_ticker_desc"))
-	fmt.Println(T("help_graph_desc"))
-	fmt.Println(T("help_reset_desc"))
 	fmt.Println("  • /chats        : " + T("slash_chats_desc"))
+	fmt.Println("  • /compact      : " + T("slash_compact_desc"))
+	fmt.Println("  • /find <kw>    : " + T("slash_find_desc"))
+	fmt.Println("  • /copy         : " + T("slash_copy_desc"))
 	fmt.Println("  • /resume <id>  : " + T("slash_resume_desc"))
+	fmt.Println("  • /export [fmt] : " + T("slash_export_desc"))
+	fmt.Println("  • /fork [title] : " + T("slash_fork_desc"))
+	fmt.Println("  • /search <kw>  : " + T("slash_search_desc"))
+	fmt.Println("  • /anomalies    : " + T("slash_anomalies_desc"))
+	fmt.Println("  • /skills       : " + T("slash_skills_desc"))
+	fmt.Println("  • /doctor       : " + T("slash_doctor_desc"))
+	fmt.Println("  • /cache        : " + T("slash_cache_desc"))
 	fmt.Println("  • /timeout [arg]: " + T("slash_timeout_desc"))
-	fmt.Println(T("help_sessions_desc"))
-	fmt.Println(T("help_web_desc"))
-	fmt.Println(T("help_health_desc"))
-	fmt.Println(T("help_lang_desc"))
-	fmt.Println(T("help_clear_desc"))
-	fmt.Println(T("help_exit_desc"))
+	fmt.Println("  • /lang [en|id] : " + T("slash_lang_desc"))
+	fmt.Println("  • /graph        : " + T("help_graph_desc"))
+	fmt.Println("  • /reset        : " + T("help_reset_desc"))
+	fmt.Println("  • /clear        : " + T("help_clear_desc"))
+	fmt.Println("  • /exit, quit   : " + T("help_exit_desc"))
 }
 
 func printHealth(cfg *config.Config) {
@@ -1445,4 +1477,89 @@ func printSessions(appDB *db.DB) {
 		fmt.Printf("%-22s %-8s %-12s %-20s %s\n", inv.ID, inv.Ticker, inv.Status, dateStr, summary)
 	}
 	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
+}
+
+func resolveSessionOrSearch(appDB *db.DB, idOrQuery string) (*db.ChatSession, []db.ChatMessage, error) {
+	if appDB == nil {
+		return nil, nil, fmt.Errorf("database unavailable")
+	}
+
+	// 1. Direct lookup
+	sess, err := appDB.GetChatSession(idOrQuery)
+	if err == nil && sess != nil {
+		history, _ := appDB.GetChatHistory(sess.ID, 50)
+		return sess, history, nil
+	}
+
+	// 2. Search list by query/ticker
+	list, _, errList := appDB.ListChatSessions(10, 0, idOrQuery)
+	if errList == nil && len(list) > 0 {
+		target := list[0]
+		history, _ := appDB.GetChatHistory(target.ID, 50)
+		return &target, history, nil
+	}
+
+	return nil, nil, fmt.Errorf("session or ticker '%s' not found", idOrQuery)
+}
+
+// RenderSideBySideCompare renders a formatted two-column side-by-side comparison table of two chat sessions.
+func RenderSideBySideCompare(sess1, sess2 *db.ChatSession, history1, history2 []db.ChatMessage) string {
+	colWidth := 38
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorBg).Background(ColorAccent).Padding(0, 1)
+	cardStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorAccent).Width(colWidth).Padding(0, 1)
+
+	var lastAsst1, lastAsst2 string
+	for i := len(history1) - 1; i >= 0; i-- {
+		if history1[i].Role == "assistant" {
+			lastAsst1 = history1[i].Content
+			break
+		}
+	}
+	for i := len(history2) - 1; i >= 0; i-- {
+		if history2[i].Role == "assistant" {
+			lastAsst2 = history2[i].Content
+			break
+		}
+	}
+
+	if lastAsst1 == "" {
+		lastAsst1 = "(No assistant findings recorded)"
+	} else if len(lastAsst1) > 220 {
+		lastAsst1 = lastAsst1[:217] + "..."
+	}
+
+	if lastAsst2 == "" {
+		lastAsst2 = "(No assistant findings recorded)"
+	} else if len(lastAsst2) > 220 {
+		lastAsst2 = lastAsst2[:217] + "..."
+	}
+
+	title1 := sess1.Title
+	if title1 == "" {
+		title1 = sess1.ID
+	}
+	title2 := sess2.Title
+	if title2 == "" {
+		title2 = sess2.ID
+	}
+
+	col1Content := fmt.Sprintf("%s\nID: %s\nModel: %s\nMsgs: %d\n\n%s",
+		lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(title1),
+		sess1.ID, sess1.Model, len(history1),
+		lipgloss.NewStyle().Foreground(ColorFg).Render(lastAsst1),
+	)
+
+	col2Content := fmt.Sprintf("%s\nID: %s\nModel: %s\nMsgs: %d\n\n%s",
+		lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(title2),
+		sess2.ID, sess2.Model, len(history2),
+		lipgloss.NewStyle().Foreground(ColorFg).Render(lastAsst2),
+	)
+
+	col1Box := cardStyle.Render(col1Content)
+	col2Box := cardStyle.Render(col2Content)
+
+	joined := lipgloss.JoinHorizontal(lipgloss.Top, col1Box, "  ", col2Box)
+	titleBanner := headerStyle.Render(TF("slash_compare_title", title1, title2))
+
+	return "\n" + titleBanner + "\n\n" + joined + "\n"
 }
