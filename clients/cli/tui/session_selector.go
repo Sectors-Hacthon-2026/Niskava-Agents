@@ -590,16 +590,19 @@ func (m SessionSelectorModel) View() string {
 			preview = "-"
 		}
 
-		pinBadge := ""
-		if s.IsPinned {
-			pinBadge = " 📌"
-		}
-
 		rawTitle := SanitizePreviewText(s.Title)
-		title := rawTitle + pinBadge
-		titleRunes := []rune(title)
-		if len(titleRunes) > 16 {
-			title = string(titleRunes[:13]) + "..."
+		titleRunes := []rune(rawTitle)
+		title := rawTitle
+		if s.IsPinned {
+			if len(titleRunes) > 13 {
+				title = "📌 " + string(titleRunes[:10]) + "..."
+			} else {
+				title = "📌 " + title
+			}
+		} else {
+			if len(titleRunes) > 16 {
+				title = string(titleRunes[:13]) + "..."
+			}
 		}
 
 		lineTitle := fmt.Sprintf("%-18s %-16s (%d msgs) [%s]", s.ID, title, s.MessageCount, dateStr)
