@@ -233,6 +233,24 @@ type ReplInputModel struct {
 	HistoryIndex      int
 	DraftValue        string
 	NavigatingHist    bool
+	ActiveToast       string
+	ToastTime         time.Time
+}
+
+// RenderToastPill renders a non-blocking styled floating notification toast badge.
+func RenderToastPill(message string) string {
+	if strings.TrimSpace(message) == "" {
+		return ""
+	}
+	toastStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorBg).
+		Background(ColorAccent).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(ColorAccent).
+		Padding(0, 1)
+
+	return toastStyle.Render(message)
 }
 
 // NewReplInputModel initializes the interactive REPL prompt input.
@@ -420,6 +438,12 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m ReplInputModel) View() string {
 	var b strings.Builder
+
+	// Render Active Toast Notification if present & fresh (< 3 seconds)
+	if m.ActiveToast != "" && !m.ToastTime.IsZero() && time.Since(m.ToastTime) <= 3*time.Second {
+		b.WriteString(RenderToastPill(m.ActiveToast))
+		b.WriteString("\n")
+	}
 
 	// Render input prompt box
 	b.WriteString("\n")
@@ -667,7 +691,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			if isCompactMode {
 				status = "ON (Intermediate monologue collapsed)"
 			}
-			fmt.Println(lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true).Render(TF("slash_compact_toggled", status)))
+			fmt.Println(RenderToastPill(TF("slash_compact_toggled", status)))
 			continue
 		}
 
@@ -736,7 +760,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			if errCopy != nil {
 				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("slash_copy_err", errCopy)))
 			} else {
-				fmt.Println(lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true).Render(T("slash_copy_success")))
+				fmt.Println(RenderToastPill(T("slash_copy_success")))
 			}
 			continue
 		}
@@ -818,7 +842,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			if errW := os.WriteFile(filename, []byte(content), 0644); errW != nil {
 				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("slash_export_write_err", errW)))
 			} else {
-				fmt.Println(lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true).Render(TF("sessions_export_success", filename)))
+				fmt.Println(RenderToastPill(TF("sessions_export_success", filename)))
 			}
 			continue
 		}

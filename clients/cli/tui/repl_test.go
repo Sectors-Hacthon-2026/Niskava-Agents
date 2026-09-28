@@ -638,3 +638,14 @@ func TestRenderSideBySideCompare(t *testing.T) {
 		t.Errorf("expected assistant findings in side-by-side compare rendering, got: %s", rendered)
 	}
 }
+
+func TestRenderToastPill(t *testing.T) {
+	toast := RenderToastPill("✓ Copied to clipboard!")
+	if !strings.Contains(toast, "Copied to clipboard!") {
+		t.Errorf("expected toast text in RenderToastPill, got: %s", toast)
+	}
+
+	if RenderToastPill("") != "" {
+		t.Errorf("expected empty string for empty toast message")
+	}
+}
