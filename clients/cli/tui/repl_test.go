@@ -622,23 +622,6 @@ func TestReplInputModelWindowedViewportScrolling(t *testing.T) {
 	}
 }
 
-func TestRenderSideBySideCompare(t *testing.T) {
-	sess1 := &db.ChatSession{ID: "CHAT-001", Title: "ANTM Audit", Model: "hermes"}
-	sess2 := &db.ChatSession{ID: "CHAT-002", Title: "INCO Audit", Model: "hermes"}
-
-	hist1 := []db.ChatMessage{{Role: "assistant", Content: "ANTM foreign inflow surge"}}
-	hist2 := []db.ChatMessage{{Role: "assistant", Content: "INCO nickel price divergence"}}
-
-	rendered := RenderSideBySideCompare(sess1, sess2, hist1, hist2)
-
-	if !strings.Contains(rendered, "ANTM Audit") || !strings.Contains(rendered, "INCO Audit") {
-		t.Errorf("expected session titles in side-by-side compare rendering, got: %s", rendered)
-	}
-	if !strings.Contains(rendered, "ANTM foreign inflow surge") || !strings.Contains(rendered, "INCO nickel price divergence") {
-		t.Errorf("expected assistant findings in side-by-side compare rendering, got: %s", rendered)
-	}
-}
-
 func TestRenderToastPill(t *testing.T) {
 	toast := RenderToastPill("✓ Copied to clipboard!")
 	if !strings.Contains(toast, "Copied to clipboard!") {

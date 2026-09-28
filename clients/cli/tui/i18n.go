@@ -1101,7 +1101,6 @@ func GetLocalizedSlashCommands() []SlashCommand {
 		{Command: "/compact", Category: "UX", Description: T("slash_compact_desc"), FormatHint: "└─ Format: /compact [toggle collapsed logs]"},
 		{Command: "/find", Category: "INTEL", Description: T("slash_find_desc"), FormatHint: "└─ Format: /find <keyword> (e.g. /find dividend)"},
 		{Command: "/copy", Category: "INTEL", Description: T("slash_copy_desc"), FormatHint: "└─ Format: /copy [copy report summary to OS clipboard]"},
-		{Command: "/compare", Category: "INTEL", Description: T("slash_compare_desc"), FormatHint: "└─ Format: /compare <ID1|TICKER1> <ID2|TICKER2>"},
 		{Command: "/resume", Category: "INTEL", Description: T("slash_resume_desc"), FormatHint: "└─ Format: /resume <session_id>"},
 		{Command: "/export", Category: "INTEL", Description: T("slash_export_desc"), FormatHint: "└─ Format: /export [md|json]"},
 		{Command: "/fork", Category: "INTEL", Description: T("slash_fork_desc"), FormatHint: "└─ Format: /fork [new title]"},

@@ -20,6 +20,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/term"
 )
 
 // ReplBackSentinel is the sentinel return value from RunLiveREPL when the user requests returning to launcher.
@@ -765,31 +766,6 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			continue
 		}
 
-		if strings.HasPrefix(lower, "/compare") {
-			parts := strings.Fields(input)
-			if len(parts) < 3 {
-				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_compare_usage")))
-				continue
-			}
-			id1, id2 := parts[1], parts[2]
-			if appDB == nil {
-				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(T("repl_db_unavailable")))
-				continue
-			}
-			sess1, history1, err1 := resolveSessionOrSearch(appDB, id1)
-			if err1 != nil || sess1 == nil {
-				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("slash_compare_not_found", id1)))
-				continue
-			}
-			sess2, history2, err2 := resolveSessionOrSearch(appDB, id2)
-			if err2 != nil || sess2 == nil {
-				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("slash_compare_not_found", id2)))
-				continue
-			}
-			fmt.Println(RenderSideBySideCompare(sess1, sess2, history1, history2))
-			continue
-		}
-
 		if strings.HasPrefix(lower, "/export") {
 			parts := strings.Fields(input)
 			format := "md"
@@ -1531,64 +1507,17 @@ func resolveSessionOrSearch(appDB *db.DB, idOrQuery string) (*db.ChatSession, []
 	return nil, nil, fmt.Errorf("session or ticker '%s' not found", idOrQuery)
 }
 
-// RenderSideBySideCompare renders a formatted two-column side-by-side comparison table of two chat sessions.
-func RenderSideBySideCompare(sess1, sess2 *db.ChatSession, history1, history2 []db.ChatMessage) string {
-	colWidth := 38
-	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorBg).Background(ColorAccent).Padding(0, 1)
-	cardStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorAccent).Width(colWidth).Padding(0, 1)
-
-	var lastAsst1, lastAsst2 string
-	for i := len(history1) - 1; i >= 0; i-- {
-		if history1[i].Role == "assistant" {
-			lastAsst1 = history1[i].Content
-			break
-		}
+func getTerminalWidth() int {
+	if w, _, err := term.GetSize(uintptr(os.Stdout.Fd())); err == nil && w > 20 {
+		return w
 	}
-	for i := len(history2) - 1; i >= 0; i-- {
-		if history2[i].Role == "assistant" {
-			lastAsst2 = history2[i].Content
-			break
-		}
+	if w, _, err := term.GetSize(uintptr(os.Stdin.Fd())); err == nil && w > 20 {
+		return w
 	}
-
-	if lastAsst1 == "" {
-		lastAsst1 = "(No assistant findings recorded)"
-	} else if len(lastAsst1) > 220 {
-		lastAsst1 = lastAsst1[:217] + "..."
+	if w, _, err := term.GetSize(uintptr(os.Stderr.Fd())); err == nil && w > 20 {
+		return w
 	}
-
-	if lastAsst2 == "" {
-		lastAsst2 = "(No assistant findings recorded)"
-	} else if len(lastAsst2) > 220 {
-		lastAsst2 = lastAsst2[:217] + "..."
-	}
-
-	title1 := sess1.Title
-	if title1 == "" {
-		title1 = sess1.ID
-	}
-	title2 := sess2.Title
-	if title2 == "" {
-		title2 = sess2.ID
-	}
-
-	col1Content := fmt.Sprintf("%s\nID: %s\nModel: %s\nMsgs: %d\n\n%s",
-		lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(title1),
-		sess1.ID, sess1.Model, len(history1),
-		lipgloss.NewStyle().Foreground(ColorFg).Render(lastAsst1),
-	)
-
-	col2Content := fmt.Sprintf("%s\nID: %s\nModel: %s\nMsgs: %d\n\n%s",
-		lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(title2),
-		sess2.ID, sess2.Model, len(history2),
-		lipgloss.NewStyle().Foreground(ColorFg).Render(lastAsst2),
-	)
-
-	col1Box := cardStyle.Render(col1Content)
-	col2Box := cardStyle.Render(col2Content)
-
-	joined := lipgloss.JoinHorizontal(lipgloss.Top, col1Box, "  ", col2Box)
-	titleBanner := headerStyle.Render(TF("slash_compare_title", title1, title2))
-
-	return "\n" + titleBanner + "\n\n" + joined + "\n"
+	return 80
 }
+
+
