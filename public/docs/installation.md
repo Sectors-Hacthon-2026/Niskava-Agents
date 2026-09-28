@@ -45,15 +45,13 @@ niskava setup
 
 ---
 
-### Option A: From Source via Git Clone
+### Option A: One-Liner Script Installers (Recommended for Source)
 
 Clone the repository first:
 ```bash
 git clone https://github.com/Sectors-Hacthon-2026/Niskava-Agents.git
 cd Niskava-Agents
 ```
-
-### Option A: One-Liner Script Installers
 
 #### On Linux & macOS:
 ```bash
@@ -158,7 +156,7 @@ auth:
   openai_model: "deepseek/deepseek-chat"
 
 ai:
-  provider: "openai"               # Options: openai, gemini, ollama
+  provider: "openrouter"           # Options: openrouter, gemini, ollama, deepseek, groq, openai, vllm
   model: "deepseek/deepseek-chat"
   temperature: 0.1
 

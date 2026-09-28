@@ -77,7 +77,7 @@ Niskava adopts an evidence-first philosophy inspired by open investigative workf
 ┌─────────────────────────────────────────────────────────────┐
 │ Layer 1: MCP & News Data Primitives                        │
 │ - Sectors Financial API v2 (OHLCV, Financials, Flow)        │
-│ - Sectors News Engine (Sectors News + Google News RSS Dorks)  │
+│ - Sectors News Engine (Curated Sectors News & Filings)      │
 │ - Trafilatura HTML Sanitization                             │
 └──────────────────────────────┬──────────────────────────────┘
                                │

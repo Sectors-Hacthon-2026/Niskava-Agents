@@ -163,7 +163,7 @@ Re-install Python 3.11+ from [python.org](https://www.python.org/downloads/) and
 
 ---
 
-### Issue 4: Sectors API Rate Limits or Credit Depletion (`429 Too Many Requests`)
+### Issue 6: Sectors API Rate Limits or Credit Depletion (`429 Too Many Requests`)
 **Symptoms:**
 Requests to the Sectors Financial API fail with HTTP status code 429.
 
@@ -183,7 +183,7 @@ Under **Law 5 (Credit Budget Discipline)**, Niskava actively protects your Secto
 
 ---
 
-### Issue 5: Port Binding Conflict on Web Workspace Server
+### Issue 7: Port Binding Conflict on Web Workspace Server
 **Symptoms:**
 Starting the web workspace yields:
 ```text
