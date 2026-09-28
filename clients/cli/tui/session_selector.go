@@ -405,6 +405,38 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		if msg.Type == tea.KeyPgUp || k == "pgup" || k == "pageup" {
+			if m.Cursor >= 5 {
+				m.Cursor -= 5
+			} else {
+				m.Cursor = 0
+			}
+			return m, nil
+		}
+
+		if msg.Type == tea.KeyPgDown || k == "pgdown" || k == "pagedown" {
+			if len(filtered) > 0 {
+				if m.Cursor+5 < len(filtered) {
+					m.Cursor += 5
+				} else {
+					m.Cursor = len(filtered) - 1
+				}
+			}
+			return m, nil
+		}
+
+		if msg.Type == tea.KeyHome || k == "home" {
+			m.Cursor = 0
+			return m, nil
+		}
+
+		if msg.Type == tea.KeyEnd || k == "end" {
+			if len(filtered) > 0 {
+				m.Cursor = len(filtered) - 1
+			}
+			return m, nil
+		}
+
 		if msg.Type == tea.KeyBackspace || k == "backspace" {
 			if len(m.FilterQuery) > 0 {
 				m.FilterQuery = m.FilterQuery[:len(m.FilterQuery)-1]

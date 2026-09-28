@@ -406,8 +406,8 @@ var TUIStrings = map[string]map[string]string{
 		"id": "PERINTAH SLASH (%d dari %d)",
 	},
 	"slash_popup_more": {
-		"en": "--- %d more commands (Use Up/Down to scroll) ---",
-		"id": "--- %d perintah lagi (Gunakan Up/Down untuk scroll) ---",
+		"en": "--- %d more commands (↑/↓ · PgUp/PgDn) ---",
+		"id": "--- %d perintah lagi (↑/↓ · PgUp/PgDn) ---",
 	},
 	"repl_exit_msg": {
 		"en": "Exiting Live REPL session.",

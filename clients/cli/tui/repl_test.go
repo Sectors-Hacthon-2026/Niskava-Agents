@@ -632,3 +632,37 @@ func TestRenderToastPill(t *testing.T) {
 		t.Errorf("expected empty string for empty toast message")
 	}
 }
+
+func TestSlashPopupJumpKeys(t *testing.T) {
+	model := NewReplInputModelWithHistory("niskava >", nil)
+	model.SlashActive = true
+	model.FilteredCommands = GetLocalizedSlashCommands()
+
+	// End key should jump to last item
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	m := updated.(ReplInputModel)
+	if m.SlashCursor != len(m.FilteredCommands)-1 {
+		t.Fatalf("expected cursor at last item %d, got %d", len(m.FilteredCommands)-1, m.SlashCursor)
+	}
+
+	// Home key should jump to first item
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyHome})
+	m = updated.(ReplInputModel)
+	if m.SlashCursor != 0 {
+		t.Fatalf("expected cursor at 0 after Home key, got %d", m.SlashCursor)
+	}
+
+	// PgDn key should advance cursor by 5
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	m = updated.(ReplInputModel)
+	if m.SlashCursor != 5 {
+		t.Fatalf("expected cursor at 5 after PgDn key, got %d", m.SlashCursor)
+	}
+
+	// PgUp key should rewind cursor back
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m = updated.(ReplInputModel)
+	if m.SlashCursor != 0 {
+		t.Fatalf("expected cursor at 0 after PgUp key, got %d", m.SlashCursor)
+	}
+}

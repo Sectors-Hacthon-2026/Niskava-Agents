@@ -380,6 +380,48 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
+		case tea.KeyPgUp:
+			if m.SlashActive && len(m.FilteredCommands) > 0 {
+				m.SlashCursor -= 5
+				if m.SlashCursor < 0 {
+					m.SlashCursor = 0
+				}
+				m.SlashScrollOffset = m.SlashCursor
+				return m, nil
+			}
+
+		case tea.KeyPgDown:
+			if m.SlashActive && len(m.FilteredCommands) > 0 {
+				maxVisible := 5
+				m.SlashCursor += 5
+				if m.SlashCursor >= len(m.FilteredCommands) {
+					m.SlashCursor = len(m.FilteredCommands) - 1
+				}
+				if m.SlashCursor >= m.SlashScrollOffset+maxVisible {
+					m.SlashScrollOffset = m.SlashCursor - maxVisible + 1
+				}
+				return m, nil
+			}
+
+		case tea.KeyHome:
+			if m.SlashActive && len(m.FilteredCommands) > 0 {
+				m.SlashCursor = 0
+				m.SlashScrollOffset = 0
+				return m, nil
+			}
+
+		case tea.KeyEnd:
+			if m.SlashActive && len(m.FilteredCommands) > 0 {
+				maxVisible := 5
+				m.SlashCursor = len(m.FilteredCommands) - 1
+				if len(m.FilteredCommands) > maxVisible {
+					m.SlashScrollOffset = len(m.FilteredCommands) - maxVisible
+				} else {
+					m.SlashScrollOffset = 0
+				}
+				return m, nil
+			}
+
 		case tea.KeyCtrlV:
 			isCompactMode = !isCompactMode
 			m.TextInput.SetValue("/compact")
