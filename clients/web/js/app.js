@@ -90,6 +90,7 @@
                 close_btn: "✕ Tutup",
                 research_chat: "Percakapan Riset",
                 modal_title: "Pengaturan & Diagnostik Sistem",
+                modal_subtitle: "Konfigurasi model AI, koneksi data pasar Sectors v2, bot Telegram, dan integritas penyimpanan lokal.",
                 tab_api: "Kredensial API & LLM",
                 tab_telegram: "Telegram Bot Daemon",
                 tab_sectors: "Cache Sectors (Law 5)",
@@ -260,6 +261,7 @@
                 close_btn: "✕ Close",
                 research_chat: "Research Chat",
                 modal_title: "Settings & System Diagnostics",
+                modal_subtitle: "Configure AI models, Sectors v2 market data feeds, Telegram bot, and local storage integrity.",
                 tab_api: "API & LLM Credentials",
                 tab_telegram: "Telegram Bot Daemon",
                 tab_sectors: "Sectors Cache (Law 5)",
@@ -2165,6 +2167,12 @@
                         }
                     });
 
+                    // Sync visual provider cards
+                    document.querySelectorAll('.provider-card-tile').forEach(card => {
+                        const target = card.getAttribute('data-provider');
+                        card.classList.toggle('selected', target === prov);
+                    });
+
                     // Preset auto-fill helper if field is blank
                     if (prov === 'gemini') {
                         if (inputGeminiModel && !inputGeminiModel.value.trim()) {
@@ -2193,6 +2201,60 @@
                 if (selectAiProvider) {
                     selectAiProvider.addEventListener('change', updateProviderVisibility);
                 }
+
+                // Interactive Provider Cards Click
+                document.querySelectorAll('.provider-card-tile').forEach(card => {
+                    card.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const p = card.getAttribute('data-provider');
+                        if (selectAiProvider && p) {
+                            selectAiProvider.value = p;
+                            updateProviderVisibility();
+                        }
+                    });
+                });
+
+                // Password Mask Toggle (.btn-toggle-mask)
+                document.querySelectorAll('.btn-toggle-mask').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const targetId = btn.getAttribute('data-target');
+                        const input = document.getElementById(targetId);
+                        if (!input) return;
+                        const isPwd = (input.type === 'password');
+                        input.type = isPwd ? 'text' : 'password';
+                        btn.innerHTML = isPwd ?
+                            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>' :
+                            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+                        btn.title = isPwd ? 'Sembunyikan Kunci' : 'Tampilkan Kunci';
+                    });
+                });
+
+                // Quick Preset Chips for Models & Base URLs
+                document.querySelectorAll('.preset-chip[data-fill]').forEach(chip => {
+                    chip.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const targetId = chip.getAttribute('data-fill');
+                        const val = chip.getAttribute('data-val');
+                        const input = document.getElementById(targetId);
+                        if (input && val) {
+                            input.value = val;
+                            input.focus();
+                            showToast(currentLang === 'en' ? `Preset applied: ${val}` : `Preset diterapkan: ${val}`);
+                        }
+                    });
+                });
+
+                // Quick Preset Chips for Timeout
+                document.querySelectorAll('.preset-chip[data-timeout]').forEach(chip => {
+                    chip.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const val = chip.getAttribute('data-timeout');
+                        if (val) {
+                            populateTimeoutSlider(val);
+                        }
+                    });
+                });
 
                 // Preferences Elements
                 const toggleOfflineMode = document.getElementById('toggleOfflineMode');
@@ -3143,6 +3205,32 @@
                     });
                 }
 
+                const btnFlushAllCache = document.getElementById('btnFlushAllCache');
+                if (btnFlushAllCache) {
+                    btnFlushAllCache.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        const isEn = (currentLang === 'en');
+                        const confirmMsg = isEn ?
+                            'Flush ALL cache (including permanent historical OHLCV candles)? Subsequent queries will consume Sectors API credits.' :
+                            'Flush SEMUA cache (termasuk candlestick OHLCV historis)? Kueri berikutnya akan membutuhkan kuota kredit Sectors API.';
+                        if (!confirm(confirmMsg)) return;
+
+                        try {
+                            btnFlushAllCache.disabled = true;
+                            btnFlushAllCache.textContent = isEn ? 'Flushing...' : 'Memproses...';
+                            const res = await fetch(`${API_BASE}/api/system/cache/clean?all=1`, { method: 'POST' });
+                            const data = await res.json();
+                            showToast(isEn ? `All cache flushed (${data.cleaned_entries ?? 0} entries removed)` : `Seluruh cache di-flush (${data.cleaned_entries ?? 0} entri dihapus)`);
+                            fetchSectorsUsage();
+                        } catch (err) {
+                            showToast(isEn ? `Failed to flush cache: ${err.message}` : `Gagal flush cache: ${err.message}`, true);
+                        } finally {
+                            btnFlushAllCache.disabled = false;
+                            btnFlushAllCache.textContent = isEn ? 'Flush All Cache' : 'Flush Semua Cache';
+                        }
+                    });
+                }
+
                 // System Diagnostics
                 async function fetchDiagnostics() {
                     if (!diagnosticsDetails) return;
@@ -3151,41 +3239,81 @@
                         if (!res.ok) return;
                         const data = await res.json();
                         const dbSizeKb = data.database_size_bytes ? (data.database_size_bytes / 1024).toFixed(1) + ' KB' : 'N/A';
+                        const isEn = (currentLang === 'en');
+
                         diagnosticsDetails.innerHTML = `
-                            <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px;">
-                                <div style="padding:10px 12px; background:var(--bg-card-hover); border-radius:8px; border:1px solid var(--border-subtle);">
-                                    <div style="font-size:11px; color:var(--text-muted); font-weight:600;">STATUS DAEMON</div>
-                                    <div style="font-size:13px; font-weight:700; color:#10B981; margin-top:2px;">${escapeHtml(data.status || 'OK')}</div>
+                            <div class="kpi-stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+                                <div class="kpi-stat-card">
+                                    <span class="kpi-stat-label">STATUS DAEMON</span>
+                                    <span class="kpi-stat-num" style="color:#10B981; font-size:14px;">${escapeHtml(data.status || 'OK')}</span>
+                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">Local IPC Active</span>
                                 </div>
-                                <div style="padding:10px 12px; background:var(--bg-card-hover); border-radius:8px; border:1px solid var(--border-subtle);">
-                                    <div style="font-size:11px; color:var(--text-muted); font-weight:600;">GO RUNTIME</div>
-                                    <div style="font-size:13px; font-weight:700; color:var(--text-primary); margin-top:2px;">${escapeHtml(data.go_version || 'Go')}</div>
+                                <div class="kpi-stat-card">
+                                    <span class="kpi-stat-label">GO RUNTIME</span>
+                                    <span class="kpi-stat-num" style="font-size:14px;">${escapeHtml(data.go_version || 'Go')}</span>
+                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${escapeHtml(data.os || '')} (${escapeHtml(data.arch || '')}) | ${data.num_cpu || 1} CPU</span>
                                 </div>
-                                <div style="padding:10px 12px; background:var(--bg-card-hover); border-radius:8px; border:1px solid var(--border-subtle);">
-                                    <div style="font-size:11px; color:var(--text-muted); font-weight:600;">HOST OS / ARCH</div>
-                                    <div style="font-size:13px; font-weight:700; color:var(--text-primary); margin-top:2px;">${escapeHtml(data.os || '')} (${escapeHtml(data.arch || '')}) | ${data.num_cpu || 1} CPU</div>
-                                </div>
-                                <div style="padding:10px 12px; background:var(--bg-card-hover); border-radius:8px; border:1px solid var(--border-subtle);">
-                                    <div style="font-size:11px; color:var(--text-muted); font-weight:600;">DATABASE SQLITE WAL</div>
-                                    <div style="font-size:13px; font-weight:700; color:var(--text-primary); margin-top:2px;">${dbSizeKb} (${data.total_sessions || 0} ${currentLang === 'en' ? 'sessions' : 'sesi'})</div>
-                                </div>
-                            </div>
-                            <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-top:10px;">
-                                <div style="padding:10px 12px; background:var(--bg-card-hover); border-radius:8px; border:1px solid var(--border-subtle);">
-                                    <div style="font-size:11px; color:var(--text-muted); font-weight:600;">ACTIVE PROVIDER & SSoT</div>
-                                    <div style="font-size:13px; font-weight:700; color:var(--accent-text); margin-top:2px;">${escapeHtml((data.ai_provider || 'openai').toUpperCase())}</div>
-                                </div>
-                                <div style="padding:10px 12px; background:var(--bg-card-hover); border-radius:8px; border:1px solid var(--border-subtle);">
-                                    <div style="font-size:11px; color:var(--text-muted); font-weight:600;">MODE OPERASI</div>
-                                    <div style="font-size:13px; font-weight:700; color:${data.offline_mode ? '#F59E0B' : '#10B981'}; margin-top:2px;">${data.offline_mode ? 'OFFLINE (MOCK)' : 'SECTORS v2 LIVE'}</div>
+                                <div class="kpi-stat-card">
+                                    <span class="kpi-stat-label">SQLITE WAL (LAW 4)</span>
+                                    <span class="kpi-stat-num" style="font-size:14px;">${dbSizeKb}</span>
+                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${data.total_sessions || 0} ${isEn ? 'sessions saved' : 'sesi tersimpan'}</span>
                                 </div>
                             </div>
-                            <div style="padding:10px 12px; background:var(--bg-card-hover); border-radius:8px; border:1px solid var(--border-subtle); word-break:break-all; font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); margin-top:10px;">
-                                <div><strong>Database:</strong> ${escapeHtml(data.database_path || '')}</div>
-                                <div style="margin-top:4px;"><strong>Config:</strong> ${escapeHtml(data.config_path || '~/.niskava/config.yaml')}</div>
-                                <div style="margin-top:4px;"><strong>DotEnv:</strong> ${escapeHtml(data.dotenv_path || '~/.niskava/.env')}</div>
+                            <div class="kpi-stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-top:0;">
+                                <div class="kpi-stat-card">
+                                    <span class="kpi-stat-label">ACTIVE AI PROVIDER</span>
+                                    <span class="kpi-stat-num" style="color:var(--accent-text); font-size:14px;">${escapeHtml((data.ai_provider || 'openai').toUpperCase())}</span>
+                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">ReAct Cognitive Engine</span>
+                                </div>
+                                <div class="kpi-stat-card">
+                                    <span class="kpi-stat-label">MODE OPERASI</span>
+                                    <span class="kpi-stat-num" style="color:${data.offline_mode ? '#F59E0B' : '#10B981'}; font-size:14px;">${data.offline_mode ? 'OFFLINE (MOCK)' : 'SECTORS v2 LIVE'}</span>
+                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${data.offline_mode ? 'Fixture Simulation' : 'Law 5 Active Credit Sync'}</span>
+                                </div>
+                            </div>
+                            <div class="settings-card" style="margin-top:2px;">
+                                <div class="settings-card-head">
+                                    <div class="settings-card-title">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                                        <span>Jalur Penyimpanan SSoT (Single Source of Truth)</span>
+                                    </div>
+                                    <span class="panel-card-badge">Local-First</span>
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:11px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:var(--bg-card); border-radius:6px; border:1px solid var(--border-subtle);">
+                                        <div><strong style="color:var(--text-primary);">Database:</strong> <span style="color:var(--text-secondary);">${escapeHtml(data.database_path || '~/.niskava/niskava.db')}</span></div>
+                                        <button type="button" class="btn-copy-path" data-path="${escapeHtml(data.database_path || '~/.niskava/niskava.db')}" title="Salin Path" style="cursor:pointer; color:var(--text-muted); padding:2px 6px; border:none; background:transparent;">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                        </button>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:var(--bg-card); border-radius:6px; border:1px solid var(--border-subtle);">
+                                        <div><strong style="color:var(--text-primary);">Config:</strong> <span style="color:var(--text-secondary);">${escapeHtml(data.config_path || '~/.niskava/config.yaml')}</span></div>
+                                        <button type="button" class="btn-copy-path" data-path="${escapeHtml(data.config_path || '~/.niskava/config.yaml')}" title="Salin Path" style="cursor:pointer; color:var(--text-muted); padding:2px 6px; border:none; background:transparent;">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                        </button>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:var(--bg-card); border-radius:6px; border:1px solid var(--border-subtle);">
+                                        <div><strong style="color:var(--text-primary);">DotEnv:</strong> <span style="color:var(--text-secondary);">${escapeHtml(data.dotenv_path || '~/.niskava/.env')}</span></div>
+                                        <button type="button" class="btn-copy-path" data-path="${escapeHtml(data.dotenv_path || '~/.niskava/.env')}" title="Salin Path" style="cursor:pointer; color:var(--text-muted); padding:2px 6px; border:none; background:transparent;">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         `;
+
+                        // Attach copy path events
+                        diagnosticsDetails.querySelectorAll('.btn-copy-path').forEach(btn => {
+                            btn.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                const path = btn.getAttribute('data-path');
+                                if (path) {
+                                    navigator.clipboard.writeText(path).then(() => {
+                                        showToast(isEn ? 'Path copied to clipboard' : 'Jalur disalin ke papan klip');
+                                    });
+                                }
+                            });
+                        });
                     } catch (e) {
                         diagnosticsDetails.innerHTML = `<div style="color:#EF4444; font-size:12px;">${currentLang === 'en' ? 'Failed to load diagnostics:' : 'Gagal memuat diagnostik:'} ${escapeHtml(e.message)}</div>`;
                     }
@@ -3277,6 +3405,14 @@
                     if ((e.metaKey || e.ctrlKey) && e.key === ',') {
                         e.preventDefault();
                         openSettingsModal();
+                    } else if (e.key === 'Escape' && settingsModal && settingsModal.style.display !== 'none') {
+                        e.preventDefault();
+                        closeSettingsModal();
+                    } else if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S') && settingsModal && settingsModal.style.display !== 'none') {
+                        e.preventDefault();
+                        if (btnSaveSettings && !btnSaveSettings.disabled) {
+                            btnSaveSettings.click();
+                        }
                     }
                 });
             }

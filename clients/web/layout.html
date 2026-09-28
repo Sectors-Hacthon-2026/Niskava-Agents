@@ -500,281 +500,513 @@
     <div class="app-toast" id="appToast">Informasi disalin ke papan klip</div>
 
     <!-- SETTINGS & SYSTEM DIAGNOSTICS MODAL -->
-    <div class="modal-overlay" id="settingsModal" style="display:none;">
-        <div class="modal-card">
+    <div class="modal-overlay" id="settingsModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modalSettingsTitle">
+        <div class="modal-card settings-modal-card">
+            <!-- Modal Header -->
             <div class="modal-header">
-                <div class="modal-title">
-                    <img src="data:image/png;base64,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" alt="" style="width:20px; height:20px; border-radius:5px; object-fit:cover; flex-shrink:0; margin-right:6px; border:1px solid rgba(252, 213, 53, 0.4); background:#fff;">
-                    <span data-i18n="modal_title">Pengaturan & Diagnostik Sistem</span>
+                <div class="modal-header-left">
+                    <div class="modal-header-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="modal-title" id="modalSettingsTitle">
+                            <span data-i18n="modal_title">Pengaturan & Diagnostik Sistem</span>
+                            <span class="settings-ver-badge">v0.1.4</span>
+                        </div>
+                        <div class="modal-subtitle">
+                            Konfigurasi model AI, koneksi data pasar Sectors v2, bot Telegram, dan integritas penyimpanan lokal.
+                        </div>
+                    </div>
                 </div>
-                <button class="sidebar-icon-btn" id="btnCloseSettingsModal" aria-label="Tutup Pengaturan">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                <button class="modal-close-btn" id="btnCloseSettingsModal" aria-label="Tutup Pengaturan" title="Tutup (Esc)">
+                    <span class="kbd-hint">Esc</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
                 </button>
             </div>
 
-            <!-- Tabs -->
+            <!-- Tabs Navigation -->
             <div class="modal-tabs">
-                <button class="modal-tab-btn active" data-tab="tab-api" data-i18n="tab_api">Kredensial API & LLM</button>
-                <button class="modal-tab-btn" data-tab="tab-telegram" data-i18n="tab_telegram">Telegram Bot Daemon</button>
-                <button class="modal-tab-btn" data-tab="tab-sectors" data-i18n="tab_sectors">Cache Sectors (Law 5)</button>
-                <button class="modal-tab-btn" data-tab="tab-diagnostics" data-i18n="tab_diagnostics">Diagnostik Sistem</button>
+                <button class="modal-tab-btn active" data-tab="tab-api" id="tabBtnApi">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path></svg>
+                    <span data-i18n="tab_api">Kredensial API & LLM</span>
+                </button>
+                <button class="modal-tab-btn" data-tab="tab-sectors" id="tabBtnSectors">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                    <span data-i18n="tab_sectors">Cache Sectors (Law 5)</span>
+                </button>
+                <button class="modal-tab-btn" data-tab="tab-telegram" id="tabBtnTelegram">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    <span data-i18n="tab_telegram">Telegram Bot Daemon</span>
+                </button>
+                <button class="modal-tab-btn" data-tab="tab-diagnostics" id="tabBtnDiagnostics">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                    <span data-i18n="tab_diagnostics">Diagnostik Sistem</span>
+                </button>
             </div>
 
             <!-- SSoT Storage Indicator -->
-            <div style="margin: 0 24px 10px 24px; padding: 7px 12px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.22); border-radius: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-secondary);">
-                <span style="display:flex; align-items:center; gap:6px;">
-                    <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#10B981; box-shadow:0 0 5px #10B981;"></span>
-                    <strong style="color:var(--text-primary);">Penyimpanan Konfigurasi (.env):</strong> Tersinkronisasi Otomatis (~/.niskava/.env &amp; ./.env)
-                </span>
-                <span style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);" id="modalConfigSyncTime">Dual Sync SSoT</span>
+            <div class="settings-ssot-banner">
+                <div class="ssot-banner-left">
+                    <span class="ssot-pulse-dot"></span>
+                    <span>
+                        <strong style="color:var(--text-primary);">Penyimpanan Konfigurasi (.env):</strong> Tersinkronisasi Otomatis (<code class="path-code">~/.niskava/.env</code> &amp; <code class="path-code">./.env</code>)
+                    </span>
+                </div>
+                <span class="badge-ssot-tag" id="modalConfigSyncTime">Dual Sync SSoT</span>
             </div>
 
             <!-- Modal Body -->
             <div class="modal-body">
                 <!-- Tab 1: Kredensial API & LLM -->
                 <div class="tab-pane active" id="pane-tab-api">
-                    <div style="display:flex; flex-direction:column; gap:14px;">
-                        <div class="form-row">
-                            <label class="form-label">
-                                <span>Sectors API Key (v2)</span>
-                                <span id="statusSectorsKey" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
-                            </label>
-                            <div class="form-input-group">
-                                <input type="password" class="form-input" id="inputSectorsKey" placeholder="sec_live_... (Kosongkan jika tidak diubah)" data-i18n-placeholder="sec_key_placeholder">
-                                <button class="btn-test-conn" id="btnTestSectors" data-i18n="btn_test">Uji Koneksi</button>
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <!-- Provider Selector Grid -->
+                        <div class="settings-card">
+                            <div class="settings-card-head">
+                                <div>
+                                    <div class="settings-card-title">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><path d="M12 6v6l4 2"></path></svg>
+                                        <span data-i18n="label_ai_provider">Provider AI Aktif</span>
+                                    </div>
+                                    <div class="settings-card-desc">Pilih engine LLM untuk ReAct autonomous reasoning &amp; korelasi bukti kausalitas.</div>
+                                </div>
+                                <select class="form-input" id="selectAiProvider" style="display:none;">
+                                    <option value="gemini" data-i18n="opt_gemini">Google Gemini (AI Studio)</option>
+                                    <option value="openai" data-i18n="opt_openai">9router / OpenAI Compatible Gateway (Local: localhost:20128 / Hermes)</option>
+                                    <option value="ollama" data-i18n="opt_ollama">Ollama (Lokal On-Premise - deepseek-r1 / llama3)</option>
+                                    <option value="anthropic" data-i18n="opt_anthropic">Anthropic Claude (claude-3-5-sonnet)</option>
+                                </select>
+                            </div>
+                            <div class="provider-cards-grid" id="providerCardsGrid">
+                                <button type="button" class="provider-card-tile selected" data-provider="gemini">
+                                    <div class="provider-card-top">
+                                        <div class="provider-icon-badge">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                                        </div>
+                                        <span class="provider-tag" style="color:#03A66D; background:rgba(3,166,109,0.12);">Disarankan</span>
+                                    </div>
+                                    <div class="provider-name">Google Gemini</div>
+                                    <div class="provider-sub">Gemini 2.0 Flash / Pro</div>
+                                </button>
+
+                                <button type="button" class="provider-card-tile" data-provider="openai">
+                                    <div class="provider-card-top">
+                                        <div class="provider-icon-badge">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                                        </div>
+                                        <span class="provider-tag">Gateway</span>
+                                    </div>
+                                    <div class="provider-name">OpenAI / 9router</div>
+                                    <div class="provider-sub">Hermes / GPT-4o / Local</div>
+                                </button>
+
+                                <button type="button" class="provider-card-tile" data-provider="ollama">
+                                    <div class="provider-card-top">
+                                        <div class="provider-icon-badge">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                                        </div>
+                                        <span class="provider-tag">Lokal</span>
+                                    </div>
+                                    <div class="provider-name">Ollama Engine</div>
+                                    <div class="provider-sub">DeepSeek-R1 / Qwen 2.5</div>
+                                </button>
+
+                                <button type="button" class="provider-card-tile" data-provider="anthropic">
+                                    <div class="provider-card-top">
+                                        <div class="provider-icon-badge">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+                                        </div>
+                                        <span class="provider-tag">Penalaran</span>
+                                    </div>
+                                    <div class="provider-name">Anthropic Claude</div>
+                                    <div class="provider-sub">Claude 3.5 Sonnet</div>
+                                </button>
                             </div>
                         </div>
 
-                        <div class="form-row">
-                            <label class="form-label">
-                                <span data-i18n="label_ai_provider">Provider AI Aktif</span>
-                            </label>
-                            <select class="form-input" id="selectAiProvider">
-                                <option value="openai" data-i18n="opt_openai">9router / OpenAI Compatible Gateway (Local: localhost:20128 / Hermes)</option>
-                                <option value="gemini" data-i18n="opt_gemini">Google Gemini (AI Studio)</option>
-                                <option value="ollama" data-i18n="opt_ollama">Ollama (Lokal On-Premise - deepseek-r1 / llama3)</option>
-                                <option value="anthropic" data-i18n="opt_anthropic">Anthropic Claude (claude-3-5-sonnet)</option>
-                            </select>
-                        </div>
-
                         <!-- Provider: Google Gemini -->
-                        <div class="provider-fields-group" id="groupGemini" data-provider="gemini">
+                        <div class="provider-fields-group settings-card" id="groupGemini" data-provider="gemini">
                             <div class="form-row">
                                 <label class="form-label">
                                     <span>Gemini API Key</span>
                                     <span id="statusGeminiKey" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
                                 </label>
                                 <div class="form-input-group">
-                                    <input type="password" class="form-input" id="inputGeminiKey" placeholder="AIzaSy... (Kosongkan jika tidak diubah)" data-i18n-placeholder="gemini_key_placeholder">
-                                    <button class="btn-test-conn" id="btnTestGemini" data-i18n="btn_test">Uji Koneksi</button>
+                                    <div class="input-with-action">
+                                        <input type="password" class="form-input code-font" id="inputGeminiKey" placeholder="AIzaSy... (Kosongkan jika tidak diubah)" data-i18n-placeholder="gemini_key_placeholder">
+                                        <button type="button" class="btn-toggle-mask" data-target="inputGeminiKey" aria-label="Lihat / Sembunyikan Kunci" title="Tampilkan/Sembunyikan">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                        </button>
+                                    </div>
+                                    <button type="button" class="btn-test-conn" id="btnTestGemini" data-i18n="btn_test">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                        <span>Uji Koneksi</span>
+                                    </button>
                                 </div>
                             </div>
-                            <div class="form-row" style="margin-top:8px;">
+                            <div class="form-row" style="margin-top:4px;">
                                 <label class="form-label"><span>Gemini Model Name</span></label>
-                                <input type="text" class="form-input" id="inputGeminiModel" placeholder="gemini-2.0-flash">
+                                <input type="text" class="form-input code-font" id="inputGeminiModel" placeholder="gemini-2.0-flash">
+                                <div class="quick-preset-chips">
+                                    <span class="preset-chip-label">Preset:</span>
+                                    <button type="button" class="preset-chip" data-fill="inputGeminiModel" data-val="gemini-2.0-flash">gemini-2.0-flash</button>
+                                    <button type="button" class="preset-chip" data-fill="inputGeminiModel" data-val="gemini-2.5-flash">gemini-2.5-flash</button>
+                                    <button type="button" class="preset-chip" data-fill="inputGeminiModel" data-val="gemini-1.5-pro">gemini-1.5-pro</button>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Provider: OpenAI / Compatible Gateway -->
-                        <div class="provider-fields-group" id="groupOpenai" data-provider="openai" style="display:none;">
+                        <div class="provider-fields-group settings-card" id="groupOpenai" data-provider="openai" style="display:none;">
                             <div class="form-row">
                                 <label class="form-label">
                                     <span data-i18n="label_openai_key">OpenAI API Key (Opsional jika local gateway)</span>
                                     <span id="statusOpenaiKey" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
                                 </label>
                                 <div class="form-input-group">
-                                    <input type="password" class="form-input" id="inputOpenaiKey" placeholder="sk-... (Kosongkan jika tidak diubah)" data-i18n-placeholder="openai_key_placeholder">
-                                    <button class="btn-test-conn" id="btnTestOpenai" data-i18n="btn_test">Uji Koneksi</button>
+                                    <div class="input-with-action">
+                                        <input type="password" class="form-input code-font" id="inputOpenaiKey" placeholder="sk-... (Kosongkan jika tidak diubah)" data-i18n-placeholder="openai_key_placeholder">
+                                        <button type="button" class="btn-toggle-mask" data-target="inputOpenaiKey" aria-label="Lihat / Sembunyikan Kunci" title="Tampilkan/Sembunyikan">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                        </button>
+                                    </div>
+                                    <button type="button" class="btn-test-conn" id="btnTestOpenai" data-i18n="btn_test">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                        <span>Uji Koneksi</span>
+                                    </button>
                                 </div>
                             </div>
-                            <div class="form-row" style="margin-top:8px;">
+                            <div class="form-row" style="margin-top:4px;">
                                 <label class="form-label"><span>OpenAI Base URL</span></label>
-                                <input type="text" class="form-input" id="inputOpenaiBaseUrl" placeholder="http://localhost:20128/v1 atau https://api.openai.com/v1">
+                                <input type="text" class="form-input code-font" id="inputOpenaiBaseUrl" placeholder="http://localhost:20128/v1 atau https://api.openai.com/v1">
+                                <div class="quick-preset-chips">
+                                    <span class="preset-chip-label">Preset:</span>
+                                    <button type="button" class="preset-chip" data-fill="inputOpenaiBaseUrl" data-val="http://localhost:20128/v1">Local:20128</button>
+                                    <button type="button" class="preset-chip" data-fill="inputOpenaiBaseUrl" data-val="https://api.openai.com/v1">Official OpenAI</button>
+                                </div>
                             </div>
-                            <div class="form-row" style="margin-top:8px;">
+                            <div class="form-row" style="margin-top:4px;">
                                 <label class="form-label"><span>OpenAI Model Name</span></label>
-                                <input type="text" class="form-input" id="inputOpenaiModel" placeholder="hermes atau gpt-4o">
+                                <input type="text" class="form-input code-font" id="inputOpenaiModel" placeholder="hermes atau gpt-4o">
+                                <div class="quick-preset-chips">
+                                    <span class="preset-chip-label">Preset:</span>
+                                    <button type="button" class="preset-chip" data-fill="inputOpenaiModel" data-val="hermes">hermes</button>
+                                    <button type="button" class="preset-chip" data-fill="inputOpenaiModel" data-val="gpt-4o">gpt-4o</button>
+                                    <button type="button" class="preset-chip" data-fill="inputOpenaiModel" data-val="gpt-4o-mini">gpt-4o-mini</button>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Provider: Ollama (Local / On-Premise) -->
-                        <div class="provider-fields-group" id="groupOllama" data-provider="ollama" style="display:none;">
+                        <div class="provider-fields-group settings-card" id="groupOllama" data-provider="ollama" style="display:none;">
                             <div class="form-row">
                                 <label class="form-label">
                                     <span>Ollama Base URL</span>
                                     <span id="statusOllamaKey" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
                                 </label>
                                 <div class="form-input-group">
-                                    <input type="text" class="form-input" id="inputOllamaBaseUrl" placeholder="http://localhost:11434">
-                                    <button class="btn-test-conn" id="btnTestOllama" data-i18n="btn_test">Uji Koneksi</button>
+                                    <input type="text" class="form-input code-font" id="inputOllamaBaseUrl" placeholder="http://localhost:11434">
+                                    <button type="button" class="btn-test-conn" id="btnTestOllama" data-i18n="btn_test">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                        <span>Uji Koneksi</span>
+                                    </button>
                                 </div>
                             </div>
-                            <div class="form-row" style="margin-top:8px;">
+                            <div class="form-row" style="margin-top:4px;">
                                 <label class="form-label"><span>Ollama Model Name</span></label>
-                                <input type="text" class="form-input" id="inputOllamaModel" placeholder="deepseek-r1:8b atau qwen2.5">
+                                <input type="text" class="form-input code-font" id="inputOllamaModel" placeholder="deepseek-r1:8b atau qwen2.5">
+                                <div class="quick-preset-chips">
+                                    <span class="preset-chip-label">Preset:</span>
+                                    <button type="button" class="preset-chip" data-fill="inputOllamaModel" data-val="deepseek-r1:8b">deepseek-r1:8b</button>
+                                    <button type="button" class="preset-chip" data-fill="inputOllamaModel" data-val="qwen2.5:7b">qwen2.5:7b</button>
+                                    <button type="button" class="preset-chip" data-fill="inputOllamaModel" data-val="llama3.2">llama3.2</button>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Provider: Anthropic Claude -->
-                        <div class="provider-fields-group" id="groupAnthropic" data-provider="anthropic" style="display:none;">
+                        <div class="provider-fields-group settings-card" id="groupAnthropic" data-provider="anthropic" style="display:none;">
                             <div class="form-row">
                                 <label class="form-label">
                                     <span>Anthropic API Key</span>
                                     <span id="statusAnthropicKey" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
                                 </label>
                                 <div class="form-input-group">
-                                    <input type="password" class="form-input" id="inputAnthropicKey" placeholder="sk-ant-... (Kosongkan jika tidak diubah)">
-                                    <button class="btn-test-conn" id="btnTestAnthropic" data-i18n="btn_test">Uji Koneksi</button>
+                                    <div class="input-with-action">
+                                        <input type="password" class="form-input code-font" id="inputAnthropicKey" placeholder="sk-ant-... (Kosongkan jika tidak diubah)">
+                                        <button type="button" class="btn-toggle-mask" data-target="inputAnthropicKey" aria-label="Lihat / Sembunyikan Kunci" title="Tampilkan/Sembunyikan">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                        </button>
+                                    </div>
+                                    <button type="button" class="btn-test-conn" id="btnTestAnthropic" data-i18n="btn_test">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                        <span>Uji Koneksi</span>
+                                    </button>
                                 </div>
                             </div>
-                            <div class="form-row" style="margin-top:8px;">
+                            <div class="form-row" style="margin-top:4px;">
                                 <label class="form-label"><span>Anthropic Model Name</span></label>
-                                <input type="text" class="form-input" id="inputAnthropicModel" placeholder="claude-3-5-sonnet-20241022">
+                                <input type="text" class="form-input code-font" id="inputAnthropicModel" placeholder="claude-3-5-sonnet-20241022">
+                                <div class="quick-preset-chips">
+                                    <span class="preset-chip-label">Preset:</span>
+                                    <button type="button" class="preset-chip" data-fill="inputAnthropicModel" data-val="claude-3-5-sonnet-20241022">claude-3-5-sonnet</button>
+                                    <button type="button" class="preset-chip" data-fill="inputAnthropicModel" data-val="claude-3-5-haiku-20241022">claude-3-5-haiku</button>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Preferensi Sistem & Inferensi (Law 5) -->
-                        <div class="form-row" style="margin-top:6px; border-top:1px solid var(--border-subtle); padding-top:12px;">
-                            <label class="form-label" style="justify-content:space-between; cursor:pointer;" for="toggleOfflineMode">
-                                <span data-i18n="label_offline_mode">Mode Offline / Mock (Law 5)</span>
-                                <input type="checkbox" id="toggleOfflineMode" style="cursor:pointer; width:16px; height:16px;">
-                            </label>
-                            <span style="font-size:11px; color:var(--text-muted);" data-i18n="desc_offline_mode">Gunakan data sintetis lokal tanpa memotong kuota kredit Sectors API v2 (offline_mode).</span>
-                            <div id="offlineModeWarningBanner" style="display:none; margin-top:8px; padding:8px 12px; background:rgba(245, 158, 11, 0.1); border:1px solid rgba(245, 158, 11, 0.3); border-radius:8px; font-size:11.5px; color:#F59E0B; line-height:1.4;">
+                        <!-- Inference Timeout Card -->
+                        <div class="settings-card">
+                            <div class="settings-card-head">
+                                <div>
+                                    <div class="settings-card-title">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                        <span data-i18n="label_timeout">Inference Timeout</span>
+                                    </div>
+                                    <div class="settings-card-desc">Batas durasi inferensi loop ReAct otonom per query.</div>
+                                </div>
+                                <div style="display:inline-flex; align-items:center; gap:6px;">
+                                    <span id="timeout-value-badge" class="panel-card-badge" style="color:var(--accent-text); font-weight:700;">60s</span>
+                                    <span id="timeout-profile-badge" class="panel-card-badge">[balanced]</span>
+                                </div>
+                            </div>
+                            <input type="range" class="form-range" id="timeout-slider" min="10" max="300" step="5" value="60" oninput="onTimeoutSliderInput(this.value)" style="width:100%; accent-color:var(--primary); cursor:pointer;">
+                            <div class="quick-preset-chips" style="justify-content:space-between; margin-top:2px;">
+                                <button type="button" class="preset-chip" data-timeout="15">⚡ 15s (Fast)</button>
+                                <button type="button" class="preset-chip" data-timeout="60">⚖️ 60s (Balanced)</button>
+                                <button type="button" class="preset-chip" data-timeout="120">🧠 120s (Deep)</button>
+                                <button type="button" class="preset-chip" data-timeout="300">🚀 300s (Max)</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Cache Sectors & Kredit (Law 5) -->
+                <div class="tab-pane" id="pane-tab-sectors" style="display:none;">
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <!-- Sectors API Key Section -->
+                        <div class="settings-card">
+                            <div class="settings-card-head">
+                                <div>
+                                    <div class="settings-card-title">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                                        <span>Sectors Financial API v2 Key</span>
+                                    </div>
+                                    <div class="settings-card-desc">Kredensial resmi Sectors Financial API untuk data fundamental, OHLCV, keterbukaan IDX, dan foreign flow.</div>
+                                </div>
+                                <span id="statusSectorsKey" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
+                            </div>
+                            <div class="form-input-group">
+                                <div class="input-with-action">
+                                    <input type="password" class="form-input code-font" id="inputSectorsKey" placeholder="sec_live_... (Kosongkan jika tidak diubah)" data-i18n-placeholder="sec_key_placeholder">
+                                    <button type="button" class="btn-toggle-mask" data-target="inputSectorsKey" aria-label="Lihat / Sembunyikan Kunci" title="Tampilkan/Sembunyikan">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                    </button>
+                                </div>
+                                <button type="button" class="btn-test-conn" id="btnTestSectors" data-i18n="btn_test">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                    <span>Uji Koneksi</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Law 5 Quota Budget Discipline Card -->
+                        <div class="settings-card">
+                            <div class="settings-card-head">
+                                <div class="settings-card-title">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                                    <span data-i18n="label_sectors_budget">Disiplin Anggaran Kredit Sectors v2 (Law 5)</span>
+                                </div>
+                                <span class="panel-card-badge" style="color:var(--accent-text); border-color:rgba(252,213,53,0.35);">1.000 Grant Budget</span>
+                            </div>
+                            <div class="settings-card-desc" data-i18n="desc_sectors_cache">
+                                Monitor efisiensi kuota 1.000 kredit Sectors API v2 (Kepatuhan Law 5). Setiap permintaan pasar yang terlayani melalui cache SQLite lokal menghemat 1 kredit secara otomatis.
+                            </div>
+
+                            <!-- Progress Bar -->
+                            <div style="margin-top:4px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px; margin-bottom:5px;">
+                                    <span style="color:var(--text-secondary); font-weight:600;">Penggunaan Kuota Panggilan:</span>
+                                    <span id="statCreditUsageText" style="color:var(--text-primary); font-family:var(--font-mono); font-weight:700;">0 / 1.000</span>
+                                </div>
+                                <div class="credit-progress-wrap" style="margin-top:0;">
+                                    <div class="credit-progress-fill" id="sectorsCreditFill" style="width: 0%;"></div>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:6px;">
+                                    <span><span data-i18n="label_cache_efficiency">Efisiensi Cache SQLite:</span> <strong id="statCacheHitRatio" style="color:#10B981;">100%</strong></span>
+                                    <span id="statCreditRemaining">Sisa Kuota: ~1.000 panggilan</span>
+                                </div>
+                            </div>
+
+                            <!-- KPI Metric Cards Grid -->
+                            <div class="kpi-stats-grid">
+                                <div class="kpi-stat-card">
+                                    <span class="kpi-stat-label" data-i18n="stat_cache_total">Total Entri</span>
+                                    <span class="kpi-stat-num" id="statCacheTotal">0</span>
+                                </div>
+                                <div class="kpi-stat-card">
+                                    <span class="kpi-stat-label" data-i18n="stat_credit_saved">Kredit Dihemat</span>
+                                    <span class="kpi-stat-num" id="statCreditSaved" style="color:#10B981;">0</span>
+                                </div>
+                                <div class="kpi-stat-card">
+                                    <span class="kpi-stat-label" data-i18n="stat_permanent_entries">OHLCV Permanen</span>
+                                    <span class="kpi-stat-num" id="statCachePermanent">0</span>
+                                </div>
+                                <div class="kpi-stat-card">
+                                    <span class="kpi-stat-label" data-i18n="stat_expired_entries">Kadaluarsa</span>
+                                    <span class="kpi-stat-num" id="statCacheExpired" style="color:#F59E0B;">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Offline Mode Switch (Law 5) -->
+                        <div class="settings-card">
+                            <div class="toggle-switch-row">
+                                <div>
+                                    <label for="toggleOfflineMode" style="cursor:pointer; display:flex; align-items:center; gap:6px;">
+                                        <span style="font-size:12.5px; font-weight:700; color:var(--text-primary);" data-i18n="label_offline_mode">Mode Offline / Mock (Law 5)</span>
+                                    </label>
+                                    <div style="font-size:11px; color:var(--text-muted); margin-top:2px;" data-i18n="desc_offline_mode">
+                                        Gunakan data sintetis lokal tanpa memotong kuota kredit Sectors API v2 (offline_mode).
+                                    </div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="toggleOfflineMode">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div id="offlineModeWarningBanner" style="display:none; padding:8px 12px; background:rgba(245, 158, 11, 0.1); border:1px solid rgba(245, 158, 11, 0.3); border-radius:8px; font-size:11.5px; color:#F59E0B; line-height:1.4;">
                                 ⚠️ <strong>Mode Offline Aktif:</strong> Permintaan pasar disimulasikan dari snapshot fixture lokal untuk menghemat 1.000 kredit Sectors (Kepatuhan Law 5).
                             </div>
                         </div>
 
-                        <div class="form-row">
-                            <label class="form-label">
-                                <span data-i18n="label_timeout">Inference Timeout</span>
-                                <span style="display:inline-flex; align-items:center; gap:6px;">
-                                    <span id="timeout-value-badge" class="panel-card-badge" style="color:var(--accent-text); font-weight:700;">60s</span>
-                                    <span id="timeout-profile-badge" class="panel-card-badge">[balanced]</span>
-                                </span>
-                            </label>
-                            <input type="range" class="form-range" id="timeout-slider" min="10" max="300" step="5" value="60" oninput="onTimeoutSliderInput(this.value)" style="width:100%; accent-color:var(--primary); cursor:pointer;">
-                            <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text-muted); margin-top:2px;">
-                                <span>Fast (10s)</span>
-                                <span>Balanced (60s)</span>
-                                <span>Deep (120s)</span>
-                                <span>Max (300s)</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab 2: Telegram Bot Daemon -->
-                <div class="tab-pane" id="pane-tab-telegram" style="display:none;">
-                    <div style="display:flex; flex-direction:column; gap:14px;">
-                        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:var(--bg-card-hover); border-radius:10px; border:1px solid var(--border-subtle);">
-                            <div>
-                                <div style="display:flex; align-items:center;">
-                                    <span class="poller-heartbeat inactive" id="telePollerHeartbeat" title="Heartbeat Poller"></span>
-                                    <strong style="font-size:13px; color:var(--text-primary);" data-i18n="label_bot_status">Status Bot:</strong>
-                                    <span class="panel-card-badge" id="teleBotStatusBadge" style="margin-left:6px;">STANDBY</span>
+                        <!-- Cache Maintenance Actions -->
+                        <div class="settings-card">
+                            <div class="settings-card-head">
+                                <div>
+                                    <div class="settings-card-title">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                        <span>Pemeliharaan Cache SQLite</span>
+                                    </div>
+                                    <div class="settings-card-desc" data-i18n="label_clean_disk">Bersihkan data kadaluarsa atau purge seluruh cache untuk pengujian segar.</div>
                                 </div>
-                                <div style="font-size:11.5px; color:var(--text-muted); margin-top:3px;" id="teleBotUsername">@NiskavaAgentBot</div>
-                            </div>
-                            <div style="display:flex; gap:8px;">
-                                <button class="btn-test-conn" id="btnStartTeleBot" data-i18n="btn_start_bot" style="background:#10B981; color:#fff; border:none; font-weight:700;">Nyalakan Bot</button>
-                                <button class="btn-test-conn" id="btnStopTeleBot" data-i18n="btn_stop_bot" style="background:#EF4444; color:#fff; border:none; font-weight:700;">Matikan Bot</button>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <label class="form-label" style="justify-content:space-between;">
-                                <span data-i18n="label_tele_token">Telegram Bot Token</span>
-                                <span id="statusTeleToken" class="panel-card-badge" style="color:var(--text-muted);">Belum Ada Token</span>
-                            </label>
-                            <div class="form-input-group">
-                                <input type="password" class="form-input" id="inputTeleToken" autocomplete="new-password" placeholder="7123456789:AAH... (Kosongkan jika tidak diubah)" data-i18n-placeholder="tele_token_placeholder">
-                                <button class="btn-test-conn" id="btnUnlockTeleToken" type="button" style="display:none; white-space:nowrap; background:var(--bg-card-hover); border:1px solid var(--border-subtle); color:var(--text-primary);">Ganti Token</button>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <label class="form-label"><span data-i18n="label_tele_whitelist">Whitelist User ID / Username (Akses Khusus Analis)</span></label>
-                            <div class="tele-chips-wrap" id="teleAllowedUsersChips">
-                                <!-- Dynamic chips inserted here -->
-                            </div>
-                            <div class="form-input-group" style="margin-top:6px;">
-                                <input type="text" class="form-input" id="inputAddTeleUser" placeholder="Masukkan ID Telegram atau @username..." data-i18n-placeholder="tele_user_placeholder">
-                                <button class="btn-test-conn" id="btnAddTeleUser" data-i18n="btn_add_user" type="button">+ Tambah</button>
-                            </div>
-                            <input type="hidden" id="inputTeleUsers">
-                        </div>
-
-                        <div class="form-row" style="margin-top:6px;">
-                            <label class="form-label"><span data-i18n="label_tele_ping">Kirim Pesan Uji Coba (Test Ping)</span></label>
-                            <div class="form-input-group">
-                                <input type="text" class="form-input" id="inputTeleTestChatId" placeholder="Chat ID Telegram (contoh: 123456789)" data-i18n-placeholder="tele_chatid_placeholder">
-                                <button class="btn-test-conn" id="btnSendTeleTest" data-i18n="btn_send_ping">Kirim Ping</button>
+                                <div style="display:flex; gap:8px;">
+                                    <button type="button" class="btn-test-conn" id="btnCleanCache" data-i18n="clean_cache">
+                                        <span>Bersihkan Kadaluarsa</span>
+                                    </button>
+                                    <button type="button" class="btn-test-conn" id="btnFlushAllCache" style="color:#F6465D;">
+                                        <span>Flush Semua Cache</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Tab 3: Cache Sectors & Kredit (Law 5) -->
-                <div class="tab-pane" id="pane-tab-sectors" style="display:none;">
-                    <div style="display:flex; flex-direction:column; gap:14px;">
-                        <p style="font-size:12px; color:var(--text-muted); line-height:1.5;" data-i18n="desc_sectors_cache">
-                            Monitor efisiensi kuota 1.000 kredit Sectors API v2 (Kepatuhan Law 5). Setiap permintaan pasar yang terlayani melalui cache SQLite lokal menghemat 1 kredit secara otomatis.
-                        </p>
-
-                        <!-- Visual Progress Bar Kuota Grant -->
-                        <div style="background:var(--bg-panel); border:1px solid var(--border-subtle); border-radius:8px; padding:12px 14px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
-                                <strong style="color:var(--text-primary);" data-i18n="label_sectors_budget">Disiplin Anggaran Kredit Sectors v2 (Law 5)</strong>
-                                <span id="statCreditUsageText" style="color:var(--text-muted); font-family:var(--font-mono); font-weight:600;">0 / 1.000</span>
-                            </div>
-                            <div class="credit-progress-wrap">
-                                <div class="credit-progress-fill" id="sectorsCreditFill" style="width: 0%;"></div>
-                            </div>
-                            <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:6px;">
-                                <span><span data-i18n="label_cache_efficiency">Efisiensi Cache SQLite:</span> <strong id="statCacheHitRatio" style="color:#10B981;">100%</strong></span>
-                                <span id="statCreditRemaining">Sisa Kuota: ~1.000 panggilan</span>
-                            </div>
-                        </div>
-
-                        <div class="graph-stats-row">
-                            <div class="graph-stat-card">
-                                <span class="graph-stat-label" data-i18n="stat_cache_total">Total Entri Cache</span>
-                                <span class="graph-stat-num" id="statCacheTotal">0</span>
-                            </div>
-                            <div class="graph-stat-card">
-                                <span class="graph-stat-label" data-i18n="stat_credit_saved">Kredit Dihemat</span>
-                                <span class="graph-stat-num" id="statCreditSaved" style="color:#10B981;">0</span>
-                            </div>
-                            <div class="graph-stat-card">
-                                <span class="graph-stat-label" data-i18n="stat_permanent_entries">Entri Permanen (OHLCV)</span>
-                                <span class="graph-stat-num" id="statCachePermanent">0</span>
-                            </div>
-                            <div class="graph-stat-card">
-                                <span class="graph-stat-label" data-i18n="stat_expired_entries">Entri Kadaluarsa</span>
-                                <span class="graph-stat-num" id="statCacheExpired" style="color:#F59E0B;">0</span>
+                <!-- Tab 3: Telegram Bot Daemon -->
+                <div class="tab-pane" id="pane-tab-telegram" style="display:none;">
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <!-- Status Daemon Card -->
+                        <div class="settings-card">
+                            <div class="settings-card-head">
+                                <div>
+                                    <div style="display:flex; align-items:center;">
+                                        <span class="poller-heartbeat inactive" id="telePollerHeartbeat" title="Heartbeat Poller"></span>
+                                        <strong style="font-size:13px; color:var(--text-primary);" data-i18n="label_bot_status">Status Bot:</strong>
+                                        <span class="panel-card-badge" id="teleBotStatusBadge" style="margin-left:6px;">STANDBY</span>
+                                    </div>
+                                    <div style="font-size:11.5px; color:var(--text-muted); font-family:var(--font-mono); margin-top:3px;" id="teleBotUsername">@NiskavaAgentBot</div>
+                                </div>
+                                <div style="display:flex; gap:8px;">
+                                    <button type="button" class="btn-test-conn" id="btnStartTeleBot" data-i18n="btn_start_bot" style="background:#10B981; color:#fff; border:none; font-weight:700;">
+                                        <span>Nyalakan Bot</span>
+                                    </button>
+                                    <button type="button" class="btn-test-conn" id="btnStopTeleBot" data-i18n="btn_stop_bot" style="background:#EF4444; color:#fff; border:none; font-weight:700;">
+                                        <span>Matikan Bot</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
-                            <span style="font-size:12px; color:var(--text-secondary);" data-i18n="label_clean_disk">Bersihkan data kadaluarsa untuk menghemat ruang disk:</span>
-                            <button class="btn-test-conn" id="btnCleanCache" data-i18n="clean_cache">Bersihkan Cache Kadaluarsa</button>
+                        <!-- Bot Token Card -->
+                        <div class="settings-card">
+                            <div class="form-row">
+                                <label class="form-label">
+                                    <span data-i18n="label_tele_token">Telegram Bot Token</span>
+                                    <span id="statusTeleToken" class="panel-card-badge">Belum Ada Token</span>
+                                </label>
+                                <div class="form-input-group">
+                                    <div class="input-with-action">
+                                        <input type="password" class="form-input code-font" id="inputTeleToken" autocomplete="new-password" placeholder="7123456789:AAH... (Kosongkan jika tidak diubah)" data-i18n-placeholder="tele_token_placeholder">
+                                        <button type="button" class="btn-toggle-mask" data-target="inputTeleToken" aria-label="Lihat / Sembunyikan Token" title="Tampilkan/Sembunyikan">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                        </button>
+                                    </div>
+                                    <button type="button" class="btn-test-conn" id="btnUnlockTeleToken" style="display:none; white-space:nowrap;">Ganti Token</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Whitelist User Card -->
+                        <div class="settings-card">
+                            <div class="form-row">
+                                <label class="form-label"><span data-i18n="label_tele_whitelist">Whitelist User ID / Username (Akses Khusus Analis)</span></label>
+                                <div class="tele-chips-wrap" id="teleAllowedUsersChips">
+                                    <!-- Dynamic chips inserted here -->
+                                </div>
+                                <div class="form-input-group" style="margin-top:6px;">
+                                    <input type="text" class="form-input" id="inputAddTeleUser" placeholder="Masukkan ID Telegram atau @username..." data-i18n-placeholder="tele_user_placeholder">
+                                    <button type="button" class="btn-test-conn" id="btnAddTeleUser" data-i18n="btn_add_user">+ Tambah</button>
+                                </div>
+                                <input type="hidden" id="inputTeleUsers">
+                            </div>
+                        </div>
+
+                        <!-- Test Ping Card -->
+                        <div class="settings-card">
+                            <div class="form-row">
+                                <label class="form-label"><span data-i18n="label_tele_ping">Kirim Pesan Uji Coba (Test Ping)</span></label>
+                                <div class="form-input-group">
+                                    <input type="text" class="form-input code-font" id="inputTeleTestChatId" placeholder="Chat ID Telegram (contoh: 123456789)" data-i18n-placeholder="tele_chatid_placeholder">
+                                    <button type="button" class="btn-test-conn" id="btnSendTeleTest" data-i18n="btn_send_ping">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                                        <span>Kirim Ping</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Tab 4: Diagnostik Sistem -->
                 <div class="tab-pane" id="pane-tab-diagnostics" style="display:none;">
-                    <div style="display:flex; flex-direction:column; gap:10px; font-size:12.5px;" id="diagnosticsDetails">
-                        <div style="padding:10px; background:var(--bg-card-hover); border-radius:8px;" data-i18n="loading_diagnostics">Memuat data diagnostik...</div>
+                    <div style="display:flex; flex-direction:column; gap:12px;" id="diagnosticsDetails">
+                        <div style="padding:16px; background:var(--bg-panel); border-radius:10px; border:1px solid var(--border-subtle); text-align:center; color:var(--text-muted);" data-i18n="loading_diagnostics">
+                            Memuat data diagnostik sistem...
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Modal Footer -->
             <div class="modal-footer">
-                <button class="btn-test-conn" id="btnCancelSettings" data-i18n="btn_cancel">Batal</button>
-                <button class="btn-primary-action" id="btnSaveSettings" data-i18n="btn_save">Simpan Perubahan</button>
+                <div class="modal-footer-info">
+                    <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#10B981;"></span>
+                    <span>Perubahan kredensial langsung ter-hot-reload (Zero Restart)</span>
+                </div>
+                <div class="modal-footer-actions">
+                    <button type="button" class="btn-test-conn" id="btnCancelSettings" data-i18n="btn_cancel">Batal</button>
+                    <button type="button" class="btn-primary-action" id="btnSaveSettings" data-i18n="btn_save">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <span>Simpan Perubahan</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

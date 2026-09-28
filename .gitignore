@@ -85,6 +85,7 @@ web/dist-ssr/
 clients/web/dist/
 clients/web/dist-ssr/
 *.local
+.npmrc
 
 # --- IDEs & Editors ---
 .vscode/*
