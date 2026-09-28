@@ -4,8 +4,13 @@
                 if (!prompt || isGenerating) return;
 
                 // Switch from hero to chat view
-                heroView.classList.add('hidden');
-                chatView.classList.add('active');
+                if (typeof showChatView === 'function') {
+                    showChatView();
+                } else {
+                    heroView.classList.add('hidden');
+                    chatView.classList.add('active');
+                }
+                localStorage.setItem('niskava_active_session', currentSessionId);
 
                 // Append user message
                 appendUserMessage(prompt);
@@ -76,7 +81,7 @@
                                         argsSummary = ' (' + Object.entries(payload.args).map(([k, v]) => `${k}: ${v}`).join(', ') + ')';
                                     } catch(e) {}
                                 }
-                                const stepText = `⚡ Jalankan Tool: ${toolName}${argsSummary}`;
+                                const stepText = `Tool: ${toolName}${argsSummary}`;
                                 if (!reactSteps.includes(stepText)) {
                                     reactSteps.push(stepText);
                                     updateReactSteps(assistantMsgObj, reactSteps);
@@ -84,7 +89,7 @@
                             } else if (eventName === 'agent_observation' || payload.event === 'agent_observation') {
                                 const toolName = payload.tool || 'Hasil';
                                 const summary = payload.summary || payload.content || '';
-                                const stepText = `📋 Observasi [${toolName}]: ${summary.slice(0, 120)}${summary.length > 120 ? '...' : ''}`;
+                                const stepText = `Observasi [${toolName}]: ${summary.slice(0, 120)}${summary.length > 120 ? '...' : ''}`;
                                 if (!reactSteps.includes(stepText)) {
                                     reactSteps.push(stepText);
                                     updateReactSteps(assistantMsgObj, reactSteps);
@@ -92,7 +97,7 @@
                             } else if (eventName === 'progress_step' || payload.event === 'progress_step') {
                                 const stepMsg = payload.message || payload.stage || '';
                                 const stepIndex = payload.step_index ? `[${payload.step_index}/${payload.total_steps || '?'}] ` : '';
-                                const stepText = `⏳ Progres: ${stepIndex}${stepMsg}`;
+                                const stepText = `Progres: ${stepIndex}${stepMsg}`;
                                 if (stepMsg && !reactSteps.includes(stepText)) {
                                     reactSteps.push(stepText);
                                     updateReactSteps(assistantMsgObj, reactSteps);
@@ -101,7 +106,7 @@
                                 const ticker = payload.ticker ? `[${payload.ticker}] ` : '';
                                 const metric = payload.metric_type || 'Volume';
                                 const zScore = payload.z_score !== undefined ? `${payload.z_score >= 0 ? '+' : ''}${Number(payload.z_score).toFixed(2)}σ` : '';
-                                const stepText = `🚨 Anomali Terdeteksi: ${ticker}${metric} Deviasi ${zScore}`;
+                                const stepText = `Anomali Terdeteksi: ${ticker}${metric} Deviasi ${zScore}`;
                                 if (!reactSteps.includes(stepText)) {
                                     reactSteps.push(stepText);
                                     updateReactSteps(assistantMsgObj, reactSteps);
@@ -113,7 +118,7 @@
                                 const status = payload.verification_status || 'VERIFIED';
                                 const title = payload.title || 'Temuan Intelijen';
                                 const conf = payload.confidence_score ? ` (${(payload.confidence_score * 100).toFixed(0)}%)` : '';
-                                const stepText = `🛡️ Bukti Kausalitas [${status}]: ${title}${conf}`;
+                                const stepText = `Bukti Kausalitas [${status}]: ${title}${conf}`;
                                 if (!reactSteps.includes(stepText)) {
                                     reactSteps.push(stepText);
                                     updateReactSteps(assistantMsgObj, reactSteps);
@@ -141,12 +146,13 @@
                             } else if (eventName === 'done' || payload.event === 'done') {
                                 if (payload.session_id) {
                                     currentSessionId = payload.session_id;
+                                    localStorage.setItem('niskava_active_session', currentSessionId);
                                 }
                                 if (payload.message_id && assistantMsgObj.setMsgId) {
                                     assistantMsgObj.setMsgId(payload.message_id);
                                 }
                                 assistantMsgObj.setLatticeStatus('done');
-                                loadChatSessions();
+                                loadChatSessions(false);
                                 loadLiveGraph(currentSessionId);
                             }
                         }
@@ -173,7 +179,7 @@
                     if (assistantMsgObj.getLatticeStatus && assistantMsgObj.getLatticeStatus() !== 'error') {
                         assistantMsgObj.setLatticeStatus('done');
                     }
-                    loadChatSessions();
+                    loadChatSessions(false);
                     loadLiveGraph(currentSessionId);
                     scrollToBottom();
                 }

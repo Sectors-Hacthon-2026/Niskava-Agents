@@ -42,7 +42,7 @@
             let cachedChatSessions = [];
 
             // Dynamic Real Chat History & Grouping with Pin & Rename Support
-            async function loadChatSessions() {
+            async function loadChatSessions(restoreActive = true) {
                 try {
                     let res = await fetch(`${API_BASE}/api/chat/sessions`);
                     if (!res.ok) {
@@ -52,6 +52,16 @@
                     const data = await res.json();
                     cachedChatSessions = data.sessions || data.chat_sessions || data.data || [];
                     renderChatHistoryGroups(cachedChatSessions);
+
+                    if (restoreActive) {
+                        const savedActiveId = localStorage.getItem('niskava_active_session');
+                        if (savedActiveId) {
+                            const found = cachedChatSessions.find(s => (s.id || s.session_id) === savedActiveId);
+                            if (found) {
+                                switchSession(savedActiveId, formatSessionTitle(found));
+                            }
+                        }
+                    }
                 } catch(e) {
                     console.error('Failed to load chat sessions', e);
                 }
@@ -220,11 +230,17 @@
             }
 
             async function switchSession(sessionId, titleText) {
+                if (typeof closeMobileSidebar === 'function') {
+                    closeMobileSidebar();
+                }
                 currentSessionId = sessionId;
+                localStorage.setItem('niskava_active_session', sessionId);
                 document.querySelectorAll('.history-item').forEach(el => {
                     el.classList.toggle('active', el.getAttribute('data-session-id') === sessionId);
                 });
-                document.getElementById('currentSessionLabel').textContent = titleText.length > 25 ? titleText.slice(0, 22) + '...' : titleText;
+                if (titleText) {
+                    document.getElementById('currentSessionLabel').textContent = titleText.length > 25 ? titleText.slice(0, 22) + '...' : titleText;
+                }
                 loadLiveGraph(sessionId);
 
                 try {
@@ -234,8 +250,7 @@
                     const messages = data.messages || [];
 
                     if (messages.length > 0) {
-                        heroView.classList.add('hidden');
-                        chatView.classList.add('active');
+                        showChatView();
                         chatView.innerHTML = '';
 
                         messages.forEach(m => {
@@ -258,8 +273,7 @@
                         scrollToBottom();
                     } else {
                         chatView.innerHTML = '';
-                        chatView.classList.remove('active');
-                        heroView.classList.remove('hidden');
+                        showHeroView();
                     }
                 } catch (e) {
                     console.error('Failed to load session history', e);
@@ -504,24 +518,37 @@
 
             // 5. New Research button
             btnNewResearch.addEventListener('click', () => {
+                if (isGenerating && currentAbortController) {
+                    currentAbortController.abort();
+                    isGenerating = false;
+                }
+                if (typeof closeMobileSidebar === 'function') {
+                    closeMobileSidebar();
+                }
                 currentSessionId = 'WEB-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(1000 + Math.random() * 9000);
-                chatView.innerHTML = '';
-                chatView.classList.remove('active');
-                heroView.classList.remove('hidden');
+                localStorage.removeItem('niskava_active_session');
+                showHeroView();
                 document.getElementById('currentSessionLabel').textContent = t('header_session_default');
                 chatInput.value = '';
                 chatInput.style.height = 'auto';
                 updateSendButtonState();
                 document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
-                loadChatSessions();
+                loadChatSessions(false);
                 showToast(t('toast_new_session'));
             });
 
             // 6. Prompt Card and Action Chip Click Handlers
             document.querySelectorAll('.prompt-card').forEach(card => {
                 card.addEventListener('click', () => {
+                    if (isGenerating) {
+                        showToast(t('toast_wait_stream') || 'Harap tunggu investigasi yang sedang berjalan...');
+                        return;
+                    }
+                    card.classList.add('clicked');
+                    setTimeout(() => card.classList.remove('clicked'), 250);
                     const prompt = card.getAttribute('data-prompt');
                     if (prompt) {
+                        showChatView();
                         chatInput.value = prompt;
                         updateSendButtonState();
                         handleSendMessage();
@@ -531,8 +558,15 @@
 
             document.querySelectorAll('.action-chip').forEach(chip => {
                 chip.addEventListener('click', () => {
+                    if (isGenerating) {
+                        showToast(t('toast_wait_stream') || 'Harap tunggu investigasi yang sedang berjalan...');
+                        return;
+                    }
+                    chip.classList.add('clicked');
+                    setTimeout(() => chip.classList.remove('clicked'), 250);
                     const query = chip.getAttribute('data-query');
                     if (query) {
+                        showChatView();
                         chatInput.value = query;
                         updateSendButtonState();
                         handleSendMessage();

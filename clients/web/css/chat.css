@@ -352,12 +352,14 @@
         /* GFM Markdown Table */
         .markdown-rendered table {
             width: 100%;
+            display: block;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
             border-collapse: collapse;
             margin: 16px 0;
             font-size: 13px;
             background: var(--bg-card);
             border-radius: 10px;
-            overflow: hidden;
             border: 1px solid var(--border-subtle);
         }
         .markdown-rendered th {
@@ -596,6 +598,13 @@
             background: var(--bg-card-hover);
             transform: translateY(-1px);
         }
+        .action-chip:active,
+        .action-chip.clicked {
+            transform: scale(0.96);
+            border-color: var(--primary);
+            background: var(--pill-active-bg);
+            color: var(--primary-text);
+        }
         .compliance-disclaimer-box {
             font-size: 10.5px;
             line-height: 1.4;
@@ -646,3 +655,82 @@
             background: var(--pill-active-bg);
             color: var(--accent-text);
         }
+
+        /* Responsive Chat & Composer */
+        @media (max-width: 768px) {
+            .chat-view {
+                gap: 16px;
+                padding-bottom: 12px;
+            }
+            .chat-message {
+                gap: 10px;
+            }
+            .message-avatar {
+                width: 30px;
+                height: 30px;
+                border-radius: 8px;
+                font-size: 12px;
+            }
+            .markdown-rendered {
+                font-size: 13.5px;
+                line-height: 1.6;
+            }
+            .markdown-rendered h1 {
+                font-size: 18px;
+            }
+            .markdown-rendered h2 {
+                font-size: 16px;
+            }
+            .composer-container {
+                padding: 4px 10px 10px 10px;
+            }
+            .composer-box {
+                padding: 8px 10px 6px 10px;
+                border-radius: 12px;
+            }
+            .composer-textarea {
+                font-size: 13px;
+                min-height: 34px;
+            }
+            .composer-tools-left {
+                gap: 3px;
+            }
+            .composer-tool-btn {
+                padding: 0 6px;
+                font-size: 10.5px;
+                height: 26px;
+            }
+            .composer-tool-btn span {
+                display: none;
+            }
+            .model-select-badge {
+                font-size: 10px;
+                padding: 3px 6px;
+            }
+            .btn-send-message {
+                width: 32px;
+                height: 32px;
+            }
+            .quick-action-chips {
+                justify-content: flex-start;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                padding: 2px 4px 4px 4px;
+            }
+            .quick-action-chips::-webkit-scrollbar {
+                display: none;
+            }
+            .action-chip {
+                white-space: nowrap;
+                flex-shrink: 0;
+                font-size: 11px;
+                padding: 4px 10px;
+            }
+            .compliance-disclaimer-box {
+                font-size: 9.5px;
+                line-height: 1.3;
+            }
+        }
+

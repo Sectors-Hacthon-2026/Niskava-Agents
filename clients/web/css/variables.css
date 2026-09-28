@@ -2,128 +2,130 @@
             --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             --font-mono: 'JetBrains Mono', monospace;
 
-            --bg-body: #FAFAFA;
-            --bg-sidebar: #F5F5F7;
+            /* Light Mode: Putih (Background), Kuning (Accents), Hitam (Typography) */
+            --bg-body: #FFFFFF;
+            --bg-sidebar: #F8FAFC;
             --bg-main: #FFFFFF;
-            --bg-panel: #F8F9FA;
+            --bg-panel: #F8FAFC;
             --bg-card: #FFFFFF;
-            --bg-card-hover: #F5F5F7;
+            --bg-card-hover: #F1F5F9;
             --bg-input: #FFFFFF;
             --bg-elevated: #FFFFFF;
 
-            --border-subtle: #EAECEF;
-            --border-strong: #D0D5DD;
+            --border-subtle: #E2E8F0;
+            --border-strong: #CBD5E1;
             --border-focus: #FCD535;
 
-            --text-primary: #1E2329;
-            --text-secondary: #474D57;
-            --text-muted: #707A8A;
-            --text-faint: #B7BDC6;
+            --text-primary: #000000;
+            --text-secondary: #1F2937;
+            --text-muted: #4B5563;
+            --text-faint: #9CA3AF;
 
             --primary: #FCD535;
-            --primary-dark: #1E2329;
-            --primary-light: rgba(252, 213, 53, 0.15);
+            --primary-dark: #000000;
+            --primary-light: rgba(252, 213, 53, 0.2);
             --primary-hover: #F0B90B;
-            --primary-text: #1E2329;
+            --primary-text: #000000;
             --primary-gradient: linear-gradient(135deg, #FCD535 0%, #F5AC00 100%);
             --accent-gradient: linear-gradient(135deg, #FCD535 0%, #F0B90B 100%);
             --code-color: #B45309;
             --accent-text: #946300;
 
-            --pill-active-bg: rgba(252, 213, 53, 0.18);
-            --pill-active-text: #1E2329;
-            --pill-active-border: rgba(252, 213, 53, 0.45);
+            --pill-active-bg: rgba(252, 213, 53, 0.22);
+            --pill-active-text: #000000;
+            --pill-active-border: #FCD535;
 
             --badge-green-bg: #E6F9F0;
             --badge-green-text: #03A66D;
             --badge-green-border: #A3E9CC;
 
-            --badge-amber-bg: rgba(252, 213, 53, 0.18);
-            --badge-amber-text: #946300;
-            --badge-amber-border: rgba(252, 213, 53, 0.45);
+            --badge-amber-bg: rgba(252, 213, 53, 0.22);
+            --badge-amber-text: #78350F;
+            --badge-amber-border: #FCD535;
 
             --badge-red-bg: #FDF1F2;
             --badge-red-text: #CF304A;
             --badge-red-border: #F8B4BD;
 
-            --badge-blue-bg: rgba(252, 213, 53, 0.15);
-            --badge-blue-text: #1E2329;
-            --badge-blue-border: rgba(252, 213, 53, 0.35);
+            --badge-blue-bg: rgba(252, 213, 53, 0.18);
+            --badge-blue-text: #000000;
+            --badge-blue-border: #FCD535;
 
             --badge-purple-bg: #FAF5FF;
             --badge-purple-text: #6B21A8;
             --badge-purple-border: #E9D5FF;
 
-            --shadow-subtle: 0 1px 3px rgba(30, 35, 41, 0.04), 0 1px 2px rgba(30, 35, 41, 0.02);
-            --shadow-card: 0 2px 8px rgba(30, 35, 41, 0.04), 0 1px 2px rgba(30, 35, 41, 0.03);
-            --shadow-floating: 0 16px 40px rgba(30, 35, 41, 0.08), 0 4px 12px rgba(30, 35, 41, 0.04);
-            --shadow-composer: 0 20px 48px rgba(30, 35, 41, 0.06), 0 0 24px rgba(252, 213, 53, 0.08);
+            --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+            --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+            --shadow-floating: 0 16px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+            --shadow-composer: 0 12px 32px rgba(0, 0, 0, 0.08);
 
-            --hero-glow: radial-gradient(ellipse 700px 300px at 50% 30%, rgba(252, 213, 53, 0.12), transparent 70%);
-            --scrollbar-thumb: #D0D5DD;
+            --hero-glow: none;
+            --scrollbar-thumb: #CBD5E1;
             --scrollbar-track: transparent;
         }
 
         html[data-theme="dark"] {
-            --bg-body: #181A20;
-            --bg-sidebar: #14171A;
-            --bg-main: #181A20;
-            --bg-panel: #1E2329;
-            --bg-card: #1E2329;
-            --bg-card-hover: #2B313A;
-            --bg-input: #14171A;
-            --bg-elevated: #2B313A;
+            /* Dark Mode: Hitam (Background), Kuning (Accents), Putih (Typography) */
+            --bg-body: #050608;
+            --bg-sidebar: #0A0C10;
+            --bg-main: #050608;
+            --bg-panel: #0E1015;
+            --bg-card: #0E1015;
+            --bg-card-hover: #151821;
+            --bg-input: #0A0C10;
+            --bg-elevated: #151821;
 
-            --border-subtle: #2B313A;
-            --border-strong: #363D47;
+            --border-subtle: #1C202B;
+            --border-strong: #2B3142;
             --border-focus: #FCD535;
 
             --text-primary: #FFFFFF;
-            --text-secondary: #EAECEF;
-            --text-muted: #848E9C;
-            --text-faint: #5E6673;
+            --text-secondary: #E2E8F0;
+            --text-muted: #94A3B8;
+            --text-faint: #64748B;
 
             --primary: #FCD535;
             --primary-dark: #F0B90B;
-            --primary-light: rgba(252, 213, 53, 0.12);
+            --primary-light: rgba(252, 213, 53, 0.16);
             --primary-hover: #F0B90B;
-            --primary-text: #1E2329;
+            --primary-text: #000000;
             --primary-gradient: linear-gradient(135deg, #FCD535 0%, #F5AC00 100%);
             --accent-gradient: linear-gradient(135deg, #FCD535 0%, #F0B90B 100%);
             --code-color: #FCD535;
             --accent-text: #FCD535;
 
-            --pill-active-bg: rgba(252, 213, 53, 0.14);
+            --pill-active-bg: rgba(252, 213, 53, 0.18);
             --pill-active-text: #FCD535;
-            --pill-active-border: rgba(252, 213, 53, 0.35);
+            --pill-active-border: rgba(252, 213, 53, 0.45);
 
-            --badge-green-bg: rgba(14, 203, 129, 0.14);
+            --badge-green-bg: rgba(14, 203, 129, 0.16);
             --badge-green-text: #0ECB81;
-            --badge-green-border: rgba(14, 203, 129, 0.3);
+            --badge-green-border: rgba(14, 203, 129, 0.35);
 
-            --badge-amber-bg: rgba(252, 213, 53, 0.14);
+            --badge-amber-bg: rgba(252, 213, 53, 0.18);
             --badge-amber-text: #FCD535;
-            --badge-amber-border: rgba(252, 213, 53, 0.3);
+            --badge-amber-border: rgba(252, 213, 53, 0.4);
 
-            --badge-red-bg: rgba(246, 70, 93, 0.14);
+            --badge-red-bg: rgba(246, 70, 93, 0.16);
             --badge-red-text: #F6465D;
-            --badge-red-border: rgba(246, 70, 93, 0.3);
+            --badge-red-border: rgba(246, 70, 93, 0.35);
 
-            --badge-blue-bg: rgba(252, 213, 53, 0.12);
+            --badge-blue-bg: rgba(252, 213, 53, 0.15);
             --badge-blue-text: #FCD535;
-            --badge-blue-border: rgba(252, 213, 53, 0.28);
+            --badge-blue-border: rgba(252, 213, 53, 0.35);
 
-            --badge-purple-bg: rgba(192, 132, 252, 0.12);
+            --badge-purple-bg: rgba(192, 132, 252, 0.15);
             --badge-purple-text: #C084FC;
-            --badge-purple-border: rgba(192, 132, 252, 0.25);
+            --badge-purple-border: rgba(192, 132, 252, 0.3);
 
-            --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.3);
-            --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.4);
-            --shadow-floating: 0 20px 60px rgba(0, 0, 0, 0.55);
-            --shadow-composer: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(252, 213, 53, 0.06);
+            --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.5);
+            --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.6);
+            --shadow-floating: 0 20px 60px rgba(0, 0, 0, 0.8);
+            --shadow-composer: 0 16px 40px rgba(0, 0, 0, 0.6);
 
-            --hero-glow: radial-gradient(ellipse 700px 300px at 50% 30%, rgba(252, 213, 53, 0.08), transparent 70%);
-            --scrollbar-thumb: #2B313A;
+            --hero-glow: none;
+            --scrollbar-thumb: #1C202B;
             --scrollbar-track: transparent;
         }
 

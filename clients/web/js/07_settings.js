@@ -197,6 +197,10 @@
                 const diagnosticsDetails = document.getElementById('diagnosticsDetails');
 
                 function switchMainView(targetNav) {
+                    if (typeof closeMobileSidebar === 'function') {
+                        closeMobileSidebar();
+                    }
+
                     document.querySelectorAll('.nav-link-item').forEach(item => {
                         item.classList.toggle('active', item.getAttribute('data-nav') === targetNav);
                     });
@@ -204,10 +208,13 @@
                     const invPageView = document.getElementById('investigationsPageView');
 
                     if (targetNav === 'investigations') {
-                        if (heroView) heroView.style.display = 'none';
+                        if (heroView) {
+                            heroView.classList.add('hidden');
+                            heroView.style.display = 'none';
+                        }
                         if (chatView) {
-                            chatView.style.display = 'none';
                             chatView.classList.remove('active');
+                            chatView.style.display = 'none';
                         }
                         if (globalComplianceBox) globalComplianceBox.style.display = 'none';
                         if (composerContainer) composerContainer.style.display = 'none';
@@ -216,38 +223,42 @@
                         loadInvestigations();
                     } else if (targetNav === 'graphify') {
                         if (invPageView) invPageView.style.display = 'none';
-                        if (heroView) heroView.style.display = 'none';
+                        if (heroView) {
+                            heroView.classList.add('hidden');
+                            heroView.style.display = 'none';
+                        }
                         if (chatView) {
-                            chatView.style.display = 'none';
                             chatView.classList.remove('active');
+                            chatView.style.display = 'none';
                         }
                         if (globalComplianceBox) globalComplianceBox.style.display = 'none';
                         if (composerContainer) composerContainer.style.display = 'none';
                         if (graphPageView) graphPageView.style.display = 'flex';
                         loadGraphPageData();
-                    } else if (targetNav === 'chat') {
+                    } else if (targetNav === 'toolkit') {
+                        openSettingsModal();
+                    } else {
+                        // Default: chat view
                         if (invPageView) invPageView.style.display = 'none';
                         if (graphPageView) graphPageView.style.display = 'none';
                         if (globalComplianceBox) globalComplianceBox.style.display = 'block';
                         if (composerContainer) composerContainer.style.display = 'flex';
                         const hasMessages = chatView && chatView.children.length > 0;
                         if (hasMessages) {
-                            if (heroView) heroView.style.display = 'none';
-                            if (chatView) {
-                                chatView.style.display = 'flex';
-                                chatView.classList.add('active');
+                            if (typeof showChatView === 'function') {
+                                showChatView();
+                            } else {
+                                if (heroView) { heroView.classList.add('hidden'); heroView.style.display = 'none'; }
+                                if (chatView) { chatView.classList.add('active'); chatView.style.display = 'flex'; }
                             }
                         } else {
-                            if (heroView) heroView.style.display = 'flex';
-                            if (chatView) {
-                                chatView.style.display = 'none';
-                                chatView.classList.remove('active');
+                            if (typeof showHeroView === 'function') {
+                                showHeroView();
+                            } else {
+                                if (heroView) { heroView.classList.remove('hidden'); heroView.style.display = 'flex'; }
+                                if (chatView) { chatView.classList.remove('active'); chatView.style.display = 'none'; }
                             }
                         }
-                    } else if (targetNav === 'toolkit') {
-                        openSettingsModal();
-                    } else {
-                        showToast(currentLang === 'en' ? `Module ${targetNav.toUpperCase()} active.` : `Modul ${targetNav.toUpperCase()} aktif.`);
                     }
                 }
 
@@ -333,7 +344,7 @@
                             showToast(currentLang === 'en' ? `Failed to clean cache: ${err.message}` : `Gagal membersihkan cache: ${err.message}`, true);
                         } finally {
                             btnPruneMockData.disabled = false;
-                            btnPruneMockData.textContent = currentLang === 'en' ? '🧹 Clean Test Data' : '🧹 Bersihkan Data Uji';
+                            btnPruneMockData.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> <span>${currentLang === 'en' ? 'Clean Test Data' : 'Bersihkan Data Uji'}</span>`;
                         }
                     });
                 }
@@ -370,7 +381,7 @@
                 if (btnInvOpenChat) {
                     btnInvOpenChat.addEventListener('click', () => {
                         if (selectedInvestigationId) {
-                            selectSession(selectedInvestigationId);
+                            switchSession(selectedInvestigationId);
                         }
                         switchMainView('chat');
                     });

@@ -1,8 +1,10 @@
-        // --- 00_state.js ---
+(function() {
+    'use strict';
+
+    // --- 00_state.js ---
 // NISKAVA Web Workspace Client Architecture
-        (function() {
-            // State
-            const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173', '8000'].includes(window.location.port))
+// State
+const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173', '8000'].includes(window.location.port))
                 ? 'http://127.0.0.1:20128'
                 : '';
             let currentSessionId = 'WEB-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(1000 + Math.random() * 9000);
@@ -13,7 +15,7 @@
 
         // ==========================================
 
-        // --- 01_i18n.js ---
+    // --- 01_i18n.js ---
 // BILINGUAL i18n ENGINE (ID ⇄ EN)
         // ==========================================
         const I18N_DICT = {
@@ -128,8 +130,8 @@
                 sidebar_expanded_toast: "Sidebar dibuka",
                 inv_formal_title: "Investigasi Formal Otonom (7-Tahap)",
                 inv_formal_desc: "Audit komprehensif anomali pasar modal Indonesia terverifikasi bukti matematis (Z-Score ≥ 2.50σ) dan taksonomi 3-tier.",
-                btn_inv_back_to_chat: "💬 Percakapan AI",
-                btn_inv_open_chat: "💬 Buka di Chat",
+                btn_inv_back_to_chat: "Percakapan AI",
+                btn_inv_open_chat: "Buka di Chat",
                 inv_initiate_title: "Inisiasi Audit Otonom",
                 inv_ticker_label: "Ticker Emiten BEI (IDX)",
                 inv_ticker_placeholder: "cth: ANTM, BBCA, BUMI...",
@@ -138,14 +140,14 @@
                 inv_horizon_60: "60 Hari Perdagangan",
                 inv_horizon_90: "90 Hari Perdagangan",
                 inv_mock_label: "Mode Uji Coba Offline (Data Mock)",
-                btn_run_investigation: "🚀 Mulai Audit Otonom",
+                btn_run_investigation: "Mulai Audit Otonom",
                 inv_history_title: "Riwayat Investigasi",
                 inv_empty_title: "Dossier Investigasi Belum Dipilih",
                 inv_empty_desc: "Pilih salah satu sesi dari daftar di sebelah kiri atau jalankan audit baru untuk menelaah anomali statistik, candlestick, bukti 3-tier, dan kronologi kejadian.",
-                inv_anomaly_title: "📊 Ringkasan Anomali Deterministik (Law 1)",
-                inv_chart_title: "📈 Visualisasi Candlestick & Volume Spike (TradingView)",
-                inv_matrix_title: "🛡️ Matriks Verifikasi Bukti 3-Tier (Law 2)",
-                inv_timeline_title: "⏱️ Timeline Kronologis Kejadian (OSINT)",
+                inv_anomaly_title: "Ringkasan Anomali Deterministik (Law 1)",
+                inv_chart_title: "Visualisasi Candlestick & Volume Spike (TradingView)",
+                inv_matrix_title: "Matriks Verifikasi Bukti 3-Tier (Law 2)",
+                inv_timeline_title: "Timeline Kronologis Kejadian (OSINT)",
                 inv_disclaimer: "<strong>Kepatuhan Regulasi (Law 2 & Law 3):</strong> Seluruh dossier dan temuan investigasi disajikan secara obyektif berdasarkan data historis keterbukaan informasi IDXnet dan bukan merupakan rekomendasi transaksi finansial.",
                 graph_open_tab: "Buka Tab Mandiri",
                 graph_total_nodes: "Total Simpul (Nodes)",
@@ -154,7 +156,7 @@
                 graph_coverage: "Cakupan Graf",
                 btn_apply_filter: "Terapkan Filter",
                 btn_reset_filter: "Reset",
-                btn_clean_test_data: "🧹 Bersihkan Data Uji",
+                btn_clean_test_data: "Bersihkan Data Uji",
                 inv_actual_vol: "Volume Aktual",
                 inv_return_dev: "Deviasi Return",
                 inv_chart_status: "Data Pasar Harian",
@@ -182,6 +184,25 @@
                 desc_sectors_cache: "Monitor efisiensi kuota 1.000 kredit Sectors API v2 (Kepatuhan Law 5). Setiap permintaan pasar yang terlayani melalui cache SQLite lokal menghemat 1 kredit secara otomatis.",
                 label_sectors_budget: "Disiplin Anggaran Kredit Sectors v2 (Law 5)",
                 label_cache_efficiency: "Efisiensi Cache SQLite:",
+                header_refresh_tooltip: "Tarik Data Live Terbaru (Bypass Cache)",
+                data_freshness_tooltip: "Status Sumber Data Pasar (Klik untuk refresh)",
+                tag_anomaly: "ANOMALI",
+                tag_disclosure: "DISCLOSURE",
+                tag_flow: "FLOW",
+                tag_valuation: "VALUASI",
+                tag_peers: "PEERS",
+                tag_graph: "EGO-GRAPH",
+                graph_filter_ticker_ph: "Filter Ticker (cth: ANTM, BBRI)...",
+                graph_hop_1: "1 Hop (Tetangga Langsung)",
+                graph_hop_2: "2 Hops (Maks)",
+                graph_node_all: "Semua Tipe Entitas",
+                graph_node_ticker: "Emiten Saham (TICKER)",
+                graph_node_catalyst: "Katalis Komoditas (CATALYST)",
+                graph_node_broker: "Broker Sekuritas (BROKER)",
+                graph_node_regulator: "Regulator BEI/OJK (REGULATOR)",
+                graph_node_anomaly: "Anomali Volume (ANOMALY)",
+                graph_node_event: "Aksi Korporasi (EVENT)",
+                compliance_disclaimer: "<strong>Kepatuhan Hukum Pasar Modal (Law 2 & Law 3):</strong> Niskava Agent adalah platform riset intelijen pasar modal berbasis bukti untuk Bursa Efek Indonesia (IDX), <u>BUKAN</u> penasihat investasi berizin. Seluruh data, grafik asosiasi, dan sintesis disajikan untuk verifikasi informasi pasar dan <u>BUKAN</u> rekomendasi finansial.",
                 stat_cache_total: "Total Entri Cache",
                 stat_credit_saved: "Kredit Dihemat",
                 stat_permanent_entries: "Entri Permanen (OHLCV)",
@@ -299,8 +320,8 @@
                 sidebar_expanded_toast: "Sidebar opened",
                 inv_formal_title: "Autonomous Formal Investigation (7-Stage)",
                 inv_formal_desc: "Comprehensive audit of Indonesian capital market anomalies verified by mathematical evidence (Z-Score ≥ 2.50σ) and 3-tier taxonomy.",
-                btn_inv_back_to_chat: "💬 AI Chat",
-                btn_inv_open_chat: "💬 Open in Chat",
+                btn_inv_back_to_chat: "AI Chat",
+                btn_inv_open_chat: "Open in Chat",
                 inv_initiate_title: "Initiate Autonomous Audit",
                 inv_ticker_label: "IDX Stock Ticker (BEI)",
                 inv_ticker_placeholder: "e.g., ANTM, BBCA, BUMI...",
@@ -309,14 +330,14 @@
                 inv_horizon_60: "60 Trading Days",
                 inv_horizon_90: "90 Trading Days",
                 inv_mock_label: "Offline Test Mode (Mock Data)",
-                btn_run_investigation: "🚀 Start Autonomous Audit",
+                btn_run_investigation: "Start Autonomous Audit",
                 inv_history_title: "Investigation History",
                 inv_empty_title: "No Investigation Dossier Selected",
                 inv_empty_desc: "Select a session from the list on the left or run a new audit to inspect statistical anomalies, candlesticks, 3-tier evidence, and chronological timeline.",
-                inv_anomaly_title: "📊 Deterministic Anomaly Summary (Law 1)",
-                inv_chart_title: "📈 Candlestick & Volume Spike Visualization (TradingView)",
-                inv_matrix_title: "🛡️ 3-Tier Evidence Verification Matrix (Law 2)",
-                inv_timeline_title: "⏱️ Chronological Timeline (OSINT)",
+                inv_anomaly_title: "Deterministic Anomaly Summary (Law 1)",
+                inv_chart_title: "Candlestick & Volume Spike Visualization (TradingView)",
+                inv_matrix_title: "3-Tier Evidence Verification Matrix (Law 2)",
+                inv_timeline_title: "Chronological Timeline (OSINT)",
                 inv_disclaimer: "<strong>Regulatory Compliance (Law 2 & Law 3):</strong> All dossiers and investigative findings are presented objectively based on historical IDXnet disclosures and are not financial transaction recommendations.",
                 graph_open_tab: "Open Independent Tab",
                 graph_total_nodes: "Total Nodes",
@@ -325,7 +346,7 @@
                 graph_coverage: "Graph Scope",
                 btn_apply_filter: "Apply Filter",
                 btn_reset_filter: "Reset",
-                btn_clean_test_data: "🧹 Clean Test Data",
+                btn_clean_test_data: "Clean Test Data",
                 inv_actual_vol: "Actual Volume",
                 inv_return_dev: "Return Deviation",
                 inv_chart_status: "Daily Market Data",
@@ -353,6 +374,25 @@
                 desc_sectors_cache: "Monitor Sectors API v2 1,000 credit quota efficiency (Law 5 Compliance). Every market query served via local SQLite cache automatically saves 1 credit.",
                 label_sectors_budget: "Sectors v2 Credit Budget Discipline (Law 5)",
                 label_cache_efficiency: "SQLite Cache Efficiency:",
+                header_refresh_tooltip: "Fetch Latest Live Market Data (Bypass Cache)",
+                data_freshness_tooltip: "Market Data Feed Status (Click to refresh)",
+                tag_anomaly: "ANOMALY",
+                tag_disclosure: "DISCLOSURE",
+                tag_flow: "FLOW",
+                tag_valuation: "VALUATION",
+                tag_peers: "PEERS",
+                tag_graph: "EGO-GRAPH",
+                graph_filter_ticker_ph: "Filter Ticker (e.g., ANTM, BBRI)...",
+                graph_hop_1: "1 Hop (Direct Neighbors)",
+                graph_hop_2: "2 Hops (Max)",
+                graph_node_all: "All Entity Types",
+                graph_node_ticker: "Stock Tickers (TICKER)",
+                graph_node_catalyst: "Commodity Catalysts (CATALYST)",
+                graph_node_broker: "Securities Brokers (BROKER)",
+                graph_node_regulator: "Market Regulators (REGULATOR)",
+                graph_node_anomaly: "Volume Anomalies (ANOMALY)",
+                graph_node_event: "Corporate Actions (EVENT)",
+                compliance_disclaimer: "<strong>Capital Market Legal Compliance (Law 2 & Law 3):</strong> Niskava Agent is an evidence-based capital market intelligence platform for the Indonesia Stock Exchange (IDX), <u>NOT</u> a licensed investment advisor. All data, association graphs, and synthesis are presented for market information verification and <u>NOT</u> financial recommendations.",
                 stat_cache_total: "Total Cache Entries",
                 stat_credit_saved: "Credits Saved",
                 stat_permanent_entries: "Permanent Entries (OHLCV)",
@@ -503,7 +543,7 @@
             const historyList = document.getElementById('historyList');
             const appToast = document.getElementById('appToast');
 
-        // --- 02_ui.js ---
+    // --- 02_ui.js ---
 // 1. Theme Management (Light / Dark with OS preference and LocalStorage)
             function initTheme() {
                 const savedTheme = localStorage.getItem('niskava-theme');
@@ -520,11 +560,11 @@
                 document.documentElement.setAttribute('data-theme', theme);
                 localStorage.setItem('niskava-theme', theme);
                 if (theme === 'dark') {
-                    themeIconMoon.style.display = 'none';
-                    themeIconSun.style.display = 'block';
+                    if (themeIconMoon) themeIconMoon.style.display = 'none';
+                    if (themeIconSun) themeIconSun.style.display = 'block';
                 } else {
-                    themeIconMoon.style.display = 'block';
-                    themeIconSun.style.display = 'none';
+                    if (themeIconMoon) themeIconMoon.style.display = 'block';
+                    if (themeIconSun) themeIconSun.style.display = 'none';
                 }
             }
 
@@ -547,6 +587,49 @@
             // 2. Sidebar Minimize/Expand Handlers & Interactive Border Resizer (<-> cursor)
             const sidebarResizer = document.getElementById('sidebarResizer');
             const sidebarSearchBox = document.getElementById('sidebarSearchBox');
+            const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+
+            function isMobileView() {
+                return window.innerWidth <= 768;
+            }
+
+            function openMobileSidebar() {
+                appContainer.classList.add('sidebar-mobile-open');
+                if (sidebar) {
+                    sidebar.classList.add('mobile-open');
+                }
+                if (sidebarBackdrop) {
+                    sidebarBackdrop.classList.add('active');
+                }
+            }
+
+            function closeMobileSidebar() {
+                appContainer.classList.remove('sidebar-mobile-open');
+                if (sidebar) {
+                    sidebar.classList.remove('mobile-open');
+                }
+                if (sidebarBackdrop) {
+                    sidebarBackdrop.classList.remove('active');
+                }
+            }
+
+            function toggleMobileSidebar() {
+                if (appContainer.classList.contains('sidebar-mobile-open')) {
+                    closeMobileSidebar();
+                } else {
+                    openMobileSidebar();
+                }
+            }
+
+            if (sidebarBackdrop) {
+                sidebarBackdrop.addEventListener('click', closeMobileSidebar);
+            }
+
+            window.addEventListener('resize', () => {
+                if (!isMobileView()) {
+                    closeMobileSidebar();
+                }
+            });
 
             function updateSidebarToggleIcon() {
                 const isMin = appContainer.classList.contains('sidebar-collapsed');
@@ -562,17 +645,25 @@
             }
 
             btnToggleSidebar.addEventListener('click', () => {
-                appContainer.classList.toggle('sidebar-collapsed');
-                updateSidebarToggleIcon();
-                const isMin = appContainer.classList.contains('sidebar-collapsed');
-                showToast(isMin ? t('sidebar_collapsed_toast') : t('sidebar_expanded_toast'));
+                if (isMobileView()) {
+                    toggleMobileSidebar();
+                } else {
+                    appContainer.classList.toggle('sidebar-collapsed');
+                    updateSidebarToggleIcon();
+                    const isMin = appContainer.classList.contains('sidebar-collapsed');
+                    showToast(isMin ? t('sidebar_collapsed_toast') : t('sidebar_expanded_toast'));
+                }
             });
 
             btnSidebarClose.addEventListener('click', () => {
-                appContainer.classList.toggle('sidebar-collapsed');
-                updateSidebarToggleIcon();
-                const isMin = appContainer.classList.contains('sidebar-collapsed');
-                showToast(isMin ? t('sidebar_collapsed_toast') : t('sidebar_expanded_toast'));
+                if (isMobileView()) {
+                    closeMobileSidebar();
+                } else {
+                    appContainer.classList.toggle('sidebar-collapsed');
+                    updateSidebarToggleIcon();
+                    const isMin = appContainer.classList.contains('sidebar-collapsed');
+                    showToast(isMin ? t('sidebar_collapsed_toast') : t('sidebar_expanded_toast'));
+                }
             });
 
             // Expand when clicking search box in minimized state
@@ -657,6 +748,29 @@
                 }
             });
 
+            // View visibility state controllers (Clean synchronization without conflicting inline styles)
+            function showChatView() {
+                if (heroView) {
+                    heroView.classList.add('hidden');
+                    heroView.style.display = 'none';
+                }
+                if (chatView) {
+                    chatView.classList.add('active');
+                    chatView.style.display = 'flex';
+                }
+            }
+
+            function showHeroView() {
+                if (chatView) {
+                    chatView.classList.remove('active');
+                    chatView.style.display = 'none';
+                }
+                if (heroView) {
+                    heroView.classList.remove('hidden');
+                    heroView.style.display = 'flex';
+                }
+            }
+
             // Helper to escape HTML characters
             function escapeHtml(str) {
                 if (!str) return '';
@@ -665,7 +779,7 @@
 
             // ==========================================================================
 
-        // --- 03_charts.js ---
+    // --- 03_charts.js ---
 // 3. CANDLESTICK CHARTS, EVIDENCE MATRIX & ADVANCED WORKSPACE ACTIONS
             // ==========================================================================
 
@@ -923,7 +1037,7 @@
                 }
             }
 
-        // --- 04_sessions.js ---
+    // --- 04_sessions.js ---
 // Pin / Unpin Session Handler
             async function togglePinSession(sessionId, currentPinned) {
                 try {
@@ -968,7 +1082,7 @@
             let cachedChatSessions = [];
 
             // Dynamic Real Chat History & Grouping with Pin & Rename Support
-            async function loadChatSessions() {
+            async function loadChatSessions(restoreActive = true) {
                 try {
                     let res = await fetch(`${API_BASE}/api/chat/sessions`);
                     if (!res.ok) {
@@ -978,6 +1092,16 @@
                     const data = await res.json();
                     cachedChatSessions = data.sessions || data.chat_sessions || data.data || [];
                     renderChatHistoryGroups(cachedChatSessions);
+
+                    if (restoreActive) {
+                        const savedActiveId = localStorage.getItem('niskava_active_session');
+                        if (savedActiveId) {
+                            const found = cachedChatSessions.find(s => (s.id || s.session_id) === savedActiveId);
+                            if (found) {
+                                switchSession(savedActiveId, formatSessionTitle(found));
+                            }
+                        }
+                    }
                 } catch(e) {
                     console.error('Failed to load chat sessions', e);
                 }
@@ -1146,11 +1270,17 @@
             }
 
             async function switchSession(sessionId, titleText) {
+                if (typeof closeMobileSidebar === 'function') {
+                    closeMobileSidebar();
+                }
                 currentSessionId = sessionId;
+                localStorage.setItem('niskava_active_session', sessionId);
                 document.querySelectorAll('.history-item').forEach(el => {
                     el.classList.toggle('active', el.getAttribute('data-session-id') === sessionId);
                 });
-                document.getElementById('currentSessionLabel').textContent = titleText.length > 25 ? titleText.slice(0, 22) + '...' : titleText;
+                if (titleText) {
+                    document.getElementById('currentSessionLabel').textContent = titleText.length > 25 ? titleText.slice(0, 22) + '...' : titleText;
+                }
                 loadLiveGraph(sessionId);
 
                 try {
@@ -1160,8 +1290,7 @@
                     const messages = data.messages || [];
 
                     if (messages.length > 0) {
-                        heroView.classList.add('hidden');
-                        chatView.classList.add('active');
+                        showChatView();
                         chatView.innerHTML = '';
 
                         messages.forEach(m => {
@@ -1184,8 +1313,7 @@
                         scrollToBottom();
                     } else {
                         chatView.innerHTML = '';
-                        chatView.classList.remove('active');
-                        heroView.classList.remove('hidden');
+                        showHeroView();
                     }
                 } catch (e) {
                     console.error('Failed to load session history', e);
@@ -1430,24 +1558,37 @@
 
             // 5. New Research button
             btnNewResearch.addEventListener('click', () => {
+                if (isGenerating && currentAbortController) {
+                    currentAbortController.abort();
+                    isGenerating = false;
+                }
+                if (typeof closeMobileSidebar === 'function') {
+                    closeMobileSidebar();
+                }
                 currentSessionId = 'WEB-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(1000 + Math.random() * 9000);
-                chatView.innerHTML = '';
-                chatView.classList.remove('active');
-                heroView.classList.remove('hidden');
+                localStorage.removeItem('niskava_active_session');
+                showHeroView();
                 document.getElementById('currentSessionLabel').textContent = t('header_session_default');
                 chatInput.value = '';
                 chatInput.style.height = 'auto';
                 updateSendButtonState();
                 document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
-                loadChatSessions();
+                loadChatSessions(false);
                 showToast(t('toast_new_session'));
             });
 
             // 6. Prompt Card and Action Chip Click Handlers
             document.querySelectorAll('.prompt-card').forEach(card => {
                 card.addEventListener('click', () => {
+                    if (isGenerating) {
+                        showToast(t('toast_wait_stream') || 'Harap tunggu investigasi yang sedang berjalan...');
+                        return;
+                    }
+                    card.classList.add('clicked');
+                    setTimeout(() => card.classList.remove('clicked'), 250);
                     const prompt = card.getAttribute('data-prompt');
                     if (prompt) {
+                        showChatView();
                         chatInput.value = prompt;
                         updateSendButtonState();
                         handleSendMessage();
@@ -1457,8 +1598,15 @@
 
             document.querySelectorAll('.action-chip').forEach(chip => {
                 chip.addEventListener('click', () => {
+                    if (isGenerating) {
+                        showToast(t('toast_wait_stream') || 'Harap tunggu investigasi yang sedang berjalan...');
+                        return;
+                    }
+                    chip.classList.add('clicked');
+                    setTimeout(() => chip.classList.remove('clicked'), 250);
                     const query = chip.getAttribute('data-query');
                     if (query) {
+                        showChatView();
                         chatInput.value = query;
                         updateSendButtonState();
                         handleSendMessage();
@@ -1468,7 +1616,7 @@
 
             // 7. Riwayat Items Handled Dynamically
 
-        // --- 05_graph.js ---
+    // --- 05_graph.js ---
 // 8. Memory Graph: Dynamic Knowledge Graph Visualizer & Anomaly Feed
             const initialGraphSvgHtml = document.getElementById('graphifySvg') ? document.getElementById('graphifySvg').innerHTML : '';
 
@@ -1701,15 +1849,20 @@
                 return html;
             }
 
-        // --- 06_chat.js ---
+    // --- 06_chat.js ---
 // 10. Message Dispatcher & SSE Stream Handler
             async function handleSendMessage() {
                 const prompt = chatInput.value.trim();
                 if (!prompt || isGenerating) return;
 
                 // Switch from hero to chat view
-                heroView.classList.add('hidden');
-                chatView.classList.add('active');
+                if (typeof showChatView === 'function') {
+                    showChatView();
+                } else {
+                    heroView.classList.add('hidden');
+                    chatView.classList.add('active');
+                }
+                localStorage.setItem('niskava_active_session', currentSessionId);
 
                 // Append user message
                 appendUserMessage(prompt);
@@ -1780,7 +1933,7 @@
                                         argsSummary = ' (' + Object.entries(payload.args).map(([k, v]) => `${k}: ${v}`).join(', ') + ')';
                                     } catch(e) {}
                                 }
-                                const stepText = `⚡ Jalankan Tool: ${toolName}${argsSummary}`;
+                                const stepText = `Tool: ${toolName}${argsSummary}`;
                                 if (!reactSteps.includes(stepText)) {
                                     reactSteps.push(stepText);
                                     updateReactSteps(assistantMsgObj, reactSteps);
@@ -1788,7 +1941,7 @@
                             } else if (eventName === 'agent_observation' || payload.event === 'agent_observation') {
                                 const toolName = payload.tool || 'Hasil';
                                 const summary = payload.summary || payload.content || '';
-                                const stepText = `📋 Observasi [${toolName}]: ${summary.slice(0, 120)}${summary.length > 120 ? '...' : ''}`;
+                                const stepText = `Observasi [${toolName}]: ${summary.slice(0, 120)}${summary.length > 120 ? '...' : ''}`;
                                 if (!reactSteps.includes(stepText)) {
                                     reactSteps.push(stepText);
                                     updateReactSteps(assistantMsgObj, reactSteps);
@@ -1796,7 +1949,7 @@
                             } else if (eventName === 'progress_step' || payload.event === 'progress_step') {
                                 const stepMsg = payload.message || payload.stage || '';
                                 const stepIndex = payload.step_index ? `[${payload.step_index}/${payload.total_steps || '?'}] ` : '';
-                                const stepText = `⏳ Progres: ${stepIndex}${stepMsg}`;
+                                const stepText = `Progres: ${stepIndex}${stepMsg}`;
                                 if (stepMsg && !reactSteps.includes(stepText)) {
                                     reactSteps.push(stepText);
                                     updateReactSteps(assistantMsgObj, reactSteps);
@@ -1805,7 +1958,7 @@
                                 const ticker = payload.ticker ? `[${payload.ticker}] ` : '';
                                 const metric = payload.metric_type || 'Volume';
                                 const zScore = payload.z_score !== undefined ? `${payload.z_score >= 0 ? '+' : ''}${Number(payload.z_score).toFixed(2)}σ` : '';
-                                const stepText = `🚨 Anomali Terdeteksi: ${ticker}${metric} Deviasi ${zScore}`;
+                                const stepText = `Anomali Terdeteksi: ${ticker}${metric} Deviasi ${zScore}`;
                                 if (!reactSteps.includes(stepText)) {
                                     reactSteps.push(stepText);
                                     updateReactSteps(assistantMsgObj, reactSteps);
@@ -1817,7 +1970,7 @@
                                 const status = payload.verification_status || 'VERIFIED';
                                 const title = payload.title || 'Temuan Intelijen';
                                 const conf = payload.confidence_score ? ` (${(payload.confidence_score * 100).toFixed(0)}%)` : '';
-                                const stepText = `🛡️ Bukti Kausalitas [${status}]: ${title}${conf}`;
+                                const stepText = `Bukti Kausalitas [${status}]: ${title}${conf}`;
                                 if (!reactSteps.includes(stepText)) {
                                     reactSteps.push(stepText);
                                     updateReactSteps(assistantMsgObj, reactSteps);
@@ -1845,12 +1998,13 @@
                             } else if (eventName === 'done' || payload.event === 'done') {
                                 if (payload.session_id) {
                                     currentSessionId = payload.session_id;
+                                    localStorage.setItem('niskava_active_session', currentSessionId);
                                 }
                                 if (payload.message_id && assistantMsgObj.setMsgId) {
                                     assistantMsgObj.setMsgId(payload.message_id);
                                 }
                                 assistantMsgObj.setLatticeStatus('done');
-                                loadChatSessions();
+                                loadChatSessions(false);
                                 loadLiveGraph(currentSessionId);
                             }
                         }
@@ -1877,7 +2031,7 @@
                     if (assistantMsgObj.getLatticeStatus && assistantMsgObj.getLatticeStatus() !== 'error') {
                         assistantMsgObj.setLatticeStatus('done');
                     }
-                    loadChatSessions();
+                    loadChatSessions(false);
                     loadLiveGraph(currentSessionId);
                     scrollToBottom();
                 }
@@ -2103,7 +2257,7 @@
                 });
             }
 
-        // --- 07_settings.js ---
+    // --- 07_settings.js ---
 // 10. Navigation, Dedicated Memory Graph & Settings/Toolkit Integration
             function initNavigationAndSettings() {
                 const composerContainer = document.querySelector('.composer-container');
@@ -2303,6 +2457,10 @@
                 const diagnosticsDetails = document.getElementById('diagnosticsDetails');
 
                 function switchMainView(targetNav) {
+                    if (typeof closeMobileSidebar === 'function') {
+                        closeMobileSidebar();
+                    }
+
                     document.querySelectorAll('.nav-link-item').forEach(item => {
                         item.classList.toggle('active', item.getAttribute('data-nav') === targetNav);
                     });
@@ -2310,10 +2468,13 @@
                     const invPageView = document.getElementById('investigationsPageView');
 
                     if (targetNav === 'investigations') {
-                        if (heroView) heroView.style.display = 'none';
+                        if (heroView) {
+                            heroView.classList.add('hidden');
+                            heroView.style.display = 'none';
+                        }
                         if (chatView) {
-                            chatView.style.display = 'none';
                             chatView.classList.remove('active');
+                            chatView.style.display = 'none';
                         }
                         if (globalComplianceBox) globalComplianceBox.style.display = 'none';
                         if (composerContainer) composerContainer.style.display = 'none';
@@ -2322,38 +2483,42 @@
                         loadInvestigations();
                     } else if (targetNav === 'graphify') {
                         if (invPageView) invPageView.style.display = 'none';
-                        if (heroView) heroView.style.display = 'none';
+                        if (heroView) {
+                            heroView.classList.add('hidden');
+                            heroView.style.display = 'none';
+                        }
                         if (chatView) {
-                            chatView.style.display = 'none';
                             chatView.classList.remove('active');
+                            chatView.style.display = 'none';
                         }
                         if (globalComplianceBox) globalComplianceBox.style.display = 'none';
                         if (composerContainer) composerContainer.style.display = 'none';
                         if (graphPageView) graphPageView.style.display = 'flex';
                         loadGraphPageData();
-                    } else if (targetNav === 'chat') {
+                    } else if (targetNav === 'toolkit') {
+                        openSettingsModal();
+                    } else {
+                        // Default: chat view
                         if (invPageView) invPageView.style.display = 'none';
                         if (graphPageView) graphPageView.style.display = 'none';
                         if (globalComplianceBox) globalComplianceBox.style.display = 'block';
                         if (composerContainer) composerContainer.style.display = 'flex';
                         const hasMessages = chatView && chatView.children.length > 0;
                         if (hasMessages) {
-                            if (heroView) heroView.style.display = 'none';
-                            if (chatView) {
-                                chatView.style.display = 'flex';
-                                chatView.classList.add('active');
+                            if (typeof showChatView === 'function') {
+                                showChatView();
+                            } else {
+                                if (heroView) { heroView.classList.add('hidden'); heroView.style.display = 'none'; }
+                                if (chatView) { chatView.classList.add('active'); chatView.style.display = 'flex'; }
                             }
                         } else {
-                            if (heroView) heroView.style.display = 'flex';
-                            if (chatView) {
-                                chatView.style.display = 'none';
-                                chatView.classList.remove('active');
+                            if (typeof showHeroView === 'function') {
+                                showHeroView();
+                            } else {
+                                if (heroView) { heroView.classList.remove('hidden'); heroView.style.display = 'flex'; }
+                                if (chatView) { chatView.classList.remove('active'); chatView.style.display = 'none'; }
                             }
                         }
-                    } else if (targetNav === 'toolkit') {
-                        openSettingsModal();
-                    } else {
-                        showToast(currentLang === 'en' ? `Module ${targetNav.toUpperCase()} active.` : `Modul ${targetNav.toUpperCase()} aktif.`);
                     }
                 }
 
@@ -2439,7 +2604,7 @@
                             showToast(currentLang === 'en' ? `Failed to clean cache: ${err.message}` : `Gagal membersihkan cache: ${err.message}`, true);
                         } finally {
                             btnPruneMockData.disabled = false;
-                            btnPruneMockData.textContent = currentLang === 'en' ? '🧹 Clean Test Data' : '🧹 Bersihkan Data Uji';
+                            btnPruneMockData.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> <span>${currentLang === 'en' ? 'Clean Test Data' : 'Bersihkan Data Uji'}</span>`;
                         }
                     });
                 }
@@ -2476,7 +2641,7 @@
                 if (btnInvOpenChat) {
                     btnInvOpenChat.addEventListener('click', () => {
                         if (selectedInvestigationId) {
-                            selectSession(selectedInvestigationId);
+                            switchSession(selectedInvestigationId);
                         }
                         switchMainView('chat');
                     });
@@ -3417,11 +3582,11 @@
                 });
             }
 
-        // --- 08_bootstrap.js ---
+    // --- 08_bootstrap.js ---
 // Initialize theme, send button, sessions, live graph, navigation & settings on start
-            initTheme();
-            updateSendButtonState();
-            loadChatSessions();
-            loadLiveGraph(currentSessionId);
-            initNavigationAndSettings();
-        })();
+initTheme();
+updateSendButtonState();
+loadChatSessions();
+loadLiveGraph(currentSessionId);
+initNavigationAndSettings();
+})();

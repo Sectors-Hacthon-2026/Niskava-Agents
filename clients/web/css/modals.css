@@ -994,3 +994,62 @@
             background: linear-gradient(90deg, #10B981, #FCD535);
             transition: width 0.3s ease;
         }
+
+        /* ==========================================================================
+           RESPONSIVE ADJUSTMENTS FOR INVESTIGATIONS & MODALS
+           ========================================================================== */
+        @media (max-width: 960px) {
+            .investigations-page-view {
+                padding: 12px;
+                gap: 12px;
+            }
+            .inv-split-container {
+                flex-direction: column;
+                min-height: auto;
+                gap: 14px;
+            }
+            .inv-left-pane {
+                width: 100%;
+            }
+            .inv-history-list {
+                max-height: 200px;
+            }
+            .inv-right-pane {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 680px) {
+            .modal-overlay {
+                padding: 8px;
+            }
+            .modal-card {
+                max-width: 100%;
+                max-height: 94vh;
+                border-radius: 12px;
+            }
+            .modal-card.settings-modal-card {
+                height: 94vh;
+            }
+            .modal-header {
+                padding: 12px 14px;
+            }
+            .modal-body {
+                padding: 12px 14px;
+                gap: 10px;
+            }
+            .modal-footer {
+                padding: 10px 14px;
+            }
+            .modal-tabs {
+                padding: 6px 10px;
+            }
+            .modal-tab-btn {
+                padding: 6px 10px;
+                font-size: 11px;
+            }
+            .evidence-matrix-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+

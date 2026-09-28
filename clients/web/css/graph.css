@@ -158,20 +158,6 @@
             transform: translateY(0);
         }
 
-        /* Responsive */
-        @media (max-width: 1200px) {
-            .app-container {
-                grid-template-columns: 260px minmax(0, 1fr);
-            }
-            .sidebar { width: 260px; }
-            .prompt-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-        @media (max-width: 900px) {
-            .app-container {
-                grid-template-columns: 0px minmax(0, 1fr);
-            }
-            .prompt-grid { grid-template-columns: 1fr; }
-        }
         /* Memory Graph Dedicated Page View */
         .graph-page-view {
             width: 100%;
