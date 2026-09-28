@@ -105,6 +105,8 @@ type Model struct {
 	Err            error
 	EventsChan     <-chan ipc.Event
 	ErrChan        <-chan error
+	Width          int
+	Height         int
 }
 
 // NewModel creates an interactive TUI model.
@@ -160,6 +162,11 @@ func (m Model) Init() tea.Cmd {
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.Width = msg.Width
+		m.Height = msg.Height
+		return m, nil
+
 	case tea.KeyMsg:
 		if msg.String() == "q" || msg.String() == "ctrl+c" {
 			return m, tea.Quit

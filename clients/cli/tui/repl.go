@@ -1417,15 +1417,20 @@ func renderCompletionBadge(duration time.Duration, sessionID, model string, anom
 	return fmt.Sprintf("\n%s\n%s %s\n%s\n", sep, badge, detail, sep)
 }
 
-func renderFinalMarkdown(markdownContent string) {
+func renderFinalMarkdown(markdownContent string, terminalWidth ...int) {
 	if strings.TrimSpace(markdownContent) == "" {
 		return
+	}
+
+	wrapWidth := 95
+	if len(terminalWidth) > 0 && terminalWidth[0] > 20 {
+		wrapWidth = terminalWidth[0] - 4
 	}
 
 	fmt.Println()
 	renderer, err := glamour.NewTermRenderer(
 		glamour.WithAutoStyle(),
-		glamour.WithWordWrap(95),
+		glamour.WithWordWrap(wrapWidth),
 	)
 	if err == nil {
 		out, renderErr := renderer.Render(markdownContent)
