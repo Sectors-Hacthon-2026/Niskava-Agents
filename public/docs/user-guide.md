@@ -90,8 +90,18 @@ Type `/` in the prompt input to open the interactive autocomplete popup:
 | Command | Category | Description | Example |
 |---|---|---|---|
 | `/help` | `[SYSTEM]` | Displays available keyboard shortcuts and slash commands. | `/help` |
-| `/chats` | `[NAV]` | Opens interactive Bubbletea session selector to browse & switch chats. | `/chats` |
+| `/chats` | `[NAV]` | Opens interactive Bubbletea session selector to browse, pin, export, and delete chats. | `/chats` |
+| `/compact` | `[NAV]` | Toggles compact mode (hides raw tool thought logs for ultra-clean reading). | `/compact` |
+| `/find <kw>` | `[INTEL]` | Quick search and resume past chat session by ticker symbol or topic keyword. | `/find BBCA` |
+| `/copy` | `[NAV]` | Copies latest assistant response / finding summary directly to OS clipboard. | `/copy` |
 | `/resume <ID>` | `[INTEL]` | Resumes a specific chat session by its unique ID. | `/resume CHAT-20260925-0001` |
+| `/export [fmt]` | `[INTEL]` | Exports current session transcript to `md` (default), `json`, or `txt`. | `/export md` |
+| `/fork [title]` | `[NAV]` | Forks current research session into a new branch to test alternate hypotheses. | `/fork Skenario Bullish` |
+| `/search <kw>` | `[INTEL]` | Performs manual web news search for corporate events and filings. | `/search akuisisi` |
+| `/anomalies` | `[INTEL]` | Lists detected quantitative price and volume anomalies for current ticker. | `/anomalies` |
+| `/skills` | `[SYSTEM]` | Displays available domain skills and progressive disclosure catalog. | `/skills` |
+| `/doctor` | `[SYSTEM]` | Runs live environment diagnostics and AI provider latency check. | `/doctor` |
+| `/cache` | `[SYSTEM]` | Inspects local SQLite cache statistics and credit budget conservation. | `/cache` |
 | `/timeout [val]` | `[SYSTEM]` | Sets LLM inference timeout (`fast`, `balanced`, `deep`, `local`, or seconds `10-300`). | `/timeout balanced` |
 | `/graph` | `[INTEL]` | Opens the associative knowledge graph visualization directly in browser. | `/graph` |
 | `/web` | `[NAV]` | Launches/opens the Web Workspace canvas in your default browser. | `/web` |
@@ -101,6 +111,18 @@ Type `/` in the prompt input to open the interactive autocomplete popup:
 | `/reset` | `[SYSTEM]` | Resets working memory graph for the current session and starts fresh. | `/reset` |
 | `/clear` | `[SYSTEM]` | Clears the terminal screen and redraws the banner. | `/clear` |
 | `/back` or `/exit` | `[NAV]` | Returns cleanly to the Main HUD Launcher menu. | `/back` |
+
+---
+
+### Session Selector Hotkeys (`/chats`)
+When opening the session selector menu via `/chats` or the Main Launcher `[S]`, interactive management hotkeys are available:
+
+- **`Ctrl+P` (Pin / Unpin)**: Pin critical investigation sessions to the top with a visual `📌` badge.
+- **`Ctrl+D` or `Delete` (Delete Confirmation)**: Safely prompts `[y/N]` before permanently purging a session and cascading its associated memory edges.
+- **`Ctrl+E` (Export Modal Dialog)**: Opens an interactive modal to export full transcripts to Markdown (`.md`), Raw JSON (`.json`), or Plain Text (`.txt`) saved into `~/.niskava/exports/`.
+- **`Ctrl+Y` (Instant Clipboard Copy)**: Copies session ID, title, and last preview snippet directly to your operating system clipboard (supports Windows `clip`, macOS `pbcopy`, Linux `wl-copy`/`xclip`/`xsel`).
+- **`PgUp` / `PgDn` / `Home` / `End`**: Rapidly jump across large session archives.
+- **Type-to-Filter**: Instant real-time search across session IDs, titles, and preview snippets.
 
 ---
 
@@ -145,7 +167,7 @@ The command outputs a structured terminal report detailing:
 
 ## 4. Web Workspace (`niskava serve`)
 
-Niskava includes a self-contained local web application featuring TradingView/Recharts candlestick charts, real-time Server-Sent Events (SSE) streaming, and interactive evidence causality maps:
+Niskava includes a self-contained local web application featuring TradingView/Recharts candlestick charts, real-time Server-Sent Events (SSE) streaming, interactive evidence causality maps, and a unified settings hub:
 
 ```bash
 ./niskava serve --port 20128 --open
@@ -156,6 +178,9 @@ Niskava includes a self-contained local web application featuring TradingView/Re
 - **Live SSE Streaming**: Watch the ReAct agent's thoughts, tool calls, and evidence collection unfold in real time.
 - **Interactive Evidence Matrix**: Filter findings by verification status (`SUPPORTED`, `UNCERTAIN`, `CONTRADICTED`).
 - **Causality Timeline Graph**: Interactive visual timeline correlating news publication timestamps against trading volume spikes.
+- **Institutional Settings Hub & Provider Cards**: Configure AI inference providers (OpenRouter, Google Gemini, Ollama, DeepSeek, Groq, OpenAI), model selection, inference timeout sliders, and live endpoint test ping directly from the browser modal.
+- **Dual-Theme Refinements**: High-contrast Bloomberg terminal Dark Mode and anti-glare warm matte Light Mode with instant theme switching.
+- **Live Data Freshness & Cache Flush**: Header status badge displaying live Sectors cache status with manual one-click cache purge and re-sync controls.
 
 To run the web server in the background alongside the CLI, specify `--port` as needed (default is `20128`).
 

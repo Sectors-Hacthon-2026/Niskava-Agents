@@ -40,10 +40,10 @@ Niskava Agent combines the low-latency systems capabilities of Go, the scientifi
 │  - Volume Z-Scores, Abnormal Returns, Sector Divergence         │
 │  - Foreign Inflow Z-Scores, Altman Z-Score Ratios               │
 │                                                                 │
-│  [Layer 1: MCP & News Data Primitives]                         │
+│  [Layer 1: Sectors MCP & News Engine Primitives]                │
 │  - Sectors Financial API v2 MCP Server Adapter                  │
-│  - Dual-Engine Targeted News Harvest (Sectors News + Google RSS Dorks) │
-│  - Content Extraction & HTML Sanitization via Trafilatura       │
+│  - Curated Sectors News & Corporate Filings Engine              │
+│  - Content Sanitization via Trafilatura (<evidence_context>)    │
 └────────────────────────────────┬────────────────────────────────┘
                                  │
                                  ▼
@@ -143,11 +143,10 @@ Whenever a ticker investigation is initiated (e.g., `niskava investigate ANTM --
    - Generates structured search dork queries combining the company name, ticker, and exchange-specific disclosure terminology.
 
 5. **Stage 5: NEWS_HARVEST**
-   - Executes parallel Dual-Engine intelligence harvesting:
-     - **Curated News:** Fetches categorized market news from Sectors v2 Unified News API (`/v2/news/`).
-     - **Targeted Media Dorking:** Queries Google News RSS with boolean operators for major Indonesian financial media (Kontan, Bisnis Indonesia, CNBC Indonesia, Investor Daily, IDXnet disclosures).
+   - Retrieves curated news, corporate actions, and regulatory filings directly from Sectors Financial API v2 (`/v2/news/` and `/v2/corporate-actions/`).
+   - Filters contemporaneous intelligence strictly within the anomaly observation window ($T_{\text{anomaly}} \pm 2\text{ days}$).
    - Sanitizes and extracts article text using `trafilatura`.
-   - Wraps content in strict boundary delimiters (`<evidence_context>`) to neutralize prompt injection attacks from untrusted external web pages.
+   - Wraps content in strict boundary delimiters (`<evidence_context>`) to neutralize prompt injection attacks from untrusted external text.
 
 6. **Stage 6: EVIDENCE_CORRELATION**
    - Performs temporal sequence verification:

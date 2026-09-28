@@ -46,7 +46,7 @@ cd Niskava-Agents
 # Run the interactive configuration wizard
 go run ./cmd/niskava setup
 ```
-The wizard guides you through setting your Sectors Financial API key, choosing your AI provider (Google Gemini, Ollama, OpenRouter, or vLLM), and creating the Python virtual environment.
+The wizard guides you through setting your Sectors Financial API key, choosing your AI provider (OpenRouter, Google Gemini, Ollama, DeepSeek, Groq, OpenAI, or vLLM), and creating the Python virtual environment.
 
 ### 3. Launch an Investigation
 ```bash

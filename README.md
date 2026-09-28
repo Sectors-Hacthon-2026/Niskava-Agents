@@ -224,7 +224,8 @@ Running `niskava` without arguments launches the terminal HUD, while `niskava te
 - Interactive HUD launcher with diagnostics, session resume, and setup wizard.
 - Prompt-driven interactive REPL with **Up/Down arrow prompt history** navigation.
 - Live animated **Braille progress spinner** (`⠋`) showing real-time ReAct phase transitions.
-- Autocomplete slash commands: `/help`, `/chats`, `/resume <id>`, `/timeout`, `/export`, `/fork`, `/search`, `/anomalies`, `/skills`, `/doctor`, `/cache`, `/graph`, `/web`, `/sessions`, `/health`, `/lang`, `/reset`, `/clear`, `/back`, `/exit`.
+- Interactive Session Selector (`/chats`) with instant **Pin (`Ctrl+P`)**, **Delete (`Ctrl+D`)**, **Export Modal (`Ctrl+E`)**, and **Clipboard Copy (`Ctrl+Y`)**.
+- Autocomplete slash commands: `/help`, `/chats`, `/compact`, `/find`, `/copy`, `/resume <id>`, `/export`, `/fork`, `/search`, `/anomalies`, `/skills`, `/doctor`, `/cache`, `/timeout`, `/graph`, `/web`, `/sessions`, `/health`, `/lang`, `/reset`, `/clear`, `/back`, `/exit`.
 
 ### 2. Autonomous Headless & Interactive Investigation CLI
 Execute a full 7-stage investigation directly from the shell, or manage local SQLite session history with subcommands:
@@ -258,6 +259,8 @@ Launch the background REST/SSE server and interactive visual canvas:
 - Interactive candlestick chart with volume anomaly badges ($V_z \ge 2.5$) and breakout tags ($|R_t| \ge 5\%$).
 - Real-time Server-Sent Events (SSE) streaming of agent reasoning and tool execution.
 - Interactive Evidence Matrix and chronological causality graph.
+- Unified Institutional Settings Hub: dynamic AI provider selection (OpenRouter, Gemini, Ollama, DeepSeek, Groq, OpenAI), inference timeout sliders, and live latency diagnostics.
+- Dual-theme terminal aesthetics (Bloomberg Dark and Warm Matte Light) with live cache flush controls.
 
 ### 4. Interactive Knowledge Graph Export
 Export the local associative knowledge graph into a standalone HTML file:
@@ -334,7 +337,7 @@ Configuration can be provided via `~/.niskava/config.yaml` or environment variab
 | `SECTORS_API_KEY` | `auth.sectors_api_key` | `""` | Sectors Financial API v2 key. |
 | `GEMINI_API_KEY` | `auth.gemini_api_key` | `""` | Google Gemini API key. |
 | `OPENAI_API_KEY` | `auth.openai_api_key` | `""` | OpenAI / OpenRouter API key. |
-| `NISKAVA_AI_PROVIDER` | `ai.provider` | `"gemini"` | Inference backend (`gemini`, `ollama`, `openrouter`, `vllm`). |
+| `NISKAVA_AI_PROVIDER` | `ai.provider` | `"gemini"` | Inference backend (`openrouter`, `gemini`, `ollama`, `deepseek`, `groq`, `openai`, `vllm`). |
 | `NISKAVA_AI_MODEL` | `ai.model` | `"gemini-2.5-flash"` | Target language model name. |
 | `NISKAVA_AI_ENDPOINT` | `ai.endpoint` | `""` | Custom API base URL (for Ollama or vLLM). |
 | `NISKAVA_DB_PATH` | `storage.db_path` | `"~/.niskava/niskava.db"` | Local SQLite database file path. |
