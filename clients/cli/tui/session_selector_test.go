@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -256,5 +257,41 @@ func TestControlKeysDoNotCorruptFilterQuery(t *testing.T) {
 	m = updated.(SessionSelectorModel)
 	if m.FilterQuery != "an" {
 		t.Fatalf("expected FilterQuery to be 'an', got: %q", m.FilterQuery)
+	}
+}
+
+func TestSessionSelector_PgUpPgDownHomeEnd(t *testing.T) {
+	var sessions []db.ChatSession
+	for i := 1; i <= 10; i++ {
+		sessions = append(sessions, db.ChatSession{ID: fmt.Sprintf("CHAT-%d", i), Title: fmt.Sprintf("Session %d", i)})
+	}
+	model := NewSessionSelectorModel(sessions)
+
+	// End key jumps to last item (index 9)
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	m := updated.(SessionSelectorModel)
+	if m.Cursor != 9 {
+		t.Fatalf("expected cursor at 9 after End key, got %d", m.Cursor)
+	}
+
+	// Home key jumps to first item (index 0)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyHome})
+	m = updated.(SessionSelectorModel)
+	if m.Cursor != 0 {
+		t.Fatalf("expected cursor at 0 after Home key, got %d", m.Cursor)
+	}
+
+	// PgDn key advances cursor by 5
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	m = updated.(SessionSelectorModel)
+	if m.Cursor != 5 {
+		t.Fatalf("expected cursor at 5 after PgDn key, got %d", m.Cursor)
+	}
+
+	// PgUp key rewinds cursor by 5
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m = updated.(SessionSelectorModel)
+	if m.Cursor != 0 {
+		t.Fatalf("expected cursor at 0 after PgUp key, got %d", m.Cursor)
 	}
 }

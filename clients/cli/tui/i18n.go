@@ -686,8 +686,8 @@ var TUIStrings = map[string]map[string]string{
 		"id": "💬 PILIH SESI CHAT UNTUK DILANJUTKAN",
 	},
 	"session_selector_hint": {
-		"en": "[↑/↓ Nav  •  Ctrl+P Pin  •  Ctrl+D Delete  •  Ctrl+E Export  •  Ctrl+Y Copy  •  Enter Load  •  Esc Back]",
-		"id": "[↑/↓ Navigasi  •  Ctrl+P Pin  •  Ctrl+D Hapus  •  Ctrl+E Ekspor  •  Ctrl+Y Salin  •  Enter Buka  •  Esc Batal]",
+		"en": "[↑/↓/PgUp/PgDn Nav  •  Ctrl+P Pin  •  Ctrl+D Delete  •  Ctrl+E Export  •  Ctrl+Y Copy  •  Enter Load  •  Esc Back]",
+		"id": "[↑/↓/PgUp/PgDn Navigasi  •  Ctrl+P Pin  •  Ctrl+D Hapus  •  Ctrl+E Ekspor  •  Ctrl+Y Salin  •  Enter Buka  •  Esc Batal]",
 	},
 	"session_selector_delete_confirm": {
 		"en": "⚠️  DELETE SESSION: Are you sure you want to delete session '%s'? [y/N]",
