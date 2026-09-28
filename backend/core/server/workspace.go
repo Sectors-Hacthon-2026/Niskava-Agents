@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+//go:generate python3 ../../../clients/web/build.py
 //go:embed workspace.html
 var workspaceHTMLTemplate string
 

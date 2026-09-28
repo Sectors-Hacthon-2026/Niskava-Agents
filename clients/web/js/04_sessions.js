@@ -1,0 +1,543 @@
+// Pin / Unpin Session Handler
+            async function togglePinSession(sessionId, currentPinned) {
+                try {
+                    const res = await fetch(`${API_BASE}/api/chat/sessions/${encodeURIComponent(sessionId)}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ is_pinned: !currentPinned })
+                    });
+                    if (res.ok) {
+                        showToast(!currentPinned ? (currentLang === 'en' ? 'Session pinned to top' : 'Sesi disematkan ke atas (Pinned)') : (currentLang === 'en' ? 'Session unpinned' : 'Sematkan sesi dibatalkan'));
+                        loadChatSessions();
+                    }
+                } catch (e) {
+                    showToast(currentLang === 'en' ? 'Failed to update pin status' : 'Gagal mengubah status pin', true);
+                }
+            }
+
+            // Rename Session Handler
+            async function renameSession(sessionId, oldTitle) {
+                const newTitle = prompt(t('rename_prompt'), oldTitle);
+                if (!newTitle || newTitle.trim() === oldTitle.trim()) return;
+
+                try {
+                    const res = await fetch(`${API_BASE}/api/chat/sessions/${encodeURIComponent(sessionId)}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title: newTitle.trim() })
+                    });
+                    if (res.ok) {
+                        showToast(currentLang === 'en' ? 'Conversation title updated' : 'Judul percakapan berhasil diperbarui');
+                        if (currentSessionId === sessionId) {
+                            document.getElementById('currentSessionLabel').textContent = newTitle.trim();
+                        }
+                        loadChatSessions();
+                    }
+                } catch (e) {
+                    showToast(currentLang === 'en' ? 'Failed to rename title' : 'Gagal mengganti judul', true);
+                }
+            }
+
+            // Cached sessions for search restore
+            let cachedChatSessions = [];
+
+            // Dynamic Real Chat History & Grouping with Pin & Rename Support
+            async function loadChatSessions() {
+                try {
+                    let res = await fetch(`${API_BASE}/api/chat/sessions`);
+                    if (!res.ok) {
+                        res = await fetch(`${API_BASE}/api/sessions`);
+                    }
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    cachedChatSessions = data.sessions || data.chat_sessions || data.data || [];
+                    renderChatHistoryGroups(cachedChatSessions);
+                } catch(e) {
+                    console.error('Failed to load chat sessions', e);
+                }
+            }
+
+            function formatSessionTitle(s) {
+                let title = (s.title || '').trim();
+                if (!title || title === 'Sesi Riset Pasar' || title.startsWith('CHAT-') || title.startsWith('WEB-')) {
+                    title = (s.last_message_preview || s.first_message || '').trim();
+                }
+                if (!title) {
+                    title = s.id || s.session_id || 'Percakapan Riset';
+                }
+                title = title.replace(/^#+\s*/, '').replace(/^[•\-\*]\s*/, '').replace(/[\r\n]+/g, ' ').trim();
+                return title;
+            }
+
+            let activeHistoryDropdown = null;
+
+            function closeHistoryDropdown() {
+                if (activeHistoryDropdown) {
+                    if (activeHistoryDropdown.btn) {
+                        activeHistoryDropdown.btn.classList.remove('active');
+                    }
+                    if (activeHistoryDropdown.menu && activeHistoryDropdown.menu.parentNode) {
+                        activeHistoryDropdown.menu.parentNode.removeChild(activeHistoryDropdown.menu);
+                    }
+                    activeHistoryDropdown = null;
+                }
+            }
+
+            function toggleHistoryDropdown(e, sId, fullTitle, isPinned, moreBtn) {
+                if (activeHistoryDropdown && activeHistoryDropdown.sessionId === sId) {
+                    closeHistoryDropdown();
+                    return;
+                }
+                closeHistoryDropdown();
+
+                moreBtn.classList.add('active');
+                const menu = document.createElement('div');
+                menu.className = 'history-dropdown-menu';
+                menu.innerHTML = `
+                    <button class="history-dropdown-item" data-action="pin">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="${isPinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-2l-2-3V6a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v6l-2 3v2z"></path></svg>
+                        <span>${isPinned ? t('menu_unpin') : t('menu_pin')}</span>
+                    </button>
+                    <button class="history-dropdown-item" data-action="rename">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                        <span>${t('menu_rename')}</span>
+                    </button>
+                    <button class="history-dropdown-item danger" data-action="delete">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        <span>${t('menu_delete')}</span>
+                    </button>
+                `;
+
+                document.body.appendChild(menu);
+
+                // Smart positioning based on viewport
+                const rect = moreBtn.getBoundingClientRect();
+                const menuWidth = 165;
+                const menuHeight = 118;
+                let top = rect.bottom + 4;
+                let left = rect.right - menuWidth;
+
+                if (top + menuHeight > window.innerHeight) {
+                    top = rect.top - menuHeight - 4;
+                }
+                if (left < 10) left = 10;
+
+                menu.style.top = `${top}px`;
+                menu.style.left = `${left}px`;
+
+                activeHistoryDropdown = { sessionId: sId, menu, btn: moreBtn };
+
+                menu.querySelector('[data-action="pin"]').addEventListener('click', async (evt) => {
+                    evt.stopPropagation();
+                    closeHistoryDropdown();
+                    await togglePinSession(sId, isPinned);
+                });
+
+                menu.querySelector('[data-action="rename"]').addEventListener('click', async (evt) => {
+                    evt.stopPropagation();
+                    closeHistoryDropdown();
+                    await renameSession(sId, fullTitle);
+                });
+
+                menu.querySelector('[data-action="delete"]').addEventListener('click', async (evt) => {
+                    evt.stopPropagation();
+                    closeHistoryDropdown();
+                    await deleteSession(sId);
+                });
+            }
+
+            // Global listeners to auto-close dropdown on outside click, resize, or list scroll
+            document.addEventListener('click', (e) => {
+                if (activeHistoryDropdown && !e.target.closest('.history-dropdown-menu') && !e.target.closest('.history-more-btn')) {
+                    closeHistoryDropdown();
+                }
+            });
+            window.addEventListener('resize', closeHistoryDropdown);
+            const historyScrollContainer = document.getElementById('historyList');
+            if (historyScrollContainer) {
+                historyScrollContainer.addEventListener('scroll', closeHistoryDropdown, { passive: true });
+            }
+
+            function renderChatHistoryGroups(sessions) {
+                closeHistoryDropdown();
+                historyList.innerHTML = '';
+                const historyCountEl = document.getElementById('historyCount');
+                if (historyCountEl) historyCountEl.textContent = sessions.length;
+
+                if (!sessions || sessions.length === 0) {
+                    historyList.innerHTML = `<div class="history-empty-notice">${t('history_empty')}</div>`;
+                    return;
+                }
+
+                // Sort: pinned sessions at top, then recently updated
+                const sorted = [...sessions].sort((a, b) => {
+                    const pinA = !!a.is_pinned;
+                    const pinB = !!b.is_pinned;
+                    if (pinA && !pinB) return -1;
+                    if (!pinA && pinB) return 1;
+                    return 0;
+                });
+
+                sorted.forEach(s => {
+                    const sId = s.id || s.session_id;
+                    const fullTitle = formatSessionTitle(s);
+                    const isPinned = !!s.is_pinned;
+                    let displayTitle = fullTitle;
+                    if (displayTitle.length > 28) {
+                        displayTitle = displayTitle.slice(0, 26) + '...';
+                    }
+
+                    const itemEl = document.createElement('div');
+                    itemEl.className = 'history-item' + (sId === currentSessionId ? ' active' : '') + (isPinned ? ' pinned' : '');
+                    itemEl.setAttribute('data-session-id', sId);
+
+                    itemEl.innerHTML = `
+                        ${isPinned ? `<span class="history-item-pin-badge" title="${t('menu_pin')}"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-2l-2-3V6a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v6l-2 3v2z"></path></svg></span>` : ''}
+                        <span class="history-item-label" title="${escapeHtml(fullTitle)}">${escapeHtml(displayTitle)}</span>
+                        <button class="history-more-btn" title="${t('options_tooltip')}" aria-label="Opsi">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="12" cy="5" r="2"></circle>
+                                <circle cx="12" cy="12" r="2"></circle>
+                                <circle cx="12" cy="19" r="2"></circle>
+                            </svg>
+                        </button>
+                    `;
+
+                    itemEl.addEventListener('click', (e) => {
+                        if (e.target.closest('.history-more-btn') || e.target.closest('.history-dropdown-menu')) return;
+                        closeHistoryDropdown();
+                        switchSession(sId, fullTitle);
+                    });
+
+                    const moreBtn = itemEl.querySelector('.history-more-btn');
+                    moreBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleHistoryDropdown(e, sId, fullTitle, isPinned, moreBtn);
+                    });
+
+                    historyList.appendChild(itemEl);
+                });
+            }
+
+            async function switchSession(sessionId, titleText) {
+                currentSessionId = sessionId;
+                document.querySelectorAll('.history-item').forEach(el => {
+                    el.classList.toggle('active', el.getAttribute('data-session-id') === sessionId);
+                });
+                document.getElementById('currentSessionLabel').textContent = titleText.length > 25 ? titleText.slice(0, 22) + '...' : titleText;
+                loadLiveGraph(sessionId);
+
+                try {
+                    const res = await fetch(`${API_BASE}/api/chat/history?session_id=${encodeURIComponent(sessionId)}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const messages = data.messages || [];
+
+                    if (messages.length > 0) {
+                        heroView.classList.add('hidden');
+                        chatView.classList.add('active');
+                        chatView.innerHTML = '';
+
+                        messages.forEach(m => {
+                            if (m.role === 'user') {
+                                appendUserMessage(m.content);
+                            } else if (m.role === 'assistant') {
+                                const asst = createAssistantMessageElement(sessionId, m.id || m.message_id);
+                                asst.contentEl.innerHTML = renderMarkdown(m.content);
+                                asst.setLatticeStatus('done');
+                                if (m.thought) {
+                                    updateReactSteps(asst, [m.thought]);
+                                }
+                                if (m.findings && m.findings.length > 0 && asst.evidenceContainer) {
+                                    asst.evidenceContainer.style.display = 'block';
+                                    asst.evidenceContainer.innerHTML = renderEvidenceMatrixHTML(m.findings);
+                                }
+                                chatView.appendChild(asst.element);
+                            }
+                        });
+                        scrollToBottom();
+                    } else {
+                        chatView.innerHTML = '';
+                        chatView.classList.remove('active');
+                        heroView.classList.remove('hidden');
+                    }
+                } catch (e) {
+                    console.error('Failed to load session history', e);
+                }
+            }
+
+            async function deleteSession(sessionId) {
+                if (!confirm(t('delete_confirm'))) return;
+                try {
+                    let res = await fetch(`${API_BASE}/api/chat/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+                    if (!res.ok) {
+                        res = await fetch(`${API_BASE}/api/chat/reset?session_id=${encodeURIComponent(sessionId)}`, { method: 'POST' });
+                    }
+                    if (res.ok) {
+                        showToast(currentLang === 'en' ? 'Chat session deleted' : 'Sesi percakapan dihapus');
+                        if (currentSessionId === sessionId) {
+                            btnNewResearch.click();
+                        } else {
+                            loadChatSessions();
+                        }
+                    }
+                } catch(e) {
+                    console.error('Error deleting session', e);
+                }
+            }
+
+            // Reset All History Handler
+            const btnResetHistory = document.getElementById('btnResetHistory');
+            if (btnResetHistory) {
+                btnResetHistory.addEventListener('click', async () => {
+                    if (confirm(t('delete_confirm'))) {
+                        try {
+                            const res = await fetch(`${API_BASE}/api/chat/reset`, { method: 'POST' });
+                            if (res.ok) {
+                                showToast(currentLang === 'en' ? 'All history reset successfully' : 'Seluruh riwayat berhasil direset');
+                                currentSessionId = 'WEB-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(1000 + Math.random() * 9000);
+                                chatView.innerHTML = '';
+                                chatView.classList.remove('active');
+                                heroView.classList.remove('hidden');
+                                document.getElementById('currentSessionLabel').textContent = t('header_session_default');
+                                loadChatSessions();
+                            }
+                        } catch(e) {
+                            console.error('Error resetting history', e);
+                        }
+                    }
+                });
+            }
+
+            // Global Search Filter (SQLite full-text /api/chat/search with 300ms debounce)
+            let searchDebounceTimer = null;
+            if (sidebarSearch) {
+                sidebarSearch.addEventListener('input', (e) => {
+                    const query = e.target.value.trim();
+                    clearTimeout(searchDebounceTimer);
+                    const resultsBox = document.getElementById('searchResultsList');
+
+                    if (!query) {
+                        if (resultsBox) resultsBox.style.display = 'none';
+                        renderChatHistoryGroups(cachedChatSessions);
+                        return;
+                    }
+
+                    // Local DOM title filtering first for instant response
+                    const items = historyList.querySelectorAll('.history-item');
+                    items.forEach(item => {
+                        const text = item.textContent.toLowerCase();
+                        item.style.display = text.includes(query.toLowerCase()) ? 'flex' : 'none';
+                    });
+
+                    // Server-side SQLite full-text search with debounce
+                    searchDebounceTimer = setTimeout(async () => {
+                        try {
+                            const res = await fetch(`${API_BASE}/api/chat/search?q=${encodeURIComponent(query)}&limit=20`);
+                            if (res.ok) {
+                                const data = await res.json();
+                                const results = data.results || [];
+                                renderGlobalSearchResults(query, results);
+                            }
+                        } catch(err) {
+                            console.warn('Gagal mencari pesan percakapan:', err);
+                        }
+                    }, 300);
+                });
+            }
+
+            function renderGlobalSearchResults(query, results) {
+                const resultsBox = document.getElementById('searchResultsList');
+                if (!resultsBox) return;
+
+                if (!results || results.length === 0) {
+                    resultsBox.style.display = 'block';
+                    resultsBox.innerHTML = `
+                        <div class="search-results-header">
+                            <span>${t('search_results_title')}</span>
+                            <span style="cursor:pointer;" onclick="document.getElementById('searchResultsList').style.display='none'">✕</span>
+                        </div>
+                        <div style="font-size:11px; color:var(--text-muted); padding:10px; text-align:center;">
+                            ${t('no_messages_match')} "<strong>${escapeHtml(query)}</strong>"
+                        </div>
+                    `;
+                    return;
+                }
+
+                resultsBox.style.display = 'block';
+                let html = `
+                    <div class="search-results-header">
+                        <span>${t('messages_found')} (${results.length})</span>
+                        <span style="cursor:pointer;" onclick="document.getElementById('searchResultsList').style.display='none'">${t('close_btn')}</span>
+                    </div>
+                `;
+
+                results.forEach(item => {
+                    const title = item.session_title || item.session_id || t('research_chat');
+                    let contentSnippet = (item.content || '').replace(/\s+/g, ' ');
+                    const qRegex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+                    const highlighted = escapeHtml(contentSnippet.slice(0, 140)).replace(qRegex, '<mark>$1</mark>');
+
+                    html += `
+                        <div class="search-result-item" data-session-id="${escapeHtml(item.session_id)}">
+                            <div class="search-result-title">${escapeHtml(title)}</div>
+                            <div class="search-result-snippet">${highlighted}</div>
+                        </div>
+                    `;
+                });
+
+                resultsBox.innerHTML = html;
+
+                resultsBox.querySelectorAll('.search-result-item').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const sid = el.getAttribute('data-session-id');
+                        resultsBox.style.display = 'none';
+                        switchSession(sid, currentLang === 'en' ? 'Search Results' : 'Hasil Pencarian');
+                    });
+                });
+            }
+
+            function escapeRegex(string) {
+                return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
+
+            // 4. Auto-resizing textarea & send button state
+            function updateSendButtonState() {
+                const btnOpenGraphFull = document.getElementById('btnOpenGraphFull');
+                if (btnOpenGraphFull) {
+                    btnOpenGraphFull.href = `${API_BASE}/graph`;
+                }
+
+                if (isGenerating) {
+                    btnSendMessage.disabled = false;
+                    btnSendMessage.classList.add('btn-aborting');
+                    btnSendMessage.title = t('btn_stop_tooltip');
+                    btnSendMessage.setAttribute('data-tooltip', t('btn_stop_tooltip'));
+                    btnSendMessage.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg>`;
+                } else {
+                    btnSendMessage.classList.remove('btn-aborting');
+                    btnSendMessage.title = t('btn_send_tooltip');
+                    btnSendMessage.setAttribute('data-tooltip', t('btn_send_tooltip'));
+                    btnSendMessage.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>`;
+                    const hasText = chatInput.value.trim().length > 0;
+                    btnSendMessage.disabled = !hasText;
+                }
+            }
+
+            chatInput.addEventListener('input', () => {
+                chatInput.style.height = 'auto';
+                chatInput.style.height = Math.min(chatInput.scrollHeight, 180) + 'px';
+                updateSendButtonState();
+            });
+
+            // Enter key to send (Shift+Enter for newline)
+            chatInput.addEventListener('keydown', (e) => {
+                if ((e.key === 'Enter' || e.keyCode === 13) && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!btnSendMessage.disabled && !isGenerating) {
+                        handleSendMessage();
+                    }
+                }
+            });
+
+            btnSendMessage.addEventListener('click', () => {
+                if (isGenerating) {
+                    if (currentAbortController) {
+                        currentAbortController.abort();
+                    }
+                    fetch(`${API_BASE}/api/chat/sessions/${encodeURIComponent(currentSessionId)}/abort`, { method: 'POST' }).catch(() => {});
+                    showToast(t('toast_stopped_user'));
+                    return;
+                }
+                if (!btnSendMessage.disabled) {
+                    handleSendMessage();
+                }
+            });
+
+            // Export Session Report Button Handler
+            const btnExportSession = document.getElementById('btnExportSession');
+            if (btnExportSession) {
+                btnExportSession.addEventListener('click', () => {
+                    window.open(`${API_BASE}/api/chat/sessions/${encodeURIComponent(currentSessionId)}/export?format=markdown`, '_blank');
+                    showToast(currentLang === 'en' ? 'Downloading Markdown investigation report...' : 'Mengunduh laporan investigasi Markdown...');
+                });
+            }
+
+            // Force Refresh Live Data & Flush Cache Handler
+            const btnForceRefreshData = document.getElementById('btnForceRefreshData');
+            const dataFreshnessBadge = document.getElementById('dataFreshnessBadge');
+            async function triggerForceRefresh() {
+                try {
+                    const icon = btnForceRefreshData ? btnForceRefreshData.querySelector('svg') : null;
+                    if (icon) icon.style.animation = 'spin 0.6s linear infinite';
+                    const res = await fetch(`${API_BASE}/api/system/cache/clean?all=1`, { method: 'POST' });
+                    if (icon) icon.style.animation = '';
+                    if (res.ok) {
+                        const json = await res.json();
+                        const count = json.cleaned_entries || 0;
+                        showToast(currentLang === 'en' ? `Cache Flushed (${count} entries). Next request pulls 100% fresh live data!` : `Cache dibersihkan (${count} entri). Permintaan berikutnya menarik data 100% live!`);
+                    } else {
+                        showToast(currentLang === 'en' ? 'Failed to flush cache.' : 'Gagal membersihkan cache.');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    showToast(currentLang === 'en' ? 'Network error flushing cache.' : 'Gagal menghubungi server.');
+                }
+            }
+            if (btnForceRefreshData) {
+                btnForceRefreshData.addEventListener('click', triggerForceRefresh);
+            }
+            if (dataFreshnessBadge) {
+                dataFreshnessBadge.addEventListener('click', triggerForceRefresh);
+            }
+
+            // Live Fresh Toggle in Composer
+            const btnForceFresh = document.getElementById('btnForceFresh');
+            if (btnForceFresh) {
+                btnForceFresh.addEventListener('click', () => {
+                    btnForceFresh.classList.toggle('active');
+                    const isActive = btnForceFresh.classList.contains('active');
+                    showToast(isActive ? (currentLang === 'en' ? 'Live Fresh sync enabled: queries bypass cache.' : 'Sinkronisasi Live Fresh aktif: kueri memprioritaskan data pasar teranyar.') : (currentLang === 'en' ? 'Live Fresh sync disabled.' : 'Sinkronisasi Live Fresh dinonaktifkan.'));
+                });
+            }
+
+
+            // 5. New Research button
+            btnNewResearch.addEventListener('click', () => {
+                currentSessionId = 'WEB-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(1000 + Math.random() * 9000);
+                chatView.innerHTML = '';
+                chatView.classList.remove('active');
+                heroView.classList.remove('hidden');
+                document.getElementById('currentSessionLabel').textContent = t('header_session_default');
+                chatInput.value = '';
+                chatInput.style.height = 'auto';
+                updateSendButtonState();
+                document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
+                loadChatSessions();
+                showToast(t('toast_new_session'));
+            });
+
+            // 6. Prompt Card and Action Chip Click Handlers
+            document.querySelectorAll('.prompt-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const prompt = card.getAttribute('data-prompt');
+                    if (prompt) {
+                        chatInput.value = prompt;
+                        updateSendButtonState();
+                        handleSendMessage();
+                    }
+                });
+            });
+
+            document.querySelectorAll('.action-chip').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    const query = chip.getAttribute('data-query');
+                    if (query) {
+                        chatInput.value = query;
+                        updateSendButtonState();
+                        handleSendMessage();
+                    }
+                });
+            });
+
+            // 7. Riwayat Items Handled Dynamically
