@@ -148,39 +148,39 @@ and compiles evidence classified into SUPPORTED, UNCERTAIN, or CONTRADICTED find
 
 				var sb strings.Builder
 				sb.WriteString(fmt.Sprintf("# Niskava Agent — Audit & Investigation Report (%s)\n\n", ticker))
-			sb.WriteString(fmt.Sprintf("- **Session ID:** `%s`\n", sessionID))
-			sb.WriteString(fmt.Sprintf("- **Ticker:** `%s`\n", ticker))
-			sb.WriteString(fmt.Sprintf("- **Date:** `%s`\n\n---\n\n", time.Now().Format("2006-01-02 15:04:05 MST")))
+				sb.WriteString(fmt.Sprintf("- **Session ID:** `%s`\n", sessionID))
+				sb.WriteString(fmt.Sprintf("- **Ticker:** `%s`\n", ticker))
+				sb.WriteString(fmt.Sprintf("- **Date:** `%s`\n\n---\n\n", time.Now().Format("2006-01-02 15:04:05 MST")))
 
-			if invData, errInv := appDB.GetInvestigation(sessionID); errInv == nil && invData != nil {
-				if invData.SummaryText != nil && *invData.SummaryText != "" {
-					sb.WriteString(fmt.Sprintf("## ⚡ Executive Summary\n%s\n\n---\n\n", *invData.SummaryText))
+				if invData, errInv := appDB.GetInvestigation(sessionID); errInv == nil && invData != nil {
+					if invData.SummaryText != nil && *invData.SummaryText != "" {
+						sb.WriteString(fmt.Sprintf("## ⚡ Executive Summary\n%s\n\n---\n\n", *invData.SummaryText))
+					}
 				}
-			}
 
-			if anomalies, errA := appDB.GetAnomaliesByInvestigation(sessionID); errA == nil && len(anomalies) > 0 {
-				sb.WriteString(fmt.Sprintf("## 📊 Quantitative Anomalies (%d Detected)\n\n", len(anomalies)))
-				sb.WriteString("| # | Date | Metric | Value | Baseline | Z-Score | Description |\n")
-				sb.WriteString("|---|---|---|---|---|---|---|\n")
-				for idx, a := range anomalies {
-					sb.WriteString(fmt.Sprintf("| %d | %s | %s | %.2f | %.2f | %.2fσ | %s |\n",
-						idx+1, a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore, a.Description))
+				if anomalies, errA := appDB.GetAnomaliesByInvestigation(sessionID); errA == nil && len(anomalies) > 0 {
+					sb.WriteString(fmt.Sprintf("## 📊 Quantitative Anomalies (%d Detected)\n\n", len(anomalies)))
+					sb.WriteString("| # | Date | Metric | Value | Baseline | Z-Score | Description |\n")
+					sb.WriteString("|---|---|---|---|---|---|---|\n")
+					for idx, a := range anomalies {
+						sb.WriteString(fmt.Sprintf("| %d | %s | %s | %.2f | %.2f | %.2fσ | %s |\n",
+							idx+1, a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore, a.Description))
+					}
+					sb.WriteString("\n---\n\n")
 				}
-				sb.WriteString("\n---\n\n")
-			}
 
-			if findings, errF := appDB.ListFindingsByInvestigation(sessionID); errF == nil && len(findings) > 0 {
-				sb.WriteString(fmt.Sprintf("## 🔍 Verified Intelligence Findings (%d Emitted)\n\n", len(findings)))
-				for idx, f := range findings {
-					sb.WriteString(fmt.Sprintf("### %d. [%s] %s (Confidence: %.0f%%)\n", idx+1, f.VerificationStatus, f.Title, f.ConfidenceScore*100))
-					sb.WriteString(fmt.Sprintf("%s\n\n", f.ClaimText))
+				if findings, errF := appDB.ListFindingsByInvestigation(sessionID); errF == nil && len(findings) > 0 {
+					sb.WriteString(fmt.Sprintf("## 🔍 Verified Intelligence Findings (%d Emitted)\n\n", len(findings)))
+					for idx, f := range findings {
+						sb.WriteString(fmt.Sprintf("### %d. [%s] %s (Confidence: %.0f%%)\n", idx+1, f.VerificationStatus, f.Title, f.ConfidenceScore*100))
+						sb.WriteString(fmt.Sprintf("%s\n\n", f.ClaimText))
+					}
+					sb.WriteString("---\n\n")
 				}
-				sb.WriteString("---\n\n")
-			}
 
-			sb.WriteString(tui.T("sessions_export_disclaimer"))
-			_ = os.WriteFile(outPath, []byte(sb.String()), 0644)
-			fmt.Printf("\n✓ Investigation report exported to: %s\n", outPath)
+				sb.WriteString(tui.T("sessions_export_disclaimer"))
+				_ = os.WriteFile(outPath, []byte(sb.String()), 0644)
+				fmt.Printf("\n✓ Investigation report exported to: %s\n", outPath)
 			}
 		}
 
@@ -345,4 +345,3 @@ func copyFile(src, dst string) error {
 	}
 	return os.WriteFile(dst, data, 0644)
 }
-

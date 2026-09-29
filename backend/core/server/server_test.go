@@ -1219,4 +1219,3 @@ func TestReportDownloadEndpoint(t *testing.T) {
 		}
 	}
 }
-
