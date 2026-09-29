@@ -878,6 +878,38 @@ func (d *DB) DeleteChatSession(id string) error {
 	return tx.Commit()
 }
 
+// DeleteInvestigation permanently removes an investigation session and its anomalies/findings.
+func (d *DB) DeleteInvestigation(id string) error {
+	tx, err := d.conn.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("DELETE FROM anomalies WHERE investigation_id = ?", id); err != nil {
+		return fmt.Errorf("failed to delete anomalies for investigation %s: %w", id, err)
+	}
+	if _, err := tx.Exec("DELETE FROM evidence_items WHERE finding_id IN (SELECT id FROM findings WHERE investigation_id = ?)", id); err != nil {
+		return fmt.Errorf("failed to delete evidence items for investigation %s: %w", id, err)
+	}
+	if _, err := tx.Exec("DELETE FROM findings WHERE investigation_id = ?", id); err != nil {
+		return fmt.Errorf("failed to delete findings for investigation %s: %w", id, err)
+	}
+	if _, err := tx.Exec("DELETE FROM timeline_events WHERE investigation_id = ?", id); err != nil {
+		return fmt.Errorf("failed to delete timeline events for investigation %s: %w", id, err)
+	}
+	res, err := tx.Exec("DELETE FROM investigations WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("failed to delete investigation %s: %w", id, err)
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("investigation %s not found", id)
+	}
+
+	return tx.Commit()
+}
+
 // ClearAllChatSessions permanently deletes all chat sessions, messages, and associated session memory edges.
 func (d *DB) ClearAllChatSessions() error {
 	tx, err := d.conn.Begin()

@@ -176,9 +176,17 @@ var sessionsDeleteCmd = &cobra.Command{
 			return fmt.Errorf("database not initialized")
 		}
 		sessionID := strings.TrimSpace(args[0])
-		if err := appDB.DeleteChatSession(sessionID); err != nil {
-			return fmt.Errorf("failed to delete session '%s': %w", sessionID, err)
+
+		// Try deleting as chat session first
+		err := appDB.DeleteChatSession(sessionID)
+		if err != nil {
+			// If not a chat session, try deleting as an investigation session
+			errInv := appDB.DeleteInvestigation(sessionID)
+			if errInv != nil {
+				return fmt.Errorf("failed to delete session '%s': %w", sessionID, err)
+			}
 		}
+
 		fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#0ECB81")).Bold(true).Render(
 			tui.TF("sessions_delete_success", sessionID),
 		))
@@ -240,6 +248,69 @@ var sessionsExportCmd = &cobra.Command{
 		}
 
 		history, err := appDB.GetChatHistory(sessionID, 100)
+		if (err != nil || len(history) == 0) && strings.HasPrefix(strings.ToUpper(sessionID), "INV-") {
+			// Handle investigation session export
+			invData, errInv := appDB.GetInvestigation(sessionID)
+			if errInv != nil || invData == nil {
+				return fmt.Errorf("%s", tui.TF("sessions_export_no_history", sessionID))
+			}
+
+			anomalies, _ := appDB.GetAnomaliesByInvestigation(sessionID)
+			findings, _ := appDB.ListFindingsByInvestigation(sessionID)
+
+			var content string
+			if format == "json" {
+				data, _ := json.MarshalIndent(map[string]interface{}{
+					"investigation": invData,
+					"anomalies":     anomalies,
+					"findings":      findings,
+				}, "", "  ")
+				content = string(data)
+			} else {
+				var sb strings.Builder
+				sb.WriteString(fmt.Sprintf("# Niskava Agent — Audit & Investigation Report (%s)\n\n", invData.Ticker))
+				sb.WriteString(fmt.Sprintf("- **Session ID:** `%s`\n", sessionID))
+				sb.WriteString(fmt.Sprintf("- **Ticker:** `%s`\n", invData.Ticker))
+				sb.WriteString(fmt.Sprintf("- **Date:** `%s`\n\n---\n\n", time.Now().Format("2006-01-02 15:04:05 MST")))
+
+				if invData.SummaryText != nil && *invData.SummaryText != "" {
+					sb.WriteString(fmt.Sprintf("## ⚡ Executive Summary\n%s\n\n---\n\n", *invData.SummaryText))
+				}
+
+				if len(anomalies) > 0 {
+					sb.WriteString(fmt.Sprintf("## 📊 Quantitative Anomalies (%d Detected)\n\n", len(anomalies)))
+					sb.WriteString("| # | Date | Metric | Value | Baseline | Z-Score | Description |\n")
+					sb.WriteString("|---|---|---|---|---|---|---|\n")
+					for idx, a := range anomalies {
+						sb.WriteString(fmt.Sprintf("| %d | %s | %s | %.2f | %.2f | %.2fσ | %s |\n",
+							idx+1, a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore, a.Description))
+					}
+					sb.WriteString("\n---\n\n")
+				}
+
+				if len(findings) > 0 {
+					sb.WriteString(fmt.Sprintf("## 🔍 Verified Intelligence Findings (%d Emitted)\n\n", len(findings)))
+					for idx, f := range findings {
+						sb.WriteString(fmt.Sprintf("### %d. [%s] %s (Confidence: %.0f%%)\n", idx+1, f.VerificationStatus, f.Title, f.ConfidenceScore*100))
+						sb.WriteString(fmt.Sprintf("%s\n\n", f.ClaimText))
+					}
+					sb.WriteString("---\n\n")
+				}
+
+				sb.WriteString(tui.T("sessions_export_disclaimer"))
+				content = sb.String()
+			}
+
+			if err := os.WriteFile(outPath, []byte(content), 0644); err != nil {
+				return fmt.Errorf("failed to write export file: %w", err)
+			}
+
+			fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#0ECB81")).Bold(true).Render(
+				tui.TF("sessions_export_success", outPath),
+			))
+			return nil
+		}
+
 		if err != nil || len(history) == 0 {
 			return fmt.Errorf("%s", tui.TF("sessions_export_no_history", sessionID))
 		}
@@ -257,9 +328,10 @@ var sessionsExportCmd = &cobra.Command{
 			sb.WriteString(fmt.Sprintf("- **Session ID:** `%s`\n", sessionID))
 			sb.WriteString(fmt.Sprintf("- **Date:** `%s`\n\n---\n\n", time.Now().Format("2006-01-02 15:04:05 MST")))
 			for _, m := range history {
-				if m.Role == "user" {
+				r := strings.ToLower(strings.TrimSpace(m.Role))
+				if r == "user" || r == "human" {
 					sb.WriteString(fmt.Sprintf("### 👤 User Prompt\n> %s\n\n", m.Content))
-				} else if m.Role == "assistant" {
+				} else {
 					sb.WriteString(fmt.Sprintf("### ⚡ Niskava Agent Findings\n%s\n\n---\n\n", m.Content))
 				}
 			}
@@ -279,8 +351,8 @@ var sessionsExportCmd = &cobra.Command{
 }
 
 func init() {
-	sessionsCmd.Flags().IntVarP(&limitFlag, "limit", "n", 20, "maximum number of sessions to display")
-	sessionsCmd.Flags().StringVarP(&sessionTypeFlag, "type", "t", "all", "session types to display: 'chat', 'investigation', or 'all'")
+	sessionsCmd.PersistentFlags().IntVarP(&limitFlag, "limit", "n", 20, "maximum number of sessions to display")
+	sessionsCmd.PersistentFlags().StringVarP(&sessionTypeFlag, "type", "t", "all", "session types to display: 'chat', 'investigation', or 'all'")
 
 	sessionsExportCmd.Flags().StringVarP(&exportFormatFlag, "format", "f", "md", "export format: 'md' or 'json'")
 	sessionsExportCmd.Flags().StringVarP(&exportOutFlag, "out", "o", "", "output file path")

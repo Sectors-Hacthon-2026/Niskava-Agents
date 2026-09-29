@@ -186,6 +186,7 @@
             }
 
             function appendUserMessage(text) {
+                const safeText = (text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'chat-message';
                 msgDiv.innerHTML = `
@@ -195,7 +196,7 @@
                             <span class="message-author">Guest</span>
                             <span class="message-time">${t('just_now')}</span>
                         </div>
-                        <div class="markdown-rendered"><p>${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p></div>
+                        <div class="markdown-rendered"><p>${safeText}</p></div>
                     </div>
                 `;
                 chatView.appendChild(msgDiv);
@@ -387,12 +388,13 @@
             }
 
             function updateReactSteps(msgObj, steps) {
+                if (!Array.isArray(steps)) steps = [steps];
                 const unit = currentLang === 'en' ? (steps.length === 1 ? t('step') : t('steps')) : t('steps');
                 msgObj.countBadge.textContent = `${steps.length} ${unit}`;
                 msgObj.stepsContent.innerHTML = steps.map(s => `
                     <div class="react-step-row">
                         <span class="react-step-bullet">●</span>
-                        <span>${s.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
+                        <span>${String(s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
                     </div>
                 `).join('');
             }

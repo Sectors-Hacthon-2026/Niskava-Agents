@@ -205,6 +205,58 @@ func TestRenderResumedHistory(t *testing.T) {
 	})
 
 	renderResumedHistory(tmpDB, sessionID)
+
+	// 3. Test case-insensitive roles: human & model
+	sessionID2 := "TEST-RESUME-002"
+	_ = tmpDB.SaveChatMessage(&db.ChatMessage{
+		ID:        "M3",
+		SessionID: sessionID2,
+		Role:      "human",
+		Content:   "Analisis volume BUMI",
+	})
+	_ = tmpDB.SaveChatMessage(&db.ChatMessage{
+		ID:        "M4",
+		SessionID: sessionID2,
+		Role:      "model",
+		Content:   "Volume BUMI terdeteksi anomali Z=3.14.",
+	})
+	renderResumedHistory(tmpDB, sessionID2)
+
+	// 4. Test investigation session audit trail rendering
+	invID := "INV-20260929-TEST"
+	summary := "Investigasi saham ANTM menemukan lonjakan volume signifikan."
+	_ = tmpDB.CreateInvestigation(&db.Investigation{
+		ID:            invID,
+		Ticker:        "ANTM",
+		Market:        "IDX",
+		TimeframeDays: 30,
+		Status:        "COMPLETED",
+		SummaryText:   &summary,
+		StartedAt:     "2026-09-29T00:00:00Z",
+	})
+	_ = tmpDB.CreateAnomaly(&db.Anomaly{
+		ID:              "A1",
+		InvestigationID: invID,
+		AnomalyDate:     "2026-09-28",
+		MetricType:      "volume_spike",
+		MetricValue:     52000000,
+		BaselineValue:   12000000,
+		ZScore:          3.5,
+		Description:     "Volume surge 4.3x MA20",
+	})
+	_ = tmpDB.CreateFinding(&db.Finding{
+		ID:                 "F1",
+		InvestigationID:    invID,
+		Title:              "Keterbukaan Informasi Divestasi",
+		ClaimText:          "Emiten mengumumkan aksi korporasi strategis.",
+		VerificationStatus: "SUPPORTED",
+		ConfidenceScore:    0.95,
+		CausalityStatus:    "LIKELY_CATALYST",
+	})
+	renderResumedHistory(tmpDB, invID)
+
+	// 5. Test empty session notification
+	renderResumedHistory(tmpDB, "CHAT-EMPTY-SESSION")
 }
 
 func TestReplInputModel_EscKeyBehavior(t *testing.T) {

@@ -592,6 +592,43 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 	}
 	history, err := appDB.GetChatHistory(sessionID, 50)
 	if err != nil || len(history) == 0 {
+		// If this is an investigation session (or has no chat messages), attempt to render investigation findings
+		if strings.HasPrefix(strings.ToUpper(sessionID), "INV-") {
+			inv, errInv := appDB.GetInvestigation(sessionID)
+			if errInv == nil && inv != nil {
+				fmt.Println()
+				divider := lipgloss.NewStyle().Foreground(ColorMuted).Render(fmt.Sprintf("━━━ Investigation Audit Trail (%s) ━━━", sessionID))
+				fmt.Println(divider)
+				if inv.SummaryText != nil && *inv.SummaryText != "" {
+					fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(T("repl_agent_label")))
+					renderFinalMarkdown(*inv.SummaryText)
+				}
+				anomalies, _ := appDB.GetAnomaliesByInvestigation(sessionID)
+				findings, _ := appDB.ListFindingsByInvestigation(sessionID)
+				if len(anomalies) > 0 || len(findings) > 0 {
+					var sb strings.Builder
+					if len(anomalies) > 0 {
+						sb.WriteString(fmt.Sprintf("\n**Quantitative Anomalies (%d Detected):**\n", len(anomalies)))
+						for _, a := range anomalies {
+							sb.WriteString(fmt.Sprintf("- `%s` %s: %.2f (baseline: %.2f, Z: %.2fσ)\n", a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore))
+						}
+					}
+					if len(findings) > 0 {
+						sb.WriteString(fmt.Sprintf("\n**Intelligence Findings (%d Emitted):**\n", len(findings)))
+						for idx, f := range findings {
+							sb.WriteString(fmt.Sprintf("%d. **[%s]** %s (Conf: %.0f%%)\n   *%s*\n", idx+1, f.VerificationStatus, f.Title, f.ConfidenceScore*100, f.ClaimText))
+						}
+					}
+					renderFinalMarkdown(sb.String())
+				}
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorMuted).Render("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━") + "\n")
+				return
+			}
+		}
+		if strings.TrimSpace(sessionID) != "" {
+			emptyNotice := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(fmt.Sprintf("  ℹ️  [Session %s: No prior messages recorded]", sessionID))
+			fmt.Println("\n" + emptyNotice + "\n")
+		}
 		return
 	}
 
@@ -600,13 +637,19 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 	fmt.Println(divider)
 
 	for _, msg := range history {
-		switch msg.Role {
-		case "user":
+		role := strings.ToLower(strings.TrimSpace(msg.Role))
+		switch role {
+		case "user", "human":
 			userBox := userBubbleStyle.Render(TF("repl_user_label", msg.Content))
 			fmt.Println(userBox)
-		case "assistant":
+		case "assistant", "model":
 			fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(T("repl_agent_label")))
 			renderFinalMarkdown(msg.Content)
+		default:
+			if strings.TrimSpace(msg.Content) != "" {
+				fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(T("repl_agent_label")))
+				renderFinalMarkdown(msg.Content)
+			}
 		}
 	}
 
@@ -641,15 +684,25 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 		sessionID = strings.TrimSpace(initialSessionID)
 	}
 
+	fmt.Print("\033[H\033[2J")
 	renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
 
+	var promptHistory []string
 	if strings.TrimSpace(initialSessionID) != "" {
 		renderResumedHistory(appDB, sessionID)
+		if appDB != nil {
+			if hist, err := appDB.GetChatHistory(sessionID, 50); err == nil {
+				for _, m := range hist {
+					r := strings.ToLower(strings.TrimSpace(m.Role))
+					if (r == "user" || r == "human") && strings.TrimSpace(m.Content) != "" {
+						promptHistory = append(promptHistory, m.Content)
+					}
+				}
+			}
+		}
 	}
 
 	promptPrefix := fmt.Sprintf("niskava [%s] >", modelLabel)
-
-	var promptHistory []string
 
 	if strings.TrimSpace(initialPrompt) != "" {
 		promptHistory = append(promptHistory, initialPrompt)
@@ -728,6 +781,11 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			continue
 		}
 
+		if lower == "/doctor" {
+			printHealth(cfg)
+			continue
+		}
+
 		if lower == "/compact" {
 			isCompactMode = !isCompactMode
 			status := "OFF"
@@ -769,7 +827,8 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			highlightStyle := lipgloss.NewStyle().Background(ColorWarning).Foreground(ColorBg).Bold(true)
 			for idx, m := range matches {
 				roleLabel := "👤 USER"
-				if m.Role == "assistant" {
+				r := strings.ToLower(strings.TrimSpace(m.Role))
+				if r == "assistant" || r == "model" {
 					roleLabel = "⚡ NISKAVA"
 				}
 				highlightedContent := replaceIgnoreCase(m.Content, kw, highlightStyle.Render(kw))
@@ -790,7 +849,8 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			}
 			var lastAssistantMsg string
 			for i := len(history) - 1; i >= 0; i-- {
-				if history[i].Role == "assistant" {
+				r := strings.ToLower(strings.TrimSpace(history[i].Role))
+				if r == "assistant" || r == "model" {
 					lastAssistantMsg = history[i].Content
 					break
 				}
@@ -1067,7 +1127,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 				continue
 			}
 			selector := NewSessionSelectorModel(chatList)
-			pSel := tea.NewProgram(selector)
+			pSel := tea.NewProgram(selector, tea.WithAltScreen())
 			mSel, errRun := pSel.Run()
 			if errRun == nil {
 				res := mSel.(SessionSelectorModel)
@@ -1080,8 +1140,19 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 					if title == "" {
 						title = res.SelectedSession.ID
 					}
-					fmt.Print(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
+					fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
 					renderResumedHistory(appDB, sessionID)
+
+					// Refresh prompt history for the resumed session
+					promptHistory = nil
+					if hist, errH := appDB.GetChatHistory(sessionID, 50); errH == nil {
+						for _, m := range hist {
+							r := strings.ToLower(strings.TrimSpace(m.Role))
+							if (r == "user" || r == "human") && strings.TrimSpace(m.Content) != "" {
+								promptHistory = append(promptHistory, m.Content)
+							}
+						}
+					}
 				}
 			}
 			continue
@@ -1095,7 +1166,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			}
 			targetID := strings.TrimSpace(parts[1])
 			if appDB != nil {
-				sess, errGet := appDB.GetChatSession(targetID)
+				sess, hist, errGet := resolveSessionOrSearch(appDB, targetID)
 				if errGet != nil || sess == nil {
 					fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("repl_resume_not_found", targetID)))
 					continue
@@ -1108,8 +1179,17 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 				if title == "" {
 					title = sess.ID
 				}
-				fmt.Print(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
+				fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
 				renderResumedHistory(appDB, sessionID)
+
+				// Refresh prompt history for the resumed session
+				promptHistory = nil
+				for _, m := range hist {
+					r := strings.ToLower(strings.TrimSpace(m.Role))
+					if (r == "user" || r == "human") && strings.TrimSpace(m.Content) != "" {
+						promptHistory = append(promptHistory, m.Content)
+					}
+				}
 			}
 			continue
 		}

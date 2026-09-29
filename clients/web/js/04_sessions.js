@@ -243,6 +243,19 @@
                 }
                 loadLiveGraph(sessionId);
 
+                // Ensure workspace switches back to active Chat View from other tabs
+                const invPageView = document.getElementById('investigationsPageView');
+                const graphPageView = document.getElementById('graphPageView');
+                const composerContainer = document.getElementById('composerContainer');
+                const globalComplianceBox = document.getElementById('globalComplianceBox');
+                if (invPageView) invPageView.style.display = 'none';
+                if (graphPageView) graphPageView.style.display = 'none';
+                if (globalComplianceBox) globalComplianceBox.style.display = 'block';
+                if (composerContainer) composerContainer.style.display = 'flex';
+                document.querySelectorAll('.nav-link-item').forEach(item => {
+                    item.classList.toggle('active', item.getAttribute('data-nav') === 'chat');
+                });
+
                 try {
                     const res = await fetch(`${API_BASE}/api/chat/history?session_id=${encodeURIComponent(sessionId)}`);
                     if (!res.ok) return;
@@ -254,14 +267,19 @@
                         chatView.innerHTML = '';
 
                         messages.forEach(m => {
-                            if (m.role === 'user') {
-                                appendUserMessage(m.content);
-                            } else if (m.role === 'assistant') {
+                            const role = (m.role || '').toLowerCase();
+                            const content = m.content || '';
+                            if (role === 'user' || role === 'human') {
+                                appendUserMessage(content);
+                            } else {
                                 const asst = createAssistantMessageElement(sessionId, m.id || m.message_id);
-                                asst.contentEl.innerHTML = renderMarkdown(m.content);
+                                asst.contentEl.innerHTML = renderMarkdown(content);
                                 asst.setLatticeStatus('done');
                                 if (m.thought) {
-                                    updateReactSteps(asst, [m.thought]);
+                                    updateReactSteps(asst, typeof m.thought === 'string' ? [m.thought] : m.thought);
+                                } else {
+                                    const stepsBox = asst.element.querySelector('.react-steps-box');
+                                    if (stepsBox) stepsBox.style.display = 'none';
                                 }
                                 if (m.findings && m.findings.length > 0 && asst.evidenceContainer) {
                                     asst.evidenceContainer.style.display = 'block';

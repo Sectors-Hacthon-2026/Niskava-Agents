@@ -492,7 +492,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			}
 
 			client := &http.Client{Timeout: 5 * time.Second}
-			httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://api.sectors.app/v2/daily/BBCA/?format=json", nil)
+			httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://api.sectors.app/v2/daily/BBCA/", nil)
 			if err != nil {
 				resp.Success = false
 				resp.Message = fmt.Sprintf("Failed to build request: %v", err)
@@ -1394,7 +1394,8 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				if len(timeStr) > 19 {
 					timeStr = strings.Replace(timeStr[:19], "T", " ", 1)
 				}
-				if msg.Role == "user" {
+				role := strings.ToLower(strings.TrimSpace(msg.Role))
+				if role == "user" || role == "human" {
 					md.WriteString(fmt.Sprintf("### 👤 Pengguna (Turn %d) — *%s*\n\n", (idx/2)+1, timeStr))
 					md.WriteString(fmt.Sprintf("%s\n\n", msg.Content))
 				} else {

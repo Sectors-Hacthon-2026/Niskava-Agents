@@ -248,12 +248,12 @@ Examples:
 }
 
 func init() {
-	graphCmd.Flags().StringVarP(&graphOutputFlag, "output", "o", "", "path file output HTML (default: ~/.niskava/graph.html)")
-	graphCmd.Flags().StringVarP(&graphSessionFlag, "session", "s", "", "filter simpul & relasi berdasarkan ID sesi")
-	graphCmd.Flags().StringVarP(&graphTickerFlag, "ticker", "t", "", "fokus graf pada emiten tertentu (contoh: ANTM)")
-	graphCmd.Flags().IntVarP(&graphDepthFlag, "depth", "d", 1, "radius tetangga (hop depth: 1 atau 2)")
-	graphCmd.Flags().BoolVarP(&graphTextFlag, "text", "", false, "tampilkan ringkasan teks graf di terminal tanpa membuka browser")
-	graphCmd.Flags().BoolVarP(&graphPruneFlag, "prune", "", false, "bersihkan data uji coba / benchmark (EVAL-*) dari basis data lokal")
-	graphCmd.Flags().BoolVarP(&graphOpenFlag, "open", "", true, "buka visualisasi HTML di browser secara otomatis")
+	graphCmd.Flags().StringVarP(&graphOutputFlag, "output", "o", "", "output HTML file path (default: ~/.niskava/graph.html)")
+	graphCmd.Flags().StringVarP(&graphSessionFlag, "session", "s", "", "filter nodes & edges by session ID")
+	graphCmd.Flags().StringVarP(&graphTickerFlag, "ticker", "t", "", "focus graph on specific ticker (e.g. ANTM)")
+	graphCmd.Flags().IntVarP(&graphDepthFlag, "depth", "d", 1, "ego-network neighbor radius (hop depth: 1 or 2)")
+	graphCmd.Flags().BoolVarP(&graphTextFlag, "text", "", false, "render text summary in terminal without opening browser")
+	graphCmd.Flags().BoolVarP(&graphPruneFlag, "prune", "", false, "clean evaluation & benchmark test data (EVAL-*) from local SQLite")
+	graphCmd.Flags().BoolVarP(&graphOpenFlag, "open", "", true, "automatically open HTML visualization in default browser")
 	RootCmd.AddCommand(graphCmd)
 }

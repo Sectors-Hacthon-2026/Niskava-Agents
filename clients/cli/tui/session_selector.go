@@ -212,7 +212,8 @@ func ExportSessionTranscript(appDB *db.DB, session *db.ChatSession, formatIndex 
 			b.WriteString(fmt.Sprintf("### Summary\n\n%s\n\n", session.LastMessagePreview))
 		} else {
 			for _, m := range messages {
-				if m.Role == "user" {
+				r := strings.ToLower(strings.TrimSpace(m.Role))
+				if r == "user" || r == "human" {
 					b.WriteString(fmt.Sprintf("### 👤 User\n\n%s\n\n", m.Content))
 				} else {
 					b.WriteString(fmt.Sprintf("### ⚡ Niskava Agent\n\n%s\n\n", m.Content))

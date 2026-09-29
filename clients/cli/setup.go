@@ -215,7 +215,7 @@ NISKAVA_DB_PATH=~/.niskava/niskava.db
 NISKAVA_PYTHON_BIN=%s
 NISKAVA_ENGINE_PATH=./backend/engine
 NISKAVA_DEFAULT_MARKET=IDX
-NISKAVA_PORT=8080
+NISKAVA_PORT=20128
 
 # 4. SECTORS NEWS ENGINE
 NEWS_HARVEST_MAX_ARTICLES=5
@@ -290,7 +290,7 @@ func TestLiveConnection(ctx context.Context, target, baseURL, apiKey string) (bo
 		if apiKey == "" {
 			return true, "Offline mock mode active (no network ping needed)", 0
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.sectors.app/v2/daily/BBCA/?format=json", nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.sectors.app/v2/daily/BBCA/", nil)
 		if err != nil {
 			return false, fmt.Sprintf("Build request error: %v", err), time.Since(start)
 		}
