@@ -1495,7 +1495,7 @@
             flex-direction: column;
             gap: 24px;
             z-index: 2;
-            padding-bottom: 20px;
+            padding-bottom: 140px;
         }
         .chat-view.active {
             display: flex;
@@ -1986,105 +1986,129 @@
         }
 
         /* 3. DOCKED CHAT COMPOSER (In Flex Flow) */
+        /* 3. DOCKED CHAT COMPOSER (Floating Glass Dock with Gradient Fade) */
         .composer-container {
             position: relative;
             flex-shrink: 0;
             width: 100%;
-            max-width: 760px;
+            max-width: 800px;
             margin: 0 auto;
-            padding: 2px 20px 12px 20px;
+            padding: 10px 24px 14px 24px;
             z-index: 30;
             display: flex;
             flex-direction: column;
-            gap: 7px;
+            gap: 8px;
+            background: linear-gradient(to top, var(--bg-main) 70%, rgba(18, 19, 24, 0.9) 90%, transparent 100%);
+        }
+        html[data-theme="light"] .composer-container {
+            background: linear-gradient(to top, var(--bg-main) 70%, rgba(248, 249, 250, 0.9) 90%, transparent 100%);
         }
         .composer-box {
-            background: var(--bg-input);
+            background: var(--bg-card);
             border: 1px solid var(--border-subtle);
             border-radius: 16px;
-            box-shadow: var(--shadow-composer);
-            padding: 10px 14px 8px 14px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
+            padding: 12px 16px 10px 16px;
             display: flex;
             flex-direction: column;
-            transition: all 0.18s ease;
-            backdrop-filter: blur(12px);
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            backdrop-filter: blur(16px);
         }
         .composer-box:focus-within {
-            border-color: var(--border-focus);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 0 0 1.5px var(--border-focus);
+            border-color: var(--primary);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22), 0 0 0 1.5px rgba(252, 213, 53, 0.35);
+            background: var(--bg-input);
         }
         .composer-textarea {
             width: 100%;
-            min-height: 38px;
-            max-height: 140px;
+            min-height: 44px;
+            max-height: 160px;
             resize: none;
             border: none;
             background: transparent;
             font-family: var(--font-main);
-            font-size: 13.5px;
+            font-size: 14px;
             color: var(--text-primary);
-            line-height: 1.45;
+            line-height: 1.5;
             outline: none;
+            padding: 2px 0 6px 0;
         }
         .composer-textarea::placeholder {
             color: var(--text-muted);
+            font-size: 13.5px;
         }
         .composer-bottom-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-top: 6px;
-            padding-top: 6px;
+            margin-top: 4px;
+            padding-top: 8px;
             border-top: 1px solid var(--border-subtle);
         }
         .composer-tools-left {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 6px;
         }
         .composer-tool-btn {
-            height: 28px;
-            padding: 0 9px;
-            border-radius: 6px;
-            font-size: 11.5px;
+            height: 30px;
+            padding: 0 10px;
+            border-radius: 8px;
+            font-size: 12px;
             font-weight: 500;
             color: var(--text-secondary);
-            gap: 5px;
+            gap: 6px;
+            border: 1px solid transparent;
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.15s ease;
         }
         .composer-tool-btn:hover {
             background: var(--bg-card-hover);
             color: var(--text-primary);
+            border-color: var(--border-subtle);
         }
         .composer-tool-btn.active {
             background: var(--pill-active-bg);
             color: var(--accent-text);
             font-weight: 600;
+            border-color: var(--pill-active-border);
         }
         .composer-actions-right {
             display: flex;
             align-items: center;
-            gap: 7px;
+            gap: 8px;
         }
         .model-select-badge {
-            font-size: 11px;
+            font-size: 11.5px;
             font-weight: 600;
             color: var(--text-secondary);
-            padding: 4px 8px;
-            border-radius: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
             background: var(--bg-card-hover);
+            border: 1px solid var(--border-subtle);
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
+            user-select: none;
+        }
+        .model-status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #10B981;
+            box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+            display: inline-block;
         }
         .btn-send-message {
             width: 34px;
             height: 34px;
             border-radius: 50%;
             background: var(--primary);
-            color: #1E2329;
+            color: #121318;
             border: 1px solid transparent;
-            box-shadow: 0 3px 10px rgba(252, 213, 53, 0.3);
-            transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+            box-shadow: 0 3px 10px rgba(252, 213, 53, 0.35);
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
             flex-shrink: 0;
             display: flex;
             align-items: center;
@@ -2093,23 +2117,27 @@
         }
         .btn-send-message:hover:not(:disabled) {
             background: var(--primary-hover);
-            transform: scale(1.05);
-            box-shadow: 0 4px 14px rgba(252, 213, 53, 0.4);
+            transform: scale(1.06);
+            box-shadow: 0 6px 16px rgba(252, 213, 53, 0.45);
+        }
+        .btn-send-message:active:not(:disabled) {
+            transform: scale(0.96);
         }
         .btn-send-message:disabled {
             background: var(--border-subtle);
             color: var(--text-muted);
-            border: 1px solid var(--border-strong);
+            border: 1px solid var(--border-subtle);
             box-shadow: none;
             cursor: not-allowed;
             transform: none;
-            opacity: 1;
+            opacity: 0.65;
         }
         html[data-theme="dark"] .btn-send-message:disabled {
-            background: #2B313A;
+            background: #252830;
             color: #5E6673;
-            border: 1px solid #363D47;
+            border: 1px solid #323642;
             box-shadow: none;
+            opacity: 0.6;
         }
         .btn-send-message svg {
             stroke: currentColor;
@@ -2118,7 +2146,7 @@
         .btn-send-message.btn-aborting {
             background: #EF4444 !important;
             color: #FFFFFF !important;
-            box-shadow: 0 3px 10px rgba(239, 68, 68, 0.4) !important;
+            box-shadow: 0 3px 12px rgba(239, 68, 68, 0.5) !important;
             border-color: transparent !important;
             cursor: pointer !important;
             opacity: 1 !important;

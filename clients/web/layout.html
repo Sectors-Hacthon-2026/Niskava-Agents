@@ -219,6 +219,15 @@
                             </span>
                         </div>
                     </div>
+
+                    <!-- Quick Action Chips for Discovery in Hero Mode -->
+                    <div class="quick-action-chips" id="quickActionChips">
+                        <button class="action-chip" data-i18n="chip_stocks" data-query="Tampilkan ringkasan pergerakan saham teraktif hari ini di BEI">Saham hari ini</button>
+                        <button class="action-chip" data-i18n="chip_news" data-query="Apa berita terbaru mengenai pasar modal dan regulasi OJK/BEI hari ini?">Berita terbaru</button>
+                        <button class="action-chip" data-i18n="chip_ta" data-query="Lakukan analisis teknikal dan deteksi volume breakout pada IHSG">Analisis teknikal</button>
+                        <button class="action-chip" data-i18n="chip_compare" data-query="Bandingkan rasio valuasi PE, PBV, dan ROE emiten BBCA dan BBRI">Perbandingan emiten</button>
+                        <button class="action-chip" data-i18n="chip_opp" data-query="Cari peluang saham yang berpotensi rebound berdasarkan akumulasi foreign flow">Peluang investasi</button>
+                    </div>
                 </section>
 
                 <!-- CHAT VIEW (Messages stream) -->
@@ -500,9 +509,9 @@
 
 
                         <div class="composer-actions-right">
-                            <div class="model-select-badge">
+                            <div class="model-select-badge" title="Model: NISKAVA-1 Autonomous Agent">
+                                <span class="model-status-dot"></span>
                                 <span>NISKAVA-1</span>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </div>
                             <button class="btn-send-message" id="btnSendMessage" aria-label="Kirim Pesan" data-tooltip="Kirim Pesan" data-i18n-tooltip="btn_send_tooltip" title="Kirim Pesan" disabled>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
@@ -511,14 +520,6 @@
                     </div>
                 </div>
 
-                <!-- Quick Action Chips -->
-                <div class="quick-action-chips">
-                    <button class="action-chip" data-i18n="chip_stocks" data-query="Tampilkan ringkasan pergerakan saham teraktif hari ini di BEI">Saham hari ini</button>
-                    <button class="action-chip" data-i18n="chip_news" data-query="Apa berita terbaru mengenai pasar modal dan regulasi OJK/BEI hari ini?">Berita terbaru</button>
-                    <button class="action-chip" data-i18n="chip_ta" data-query="Lakukan analisis teknikal dan deteksi volume breakout pada IHSG">Analisis teknikal</button>
-                    <button class="action-chip" data-i18n="chip_compare" data-query="Bandingkan rasio valuasi PE, PBV, dan ROE emiten BBCA dan BBRI">Perbandingan emiten</button>
-                    <button class="action-chip" data-i18n="chip_opp" data-query="Cari peluang saham yang berpotensi rebound berdasarkan akumulasi foreign flow">Peluang investasi</button>
-                </div>
 
                 <!-- Mandatory Regulatory Compliance Disclaimer (Law 2 & Law 3) -->
                 <div class="compliance-disclaimer-box" id="globalComplianceBox" data-i18n="compliance_bar">

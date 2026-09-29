@@ -756,6 +756,8 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     chatView.classList.add('active');
                     chatView.style.display = 'flex';
                 }
+                const chips = document.getElementById('quickActionChips');
+                if (chips) chips.style.display = 'none';
             }
 
             function showHeroView() {
@@ -767,6 +769,8 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     heroView.classList.remove('hidden');
                     heroView.style.display = 'flex';
                 }
+                const chips = document.getElementById('quickActionChips');
+                if (chips) chips.style.display = 'flex';
             }
 
             // Helper to escape HTML characters
