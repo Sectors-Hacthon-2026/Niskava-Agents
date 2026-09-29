@@ -393,6 +393,40 @@ func (c *Config) MaskedView() ConfigView {
 	}
 }
 
+// FullView returns the full configuration view with unmasked secrets for local client UI.
+func (c *Config) FullView() ConfigView {
+	return ConfigView{
+		Auth: AuthView{
+			AIProvider:      c.Auth.AIProvider,
+			SectorsAPIKey:   c.Auth.SectorsAPIKey,
+			HasSectorsKey:   c.Auth.SectorsAPIKey != "",
+			SectorsBaseURL:  c.Auth.SectorsBaseURL,
+			GeminiAPIKey:    c.Auth.GeminiAPIKey,
+			HasGeminiKey:    c.Auth.GeminiAPIKey != "",
+			GeminiModel:     c.Auth.GeminiModel,
+			OpenAIAPIKey:    c.Auth.OpenAIAPIKey,
+			HasOpenAIKey:    c.Auth.OpenAIAPIKey != "",
+			OpenAIBaseURL:   c.Auth.OpenAIBaseURL,
+			OpenAIModel:     c.Auth.OpenAIModel,
+			AnthropicAPIKey: c.Auth.AnthropicAPIKey,
+			HasAnthropicKey: c.Auth.AnthropicAPIKey != "",
+			OllamaBaseURL:   c.Auth.OllamaBaseURL,
+			OllamaModel:     c.Auth.OllamaModel,
+		},
+		Storage:     c.Storage,
+		Engine:      c.Engine,
+		Server:      c.Server,
+		Preferences: c.Preferences,
+		Memory:      c.Memory,
+		Telegram: TelegramView{
+			BotToken:     c.Telegram.BotToken,
+			HasToken:     c.Telegram.BotToken != "",
+			Enabled:      c.Telegram.Enabled,
+			AllowedUsers: c.Telegram.AllowedUsers,
+		},
+	}
+}
+
 // writeDotEnvFile persists key-value pairs into a specific .env file preserving comments and structure.
 func writeDotEnvFile(dest string, envMap map[string]string) error {
 	dest = ExpandHome(dest)

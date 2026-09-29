@@ -59,9 +59,9 @@
 
             <!-- User Profile Row -->
             <div class="sidebar-profile" id="sidebarProfile" data-tooltip="Profil & Pengaturan" data-i18n-tooltip="profile_settings_tooltip">
-                <div class="profile-avatar">IN</div>
+                <div class="profile-avatar" id="sidebarProfileAvatar">AN</div>
                 <div class="profile-info">
-                    <span class="profile-name">ikhsan novrians...</span>
+                    <span class="profile-name" id="sidebarProfileName">Analyst</span>
                     <span class="profile-badge">v0.1.4</span>
                 </div>
                 <button class="profile-settings-btn" id="btnSettings" aria-label="Pengaturan Sistem" data-i18n-tooltip="profile_settings_tooltip" title="Pengaturan Sistem">
@@ -572,7 +572,7 @@
                 </button>
                 <button class="modal-tab-btn" data-tab="tab-sectors" id="tabBtnSectors">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-                    <span data-i18n="tab_sectors">Cache Sectors (Law 5)</span>
+                    <span data-i18n="tab_sectors">Sectors API &amp; Cache (Law 5)</span>
                 </button>
                 <button class="modal-tab-btn" data-tab="tab-telegram" id="tabBtnTelegram">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
@@ -600,6 +600,25 @@
                 <!-- Tab 1: Kredensial API & LLM -->
                 <div class="tab-pane active" id="pane-tab-api">
                     <div style="display:flex; flex-direction:column; gap:12px;">
+                        <!-- Quick Sectors API Banner in Tab 1 -->
+                        <div class="settings-card" style="border-left: 3px solid var(--primary); padding: 10px 14px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary); flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                                    <div>
+                                        <strong style="font-size:12px; color:var(--text-primary);">Sectors Financial API v2 (Market Data IDX)</strong>
+                                        <div style="font-size:11px; color:var(--text-muted);">Kredensial feed data pasar saham BEI &amp; kuota 1.000 kredit (Kepatuhan Law 5).</div>
+                                    </div>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span id="tab1SectorsBadge" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
+                                    <button type="button" class="btn-test-conn" id="btnGoToSectorsTab" style="font-size:11px; padding:3px 10px; cursor:pointer;">
+                                        <span>Buka Pengaturan Sectors &rarr;</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Provider Selector Grid -->
                         <div class="settings-card">
                             <div class="settings-card-head">
@@ -961,7 +980,7 @@
                                     <button type="button" class="btn-test-conn" id="btnStartTeleBot" data-i18n="btn_start_bot" style="background:#10B981; color:#fff; border:none; font-weight:700;">
                                         <span>Nyalakan Bot</span>
                                     </button>
-                                    <button type="button" class="btn-test-conn" id="btnStopTeleBot" data-i18n="btn_stop_bot" style="background:#EF4444; color:#fff; border:none; font-weight:700;">
+                                    <button type="button" class="btn-test-conn" id="btnStopTeleBot" data-i18n="btn_stop_bot" style="display:none; background:#EF4444; color:#fff; border:none; font-weight:700;">
                                         <span>Matikan Bot</span>
                                     </button>
                                 </div>

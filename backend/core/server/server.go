@@ -279,6 +279,10 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 		}
 
 		if r.Method == http.MethodGet {
+			if r.URL.Query().Get("reveal") == "true" || r.URL.Query().Get("reveal") == "1" {
+				sendJSON(w, http.StatusOK, activeCfg.FullView())
+				return
+			}
 			sendJSON(w, http.StatusOK, activeCfg.MaskedView())
 			return
 		}
@@ -415,6 +419,9 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			_ = config.SaveConfig(s.Config, s.ConfigPath)
 			_ = config.SaveDotEnv(s.Config)
 			view := s.Config.MaskedView()
+			if r.URL.Query().Get("reveal") == "true" || r.URL.Query().Get("reveal") == "1" {
+				view = s.Config.FullView()
+			}
 			s.cfgMu.Unlock()
 
 			if telegramUpdated {
@@ -677,9 +684,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			var enabled bool
 			var hasToken bool
 			var allowedUsers []string
+			var botToken string
 			if cfg != nil {
 				enabled = cfg.Telegram.Enabled
 				hasToken = strings.TrimSpace(cfg.Telegram.BotToken) != ""
+				botToken = cfg.Telegram.BotToken
 				allowedUsers = cfg.Telegram.AllowedUsers
 			}
 			s.cfgMu.RUnlock()
@@ -709,6 +718,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				"enabled":       enabled,
 				"allowed_users": allowedUsers,
 				"has_token":     hasToken,
+				"bot_token":     botToken,
 			})
 			return
 		}
@@ -1029,9 +1039,18 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			isOffline = activeCfg.Preferences.OfflineMode || os.Getenv("MOCK_SECTORS") == "1"
 		}
 
+		username := os.Getenv("USER")
+		if username == "" {
+			username = os.Getenv("USERNAME")
+		}
+		if username == "" {
+			username = "Analyst"
+		}
+
 		sendJSON(w, http.StatusOK, map[string]interface{}{
 			"status":              "OK",
 			"app":                 "Niskava Agent",
+			"username":            username,
 			"go_version":          runtime.Version(),
 			"os":                  runtime.GOOS,
 			"arch":                runtime.GOARCH,

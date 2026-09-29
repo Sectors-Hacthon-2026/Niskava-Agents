@@ -125,6 +125,41 @@
                 });
 
                 // Quick Preset Chips for Models & Base URLs
+                function updateActivePresetChips() {
+                    if (inputGeminiModel) {
+                        const val = inputGeminiModel.value.trim();
+                        document.querySelectorAll('.preset-chip[data-fill="inputGeminiModel"]').forEach(chip => {
+                            chip.classList.toggle('active', chip.getAttribute('data-val') === val);
+                        });
+                    }
+                    if (inputOpenaiModel) {
+                        const val = inputOpenaiModel.value.trim();
+                        document.querySelectorAll('.preset-chip[data-fill="inputOpenaiModel"]').forEach(chip => {
+                            chip.classList.toggle('active', chip.getAttribute('data-val') === val);
+                        });
+                    }
+                    if (inputOllamaModel) {
+                        const val = inputOllamaModel.value.trim();
+                        document.querySelectorAll('.preset-chip[data-fill="inputOllamaModel"]').forEach(chip => {
+                            chip.classList.toggle('active', chip.getAttribute('data-val') === val);
+                        });
+                    }
+                    if (inputAnthropicModel) {
+                        const val = inputAnthropicModel.value.trim();
+                        document.querySelectorAll('.preset-chip[data-fill="inputAnthropicModel"]').forEach(chip => {
+                            chip.classList.toggle('active', chip.getAttribute('data-val') === val);
+                        });
+                    }
+                    const slider = document.getElementById('timeout-slider');
+                    if (slider) {
+                        const tVal = String(Math.round(parseFloat(slider.value) || 60));
+                        document.querySelectorAll('.preset-chip[data-timeout]').forEach(chip => {
+                            chip.classList.toggle('active', chip.getAttribute('data-timeout') === tVal);
+                        });
+                    }
+                }
+                window.updateActivePresetChips = updateActivePresetChips;
+
                 document.querySelectorAll('.preset-chip[data-fill]').forEach(chip => {
                     chip.addEventListener('click', (e) => {
                         e.preventDefault();
@@ -134,6 +169,7 @@
                         if (input && val) {
                             input.value = val;
                             input.focus();
+                            updateActivePresetChips();
                             showToast(currentLang === 'en' ? `Preset applied: ${val}` : `Preset diterapkan: ${val}`);
                         }
                     });
@@ -146,8 +182,27 @@
                         const val = chip.getAttribute('data-timeout');
                         if (val) {
                             populateTimeoutSlider(val);
+                            updateActivePresetChips();
                         }
                     });
+                });
+
+                // Focus & input behavior for saved API keys
+                ['inputSectorsKey', 'inputGeminiKey', 'inputOpenaiKey', 'inputAnthropicKey', 'inputTeleToken'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.addEventListener('focus', () => {
+                        if (el.dataset.saved === 'true' && el.value) {
+                            el.select();
+                        }
+                    });
+                });
+
+                ['inputGeminiModel', 'inputOpenaiModel', 'inputOllamaModel', 'inputAnthropicModel'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.addEventListener('input', updateActivePresetChips);
+                    }
                 });
 
                 // Preferences Elements
@@ -711,7 +766,7 @@
                 // Fetch Settings & Populate Form
                 async function fetchSettingsData() {
                     try {
-                        const res = await fetch(`${API_BASE}/api/settings`);
+                        const res = await fetch(`${API_BASE}/api/settings?reveal=true`);
                         if (!res.ok) return;
                         const data = await res.json();
                         if (data.auth) {
@@ -723,29 +778,69 @@
                             }
                             if (statusSectorsKey) {
                                 if (data.auth.has_sectors_key) {
-                                    statusSectorsKey.textContent = `${currentLang === 'en' ? 'Saved' : 'Tersimpan'} (${data.auth.sectors_api_key})`;
+                                    statusSectorsKey.textContent = currentLang === 'en' ? 'Saved' : 'Tersimpan';
                                     statusSectorsKey.style.color = '#10B981';
+                                    if (inputSectorsKey) {
+                                        inputSectorsKey.value = data.auth.sectors_api_key || '';
+                                        inputSectorsKey.dataset.saved = 'true';
+                                        inputSectorsKey.placeholder = 'sec_live_... (Tersimpan)';
+                                    }
                                 } else {
                                     statusSectorsKey.textContent = currentLang === 'en' ? 'No Key' : 'Belum Ada Kunci';
                                     statusSectorsKey.style.color = '#F59E0B';
+                                    if (inputSectorsKey) {
+                                        inputSectorsKey.value = '';
+                                        delete inputSectorsKey.dataset.saved;
+                                        inputSectorsKey.placeholder = 'sec_live_... (Masukkan Sectors API Key)';
+                                    }
+                                }
+                            }
+                            const tab1SectorsBadge = document.getElementById('tab1SectorsBadge');
+                            if (tab1SectorsBadge) {
+                                if (data.auth.has_sectors_key) {
+                                    tab1SectorsBadge.textContent = currentLang === 'en' ? 'Saved' : 'Tersimpan';
+                                    tab1SectorsBadge.style.color = '#10B981';
+                                } else {
+                                    tab1SectorsBadge.textContent = currentLang === 'en' ? 'No Key' : 'Belum Ada Kunci';
+                                    tab1SectorsBadge.style.color = '#F59E0B';
                                 }
                             }
                             if (statusGeminiKey) {
                                 if (data.auth.has_gemini_key) {
-                                    statusGeminiKey.textContent = `${currentLang === 'en' ? 'Saved' : 'Tersimpan'} (${data.auth.gemini_api_key})`;
+                                    statusGeminiKey.textContent = currentLang === 'en' ? 'Saved' : 'Tersimpan';
                                     statusGeminiKey.style.color = '#10B981';
+                                    if (inputGeminiKey) {
+                                        inputGeminiKey.value = data.auth.gemini_api_key || '';
+                                        inputGeminiKey.dataset.saved = 'true';
+                                        inputGeminiKey.placeholder = 'AIzaSy... (Tersimpan)';
+                                    }
                                 } else {
                                     statusGeminiKey.textContent = currentLang === 'en' ? 'No Key' : 'Belum Ada Kunci';
                                     statusGeminiKey.style.color = '#F59E0B';
+                                    if (inputGeminiKey) {
+                                        inputGeminiKey.value = '';
+                                        delete inputGeminiKey.dataset.saved;
+                                        inputGeminiKey.placeholder = 'AIzaSy... (Masukkan Gemini API Key)';
+                                    }
                                 }
                             }
                             if (statusOpenaiKey) {
                                 if (data.auth.has_openai_key) {
-                                    statusOpenaiKey.textContent = `${currentLang === 'en' ? 'Saved' : 'Tersimpan'} (${data.auth.openai_api_key})`;
+                                    statusOpenaiKey.textContent = currentLang === 'en' ? 'Saved' : 'Tersimpan';
                                     statusOpenaiKey.style.color = '#10B981';
+                                    if (inputOpenaiKey) {
+                                        inputOpenaiKey.value = data.auth.openai_api_key || '';
+                                        inputOpenaiKey.dataset.saved = 'true';
+                                        inputOpenaiKey.placeholder = 'sk-... (Tersimpan)';
+                                    }
                                 } else {
                                     statusOpenaiKey.textContent = currentLang === 'en' ? 'No Key' : 'Belum Ada Kunci';
                                     statusOpenaiKey.style.color = 'var(--text-muted)';
+                                    if (inputOpenaiKey) {
+                                        inputOpenaiKey.value = '';
+                                        delete inputOpenaiKey.dataset.saved;
+                                        inputOpenaiKey.placeholder = 'sk-... (Kosongkan jika menggunakan gateway lokal)';
+                                    }
                                 }
                             }
                             if (inputOpenaiBaseUrl && data.auth.openai_base_url) {
@@ -769,14 +864,25 @@
                             }
                             if (statusAnthropicKey) {
                                 if (data.auth.has_anthropic_key) {
-                                    statusAnthropicKey.textContent = `${currentLang === 'en' ? 'Saved' : 'Tersimpan'} (${data.auth.anthropic_api_key})`;
+                                    statusAnthropicKey.textContent = currentLang === 'en' ? 'Saved' : 'Tersimpan';
                                     statusAnthropicKey.style.color = '#10B981';
+                                    if (inputAnthropicKey) {
+                                        inputAnthropicKey.value = data.auth.anthropic_api_key || '';
+                                        inputAnthropicKey.dataset.saved = 'true';
+                                        inputAnthropicKey.placeholder = 'sk-ant-api03-... (Tersimpan)';
+                                    }
                                 } else {
                                     statusAnthropicKey.textContent = currentLang === 'en' ? 'No Key' : 'Belum Ada Kunci';
                                     statusAnthropicKey.style.color = 'var(--text-muted)';
+                                    if (inputAnthropicKey) {
+                                        inputAnthropicKey.value = '';
+                                        delete inputAnthropicKey.dataset.saved;
+                                        inputAnthropicKey.placeholder = 'sk-ant-api03-... (Masukkan Anthropic API Key)';
+                                    }
                                 }
                             }
                             updateProviderVisibility();
+                            updateActivePresetChips();
                         }
                         if (data.preferences) {
                             if (toggleOfflineMode && typeof data.preferences.offline_mode === 'boolean') {
@@ -837,6 +943,13 @@
                                 statusBadge.textContent = currentLang === 'en' ? `Connected (${result.latency_ms}ms)` : `Terhubung (${result.latency_ms}ms)`;
                                 statusBadge.style.color = '#10B981';
                             }
+                            if (target === 'sectors') {
+                                const tab1Badge = document.getElementById('tab1SectorsBadge');
+                                if (tab1Badge) {
+                                    tab1Badge.textContent = currentLang === 'en' ? `Connected (${result.latency_ms}ms)` : `Terhubung (${result.latency_ms}ms)`;
+                                    tab1Badge.style.color = '#10B981';
+                                }
+                            }
                             showToast(`${target.toUpperCase()}: ${result.message} (${result.latency_ms}ms)`);
                         } else {
                             if (statusBadge) {
@@ -852,6 +965,18 @@
                         }
                         showToast(currentLang === 'en' ? `Network error: ${e.message}` : `Kesalahan jaringan: ${e.message}`, true);
                     }
+                }
+
+                const btnGoToSectorsTab = document.getElementById('btnGoToSectorsTab');
+                if (btnGoToSectorsTab) {
+                    btnGoToSectorsTab.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const tabBtnSectors = document.getElementById('tabBtnSectors');
+                        if (tabBtnSectors) {
+                            tabBtnSectors.click();
+                            if (inputSectorsKey) inputSectorsKey.focus();
+                        }
+                    });
                 }
 
                 if (btnTestSectors) {
@@ -976,18 +1101,21 @@
                                 statusTeleToken.textContent = currentLang === 'en' ? 'Token Saved' : 'Token Tersimpan';
                                 statusTeleToken.style.color = '#10B981';
                                 if (inputTeleToken) {
-                                    inputTeleToken.disabled = true;
-                                    inputTeleToken.placeholder = '●●●●●●●●●● (Tersimpan & Terproteksi)';
-                                    inputTeleToken.value = '';
+                                    inputTeleToken.disabled = false;
+                                    inputTeleToken.value = data.bot_token || '';
+                                    inputTeleToken.dataset.saved = 'true';
+                                    inputTeleToken.placeholder = '7123456789:AAH... (Tersimpan)';
                                 }
                                 if (btnUnlockTeleToken) {
-                                    btnUnlockTeleToken.style.display = 'inline-block';
+                                    btnUnlockTeleToken.style.display = 'none';
                                 }
                             } else {
                                 statusTeleToken.textContent = currentLang === 'en' ? 'No Token' : 'Belum Ada Token';
                                 statusTeleToken.style.color = 'var(--text-muted)';
                                 if (inputTeleToken) {
                                     inputTeleToken.disabled = false;
+                                    inputTeleToken.value = '';
+                                    delete inputTeleToken.dataset.saved;
                                     inputTeleToken.placeholder = '7123456789:AAH... (Masukkan token bot)';
                                 }
                                 if (btnUnlockTeleToken) {
@@ -995,6 +1123,36 @@
                                 }
                             }
                         }
+
+                        // Dynamic Start / Stop Bot Button Toggle
+                        if (isRunning) {
+                            if (btnStartTeleBot) btnStartTeleBot.style.display = 'none';
+                            if (btnStopTeleBot) {
+                                btnStopTeleBot.style.display = 'inline-flex';
+                                btnStopTeleBot.disabled = false;
+                                btnStopTeleBot.style.opacity = '1';
+                                btnStopTeleBot.style.cursor = 'pointer';
+                                btnStopTeleBot.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg><span>${currentLang === 'en' ? 'Stop Bot' : 'Matikan Bot'}</span>`;
+                            }
+                        } else {
+                            if (btnStopTeleBot) btnStopTeleBot.style.display = 'none';
+                            if (btnStartTeleBot) {
+                                btnStartTeleBot.style.display = 'inline-flex';
+                                btnStartTeleBot.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>${currentLang === 'en' ? 'Start Bot' : 'Nyalakan Bot'}</span>`;
+                                if (!data.has_token) {
+                                    btnStartTeleBot.disabled = true;
+                                    btnStartTeleBot.style.opacity = '0.5';
+                                    btnStartTeleBot.style.cursor = 'not-allowed';
+                                    btnStartTeleBot.title = currentLang === 'en' ? 'Configure Telegram Bot Token first' : 'Konfigurasi Token Bot terlebih dahulu';
+                                } else {
+                                    btnStartTeleBot.disabled = false;
+                                    btnStartTeleBot.style.opacity = '1';
+                                    btnStartTeleBot.style.cursor = 'pointer';
+                                    btnStartTeleBot.title = '';
+                                }
+                            }
+                        }
+
                         if (data.allowed_users && Array.isArray(data.allowed_users)) {
                             currentTeleUsers = [...data.allowed_users];
                         } else if (inputTeleUsers && inputTeleUsers.value) {
@@ -1010,12 +1168,19 @@
                     btnStartTeleBot.addEventListener('click', async (e) => {
                         e.preventDefault();
                         try {
+                            btnStartTeleBot.disabled = true;
+                            btnStartTeleBot.innerHTML = `<span>${currentLang === 'en' ? 'Starting...' : 'Menyalakan...'}</span>`;
                             const res = await fetch(`${API_BASE}/api/telegram/start`, { method: 'POST' });
                             const data = await res.json();
-                            showToast(data.message || (currentLang === 'en' ? 'Telegram Bot started' : 'Telegram Bot dimulai'));
-                            fetchTelegramStatus();
+                            if (res.ok) {
+                                showToast(data.message || (currentLang === 'en' ? 'Telegram Bot started' : 'Telegram Bot dimulai'));
+                            } else {
+                                showToast(data.error || (currentLang === 'en' ? 'Failed to start bot' : 'Gagal memulai bot'), true);
+                            }
+                            await fetchTelegramStatus();
                         } catch (err) {
                             showToast(currentLang === 'en' ? `Failed to start bot: ${err.message}` : `Gagal memulai bot: ${err.message}`, true);
+                            await fetchTelegramStatus();
                         }
                     });
                 }
@@ -1024,12 +1189,19 @@
                     btnStopTeleBot.addEventListener('click', async (e) => {
                         e.preventDefault();
                         try {
+                            btnStopTeleBot.disabled = true;
+                            btnStopTeleBot.innerHTML = `<span>${currentLang === 'en' ? 'Stopping...' : 'Menghentikan...'}</span>`;
                             const res = await fetch(`${API_BASE}/api/telegram/stop`, { method: 'POST' });
                             const data = await res.json();
-                            showToast(data.message || (currentLang === 'en' ? 'Telegram Bot stopped' : 'Telegram Bot dihentikan'));
-                            fetchTelegramStatus();
+                            if (res.ok) {
+                                showToast(data.message || (currentLang === 'en' ? 'Telegram Bot stopped' : 'Telegram Bot dihentikan'));
+                            } else {
+                                showToast(data.error || (currentLang === 'en' ? 'Failed to stop bot' : 'Gagal menghentikan bot'), true);
+                            }
+                            await fetchTelegramStatus();
                         } catch (err) {
                             showToast(currentLang === 'en' ? `Failed to stop bot: ${err.message}` : `Gagal menghentikan bot: ${err.message}`, true);
+                            await fetchTelegramStatus();
                         }
                     });
                 }
@@ -1146,6 +1318,15 @@
                         const dbSizeKb = data.database_size_bytes ? (data.database_size_bytes / 1024).toFixed(1) + ' KB' : 'N/A';
                         const isEn = (currentLang === 'en');
 
+                        const sidebarProfileName = document.getElementById('sidebarProfileName');
+                        const sidebarProfileAvatar = document.getElementById('sidebarProfileAvatar');
+                        if (sidebarProfileName && data.username) {
+                            sidebarProfileName.textContent = data.username;
+                        }
+                        if (sidebarProfileAvatar && data.username) {
+                            sidebarProfileAvatar.textContent = data.username.slice(0, 2).toUpperCase();
+                        }
+
                         diagnosticsDetails.innerHTML = `
                             <div class="kpi-stats-grid" style="grid-template-columns: repeat(3, 1fr);">
                                 <div class="kpi-stat-card">
@@ -1230,19 +1411,19 @@
                         e.preventDefault();
                         const payload = { auth: {}, preferences: {}, telegram: {} };
 
-                        if (inputSectorsKey && inputSectorsKey.value.trim()) {
+                        if (inputSectorsKey) {
                             payload.auth.sectors_api_key = inputSectorsKey.value.trim();
                         }
                         if (selectAiProvider && selectAiProvider.value) {
                             payload.auth.ai_provider = selectAiProvider.value;
                         }
-                        if (inputGeminiKey && inputGeminiKey.value.trim()) {
+                        if (inputGeminiKey) {
                             payload.auth.gemini_api_key = inputGeminiKey.value.trim();
                         }
                         if (inputGeminiModel && inputGeminiModel.value.trim()) {
                             payload.auth.gemini_model = inputGeminiModel.value.trim();
                         }
-                        if (inputOpenaiKey && inputOpenaiKey.value.trim()) {
+                        if (inputOpenaiKey) {
                             payload.auth.openai_api_key = inputOpenaiKey.value.trim();
                         }
                         if (inputOpenaiBaseUrl && inputOpenaiBaseUrl.value.trim()) {
@@ -1257,13 +1438,13 @@
                         if (inputOllamaModel && inputOllamaModel.value.trim()) {
                             payload.auth.ollama_model = inputOllamaModel.value.trim();
                         }
-                        if (inputAnthropicKey && inputAnthropicKey.value.trim()) {
+                        if (inputAnthropicKey) {
                             payload.auth.anthropic_api_key = inputAnthropicKey.value.trim();
                         }
                         if (inputAnthropicModel && inputAnthropicModel.value.trim()) {
                             payload.auth.anthropic_model = inputAnthropicModel.value.trim();
                         }
-                        if (inputTeleToken && !inputTeleToken.disabled && inputTeleToken.value.trim()) {
+                        if (inputTeleToken) {
                             payload.telegram.bot_token = inputTeleToken.value.trim();
                         }
                         payload.telegram.allowed_users = currentTeleUsers;
@@ -1278,7 +1459,7 @@
                         try {
                             btnSaveSettings.disabled = true;
                             btnSaveSettings.textContent = currentLang === 'en' ? 'Saving...' : 'Menyimpan...';
-                            const res = await fetch(`${API_BASE}/api/settings`, {
+                            const res = await fetch(`${API_BASE}/api/settings?reveal=true`, {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify(payload)
@@ -1286,6 +1467,8 @@
                             if (res.ok) {
                                 showToast(currentLang === 'en' ? 'Settings saved & hot-reloaded successfully!' : 'Pengaturan berhasil disimpan & hot-reloaded!');
                                 closeSettingsModal();
+                                fetchSettingsData();
+                                fetchTelegramStatus();
                             } else {
                                 const err = await res.json();
                                 showToast(currentLang === 'en' ? `Save failed: ${err.error || 'An error occurred'}` : `Gagal simpan: ${err.error || 'Terjadi kesalahan'}`, true);
@@ -1320,4 +1503,8 @@
                         }
                     }
                 });
+
+                // Preload diagnostics and settings on startup for profile and live badges
+                fetchDiagnostics();
+                fetchSettingsData();
             }

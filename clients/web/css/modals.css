@@ -505,6 +505,13 @@
     background: var(--bg-card-hover);
 }
 
+.preset-chip.active {
+    background: var(--pill-active-bg);
+    border-color: var(--primary);
+    color: var(--accent-text);
+    font-weight: 700;
+}
+
 /* Toggle Switch */
 .toggle-switch-row {
     display: flex;
