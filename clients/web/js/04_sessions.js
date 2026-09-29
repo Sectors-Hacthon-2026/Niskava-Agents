@@ -495,43 +495,8 @@
                 });
             }
 
-            // Force Refresh Live Data & Flush Cache Handler
-            const btnForceRefreshData = document.getElementById('btnForceRefreshData');
-            const dataFreshnessBadge = document.getElementById('dataFreshnessBadge');
-            async function triggerForceRefresh() {
-                try {
-                    const icon = btnForceRefreshData ? btnForceRefreshData.querySelector('svg') : null;
-                    if (icon) icon.style.animation = 'spin 0.6s linear infinite';
-                    const res = await fetch(`${API_BASE}/api/system/cache/clean?all=1`, { method: 'POST' });
-                    if (icon) icon.style.animation = '';
-                    if (res.ok) {
-                        const json = await res.json();
-                        const count = json.cleaned_entries || 0;
-                        showToast(currentLang === 'en' ? `Cache Flushed (${count} entries). Next request pulls 100% fresh live data!` : `Cache dibersihkan (${count} entri). Permintaan berikutnya menarik data 100% live!`);
-                    } else {
-                        showToast(currentLang === 'en' ? 'Failed to flush cache.' : 'Gagal membersihkan cache.');
-                    }
-                } catch (e) {
-                    console.error(e);
-                    showToast(currentLang === 'en' ? 'Network error flushing cache.' : 'Gagal menghubungi server.');
-                }
-            }
-            if (btnForceRefreshData) {
-                btnForceRefreshData.addEventListener('click', triggerForceRefresh);
-            }
-            if (dataFreshnessBadge) {
-                dataFreshnessBadge.addEventListener('click', triggerForceRefresh);
-            }
-
-            // Live Fresh Toggle in Composer
-            const btnForceFresh = document.getElementById('btnForceFresh');
-            if (btnForceFresh) {
-                btnForceFresh.addEventListener('click', () => {
-                    btnForceFresh.classList.toggle('active');
-                    const isActive = btnForceFresh.classList.contains('active');
-                    showToast(isActive ? (currentLang === 'en' ? 'Live Fresh sync enabled: queries bypass cache.' : 'Sinkronisasi Live Fresh aktif: kueri memprioritaskan data pasar teranyar.') : (currentLang === 'en' ? 'Live Fresh sync disabled.' : 'Sinkronisasi Live Fresh dinonaktifkan.'));
-                });
-            }
+            // Note: Cache maintenance (Clean Expired & Flush All) is centralized in Settings Modal (07_settings.js)
+            // in strict compliance with Law 5 (Credit Budget Discipline).
 
 
             // 5. New Research button

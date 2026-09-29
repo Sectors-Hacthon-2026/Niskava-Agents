@@ -17,10 +17,25 @@
             gap: 14px;
             width: 100%;
             animation: fadeIn 0.25s ease forwards;
+            padding: 14px 16px;
+            border-radius: 12px;
+            transition: background 0.2s ease, border-color 0.2s ease;
         }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Differentiate Assistant vs User Message Cards */
+        .chat-message.assistant-message {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+        .chat-message.user-message {
+            background: var(--bg-card-hover);
+            border: 1px solid var(--border-subtle);
+            border-left: 3px solid var(--primary);
         }
 
         .message-avatar {
@@ -32,7 +47,7 @@
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            font-size: 14px;
+            font-size: 13.5px;
         }
         .message-avatar.ai {
             background: #FFFFFF;
@@ -48,9 +63,10 @@
             display: block;
         }
         .message-avatar.user {
-            background: var(--bg-card-hover);
-            border: 1px solid var(--border-subtle);
-            color: var(--text-primary);
+            background: rgba(252, 213, 53, 0.15);
+            border: 1px solid rgba(252, 213, 53, 0.35);
+            color: var(--accent-text);
+            font-weight: 800;
         }
 
         .message-body {
@@ -334,19 +350,59 @@
             border-radius: 4px;
             color: var(--code-color);
         }
-        .markdown-rendered pre {
-            background: var(--bg-card);
+        /* Code Blocks & Wrappers */
+        .code-block-wrapper {
+            margin: 14px 0;
+            background: #181A20;
             border: 1px solid var(--border-subtle);
             border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .code-block-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 7px 14px;
+            background: #121318;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+        .btn-copy-code {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--text-secondary);
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-copy-code:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #FFFFFF;
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        .markdown-rendered pre {
+            background: transparent;
+            border: none;
+            border-radius: 0;
             padding: 14px;
             overflow-x: auto;
-            margin: 14px 0;
+            margin: 0;
         }
         .markdown-rendered pre code {
             background: transparent;
             border: none;
             padding: 0;
-            color: inherit;
+            color: #E2E8F0;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.55;
         }
 
         /* GFM Markdown Table */
@@ -405,6 +461,16 @@
             background: var(--badge-amber-bg);
             color: var(--badge-amber-text);
             border: 1px solid var(--badge-amber-border);
+        }
+        .md-badge.red {
+            background: var(--badge-red-bg);
+            color: var(--badge-red-text);
+            border: 1px solid var(--badge-red-border);
+        }
+        .md-badge.purple {
+            background: rgba(168, 85, 247, 0.12);
+            color: #C084FC;
+            border: 1px solid rgba(168, 85, 247, 0.3);
         }
 
         /* Message Action Buttons */

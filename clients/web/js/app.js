@@ -184,8 +184,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 desc_sectors_cache: "Monitor efisiensi kuota 1.000 kredit Sectors API v2 (Kepatuhan Law 5). Setiap permintaan pasar yang terlayani melalui cache SQLite lokal menghemat 1 kredit secara otomatis.",
                 label_sectors_budget: "Disiplin Anggaran Kredit Sectors v2 (Law 5)",
                 label_cache_efficiency: "Efisiensi Cache SQLite:",
-                header_refresh_tooltip: "Tarik Data Live Terbaru (Bypass Cache)",
-                data_freshness_tooltip: "Status Sumber Data Pasar (Klik untuk refresh)",
+                data_freshness_tooltip: "Status Sumber Data Pasar (Bursa Efek Indonesia)",
                 tag_anomaly: "ANOMALI",
                 tag_disclosure: "DISCLOSURE",
                 tag_flow: "FLOW",
@@ -374,8 +373,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 desc_sectors_cache: "Monitor Sectors API v2 1,000 credit quota efficiency (Law 5 Compliance). Every market query served via local SQLite cache automatically saves 1 credit.",
                 label_sectors_budget: "Sectors v2 Credit Budget Discipline (Law 5)",
                 label_cache_efficiency: "SQLite Cache Efficiency:",
-                header_refresh_tooltip: "Fetch Latest Live Market Data (Bypass Cache)",
-                data_freshness_tooltip: "Market Data Feed Status (Click to refresh)",
+                data_freshness_tooltip: "Market Data Feed Status (Indonesia Stock Exchange)",
                 tag_anomaly: "ANOMALY",
                 tag_disclosure: "DISCLOSURE",
                 tag_flow: "FLOW",
@@ -1535,43 +1533,8 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 });
             }
 
-            // Force Refresh Live Data & Flush Cache Handler
-            const btnForceRefreshData = document.getElementById('btnForceRefreshData');
-            const dataFreshnessBadge = document.getElementById('dataFreshnessBadge');
-            async function triggerForceRefresh() {
-                try {
-                    const icon = btnForceRefreshData ? btnForceRefreshData.querySelector('svg') : null;
-                    if (icon) icon.style.animation = 'spin 0.6s linear infinite';
-                    const res = await fetch(`${API_BASE}/api/system/cache/clean?all=1`, { method: 'POST' });
-                    if (icon) icon.style.animation = '';
-                    if (res.ok) {
-                        const json = await res.json();
-                        const count = json.cleaned_entries || 0;
-                        showToast(currentLang === 'en' ? `Cache Flushed (${count} entries). Next request pulls 100% fresh live data!` : `Cache dibersihkan (${count} entri). Permintaan berikutnya menarik data 100% live!`);
-                    } else {
-                        showToast(currentLang === 'en' ? 'Failed to flush cache.' : 'Gagal membersihkan cache.');
-                    }
-                } catch (e) {
-                    console.error(e);
-                    showToast(currentLang === 'en' ? 'Network error flushing cache.' : 'Gagal menghubungi server.');
-                }
-            }
-            if (btnForceRefreshData) {
-                btnForceRefreshData.addEventListener('click', triggerForceRefresh);
-            }
-            if (dataFreshnessBadge) {
-                dataFreshnessBadge.addEventListener('click', triggerForceRefresh);
-            }
-
-            // Live Fresh Toggle in Composer
-            const btnForceFresh = document.getElementById('btnForceFresh');
-            if (btnForceFresh) {
-                btnForceFresh.addEventListener('click', () => {
-                    btnForceFresh.classList.toggle('active');
-                    const isActive = btnForceFresh.classList.contains('active');
-                    showToast(isActive ? (currentLang === 'en' ? 'Live Fresh sync enabled: queries bypass cache.' : 'Sinkronisasi Live Fresh aktif: kueri memprioritaskan data pasar teranyar.') : (currentLang === 'en' ? 'Live Fresh sync disabled.' : 'Sinkronisasi Live Fresh dinonaktifkan.'));
-                });
-            }
+            // Note: Cache maintenance (Clean Expired & Flush All) is centralized in Settings Modal (07_settings.js)
+            // in strict compliance with Law 5 (Credit Budget Discipline).
 
 
             // 5. New Research button
@@ -1785,86 +1748,135 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 // Panel Analisis kanan dihilangkan sesuai permintaan pengguna
             }
 
-            // 9. Markdown Parser supporting Headings, Tables, Blockquotes, Badges, Lists
+            // 9. Markdown Parser supporting Code Blocks, Headings, Tables, Blockquotes, Badges, Lists, and Paragraphs
             function renderMarkdown(txt) {
                 if (!txt) return '';
 
-                let html = txt;
+                // Step 1: Extract Fenced Code Blocks (```lang ... ```)
+                const codeBlocks = [];
+                let text = txt.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+                    const id = `__CODE_BLOCK_${codeBlocks.length}__`;
+                    const escapedCode = code
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+                    const langBadge = lang ? `<div class="code-block-header"><span class="code-lang-label">${lang.toUpperCase()}</span><button class="btn-copy-code" onclick="navigator.clipboard.writeText(this.getAttribute('data-code')).then(()=>showToast(currentLang==='en'?'Code copied!':'Kode disalin!'))" data-code="${code.replace(/"/g, '&quot;')}">Salin</button></div>` : '';
+                    codeBlocks.push(`<div class="code-block-wrapper">${langBadge}<pre><code class="language-${lang || 'plaintext'}">${escapedCode}</code></pre></div>`);
+                    return id;
+                });
 
-                // Escape HTML tags to prevent XSS except formatted blocks
-                html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                // Step 2: Escape HTML for security
+                text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-                // Restore markdown blockquotes (> ...)
-                html = html.replace(/^&gt; (.*$)/gim, '<blockquote><p>$1</p></blockquote>');
+                // Step 3: Badges (Law 2 Verification Taxonomy & Metrics)
+                text = text.replace(/\[SUPPORTED\]/g, '<span class="md-badge green">SUPPORTED</span>');
+                text = text.replace(/\[UNCERTAIN\]/g, '<span class="md-badge amber">UNCERTAIN</span>');
+                text = text.replace(/\[CONTRADICTED\]/g, '<span class="md-badge red">CONTRADICTED</span>');
+                text = text.replace(/\[LIKELY_CATALYST\]/g, '<span class="md-badge blue">LIKELY CATALYST</span>');
+                text = text.replace(/\[PRECEDED_ANNOUNCEMENT\]/g, '<span class="md-badge amber">PRECEDED ANNOUNCEMENT</span>');
+                text = text.replace(/\[UNEXPLAINED_BY_NEWS\]/g, '<span class="md-badge red">UNEXPLAINED BY NEWS</span>');
+                text = text.replace(/\[EXTREME SURGE\]/g, '<span class="md-badge green">EXTREME SURGE</span>');
+                text = text.replace(/\[ANOMALY\]/g, '<span class="md-badge purple">ANOMALY</span>');
+                text = text.replace(/\[DIVERGENT\]/g, '<span class="md-badge amber">DIVERGENT</span>');
+                text = text.replace(/\[INSTITUTIONAL BUY\]/g, '<span class="md-badge blue">INSTITUTIONAL BUY</span>');
 
-                // Markdown Headings: #, ##, ###, ####
-                html = html.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
-                html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-                html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-                html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+                // Step 4: Markdown Headings (# ... ####)
+                text = text.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
+                text = text.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+                text = text.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+                text = text.replace(/^# (.*$)/gim, '<h1>$1</h1>');
 
-                // Horizontal Rule
-                html = html.replace(/^---$/gim, '<hr>');
+                // Step 5: Horizontal Rule
+                text = text.replace(/^---$/gim, '<hr>');
 
-                // Bold & Italic
-                html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-                html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                // Step 6: Blockquotes (> ...)
+                text = text.replace(/^&gt; (.*$)/gim, '<blockquote><p>$1</p></blockquote>');
 
-                // Inline code
-                html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+                // Step 7: Bold & Italic & Inline Code
+                text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
 
-                // Badges
-                html = html.replace(/\[SUPPORTED\]/g, '<span class="md-badge green">SUPPORTED</span>');
-                html = html.replace(/\[LIKELY_CATALYST\]/g, '<span class="md-badge blue">LIKELY CATALYST</span>');
-                html = html.replace(/\[EXTREME SURGE\]/g, '<span class="md-badge green">EXTREME SURGE</span>');
-                html = html.replace(/\[DIVERGENT\]/g, '<span class="md-badge amber">DIVERGENT</span>');
-                html = html.replace(/\[INSTITUTIONAL BUY\]/g, '<span class="md-badge blue">INSTITUTIONAL BUY</span>');
-
-                // GFM Tables: detect lines with |
-                const lines = html.split('\n');
+                // Step 8: Tables and Lists line-by-line processing
+                const lines = text.split('\n');
                 let inTable = false;
                 let tableHtml = '';
-                let resultLines = [];
+                let inUl = false;
+                let inOl = false;
+                const result = [];
 
                 for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (line.startsWith('|') && line.endsWith('|')) {
-                        const cells = line.split('|').map(c => c.trim()).slice(1, -1);
+                    const rawLine = lines[i];
+                    const trimmed = rawLine.trim();
+
+                    // Check Table
+                    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+                        if (inUl) { result.push('</ul>'); inUl = false; }
+                        if (inOl) { result.push('</ol>'); inOl = false; }
+                        const cells = trimmed.split('|').map(c => c.trim()).slice(1, -1);
                         if (!inTable) {
                             inTable = true;
                             tableHtml = '<table><thead><tr>' + cells.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
-                        } else if (line.includes('---')) {
-                            // Separator row, skip
+                        } else if (trimmed.includes('---')) {
+                            // Separator row
                             continue;
                         } else {
                             tableHtml += '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
                         }
+                        continue;
+                    } else if (inTable) {
+                        inTable = false;
+                        tableHtml += '</tbody></table>';
+                        result.push(tableHtml);
+                        tableHtml = '';
+                    }
+
+                    // Check Unordered List: '-' or '*'
+                    const ulMatch = trimmed.match(/^[-*]\s+(.*)$/);
+                    if (ulMatch) {
+                        if (inOl) { result.push('</ol>'); inOl = false; }
+                        if (!inUl) { result.push('<ul>'); inUl = true; }
+                        result.push(`<li>${ulMatch[1]}</li>`);
+                        continue;
+                    }
+
+                    // Check Ordered List: '1.', '2.', etc.
+                    const olMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+                    if (olMatch) {
+                        if (inUl) { result.push('</ul>'); inUl = false; }
+                        if (!inOl) { result.push('<ol>'); inOl = true; }
+                        result.push(`<li>${olMatch[2]}</li>`);
+                        continue;
+                    }
+
+                    // Close list tags if non-list line
+                    if (inUl) { result.push('</ul>'); inUl = false; }
+                    if (inOl) { result.push('</ol>'); inOl = false; }
+
+                    if (!trimmed) {
+                        result.push(''); // blank line
+                    } else if (trimmed.startsWith('<h') || trimmed.startsWith('<hr') || trimmed.startsWith('<blockquote') || trimmed.startsWith('__CODE_BLOCK_')) {
+                        result.push(trimmed);
                     } else {
-                        if (inTable) {
-                            inTable = false;
-                            tableHtml += '</tbody></table>';
-                            resultLines.push(tableHtml);
-                            tableHtml = '';
-                        }
-                        resultLines.push(lines[i]);
+                        result.push(`<p>${trimmed}</p>`);
                     }
                 }
+
                 if (inTable) {
                     tableHtml += '</tbody></table>';
-                    resultLines.push(tableHtml);
+                    result.push(tableHtml);
                 }
-                html = resultLines.join('\n');
+                if (inUl) result.push('</ul>');
+                if (inOl) result.push('</ol>');
 
-                // Lists
-                html = html.replace(/^\* (.*$)/gim, '<li>$1</li>');
-                html = html.replace(/^[0-9]+\. (.*$)/gim, '<li>$1</li>');
-                // Wrap list items
-                html = html.replace(/(<li>.*<\/li>(\s*<li>.*<\/li>)*)/gim, '<ul>$1</ul>');
+                let finalHtml = result.join('\n');
 
-                // Paragraph breaks
-                html = html.replace(/\n\n+/g, '</p><p>');
+                // Step 9: Re-insert Fenced Code Blocks
+                codeBlocks.forEach((block, idx) => {
+                    finalHtml = finalHtml.replace(`__CODE_BLOCK_${idx}__`, block);
+                });
 
-                return html;
+                return finalHtml;
             }
 
     // --- 06_chat.js ---
@@ -2049,6 +2061,10 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     if (assistantMsgObj.getLatticeStatus && assistantMsgObj.getLatticeStatus() !== 'error') {
                         assistantMsgObj.setLatticeStatus('done');
                     }
+                    if (reactSteps.length === 0 && assistantMsgObj.element) {
+                        const sb = assistantMsgObj.element.querySelector('.react-steps-box');
+                        if (sb) sb.style.display = 'none';
+                    }
                     loadChatSessions(false);
                     loadLiveGraph(currentSessionId);
                     scrollToBottom();
@@ -2058,12 +2074,12 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
             function appendUserMessage(text) {
                 const safeText = (text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 const msgDiv = document.createElement('div');
-                msgDiv.className = 'chat-message';
+                msgDiv.className = 'chat-message user-message';
                 msgDiv.innerHTML = `
                     <div class="message-avatar user">G</div>
                     <div class="message-body">
                         <div class="message-header-row">
-                            <span class="message-author">Guest</span>
+                            <span class="message-author">User</span>
                             <span class="message-time">${t('just_now')}</span>
                         </div>
                         <div class="markdown-rendered"><p>${safeText}</p></div>
@@ -2076,7 +2092,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 let activeSessionId = sessionId || currentSessionId;
                 let activeMsgId = msgId;
                 const msgDiv = document.createElement('div');
-                msgDiv.className = 'chat-message';
+                msgDiv.className = 'chat-message assistant-message';
                 msgDiv.innerHTML = `
                     <div class="message-avatar ai"><img src="data:image/png;base64,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" alt="NISKAVA Agent" class="ai-avatar-img"></div>
                     <div class="message-body">

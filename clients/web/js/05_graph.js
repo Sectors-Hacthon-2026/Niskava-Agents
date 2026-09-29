@@ -148,84 +148,133 @@
                 // Panel Analisis kanan dihilangkan sesuai permintaan pengguna
             }
 
-            // 9. Markdown Parser supporting Headings, Tables, Blockquotes, Badges, Lists
+            // 9. Markdown Parser supporting Code Blocks, Headings, Tables, Blockquotes, Badges, Lists, and Paragraphs
             function renderMarkdown(txt) {
                 if (!txt) return '';
 
-                let html = txt;
+                // Step 1: Extract Fenced Code Blocks (```lang ... ```)
+                const codeBlocks = [];
+                let text = txt.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+                    const id = `__CODE_BLOCK_${codeBlocks.length}__`;
+                    const escapedCode = code
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+                    const langBadge = lang ? `<div class="code-block-header"><span class="code-lang-label">${lang.toUpperCase()}</span><button class="btn-copy-code" onclick="navigator.clipboard.writeText(this.getAttribute('data-code')).then(()=>showToast(currentLang==='en'?'Code copied!':'Kode disalin!'))" data-code="${code.replace(/"/g, '&quot;')}">Salin</button></div>` : '';
+                    codeBlocks.push(`<div class="code-block-wrapper">${langBadge}<pre><code class="language-${lang || 'plaintext'}">${escapedCode}</code></pre></div>`);
+                    return id;
+                });
 
-                // Escape HTML tags to prevent XSS except formatted blocks
-                html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                // Step 2: Escape HTML for security
+                text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-                // Restore markdown blockquotes (> ...)
-                html = html.replace(/^&gt; (.*$)/gim, '<blockquote><p>$1</p></blockquote>');
+                // Step 3: Badges (Law 2 Verification Taxonomy & Metrics)
+                text = text.replace(/\[SUPPORTED\]/g, '<span class="md-badge green">SUPPORTED</span>');
+                text = text.replace(/\[UNCERTAIN\]/g, '<span class="md-badge amber">UNCERTAIN</span>');
+                text = text.replace(/\[CONTRADICTED\]/g, '<span class="md-badge red">CONTRADICTED</span>');
+                text = text.replace(/\[LIKELY_CATALYST\]/g, '<span class="md-badge blue">LIKELY CATALYST</span>');
+                text = text.replace(/\[PRECEDED_ANNOUNCEMENT\]/g, '<span class="md-badge amber">PRECEDED ANNOUNCEMENT</span>');
+                text = text.replace(/\[UNEXPLAINED_BY_NEWS\]/g, '<span class="md-badge red">UNEXPLAINED BY NEWS</span>');
+                text = text.replace(/\[EXTREME SURGE\]/g, '<span class="md-badge green">EXTREME SURGE</span>');
+                text = text.replace(/\[ANOMALY\]/g, '<span class="md-badge purple">ANOMALY</span>');
+                text = text.replace(/\[DIVERGENT\]/g, '<span class="md-badge amber">DIVERGENT</span>');
+                text = text.replace(/\[INSTITUTIONAL BUY\]/g, '<span class="md-badge blue">INSTITUTIONAL BUY</span>');
 
-                // Markdown Headings: #, ##, ###, ####
-                html = html.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
-                html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-                html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-                html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+                // Step 4: Markdown Headings (# ... ####)
+                text = text.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
+                text = text.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+                text = text.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+                text = text.replace(/^# (.*$)/gim, '<h1>$1</h1>');
 
-                // Horizontal Rule
-                html = html.replace(/^---$/gim, '<hr>');
+                // Step 5: Horizontal Rule
+                text = text.replace(/^---$/gim, '<hr>');
 
-                // Bold & Italic
-                html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-                html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                // Step 6: Blockquotes (> ...)
+                text = text.replace(/^&gt; (.*$)/gim, '<blockquote><p>$1</p></blockquote>');
 
-                // Inline code
-                html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+                // Step 7: Bold & Italic & Inline Code
+                text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
 
-                // Badges
-                html = html.replace(/\[SUPPORTED\]/g, '<span class="md-badge green">SUPPORTED</span>');
-                html = html.replace(/\[LIKELY_CATALYST\]/g, '<span class="md-badge blue">LIKELY CATALYST</span>');
-                html = html.replace(/\[EXTREME SURGE\]/g, '<span class="md-badge green">EXTREME SURGE</span>');
-                html = html.replace(/\[DIVERGENT\]/g, '<span class="md-badge amber">DIVERGENT</span>');
-                html = html.replace(/\[INSTITUTIONAL BUY\]/g, '<span class="md-badge blue">INSTITUTIONAL BUY</span>');
-
-                // GFM Tables: detect lines with |
-                const lines = html.split('\n');
+                // Step 8: Tables and Lists line-by-line processing
+                const lines = text.split('\n');
                 let inTable = false;
                 let tableHtml = '';
-                let resultLines = [];
+                let inUl = false;
+                let inOl = false;
+                const result = [];
 
                 for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (line.startsWith('|') && line.endsWith('|')) {
-                        const cells = line.split('|').map(c => c.trim()).slice(1, -1);
+                    const rawLine = lines[i];
+                    const trimmed = rawLine.trim();
+
+                    // Check Table
+                    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+                        if (inUl) { result.push('</ul>'); inUl = false; }
+                        if (inOl) { result.push('</ol>'); inOl = false; }
+                        const cells = trimmed.split('|').map(c => c.trim()).slice(1, -1);
                         if (!inTable) {
                             inTable = true;
                             tableHtml = '<table><thead><tr>' + cells.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
-                        } else if (line.includes('---')) {
-                            // Separator row, skip
+                        } else if (trimmed.includes('---')) {
+                            // Separator row
                             continue;
                         } else {
                             tableHtml += '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
                         }
+                        continue;
+                    } else if (inTable) {
+                        inTable = false;
+                        tableHtml += '</tbody></table>';
+                        result.push(tableHtml);
+                        tableHtml = '';
+                    }
+
+                    // Check Unordered List: '-' or '*'
+                    const ulMatch = trimmed.match(/^[-*]\s+(.*)$/);
+                    if (ulMatch) {
+                        if (inOl) { result.push('</ol>'); inOl = false; }
+                        if (!inUl) { result.push('<ul>'); inUl = true; }
+                        result.push(`<li>${ulMatch[1]}</li>`);
+                        continue;
+                    }
+
+                    // Check Ordered List: '1.', '2.', etc.
+                    const olMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+                    if (olMatch) {
+                        if (inUl) { result.push('</ul>'); inUl = false; }
+                        if (!inOl) { result.push('<ol>'); inOl = true; }
+                        result.push(`<li>${olMatch[2]}</li>`);
+                        continue;
+                    }
+
+                    // Close list tags if non-list line
+                    if (inUl) { result.push('</ul>'); inUl = false; }
+                    if (inOl) { result.push('</ol>'); inOl = false; }
+
+                    if (!trimmed) {
+                        result.push(''); // blank line
+                    } else if (trimmed.startsWith('<h') || trimmed.startsWith('<hr') || trimmed.startsWith('<blockquote') || trimmed.startsWith('__CODE_BLOCK_')) {
+                        result.push(trimmed);
                     } else {
-                        if (inTable) {
-                            inTable = false;
-                            tableHtml += '</tbody></table>';
-                            resultLines.push(tableHtml);
-                            tableHtml = '';
-                        }
-                        resultLines.push(lines[i]);
+                        result.push(`<p>${trimmed}</p>`);
                     }
                 }
+
                 if (inTable) {
                     tableHtml += '</tbody></table>';
-                    resultLines.push(tableHtml);
+                    result.push(tableHtml);
                 }
-                html = resultLines.join('\n');
+                if (inUl) result.push('</ul>');
+                if (inOl) result.push('</ol>');
 
-                // Lists
-                html = html.replace(/^\* (.*$)/gim, '<li>$1</li>');
-                html = html.replace(/^[0-9]+\. (.*$)/gim, '<li>$1</li>');
-                // Wrap list items
-                html = html.replace(/(<li>.*<\/li>(\s*<li>.*<\/li>)*)/gim, '<ul>$1</ul>');
+                let finalHtml = result.join('\n');
 
-                // Paragraph breaks
-                html = html.replace(/\n\n+/g, '</p><p>');
+                // Step 9: Re-insert Fenced Code Blocks
+                codeBlocks.forEach((block, idx) => {
+                    finalHtml = finalHtml.replace(`__CODE_BLOCK_${idx}__`, block);
+                });
 
-                return html;
+                return finalHtml;
             }
