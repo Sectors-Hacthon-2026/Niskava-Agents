@@ -1568,6 +1568,51 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 		})
 	})
 
+	// PDF Report Download endpoint — serves locally-generated audit PDFs to browser
+	mux.HandleFunc("/api/reports/", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Extract filename from URL path: /api/reports/{filename}
+		filename := strings.TrimPrefix(r.URL.Path, "/api/reports/")
+		filename = filepath.Base(filename) // sanitize: prevent path traversal
+
+		// Validate filename: must be a Niskava PDF report
+		if !strings.HasPrefix(filename, "NISKAVA_") || !strings.HasSuffix(filename, ".pdf") {
+			http.Error(w, `{"error": "invalid report filename"}`, http.StatusBadRequest)
+			return
+		}
+
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			http.Error(w, `{"error": "cannot resolve home directory"}`, http.StatusInternalServerError)
+			return
+		}
+		reportsDir := filepath.Join(homeDir, ".niskava", "reports")
+		filePath := filepath.Join(reportsDir, filename)
+
+		// Security: ensure resolved path is still inside reportsDir (path traversal guard)
+		resolvedPath, err := filepath.Abs(filePath)
+		if err != nil || !strings.HasPrefix(resolvedPath, reportsDir) {
+			http.Error(w, `{"error": "access denied"}`, http.StatusForbidden)
+			return
+		}
+
+		if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
+			http.Error(w, `{"error": "report not found"}`, http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/pdf")
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+		http.ServeFile(w, r, resolvedPath)
+	})
+
 	// 5. Chat History endpoint (backward compatible)
 	mux.HandleFunc("/api/chat/history", func(w http.ResponseWriter, r *http.Request) {
 		if enableCORS(w, r) {

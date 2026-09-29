@@ -27,7 +27,6 @@ Niskava Agent combines the low-latency systems capabilities of Go, the scientifi
 │  - Autonomous ReAct Agent Loop (Reasoning + Action)             │
 │  - Local Associative Graph Memory (NetworkX + SQLite)           │
 │  - Temporal Precedence & Causality Inference Engine             │
-│                                                                 │
 │  [Layer 3: Modular Skills Registry (Domain SOP Modules)]        │
 │  - Market Anomaly Reconnaissance (`market_anomaly_recon`)       │
 │  - Event Causality Audit (`event_causality_audit`)              │
@@ -35,6 +34,7 @@ Niskava Agent combines the low-latency systems capabilities of Go, the scientifi
 │  - Financial Health Stress Testing (`financial_health_stress`)  │
 │  - Commodity Divergence (`mining_commodity_divergence`)         │
 │  - Peer Valuation Benchmark (`peer_valuation_benchmark`)       │
+│  - PDF Audit Trail Exporter (`investigation_report_pdf`)        │
 │                                                                 │
 │  [Layer 2: Deterministic Compute Gate (NumPy Firewall)]         │
 │  - Volume Z-Scores, Abnormal Returns, Sector Divergence         │
@@ -159,6 +159,7 @@ Whenever a ticker investigation is initiated (e.g., `niskava investigate ANTM --
    - Synthesizes findings, event timelines, and narrative conclusions.
    - Persists all results to local SQLite database tables (`investigations`, `findings`, `timeline_events`, `evidence_sources`).
    - Streams progress and structured findings via JSON-Lines over IPC to Go Core for real-time SSE delivery.
+   - **Optional On-Demand PDF Report Export**: When requested by the user, triggers `investigation_report_pdf` to compile an institutional-grade PDF research dossier directly to `~/.niskava/reports/` with immediate download links served on Web and CLI.
 
 ---
 

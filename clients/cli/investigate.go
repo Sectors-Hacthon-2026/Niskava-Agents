@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/db"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/server"
@@ -121,13 +124,30 @@ and compiles evidence classified into SUPPORTED, UNCERTAIN, or CONTRADICTED find
 			if exportFmt == "" {
 				exportFmt = "md"
 			}
-			outPath := invExportOutFlag
-			if outPath == "" {
-				outPath = fmt.Sprintf("niskava_investigation_%s.%s", sessionID, exportFmt)
-			}
 
-			var sb strings.Builder
-			sb.WriteString(fmt.Sprintf("# Niskava Agent — Audit & Investigation Report (%s)\n\n", ticker))
+			if exportFmt == "pdf" {
+				fmt.Printf("\n⟳ Generating institutional PDF audit trail for %s...\n", ticker)
+				pdfPath, pdfErr := exportInvestigationAsPDF(ticker, sessionID, appDB, cfg)
+				if pdfErr != nil {
+					fmt.Printf("\n✗ PDF generation failed: %v\n", pdfErr)
+					fmt.Println("  Tip: Ensure Python engine is operational and fpdf2 is installed.")
+				} else {
+					finalPath := pdfPath
+					if invExportOutFlag != "" {
+						if copyErr := copyFile(pdfPath, invExportOutFlag); copyErr == nil {
+							finalPath = invExportOutFlag
+						}
+					}
+					fmt.Printf("\n✓ PDF audit trail generated: %s\n", finalPath)
+				}
+			} else {
+				outPath := invExportOutFlag
+				if outPath == "" {
+					outPath = fmt.Sprintf("niskava_investigation_%s.%s", sessionID, exportFmt)
+				}
+
+				var sb strings.Builder
+				sb.WriteString(fmt.Sprintf("# Niskava Agent — Audit & Investigation Report (%s)\n\n", ticker))
 			sb.WriteString(fmt.Sprintf("- **Session ID:** `%s`\n", sessionID))
 			sb.WriteString(fmt.Sprintf("- **Ticker:** `%s`\n", ticker))
 			sb.WriteString(fmt.Sprintf("- **Date:** `%s`\n\n---\n\n", time.Now().Format("2006-01-02 15:04:05 MST")))
@@ -161,6 +181,7 @@ and compiles evidence classified into SUPPORTED, UNCERTAIN, or CONTRADICTED find
 			sb.WriteString(tui.T("sessions_export_disclaimer"))
 			_ = os.WriteFile(outPath, []byte(sb.String()), 0644)
 			fmt.Printf("\n✓ Investigation report exported to: %s\n", outPath)
+			}
 		}
 
 		// Option A: If running in an interactive terminal, offer CTA to transition into Live REPL
@@ -197,8 +218,8 @@ func init() {
 	investigateCmd.Flags().BoolVarP(&interactiveFlag, "interactive", "i", false, "run in interactive conversational investigation mode")
 	investigateCmd.Flags().StringVar(&pyBinFlag, "python-bin", "", "path to python binary")
 	investigateCmd.Flags().StringVar(&enginePath, "engine-path", "", "path to python engine directory")
-	investigateCmd.Flags().StringVarP(&invExportFmtFlag, "export-format", "f", "", "export report format: 'md' or 'json'")
-	investigateCmd.Flags().StringVarP(&invExportOutFlag, "export-out", "o", "", "output report file path (e.g. report.md)")
+	investigateCmd.Flags().StringVarP(&invExportFmtFlag, "export-format", "f", "", "export report format: 'md', 'json', or 'pdf'")
+	investigateCmd.Flags().StringVarP(&invExportOutFlag, "export-out", "o", "", "output report file path (e.g. report.md or report.pdf)")
 
 	investigateCmd.ValidArgs = []string{
 		"BBCA", "BBRI", "BMRI", "BBNI", "TLKM",
@@ -209,3 +230,119 @@ func init() {
 
 	RootCmd.AddCommand(investigateCmd)
 }
+
+// exportInvestigationAsPDF calls the Python investigation-report-pdf skill via a
+// headless IPC subprocess and returns the absolute path of the generated PDF.
+func exportInvestigationAsPDF(ticker, sessionID string, database *db.DB, appCfg *config.Config) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	wd, _ := os.Getwd()
+	resolvedRoot := ipc.ResolveRepoRoot(wd)
+	pythonBin := ""
+	if appCfg != nil {
+		pythonBin = appCfg.Engine.PythonBin
+	}
+	pythonBin = ipc.ResolvePythonBin(pythonBin)
+	customEngine := ""
+	if appCfg != nil {
+		customEngine = appCfg.Engine.EnginePath
+	}
+	resolvedEngine := ipc.ResolveEnginePath(resolvedRoot, customEngine)
+
+	dbPath := ""
+	if database != nil && database.Path != "" {
+		dbPath = database.Path
+	} else if appCfg != nil && appCfg.Storage.DBPath != "" {
+		dbPath = config.ExpandHome(appCfg.Storage.DBPath)
+	}
+
+	summary := fmt.Sprintf("Investigation audit trail for %s — Session %s", ticker, sessionID)
+	if database != nil {
+		if inv, err := database.GetInvestigation(sessionID); err == nil && inv != nil && inv.SummaryText != nil && *inv.SummaryText != "" {
+			summary = *inv.SummaryText
+		}
+	}
+
+	pdfPrompt := fmt.Sprintf(
+		"Export investigation PDF report for ticker %s session %s. Summary: %s",
+		ticker, sessionID, summary,
+	)
+
+	isOffline := false
+	chatLang := "id"
+	var envOverrides map[string]string
+	if appCfg != nil {
+		isOffline = appCfg.Preferences.OfflineMode
+		chatLang = appCfg.Preferences.Language
+		envOverrides = appCfg.BuildSubprocessEnv()
+	}
+
+	runnerParams := ipc.RunnerParams{
+		PythonBin:    pythonBin,
+		WorkDir:      resolvedRoot,
+		EnginePath:   resolvedEngine,
+		DBPath:       dbPath,
+		Prompt:       pdfPrompt,
+		SessionID:    sessionID,
+		Offline:      isOffline,
+		Language:     chatLang,
+		EnvOverrides: envOverrides,
+	}
+
+	eventsChan, errChan := ipc.RunSubprocess(ctx, runnerParams)
+
+	var detectedPdfPath string
+	for {
+		select {
+		case <-ctx.Done():
+			return "", fmt.Errorf("PDF generation timed out after 120 seconds")
+		case err, ok := <-errChan:
+			if !ok {
+				errChan = nil
+				continue
+			}
+			if err != nil {
+				return "", fmt.Errorf("Python engine error: %w", err)
+			}
+		case ev, ok := <-eventsChan:
+			if !ok {
+				if detectedPdfPath == "" {
+					return "", fmt.Errorf("PDF skill did not return a file path")
+				}
+				return detectedPdfPath, nil
+			}
+			if ev.Event == ipc.EventPdfReportReady && ev.PdfPath != "" {
+				detectedPdfPath = ev.PdfPath
+			} else if ev.Event == ipc.EventAgentMessageComplete || ev.Event == ipc.EventSessionComplete {
+				if path := extractPdfPathFromContent(ev.Content + " " + ev.Summary); path != "" {
+					detectedPdfPath = path
+				}
+			}
+		}
+	}
+}
+
+// extractPdfPathFromContent extracts a PDF file path from agent response text.
+func extractPdfPathFromContent(content string) string {
+	re := regexp.MustCompile(`(?:~|/[^\s]+)/\.niskava/reports/NISKAVA_[^\s"']+\.pdf`)
+	match := re.FindString(content)
+	if match != "" {
+		if strings.HasPrefix(match, "~") {
+			home, _ := os.UserHomeDir()
+			match = filepath.Join(home, match[1:])
+		}
+		return match
+	}
+	return ""
+}
+
+// copyFile copies src to dst, creating dst if needed.
+func copyFile(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, 0644)
+}
+

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -1146,3 +1147,76 @@ func TestSettingsLLMTimeoutPatch(t *testing.T) {
 		t.Errorf("expected Config.Preferences.LLMTimeoutSecs=90.0, got %v", got)
 	}
 }
+
+func TestReportDownloadEndpoint(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	srv, err := Start(ctx, 0, nil, config.DefaultConfig())
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	// Create a temporary dummy report file in ~/.niskava/reports/
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("failed to get user home dir: %v", err)
+	}
+	reportsDir := filepath.Join(homeDir, ".niskava", "reports")
+	_ = os.MkdirAll(reportsDir, 0755)
+
+	testFilename := "NISKAVA_TEST_REPORT_DOWNLOAD.pdf"
+	testFilePath := filepath.Join(reportsDir, testFilename)
+	dummyContent := []byte("%PDF-1.4 dummy test content")
+	if err := os.WriteFile(testFilePath, dummyContent, 0644); err != nil {
+		t.Fatalf("failed to write dummy PDF: %v", err)
+	}
+	defer os.Remove(testFilePath)
+
+	// 1. Success case: download valid NISKAVA_*.pdf
+	resp, err := http.Get(srv.URL + "/api/reports/" + testFilename)
+	if err != nil {
+		t.Fatalf("GET /api/reports failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "application/pdf" {
+		t.Errorf("expected Content-Type application/pdf, got %s", ct)
+	}
+	if cd := resp.Header.Get("Content-Disposition"); !strings.Contains(cd, "attachment") {
+		t.Errorf("expected Content-Disposition attachment, got %s", cd)
+	}
+
+	// 2. Reject non-NISKAVA prefix
+	respBad, err := http.Get(srv.URL + "/api/reports/other_file.pdf")
+	if err == nil {
+		defer respBad.Body.Close()
+		if respBad.StatusCode != http.StatusBadRequest {
+			t.Errorf("expected 400 Bad Request for non-NISKAVA file, got %d", respBad.StatusCode)
+		}
+	}
+
+	// 3. Reject non-pdf extension
+	respExt, err := http.Get(srv.URL + "/api/reports/NISKAVA_file.txt")
+	if err == nil {
+		defer respExt.Body.Close()
+		if respExt.StatusCode != http.StatusBadRequest {
+			t.Errorf("expected 400 Bad Request for non-PDF file, got %d", respExt.StatusCode)
+		}
+	}
+
+	// 4. Return 404 for non-existent file
+	resp404, err := http.Get(srv.URL + "/api/reports/NISKAVA_NONEXISTENT_99999.pdf")
+	if err == nil {
+		defer resp404.Body.Close()
+		if resp404.StatusCode != http.StatusNotFound {
+			t.Errorf("expected 404 Not Found, got %d", resp404.StatusCode)
+		}
+	}
+}
+

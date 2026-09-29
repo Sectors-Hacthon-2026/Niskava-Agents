@@ -38,7 +38,7 @@ Untuk menilai keselarasan Niskava dengan bobot rubrik penjurian (**40% Usability
    * Buka [`10-product/06-demo-video-script.md`](10-product/06-demo-video-script.md) — Storyboard dan naskah resmi video judging 3 menit & teaser 1 menit.
 2. **Melihat Alur Orkestrasi Multi-Step Reasoning (Core Innovation):**
    * Buka [`30-agent/01-investigation-pipeline.md`](30-agent/01-investigation-pipeline.md) — Alur kerja 7 tahap investigasi otonom dari deteksi anomali hingga verifikasi bukti.
-   * Buka [`30-agent/02-skills-catalog.md`](30-agent/02-skills-catalog.md) dan [`90-decisions/08-modular-skills-and-mcp-architecture.md`](90-decisions/08-modular-skills-and-mcp-architecture.md) — Katalog 6 Domain Skills & arsitektur 4-layer.
+   * Buka [`30-agent/02-skills-catalog.md`](30-agent/02-skills-catalog.md) dan [`90-decisions/08-modular-skills-and-mcp-architecture.md`](90-decisions/08-modular-skills-and-mcp-architecture.md) — Katalog 7 Domain Skills (termasuk `investigation-report-pdf`) & arsitektur 4-layer.
 3. **Memverifikasi Arsitektur Nyata (Not Faked / High Technical Depth):**
    * Buka [`20-architecture/01-system-overview.md`](20-architecture/01-system-overview.md) — Arsitektur hybrid Single Binary Go + Python Deterministic Quant + Embedded & React Web UI.
    * Buka [`20-architecture/03-sectors-v2-api.md`](20-architecture/03-sectors-v2-api.md) — Bukti ketergantungan mutlak (*Core Source Proof*) pada Sectors API v2.

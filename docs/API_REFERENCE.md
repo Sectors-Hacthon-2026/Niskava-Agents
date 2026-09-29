@@ -68,6 +68,7 @@ Setiap error non-2xx mengembalikan format JSON standar:
 | **Investigation Pipeline** | `GET` | `/api/investigations` | Mengambil daftar riwayat investigasi kuantitatif |
 | | `POST` | `/api/investigations` | Menjalankan investigasi otonom 7-Stage pipeline |
 | | `GET` | `/api/investigations/{id}` | Detail dossier temuan, anomali, dan bukti berita bursa |
+| **Reports & Exports** | `GET` | `/api/reports/{filename}` | Mengunduh berkas laporan PDF audit trail terverifikasi |
 
 ---
 
@@ -738,6 +739,25 @@ Mengambil dossier lengkap suatu sesi investigasi, mencakup:
   ]
 }
 ```
+
+---
+
+### 3.12 Reports & Exports Endpoint
+
+#### `GET /api/reports/{filename}`
+Mengunduh berkas laporan resmi PDF (*Institutional Audit Trail Document*) yang dihasilkan oleh Niskava Agent.
+
+* **Path Parameters:**
+  * `filename` (string, required): Nama berkas PDF yang dihasilkan (contoh: `NISKAVA_ANTM_20260929_INV001_audit.pdf`).
+* **Validasi Keamanan & Integritas:**
+  * Wajib berawalan prefix `NISKAVA_` dan berakhiran ekstensi `.pdf`.
+  * Sanitasi *path traversal* (`filepath.Base` & pemeriksaan direktori `~/.niskava/reports/`). Akses di luar direktori laporan ditolak dengan status HTTP `400` atau `403`.
+* **Headers Respon Sukses (200 OK):**
+  * `Content-Type: application/pdf`
+  * `Content-Disposition: attachment; filename="NISKAVA_ANTM_20260929_INV001_audit.pdf"`
+* **Contoh Respon Gagal:**
+  * `400 Bad Request`: `{"error": "invalid report filename"}` (nama file tidak sesuai pola)
+  * `404 Not Found`: `{"error": "report not found"}` (berkas belum dibuat atau telah dihapus)
 
 ---
 

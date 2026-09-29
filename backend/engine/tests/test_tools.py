@@ -72,7 +72,7 @@ def test_all_tool_and_skill_definitions_exposed(tmp_path):
     # Verify domain skills are still registered in the skills registry
     skill_defs = registry.skills_registry.get_all_tool_definitions()
     skill_names = [s["name"] for s in skill_defs]
-    assert len(skill_defs) == 6, f"Expected 6 domain skills, got {len(skill_defs)}: {skill_names}"
+    assert len(skill_defs) == 7, f"Expected 7 domain skills, got {len(skill_defs)}: {skill_names}"
     expected_skills = [
         "skill_mining_commodity_divergence",
         "skill_event_causality_audit",
@@ -80,6 +80,7 @@ def test_all_tool_and_skill_definitions_exposed(tmp_path):
         "skill_financial_health_stress_test",
         "skill_market_anomaly_recon",
         "skill_peer_valuation_benchmark",
+        "skill_investigation_report_pdf",
     ]
     for skill_name in expected_skills:
         assert skill_name in skill_names, f"Missing skill in registry: {skill_name}"

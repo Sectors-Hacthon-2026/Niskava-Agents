@@ -35,6 +35,7 @@ const (
 	EventAgentObservation     EventType = "agent_observation"
 	EventAgentMessageChunk    EventType = "agent_message_chunk"
 	EventAgentMessageComplete EventType = "agent_message_complete"
+	EventPdfReportReady       EventType = "pdf_report_ready"
 )
 
 // Event represents a generic JSON Lines IPC payload.
@@ -73,6 +74,8 @@ type Event struct {
 	DurationMs       int                    `json:"duration_ms,omitempty"`
 	Summary          string                 `json:"summary,omitempty"`
 	Error            string                 `json:"error,omitempty"`
+	PdfPath          string                 `json:"pdf_path,omitempty"`
+	Filename         string                 `json:"filename,omitempty"`
 }
 
 // RunnerParams defines parameters to invoke the Python engine.

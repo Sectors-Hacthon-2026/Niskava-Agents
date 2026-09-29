@@ -267,6 +267,9 @@ _DEEP_KEYWORDS = frozenset({
     "foreign flow", "net foreign", "valuasi", "valuation", "per ratio", "pbv",
     "cashflow", "laporan keuangan", "financial", "quant", "quantitative",
     "abnormal return", "candle", "ohlcv", "broker", "fund flow",
+    # PDF export triggers — only matched when user explicitly requests a PDF output
+    "laporan pdf", "export pdf", "generate pdf", "simpan ke pdf", "cetak laporan",
+    "download report", "pdf report", "audit trail pdf", "buat laporan pdf",
 })
 
 
@@ -409,6 +412,7 @@ def get_system_prompt(
    - Market data & overview: call `query_sectors` with domain ('candles', 'subsectors', 'fundamentals', etc.).
    - News & catalysts: call `search_news` (pass empty string for ticker and optional query keyword).
    - Session recall: call `query_memory` before starting fresh investigations.
+   - PDF export (OPTIONAL — ONLY when user explicitly asks): call `execute_skill` with skill_id="investigation_report_pdf". Pass ticker, summary (synthesized from prior observations), metrics, and evidence. NEVER generate PDF unless user explicitly requests it.
    - General concepts (PER, PBV, trading hours): answer directly in <response>.
 5. RESPONSE GATING: Respond to user ONLY inside <response>...</response> AFTER observing tool data.
 
@@ -426,6 +430,15 @@ User: "analyze ANTM"
 <thought>Significant anomaly detected. Ready to synthesize findings.</thought>
 <response>
 [Evidence-based analytical synthesis in user's prompt language with tables and disclaimer]
+</response>
+
+User: "Tolong export hasil investigasi ANTM ke PDF"
+<thought>User explicitly requests PDF. I will call investigation_report_pdf skill with prior findings.</thought>
+<tool_call>{{"name": "execute_skill", "arguments": {{"skill_id": "investigation_report_pdf", "arguments": {{"ticker": "ANTM", "summary": "[synthesized summary from prior observations]", "metrics": {{}}, "evidence": []}}}}}}</tool_call>
+(System provides: <observation>{{"pdf_path": "/home/user/.niskava/reports/NISKAVA_ANTM_20260929_ABCDEF_audit.pdf"}}</observation>)
+<response>
+Laporan PDF investigasi ANTM telah berhasil dibuat dan disimpan di:
+`/home/user/.niskava/reports/NISKAVA_ANTM_20260929_ABCDEF_audit.pdf`
 </response>
 {tools_section}"""
 
@@ -511,6 +524,8 @@ class NiskavaReActAgent:
         self.tools = tool_registry
         self.memory = getattr(tool_registry, "memory", None)
         self.emitter = emitter or (lambda ev: None)
+        if self.tools and not getattr(self.tools, "emitter", None):
+            self.tools.emitter = self.emitter
         self.db_path = getattr(tool_registry, "db_path", os.path.expanduser("~/.niskava/niskava.db"))
         self.language = (language or os.environ.get("NISKAVA_LANG") or "id").lower()
         self._custom_max_iterations = max_iterations

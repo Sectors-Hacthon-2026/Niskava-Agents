@@ -146,7 +146,10 @@ For automated scripts, scheduled cron jobs, or batch processing, run investigati
 ```
 
 ### Available Flags:
-- `--days <N>`: Number of daily trading sessions to analyze (default: `30`).
+- `-d, --days <N>`: Number of daily trading sessions to analyze (default: `30`).
+- `-f, --export-format <md|json|pdf>`: Export format for the generated audit trail dossier (`md`, `json`, or `pdf`).
+- `-o, --export-out <path>`: Custom destination file path for the exported report (e.g. `./ANTM_Audit.pdf`).
+- `-i, --interactive`: Runs the investigation and immediately opens the interactive conversational REPL pre-focused on the ticker.
 - `--offline`: Executes using local mock fixtures without issuing live Sectors API requests or consuming credits.
 - `--lang <en|id>`: Output language (`en` for English, `id` for Indonesian).
 - `--verbose, -v`: Prints detailed debug logs and IPC payload messages.
@@ -154,7 +157,14 @@ For automated scripts, scheduled cron jobs, or batch processing, run investigati
 
 ### Example:
 ```bash
-./niskava investigate ANTM --days 60
+# Standard 30-day investigation
+./niskava investigate ANTM --days 30
+
+# Headless investigation with instant PDF report generation
+./niskava investigate ANTM --days 30 --export-format pdf
+
+# Custom PDF output destination
+./niskava investigate BBRI --export-format pdf --export-out ~/Documents/BBRI_Report.pdf
 ```
 
 The command outputs a structured terminal report detailing:
@@ -162,6 +172,7 @@ The command outputs a structured terminal report detailing:
 2. Harvested corporate filings and financial news.
 3. Chronological causality assessment (`LIKELY_CATALYST`, `PRECEDED_ANNOUNCEMENT`, etc.).
 4. Structured evidence matrix with discrete confidence ratings.
+5. Path to the exported PDF report document (when `--export-format pdf` is specified).
 
 ---
 

@@ -2026,9 +2026,47 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                                     <strong>Kendala Investigasi:</strong> ${escapeHtml(errMsg)}
                                 </div>`;
                                 scrollToBottom();
+                            } else if (eventName === 'pdf_report_ready' || payload.event === 'pdf_report_ready') {
+                                const filename = payload.filename || '';
+                                if (filename && !assistantMsgObj.element.querySelector('.pdf-download-banner')) {
+                                    const downloadBtn = document.createElement('div');
+                                    downloadBtn.className = 'pdf-download-banner';
+                                    downloadBtn.innerHTML = `
+                                        <div style="display:flex; align-items:center; gap:10px; margin-top:12px; padding:10px 14px; background:var(--badge-green-bg,#e8f5e9); border:1px solid var(--badge-green-border,#a5d6a7); border-radius:8px; font-size:13px;">
+                                            <span style="font-size:20px;">📄</span>
+                                            <div style="flex:1">
+                                                <strong style="color:var(--badge-green-text,#1b5e20);">${typeof currentLang !== 'undefined' && currentLang === 'en' ? 'PDF Audit Report Ready' : 'Laporan PDF Audit Siap'}</strong>
+                                                <div style="font-family:monospace; font-size:11px; opacity:0.8; margin-top:2px;">${escapeHtml(filename)}</div>
+                                            </div>
+                                            <a href="${API_BASE}/api/reports/${encodeURIComponent(filename)}" download="${escapeHtml(filename)}" style="padding:6px 14px; background:var(--accent-primary,#1d47a0); color:#fff; border-radius:6px; text-decoration:none; font-size:12px; font-weight:600; white-space:nowrap;">⬇ Download PDF</a>
+                                        </div>
+                                    `;
+                                    const bodyEl = assistantMsgObj.element.querySelector('.message-body');
+                                    if (bodyEl) bodyEl.appendChild(downloadBtn);
+                                }
                             } else if (eventName === 'session_complete' || eventName === 'agent_message_complete') {
                                 assistantMsgObj.setLatticeStatus('done');
                                 loadLiveGraph(currentSessionId);
+
+                                // Fallback: regex detect PDF in fullText if pdf_report_ready event wasn't caught
+                                const pdfMatch = fullText.match(/NISKAVA_[A-Z0-9_]+\.pdf/);
+                                if (pdfMatch && !assistantMsgObj.element.querySelector('.pdf-download-banner')) {
+                                    const filename = pdfMatch[0];
+                                    const downloadBtn = document.createElement('div');
+                                    downloadBtn.className = 'pdf-download-banner';
+                                    downloadBtn.innerHTML = `
+                                        <div style="display:flex; align-items:center; gap:10px; margin-top:12px; padding:10px 14px; background:var(--badge-green-bg,#e8f5e9); border:1px solid var(--badge-green-border,#a5d6a7); border-radius:8px; font-size:13px;">
+                                            <span style="font-size:20px;">📄</span>
+                                            <div style="flex:1">
+                                                <strong style="color:var(--badge-green-text,#1b5e20);">${typeof currentLang !== 'undefined' && currentLang === 'en' ? 'PDF Audit Report Ready' : 'Laporan PDF Audit Siap'}</strong>
+                                                <div style="font-family:monospace; font-size:11px; opacity:0.8; margin-top:2px;">${escapeHtml(filename)}</div>
+                                            </div>
+                                            <a href="${API_BASE}/api/reports/${encodeURIComponent(filename)}" download="${escapeHtml(filename)}" style="padding:6px 14px; background:var(--accent-primary,#1d47a0); color:#fff; border-radius:6px; text-decoration:none; font-size:12px; font-weight:600; white-space:nowrap;">⬇ Download PDF</a>
+                                        </div>
+                                    `;
+                                    const bodyEl = assistantMsgObj.element.querySelector('.message-body');
+                                    if (bodyEl) bodyEl.appendChild(downloadBtn);
+                                }
                             } else if (eventName === 'done' || payload.event === 'done') {
                                 if (payload.session_id) {
                                     currentSessionId = payload.session_id;

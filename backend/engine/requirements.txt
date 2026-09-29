@@ -7,3 +7,4 @@ feedparser>=6.0.10
 trafilatura>=1.6.0
 pyyaml>=6.0
 pytest>=8.0.0
+fpdf2>=2.7.9

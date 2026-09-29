@@ -78,6 +78,8 @@ class NiskavaToolRegistry:
             "db_path": self.db_path,
             "mock_mode": self.mock_mode,
         }
+        if hasattr(self, "emitter") and callable(self.emitter):
+            context["emitter"] = self.emitter
         res = self.skills_registry.execute_skill(skill_id, arguments, context)
         return res.to_dict()
 
@@ -400,7 +402,8 @@ class NiskavaToolRegistry:
                     "insider_bandarmology_forensic (audit top broker accumulation C3>=65% and insider trading filings), "
                     "financial_health_stress_test (stress-test liquidity/solvency ratios and evaluate default rumors), "
                     "mining_commodity_divergence (test mining company correlation against global spot commodity benchmarks), "
-                    "peer_valuation_benchmark (benchmark PER/PBV multiples against IDX subsector median)."
+                    "peer_valuation_benchmark (benchmark PER/PBV multiples against IDX subsector median), "
+                    "investigation_report_pdf (generate institutional PDF audit trail report; ONLY when user asks to export/save/print PDF)."
                 ),
                 "parameters": {
                     "type": "object",
@@ -411,7 +414,8 @@ class NiskavaToolRegistry:
                                 "Target skill ID to execute. Choose one: "
                                 "market_anomaly_recon, event_causality_audit, "
                                 "insider_bandarmology_forensic, financial_health_stress_test, "
-                                "mining_commodity_divergence, peer_valuation_benchmark."
+                                "mining_commodity_divergence, peer_valuation_benchmark, "
+                                "investigation_report_pdf."
                             ),
                         },
                         "arguments": {
