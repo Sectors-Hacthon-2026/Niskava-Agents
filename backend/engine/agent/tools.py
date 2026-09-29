@@ -421,8 +421,8 @@ class NiskavaToolRegistry:
                         "arguments": {
                             "type": "object",
                             "description": (
-                                "Skill parameters. Required: {'ticker': 'ANTM'}. "
-                                "Optional: 'days' (int), 'subsector' (str for peer_valuation_benchmark)."
+                                "Skill parameters. For stock analysis skills: {'ticker': 'ANTM'} is required. "
+                                "For investigation_report_pdf: {'summary': '...'} is required, optional: 'ticker' (defaults to 'MARKET'), 'title', 'news_items', 'sections', 'report_type'."
                             ),
                         },
                     },

@@ -3,6 +3,9 @@
                 const prompt = chatInput.value.trim();
                 if (!prompt || isGenerating) return;
 
+                // Check if user is sending from the hero screen (new chat)
+                const wasHeroActive = heroView && (heroView.style.display !== 'none' && !heroView.classList.contains('hidden'));
+
                 // Switch from hero to chat view
                 if (typeof showChatView === 'function') {
                     showChatView();
@@ -10,6 +13,12 @@
                     heroView.classList.add('hidden');
                     chatView.classList.add('active');
                 }
+
+                // If starting from hero view, ensure chatView starts clean with zero stale elements
+                if (wasHeroActive && chatView) {
+                    chatView.innerHTML = '';
+                }
+
                 localStorage.setItem('niskava_active_session', currentSessionId);
 
                 // Append user message

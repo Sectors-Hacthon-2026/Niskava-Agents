@@ -764,6 +764,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 if (chatView) {
                     chatView.classList.remove('active');
                     chatView.style.display = 'none';
+                    chatView.innerHTML = '';
                 }
                 if (heroView) {
                     heroView.classList.remove('hidden');
@@ -1298,6 +1299,10 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     item.classList.toggle('active', item.getAttribute('data-nav') === 'chat');
                 });
 
+                if (chatView) {
+                    chatView.innerHTML = '';
+                }
+
                 try {
                     const res = await fetch(`${API_BASE}/api/chat/history?session_id=${encodeURIComponent(sessionId)}`);
                     if (!res.ok) return;
@@ -1552,12 +1557,16 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 }
                 currentSessionId = 'WEB-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(1000 + Math.random() * 9000);
                 localStorage.removeItem('niskava_active_session');
+                if (chatView) {
+                    chatView.innerHTML = '';
+                }
                 showHeroView();
                 document.getElementById('currentSessionLabel').textContent = t('header_session_default');
                 chatInput.value = '';
                 chatInput.style.height = 'auto';
                 updateSendButtonState();
                 document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
+                loadLiveGraph(currentSessionId);
                 loadChatSessions(false);
                 showToast(t('toast_new_session'));
             });
@@ -1889,6 +1898,9 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 const prompt = chatInput.value.trim();
                 if (!prompt || isGenerating) return;
 
+                // Check if user is sending from the hero screen (new chat)
+                const wasHeroActive = heroView && (heroView.style.display !== 'none' && !heroView.classList.contains('hidden'));
+
                 // Switch from hero to chat view
                 if (typeof showChatView === 'function') {
                     showChatView();
@@ -1896,6 +1908,12 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     heroView.classList.add('hidden');
                     chatView.classList.add('active');
                 }
+
+                // If starting from hero view, ensure chatView starts clean with zero stale elements
+                if (wasHeroActive && chatView) {
+                    chatView.innerHTML = '';
+                }
+
                 localStorage.setItem('niskava_active_session', currentSessionId);
 
                 // Append user message

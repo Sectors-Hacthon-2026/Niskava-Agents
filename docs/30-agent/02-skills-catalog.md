@@ -258,6 +258,10 @@ verification_mapping: dict       # Pemetaan ke Three-Tier Verification Taxonomy
 * **Kategori**: *Optional On-Demand Document Exporter*
 * **Trigger**: Pengguna secara eksplisit meminta ekspor laporan PDF, pencetakan berkas, atau penyimpanan audit trail ke format dokumen (`"buatkan laporan PDF"`, `"export PDF"`, `"simpan ke PDF"`, `"download report"`).
 * **Prerequisites**: Data metrik dan temuan bukti dari investigasi aktif atau yang tersimpan di SQLite.
+* **Tiga Mode Pelaporan Dinamis (Section-Driven)**:
+  * `TICKER_INVESTIGATION`: Audit kuantitatif emiten tunggal lengkap dengan tabel Z-score MA20 dan matriks bukti kausalitas berita.
+  * `MARKET_NEWS_BRIEF`: Ikhtisar berita makro/pasar harian (default ticker `"MARKET"` atau `"IHSG"`) dengan tabel *Market News Digest & Disclosures* tanpa mencetak tabel kuantitatif kosong.
+  * `CUSTOM_RESEARCH`: Analisis tematik fleksibel dengan bagian naratif modular (`sections`) sesuai instruksi riset pengguna.
 * **Karakteristik & Kepatuhan Hukum**:
   * **Law 1 (Deterministic Before Generative):** Mengambil metrik kuantitatif ($V_z$, $F_z$, abnormal return) yang telah dihitung sebelumnya. Tanpa kalkulasi matematika oleh LLM saat rendering.
   * **Law 2 (Strict Non-Advisory Boundary):** Setiap halaman dokumen PDF memuat banner penafian resmi (*Non-Advisory Disclaimer*) di bagian footer.

@@ -220,6 +220,7 @@
                 if (chatView) {
                     chatView.classList.remove('active');
                     chatView.style.display = 'none';
+                    chatView.innerHTML = '';
                 }
                 if (heroView) {
                     heroView.classList.remove('hidden');

@@ -256,6 +256,10 @@
                     item.classList.toggle('active', item.getAttribute('data-nav') === 'chat');
                 });
 
+                if (chatView) {
+                    chatView.innerHTML = '';
+                }
+
                 try {
                     const res = await fetch(`${API_BASE}/api/chat/history?session_id=${encodeURIComponent(sessionId)}`);
                     if (!res.ok) return;
@@ -510,12 +514,16 @@
                 }
                 currentSessionId = 'WEB-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(1000 + Math.random() * 9000);
                 localStorage.removeItem('niskava_active_session');
+                if (chatView) {
+                    chatView.innerHTML = '';
+                }
                 showHeroView();
                 document.getElementById('currentSessionLabel').textContent = t('header_session_default');
                 chatInput.value = '';
                 chatInput.style.height = 'auto';
                 updateSendButtonState();
                 document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
+                loadLiveGraph(currentSessionId);
                 loadChatSessions(false);
                 showToast(t('toast_new_session'));
             });

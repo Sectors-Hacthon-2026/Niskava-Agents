@@ -147,7 +147,6 @@ def test_skill_tool_definition_shape():
     assert "description" in tool_def
     assert "parameters" in tool_def
     required = tool_def["parameters"].get("required", [])
-    assert "ticker" in required
     assert "summary" in required
     props = tool_def["parameters"].get("properties", {})
     for expected_prop in ["ticker", "title", "summary", "metrics", "evidence", "session_id"]:
@@ -287,3 +286,113 @@ def test_execute_skill_via_tool_registry_integration(tmp_path, monkeypatch):
     assert len(events) == 1
     assert events[0]["event"] == "pdf_report_ready"
     assert events[0]["ticker"] == "BBCA"
+
+
+def test_render_market_news_brief_hides_quant_matrix(tmp_path):
+    """When report_type is MARKET_NEWS_BRIEF and metrics are empty/absent, quant anomaly table must NOT be rendered."""
+    from engine.skills.investigation_report_pdf.renderer import render_investigation_pdf
+
+    params = {
+        "title": "IDX Daily Market News Brief",
+        "ticker": "MARKET",
+        "report_type": "MARKET_NEWS_BRIEF",
+        "summary": "Bank Indonesia updates intervention strategy as Rupiah tests key psychological levels.",
+        "news_items": [
+            {
+                "date": "2026-09-29",
+                "headline": "Rupiah reaches Rp18.000 per USD amid macro shifts",
+                "source": "Sectors News",
+                "sentiment": "NEUTRAL",
+            },
+            {
+                "date": "2026-09-29",
+                "headline": "GoTo regaining liquidity following minimum price regulation",
+                "source": "IDXnet Disclosures",
+                "sentiment": "BULLISH",
+            },
+        ],
+        "session_id": "TEST-NEWS-001",
+    }
+
+    output_path = render_investigation_pdf(params, output_dir=tmp_path)
+    assert os.path.exists(output_path)
+
+    # Read binary to verify content
+    pdf_bytes = Path(output_path).read_bytes()
+    # Should NOT have the quant table title
+    assert b"QUANTITATIVE ANOMALY MATRIX" not in pdf_bytes
+    # Should have the news table or executive summary
+    assert b"EXECUTIVE SUMMARY" in pdf_bytes
+    assert b"MARKET NEWS DIGEST" in pdf_bytes or b"Rupiah reaches Rp18.000" in pdf_bytes
+
+
+def test_render_custom_sections_block(tmp_path):
+    """Renderer should accept arbitrary custom sections and render them cleanly."""
+    from engine.skills.investigation_report_pdf.renderer import render_investigation_pdf
+
+    params = {
+        "title": "Sector Divergence Analysis",
+        "ticker": "ENERGY",
+        "summary": "Comparative analysis across energy and basic materials sectors.",
+        "sections": [
+            {
+                "heading": "Monetary Policy Impact",
+                "content": "Interest rate stabilization expected to reduce debt servicing pressures.",
+            },
+            {
+                "heading": "Commodity Supply Chain Outlook",
+                "content": "Nickel and coal export margins remain resilient despite currency headwinds.",
+            },
+        ],
+        "session_id": "TEST-SECTIONS-001",
+    }
+
+    output_path = render_investigation_pdf(params, output_dir=tmp_path)
+    assert os.path.exists(output_path)
+    pdf_bytes = Path(output_path).read_bytes()
+    assert b"MONETARY POLICY IMPACT" in pdf_bytes
+    assert b"COMMODITY SUPPLY CHAIN OUTLOOK" in pdf_bytes
+    assert b"Interest rate stabilization" in pdf_bytes
+
+
+def test_skill_execution_without_ticker_defaults_to_market(tmp_path):
+    """When ticker is omitted from skill arguments, skill should succeed and default to MARKET."""
+    from engine.skills.investigation_report_pdf.logic import InvestigationReportPdfSkill
+
+    skill = InvestigationReportPdfSkill()
+    res = skill.execute(
+        arguments={
+            "summary": "IDX Composite closed higher by 0.8% following positive sentiment from regional markets.",
+            "report_type": "MARKET_NEWS_BRIEF",
+            "news_items": [
+                {
+                    "date": "2026-09-29",
+                    "headline": "IHSG Ditutup Menguat 0,8 Persen ke Level 7.750",
+                    "source": "IDXNet",
+                    "sentiment": "BULLISH",
+                }
+            ],
+        },
+        context={"_output_dir": tmp_path},
+    )
+
+    assert res.verification_status == "SUPPORTED"
+    assert res.metrics["ticker"] == "MARKET"
+    assert os.path.exists(res.metrics["pdf_path"])
+    assert "NISKAVA_MARKET_" in os.path.basename(res.metrics["pdf_path"])
+
+
+def test_renderer_clean_text_extended_symbols():
+    """Verify that extended symbols (bullets, arrows, smart quotes) are safely sanitized."""
+    from engine.skills.investigation_report_pdf.renderer import _clean_text
+
+    raw = "Analisis: • Laba bersih ↑ 15% & dividen → Rp500/lembar — 'Target' “Realisasi”"
+    cleaned = _clean_text(raw, single_line=True)
+    assert "•" not in cleaned
+    assert "-" in cleaned
+    assert "+" in cleaned
+    assert "->" in cleaned
+    assert "--" in cleaned
+    # Ensure latin-1 encodable without throwing
+    cleaned.encode("latin-1")
+

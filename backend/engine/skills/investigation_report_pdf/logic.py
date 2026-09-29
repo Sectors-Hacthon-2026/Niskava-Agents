@@ -35,39 +35,59 @@ class InvestigationReportPdfSkill(BaseSkill):
         return {
             "name": "skill_investigation_report_pdf",
             "description": (
-                "Generate and export an institutional PDF audit trail report for an IDX stock investigation. "
+                "Generate and export an institutional PDF research report or audit trail for IDX stocks or general market news. "
                 "ONLY invoke when the user explicitly requests a PDF, downloadable report, or printed document. "
-                "Do NOT invoke for standard analysis questions. Requires ticker and summary at minimum."
+                "Supports single stock investigations, macro market news digests, and sector/custom research notes. "
+                "Requires summary at minimum. If reporting on general market news without a single ticker, set ticker='MARKET'."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "ticker": {
                         "type": "string",
-                        "description": "IDX stock ticker (e.g. ANTM, BBCA). Case-insensitive.",
+                        "description": "IDX stock ticker (e.g. ANTM, BBCA) or 'MARKET' / 'IHSG' for general market overview.",
                     },
                     "title": {
                         "type": "string",
-                        "description": "Report title (e.g. 'ANTM Investigation Audit Trail — 30 Days').",
+                        "description": "Report title (e.g. 'ANTM Investigation Audit Trail' or 'IDX Daily Market Intelligence Brief').",
                     },
                     "summary": {
                         "type": "string",
-                        "description": "Investigative narrative synthesized from prior tool observations. Plain text.",
+                        "description": "Synthesized executive summary or investigative narrative. Plain text.",
+                    },
+                    "report_type": {
+                        "type": "string",
+                        "enum": ["TICKER_INVESTIGATION", "MARKET_NEWS_BRIEF", "CUSTOM_RESEARCH"],
+                        "description": "Report layout type. Auto-detected if omitted.",
                     },
                     "metrics": {
                         "type": "object",
                         "description": (
-                            "Pre-computed quantitative metrics dict. Keys: volume_z_score (float), "
-                            "foreign_flow_z_score (float), abnormal_return_pct (float), "
-                            "candles_analyzed (int), anomaly_detected (bool), latest_anomaly_date (str)."
+                            "Pre-computed quantitative metrics dict (for single-stock investigations). "
+                            "Keys: volume_z_score, foreign_flow_z_score, abnormal_return_pct, candles_analyzed, anomaly_detected."
                         ),
                     },
                     "evidence": {
                         "type": "array",
                         "description": (
-                            "List of evidence items. Each item: date (str), headline (str), "
-                            "verification_status (SUPPORTED|UNCERTAIN|CONTRADICTED), "
-                            "confidence_score (float), source (str)."
+                            "List of causal evidence items. Each item: date (str), headline (str), "
+                            "verification_status (SUPPORTED|UNCERTAIN|CONTRADICTED), confidence_score (float), source (str)."
+                        ),
+                        "items": {"type": "object"},
+                    },
+                    "news_items": {
+                        "type": "array",
+                        "description": (
+                            "List of curated market news or disclosures (for market news digests). "
+                            "Each item: date (str), headline (str), source (str), sentiment/status (str)."
+                        ),
+                        "items": {"type": "object"},
+                    },
+                    "sections": {
+                        "type": "array",
+                        "description": (
+                            "List of custom analytical narrative sections. "
+                            "Each item: heading (str), content (str)."
                         ),
                         "items": {"type": "object"},
                     },
@@ -76,16 +96,16 @@ class InvestigationReportPdfSkill(BaseSkill):
                         "description": "Current investigation session ID for traceability.",
                     },
                 },
-                "required": ["ticker", "summary"],
+                "required": ["summary"],
             },
         }
 
     def execute(self, arguments: Dict[str, Any], context: Dict[str, Any]) -> SkillResult:
-        """Execute PDF generation from pre-computed investigation data.
+        """Execute PDF generation from pre-computed investigation or market news data.
 
         Args:
-            arguments: Must contain 'ticker' (str) and 'summary' (str).
-                       Optional: 'title', 'metrics' (dict), 'evidence' (list), 'session_id'.
+            arguments: Contains 'summary' and optional 'ticker' (defaults to 'MARKET'),
+                       'title', 'report_type', 'metrics', 'evidence', 'news_items', 'sections', 'session_id'.
             context: Agent execution context. Reads '_output_dir' (Path) for test overrides.
                      May contain 'emitter' for IPC event notifications.
                      Does NOT read sectors_client — zero API calls by design (Law 5).
@@ -93,17 +113,23 @@ class InvestigationReportPdfSkill(BaseSkill):
         Returns:
             SkillResult with metrics['pdf_path'] as the absolute path to the written PDF.
         """
-        ticker = str(arguments.get("ticker", "")).upper().strip()
-        if not ticker:
+        raw_ticker = str(arguments.get("ticker", "")).strip()
+        ticker = raw_ticker.upper() if raw_ticker else "MARKET"
+
+        summary = arguments.get("summary", "")
+        if not summary:
             return SkillResult(
                 skill_id=self.skill_id,
                 verification_status="CONTRADICTED",
                 confidence_score=0.55,
-                metrics={"error": "ticker is required"},
-                summary="PDF generation failed: 'ticker' argument is missing.",
+                metrics={"error": "summary is required"},
+                summary="PDF generation failed: 'summary' argument is missing.",
             )
 
-        output_dir: Optional[Path] = context.get("_output_dir")
+        output_dir_arg = arguments.get("output_dir") or arguments.get("_output_dir")
+        output_dir: Optional[Path] = context.get("_output_dir") or (
+            Path(str(output_dir_arg)) if output_dir_arg else None
+        )
         session_id = (
             arguments.get("session_id")
             or context.get("session_id")
@@ -112,10 +138,13 @@ class InvestigationReportPdfSkill(BaseSkill):
 
         params = {
             "ticker": ticker,
-            "title": arguments.get("title", f"{ticker} Investigation Audit Trail"),
-            "summary": arguments.get("summary", ""),
+            "title": arguments.get("title"),
+            "summary": summary,
+            "report_type": arguments.get("report_type"),
             "metrics": arguments.get("metrics") or {},
             "evidence": arguments.get("evidence") or [],
+            "news_items": arguments.get("news_items") or [],
+            "sections": arguments.get("sections") or [],
             "session_id": str(session_id),
         }
 
@@ -141,7 +170,7 @@ class InvestigationReportPdfSkill(BaseSkill):
             confidence_score=1.00,
             metrics={"pdf_path": pdf_path, "filename": filename, "ticker": ticker},
             summary=(
-                f"Investigation audit trail PDF generated successfully for {ticker}. "
+                f"Report PDF generated successfully for {ticker}. "
                 f"File saved to: {pdf_path}"
             ),
         )

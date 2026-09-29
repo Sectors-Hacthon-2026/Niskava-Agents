@@ -35,16 +35,21 @@ _LIGHT_GRAY = (245, 245, 245)
 _DARK_GRAY = (66, 66, 66)
 
 
-def _clean_text(text: Any) -> str:
+def _clean_text(text: Any, single_line: bool = False) -> str:
     """Sanitize string for core Helvetica Latin-1 font in fpdf2."""
     if text is None:
         return ""
     s = str(text)
+    if single_line:
+        s = s.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
     replacements = {
         "\u2018": "'", "\u2019": "'",
         "\u201c": '"', "\u201d": '"',
         "\u2013": "-", "\u2014": "--",
         "\u2026": "...", "\u00a0": " ",
+        "\u2022": "-", "\u2023": ">", "\u25aa": "-",
+        "\u2192": "->", "\u2190": "<-", "\u2191": "+", "\u2193": "-",
+        "\u2248": "~", "\u2260": "!=",
         "σ": "sigma", "≥": ">=", "≤": "<=", "±": "+/-",
     }
     for k, v in replacements.items():
@@ -120,21 +125,40 @@ def _section_title(pdf: FPDF, title: str) -> None:
     pdf.ln(1.5)
 
 
-def _render_executive_summary(pdf: FPDF, summary: str) -> None:
-    _section_title(pdf, "1. EXECUTIVE SUMMARY")
+def _render_executive_summary(pdf: FPDF, summary: str, title: str = "EXECUTIVE SUMMARY") -> None:
+    _section_title(pdf, title)
     pdf.set_font("Helvetica", "", 8.5)
     clean_summary = _clean_text(summary or "No analytical summary provided.")
     pdf.multi_cell(190, 4.5, clean_summary, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(3.5)
 
 
+def _has_meaningful_quant_metrics(metrics: Dict[str, Any]) -> bool:
+    """Check if metrics contains actual quantitative data rather than empty or all N/A values."""
+    if not metrics or not isinstance(metrics, dict):
+        return False
+    # Check for actual numerical anomaly indicators
+    vz = metrics.get("volume_z_score")
+    fz = metrics.get("foreign_flow_z_score")
+    ret = metrics.get("abnormal_return_pct")
+    candles = metrics.get("candles_analyzed")
+    anomaly = metrics.get("anomaly_detected")
+
+    valid_vals = [vz, fz, ret, candles]
+    meaningful = any(v is not None and str(v).strip().upper() not in ("N/A", "NONE", "") for v in valid_vals)
+    return meaningful or bool(anomaly)
+
+
 def _render_quant_metrics(pdf: FPDF, metrics: Dict[str, Any]) -> None:
-    _section_title(pdf, "2. QUANTITATIVE ANOMALY MATRIX  (NumPy Deterministic — Law 1)")
+    if not _has_meaningful_quant_metrics(metrics):
+        return
+
+    _section_title(pdf, "QUANTITATIVE ANOMALY MATRIX  (NumPy Deterministic — Law 1)")
 
     rows = [
         ("Volume Z-Score (Vz)", str(metrics.get("volume_z_score", "N/A")), "sigma >= 2.5 -> Anomaly"),
         ("Foreign Flow Z-Score (Fz)", str(metrics.get("foreign_flow_z_score", "N/A")), "sigma >= 2.5 -> Anomaly"),
-        ("Abnormal Return", f"{metrics.get('abnormal_return_pct', 'N/A')}%", ">= 5% -> Anomaly"),
+        ("Abnormal Return", f"{metrics.get('abnormal_return_pct', 'N/A')}%" if metrics.get('abnormal_return_pct') is not None else "N/A", ">= 5% -> Anomaly"),
         ("Candles Analyzed", str(metrics.get("candles_analyzed", "N/A")), "Trading days"),
         ("Anomaly Detected", "YES" if metrics.get("anomaly_detected") else "NO", ""),
         ("Latest Anomaly Date", str(metrics.get("latest_anomaly_date", "N/A")), ""),
@@ -160,22 +184,27 @@ def _render_quant_metrics(pdf: FPDF, metrics: Dict[str, Any]) -> None:
         else:
             pdf.set_fill_color(255, 255, 255)
         pdf.set_text_color(0, 0, 0)
-        pdf.cell(col_w[0], 5.5, f"  {_clean_text(label)}", border=1, fill=fill)
-        pdf.cell(col_w[1], 5.5, f"  {_clean_text(value)}", border=1, fill=fill)
-        pdf.cell(col_w[2], 5.5, f"  {_clean_text(note)}", border=1, fill=fill)
+        pdf.cell(col_w[0], 5.5, f"  {_clean_text(label, single_line=True)}", border=1, fill=fill)
+        pdf.cell(col_w[1], 5.5, f"  {_clean_text(value, single_line=True)}", border=1, fill=fill)
+        pdf.cell(col_w[2], 5.5, f"  {_clean_text(note, single_line=True)}", border=1, fill=fill)
         pdf.ln()
 
     pdf.ln(3.5)
 
 
 def _render_evidence_matrix(pdf: FPDF, evidence: List[Dict[str, Any]]) -> None:
-    _section_title(pdf, "3. EVIDENCE & CAUSALITY MATRIX")
-
-    if not evidence:
-        pdf.set_font("Helvetica", "I", 8.5)
-        pdf.cell(190, 6, "  No external evidence items correlated in this session.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-        pdf.ln(2)
+    if not evidence or not isinstance(evidence, list):
         return
+
+    # Check if there is at least one item with content
+    valid_items = [
+        item for item in evidence
+        if isinstance(item, dict) and any(item.get(k) for k in ("headline", "title", "claim", "snippet"))
+    ]
+    if not valid_items:
+        return
+
+    _section_title(pdf, "EVIDENCE & CAUSALITY MATRIX")
 
     col_w = [25, 25, 115, 25]
     headers = ["Date", "Status", "Headline", "Confidence"]
@@ -190,7 +219,7 @@ def _render_evidence_matrix(pdf: FPDF, evidence: List[Dict[str, Any]]) -> None:
 
     # Table Data
     pdf.set_font("Helvetica", "", 7.5)
-    for i, item in enumerate(evidence):
+    for i, item in enumerate(valid_items):
         fill = i % 2 == 0
         status = str(item.get("verification_status", "UNCERTAIN")).upper()
         color = _verification_color(status)
@@ -198,50 +227,146 @@ def _render_evidence_matrix(pdf: FPDF, evidence: List[Dict[str, Any]]) -> None:
 
         pdf.set_text_color(0, 0, 0)
         pdf.set_fill_color(*bg)
-        pdf.cell(col_w[0], 5.5, f"  {_clean_text(item.get('date', ''))}", border=1, fill=fill)
+        pdf.cell(col_w[0], 5.5, f"  {_clean_text(item.get('date', ''), single_line=True)}", border=1, fill=fill)
 
         pdf.set_text_color(*color)
         pdf.set_fill_color(*bg)
-        pdf.cell(col_w[1], 5.5, f"  {_clean_text(status)}", border=1, fill=fill)
+        pdf.cell(col_w[1], 5.5, f"  {_clean_text(status, single_line=True)}", border=1, fill=fill)
 
         pdf.set_text_color(0, 0, 0)
-        headline = _clean_text(str(item.get("headline", "")))[:90]
+        headline = _clean_text(str(item.get("headline") or item.get("title") or ""), single_line=True)[:90]
         pdf.cell(col_w[2], 5.5, f"  {headline}", border=1, fill=fill)
 
         conf = str(item.get("confidence_score", ""))
-        pdf.cell(col_w[3], 5.5, f"  {_clean_text(conf)}", border=1, fill=fill)
+        pdf.cell(col_w[3], 5.5, f"  {_clean_text(conf, single_line=True)}", border=1, fill=fill)
         pdf.ln()
 
     pdf.ln(3.5)
+
+
+def _render_news_matrix(pdf: FPDF, news_items: List[Dict[str, Any]]) -> None:
+    if not news_items or not isinstance(news_items, list):
+        return
+
+    valid_items = [
+        item for item in news_items
+        if isinstance(item, dict) and any(item.get(k) for k in ("headline", "title", "snippet"))
+    ]
+    if not valid_items:
+        return
+
+    _section_title(pdf, "MARKET NEWS DIGEST & DISCLOSURES")
+
+    col_w = [25, 35, 105, 25]
+    headers = ["Date", "Source / Topic", "Verified Headline", "Status"]
+
+    # Table Header
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_fill_color(*_NISKAVA_BLUE)
+    pdf.set_text_color(255, 255, 255)
+    for header, w in zip(headers, col_w):
+        pdf.cell(w, 6, f"  {header}", border=1, fill=True)
+    pdf.ln()
+
+    # Table Data
+    pdf.set_font("Helvetica", "", 7.5)
+    for i, item in enumerate(valid_items):
+        fill = i % 2 == 0
+        status = str(item.get("status") or item.get("sentiment") or "VERIFIED").upper()
+        color = _verification_color(status)
+        bg = (248, 248, 248) if fill else (255, 255, 255)
+
+        date_str = str(item.get("date") or item.get("published_at") or "")
+        source_str = str(item.get("source") or item.get("topic") or "Official")[:18]
+        headline = str(item.get("headline") or item.get("title") or "")[:85]
+
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_fill_color(*bg)
+        pdf.cell(col_w[0], 5.5, f"  {_clean_text(date_str, single_line=True)}", border=1, fill=fill)
+        pdf.cell(col_w[1], 5.5, f"  {_clean_text(source_str, single_line=True)}", border=1, fill=fill)
+        pdf.cell(col_w[2], 5.5, f"  {_clean_text(headline, single_line=True)}", border=1, fill=fill)
+
+        pdf.set_text_color(*color)
+        pdf.cell(col_w[3], 5.5, f"  {_clean_text(status, single_line=True)}", border=1, fill=fill)
+        pdf.ln()
+
+    pdf.ln(3.5)
+
+
+def _render_custom_sections(pdf: FPDF, sections: List[Dict[str, Any]]) -> None:
+    if not sections or not isinstance(sections, list):
+        return
+
+    for sec in sections:
+        if not isinstance(sec, dict):
+            continue
+        heading = sec.get("heading") or sec.get("title") or "ANALYSIS"
+        content = sec.get("content") or sec.get("body") or ""
+        if not content:
+            continue
+
+        _section_title(pdf, str(heading).upper())
+        pdf.set_font("Helvetica", "", 8.5)
+        clean_content = _clean_text(content)
+        pdf.multi_cell(190, 4.5, clean_content, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.ln(3.5)
+
+
+def _detect_report_type(ticker: str, params: Dict[str, Any]) -> str:
+    explicit = params.get("report_type")
+    if explicit:
+        return str(explicit).upper().strip()
+
+    t_upper = ticker.upper()
+    macro_tickers = ("MARKET", "IDX MARKET", "IHSG", "MACRO", "GENERAL", "NEWS", "IDX")
+    if t_upper in macro_tickers:
+        return "MARKET_NEWS_BRIEF"
+
+    metrics = params.get("metrics") or {}
+    if _has_meaningful_quant_metrics(metrics):
+        return "TICKER_INVESTIGATION"
+
+    if params.get("news_items"):
+        return "MARKET_NEWS_BRIEF"
+
+    if params.get("sections"):
+        return "CUSTOM_RESEARCH"
+
+    return "TICKER_INVESTIGATION"
 
 
 def render_investigation_pdf(
     params: Dict[str, Any],
     output_dir: Optional[Path] = None,
 ) -> str:
-    """Render an investigation audit trail to a PDF file and return its absolute path.
+    """Render a dynamic, section-driven investigation or market intelligence report to PDF.
 
     Args:
-        params: Dict with keys: ticker (str), title (str), summary (str),
-                metrics (dict), evidence (list[dict]), session_id (str, optional).
+        params: Dict with optional keys: ticker (str), title (str), summary (str),
+                metrics (dict), evidence (list[dict]), news_items (list[dict]),
+                sections (list[dict]), report_type (str), session_id (str).
         output_dir: Directory to write the PDF. Defaults to ~/.niskava/reports/.
-                    Created automatically if it does not exist.
 
     Returns:
         Absolute path string of the written PDF file.
-
-    Raises:
-        ValueError: If `ticker` is missing or empty in params.
     """
-    ticker = str(params.get("ticker", "")).upper().strip()
-    if not ticker:
-        raise ValueError("render_investigation_pdf: 'ticker' is required in params.")
+    raw_ticker = str(params.get("ticker", "")).strip()
+    ticker = raw_ticker.upper() if raw_ticker else "MARKET"
 
     session_id = str(params.get("session_id", "000000"))
-    title = str(params.get("title", f"{ticker} Investigation Audit Trail"))
+    report_type = _detect_report_type(ticker, params)
+
+    default_title = (
+        f"{ticker} Investigation Audit Trail"
+        if report_type == "TICKER_INVESTIGATION"
+        else f"IDX Daily Market Intelligence Brief — {ticker}"
+    )
+    title = str(params.get("title") or default_title)
     summary = str(params.get("summary", ""))
-    metrics: Dict[str, Any] = params.get("metrics", {})
-    evidence: List[Dict[str, Any]] = params.get("evidence", [])
+    metrics: Dict[str, Any] = params.get("metrics") or {}
+    evidence: List[Dict[str, Any]] = params.get("evidence") or []
+    news_items: List[Dict[str, Any]] = params.get("news_items") or []
+    sections: List[Dict[str, Any]] = params.get("sections") or []
 
     # Resolve output directory (Law 4: local-first)
     if output_dir is None:
@@ -251,10 +376,11 @@ def render_investigation_pdf(
 
     today_str = date.today().strftime("%Y%m%d")
     session_short = _sanitize_session_short(session_id)
-    filename = f"NISKAVA_{ticker}_{today_str}_{session_short}_audit.pdf"
+    safe_ticker = "".join(c for c in ticker if c.isalnum() or c == "_")
+    filename = f"NISKAVA_{safe_ticker}_{today_str}_{session_short}_audit.pdf"
     output_path = output_dir / filename
 
-    # Build PDF with compression off so streams are inspectable
+    # Build PDF
     pdf = _NiskavaReportPDF(ticker=ticker, session_id=session_id)
     pdf.set_compression(False)
     pdf.set_auto_page_break(auto=True, margin=26)
@@ -267,13 +393,32 @@ def render_investigation_pdf(
     pdf.set_font("Helvetica", "", 7.5)
     pdf.set_text_color(*_DARK_GRAY)
     generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    pdf.cell(190, 4.5, _clean_text(f"Generated: {generated_at}  |  Session ID: {session_id}"), align="C", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.cell(
+        190,
+        4.5,
+        _clean_text(f"Generated: {generated_at}  |  Session ID: {session_id}  |  Type: {report_type}"),
+        align="C",
+        new_x=XPos.LMARGIN,
+        new_y=YPos.NEXT,
+    )
     pdf.ln(3.5)
 
-    # Core Sections
+    # Section 1: Executive Summary
     _render_executive_summary(pdf, summary)
-    _render_quant_metrics(pdf, metrics)
+
+    # Dynamic Section 2: Quantitative Matrix (only if actual metrics exist)
+    if _has_meaningful_quant_metrics(metrics):
+        _render_quant_metrics(pdf, metrics)
+
+    # Dynamic Section 3: Evidence Matrix (if correlation evidence exists)
     _render_evidence_matrix(pdf, evidence)
+
+    # Dynamic Section 4: Market News Digest (if news_items provided)
+    _render_news_matrix(pdf, news_items)
+
+    # Dynamic Section 5: Custom Analysis Sections
+    _render_custom_sections(pdf, sections)
 
     pdf.output(str(output_path))
     return str(output_path.resolve())
+

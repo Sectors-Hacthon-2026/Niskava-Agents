@@ -21,9 +21,14 @@ formatted document using pure-Python `fpdf2`.
 **This skill produces a file, not a market analysis.** It must be preceded by analytical
 skills such as `market_anomaly_recon` or `event_causality_audit`.
 
-## 2. Input Schema
+## 2. Dynamic Input Modes
+The skill supports three distinct report layouts automatically adapted to user intent:
+
+### Mode A: Ticker Quantitative Investigation (`TICKER_INVESTIGATION`)
+Use when analyzing a specific stock with quantitative anomalies:
 ```json
 {
+  "report_type": "TICKER_INVESTIGATION",
   "ticker": "ANTM",
   "title": "ANTM Investigation Audit Trail — 30 Days",
   "summary": "Agent-generated narrative synthesis from prior investigation steps.",
@@ -48,12 +53,50 @@ skills such as `market_anomaly_recon` or `event_causality_audit`.
 }
 ```
 
+### Mode B: Macro Market News Digest (`MARKET_NEWS_BRIEF`)
+Use when summarizing general market news, macro sentiment, or index overview (no N/A tables generated):
+```json
+{
+  "report_type": "MARKET_NEWS_BRIEF",
+  "ticker": "MARKET",
+  "title": "IDX Daily Market Intelligence Brief — 2026-09-29",
+  "summary": "Executive digest of top macroeconomic and corporate developments.",
+  "news_items": [
+    {
+      "date": "2026-09-29",
+      "headline": "Bank Indonesia adjusts monetary intervention strategy",
+      "source": "Sectors News",
+      "status": "VERIFIED"
+    }
+  ],
+  "session_id": "WEB-20260929-001"
+}
+```
+
+### Mode C: Custom Research Note (`CUSTOM_RESEARCH`)
+Use for custom research notes with structured headings:
+```json
+{
+  "report_type": "CUSTOM_RESEARCH",
+  "ticker": "SECTOR",
+  "title": "Mining vs Banking Sector Divergence Study",
+  "summary": "Comparative structural overview.",
+  "sections": [
+    {
+      "heading": "Commodity Price Outlook",
+      "content": "Global nickel benchmark movements continue to dictate margins."
+    }
+  ]
+}
+```
+
 ## 3. Output
 Returns a `SkillResult` where `metrics["pdf_path"]` contains the absolute local path
 to the generated PDF file (e.g. `/home/user/.niskava/reports/NISKAVA_ANTM_20260929_ABCDEF_audit.pdf`).
 
 ## 4. Compliance
-- Law 1: All quant metrics sourced from arguments or SQLite, never recomputed by LLM.
+- Law 1: All quant metrics sourced from arguments or SQLite, never recomputed by LLM. Empty metrics are cleanly suppressed rather than displaying empty N/A matrices.
 - Law 2: Non-advisory disclaimer banner is hard-coded on every page footer.
 - Law 4: PDF saved to `~/.niskava/reports/`. No cloud upload.
 - Law 5: Zero Sectors API calls. All data from arguments or local SQLite.
+
