@@ -149,24 +149,15 @@ func TestFormatFinalResponse(t *testing.T) {
 }
 
 func TestWrapMarkdownTables(t *testing.T) {
-	input := `Berikut adalah rincian metrik anomali:
-
-| Tanggal | Metrik | Nilai | Baseline | Z-Score |
-|---|---|---|---|---|
-| 2026-09-08 | VOLUME_SURGE | 125M | 24M | 35.71 |
-| 2026-09-09 | PRICE_SURGE | +8.2% | +0.5% | 4.12 |
-
-Hasil analisis membuktikan anomali signifikan.`
-
-	output := WrapMarkdownTables(input)
-	if !strings.Contains(output, "```") {
-		t.Fatalf("expected output to contain code block for table wrapping")
+	// WrapMarkdownTables has been superseded by TranspileMarkdownForTelegram.
+	// This test verifies the same intent: tables do not appear as raw pipe characters.
+	input := "| Col A | Col B |\n|---|---|\n| Val 1 | Val 2 |"
+	output := TranspileMarkdownForTelegram(input)
+	if strings.Contains(output, "|---|") {
+		t.Errorf("expected no separator row in output, got:\n%s", output)
 	}
-	if !strings.Contains(output, "```\n| Tanggal | Metrik |") {
-		t.Errorf("expected table header to start right after ```, got:\n%s", output)
-	}
-	if !strings.Contains(output, "| 2026-09-09 | PRICE_SURGE | +8.2% | +0.5% | 4.12 |\n```") {
-		t.Errorf("expected table to end with ```, got:\n%s", output)
+	if !strings.Contains(output, "Val 1") || !strings.Contains(output, "Val 2") {
+		t.Errorf("expected table values preserved in output, got:\n%s", output)
 	}
 }
 
@@ -176,5 +167,60 @@ func TestSanitizeTelegramMarkdown(t *testing.T) {
 	output := SanitizeTelegramMarkdown(input)
 	if output == "" {
 		t.Fatalf("expected non-empty output")
+	}
+}
+
+func TestTranspileMarkdownHeadings(t *testing.T) {
+	input := "## What I Do\n\nSome text here.\n\n### Sub Section\n\nMore text."
+	output := TranspileMarkdownForTelegram(input)
+
+	if strings.Contains(output, "##") {
+		t.Errorf("expected ## headings to be removed, got:\n%s", output)
+	}
+	if !strings.Contains(output, "*What I Do*") {
+		t.Errorf("expected H2 to become *bold*, got:\n%s", output)
+	}
+	if !strings.Contains(output, "*Sub Section*") {
+		t.Errorf("expected H3 to become *bold*, got:\n%s", output)
+	}
+}
+
+func TestTranspileMarkdownBlockquotes(t *testing.T) {
+	input := "> ⚠️ I am an intelligence platform, not an investment advisor."
+	output := TranspileMarkdownForTelegram(input)
+
+	if strings.HasPrefix(strings.TrimSpace(output), ">") {
+		t.Errorf("expected blockquote > to be removed, got:\n%s", output)
+	}
+	if !strings.Contains(output, "⚠️") {
+		t.Errorf("expected emoji content to be preserved, got:\n%s", output)
+	}
+}
+
+func TestTranspileMarkdownHorizontalRule(t *testing.T) {
+	input := "Before section.\n\n---\n\nAfter section."
+	output := TranspileMarkdownForTelegram(input)
+
+	if strings.Contains(output, "\n---\n") {
+		t.Errorf("expected --- horizontal rule to be removed, got:\n%s", output)
+	}
+	if !strings.Contains(output, "Before section.") || !strings.Contains(output, "After section.") {
+		t.Errorf("expected surrounding content to be preserved, got:\n%s", output)
+	}
+}
+
+func TestTranspileMarkdownTableToList(t *testing.T) {
+	input := "| Skill ID | What It Does |\n|---|---|\n| `market_anomaly_recon` | Scans MA20 volume spikes |"
+	output := TranspileMarkdownForTelegram(input)
+
+	if strings.Contains(output, "|---|") {
+		t.Errorf("expected separator row to be removed, got:\n%s", output)
+	}
+	if !strings.Contains(output, "market_anomaly_recon") {
+		t.Errorf("expected table content to be preserved in list form, got:\n%s", output)
+	}
+	// Should NOT be wrapped in a raw triple-backtick code block at the top level
+	if strings.HasPrefix(strings.TrimSpace(output), "```") {
+		t.Errorf("expected table NOT to be wrapped in raw code block, got:\n%s", output)
 	}
 }

@@ -457,3 +457,11 @@
                     behavior: 'smooth'
                 });
             }
+
+            // Accidental Navigation Guard: Warn user before reloading if analysis is actively streaming/thinking
+            window.addEventListener('beforeunload', (e) => {
+                if (isGenerating) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });

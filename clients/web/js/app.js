@@ -434,7 +434,12 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 const key = el.getAttribute('data-i18n-tooltip');
                 if (dict[key]) {
                     el.setAttribute('data-tooltip', dict[key]);
-                    el.setAttribute('title', dict[key]);
+                    // Do NOT set native title if the element uses CSS data-tooltip to avoid double tooltips and tooltip freezing
+                    if (!el.hasAttribute('data-tooltip') && !el.classList.contains('nav-link-item')) {
+                        el.setAttribute('title', dict[key]);
+                    } else {
+                        el.removeAttribute('title');
+                    }
                 }
             });
 
@@ -1112,7 +1117,17 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
 
             function formatSessionTitle(s) {
                 let title = (s.title || '').trim();
-                if (!title || title === 'Sesi Riset Pasar' || title.startsWith('CHAT-') || title.startsWith('WEB-')) {
+                // Treat generic or timestamp-based Telegram titles as placeholders.
+                // Telegram session titles follow "Telegram (@user) · 30 Sep 15:04:05".
+                // Once the first message arrives, UpdateChatSession sets a topic-based title,
+                // but last_message_preview is a shorter fallback to display in the sidebar.
+                const isGenericTitle = !title ||
+                    title === 'Sesi Riset Pasar' ||
+                    title.startsWith('CHAT-') ||
+                    title.startsWith('WEB-') ||
+                    title.startsWith('TELE-') ||
+                    /^Telegram\s*(\(@[^)]+\))?\s*·/.test(title);
+                if (isGenericTitle) {
                     title = (s.last_message_preview || s.first_message || '').trim();
                 }
                 if (!title) {
@@ -1211,6 +1226,20 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 historyScrollContainer.addEventListener('scroll', closeHistoryDropdown, { passive: true });
             }
 
+            /**
+             * Returns a small inline badge HTML string indicating the session's platform origin.
+             * Telegram sessions carry a TELE- ID prefix per the DB convention.
+             * Returns empty string for Web sessions.
+             * @param {string} sessionId
+             * @returns {string}
+             */
+            function getSessionPlatformBadge(sessionId) {
+                if (sessionId && sessionId.startsWith('TELE-')) {
+                    return `<span title="Sesi dari Telegram Bot" style="font-size:10px; background:rgba(39,174,245,0.15); color:#27aef5; border-radius:4px; padding:1px 5px; margin-right:4px; vertical-align:middle; flex-shrink:0; line-height:1.6; display:inline-block; font-weight:600;">TG</span>`;
+                }
+                return '';
+            }
+
             function renderChatHistoryGroups(sessions) {
                 closeHistoryDropdown();
                 historyList.innerHTML = '';
@@ -1246,6 +1275,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
 
                     itemEl.innerHTML = `
                         ${isPinned ? `<span class="history-item-pin-badge" title="${t('menu_pin')}"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-2l-2-3V6a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v6l-2 3v2z"></path></svg></span>` : ''}
+                        ${getSessionPlatformBadge(sId)}
                         <span class="history-item-label" title="${escapeHtml(fullTitle)}">${escapeHtml(displayTitle)}</span>
                         <button class="history-more-btn" title="${t('options_tooltip')}" aria-label="Opsi">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
@@ -1335,6 +1365,27 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                                 chatView.appendChild(asst.element);
                             }
                         });
+
+                        // Check if session is currently active/busy in background (e.g. after browser refresh)
+                        try {
+                            const sessRes = await fetch(`${API_BASE}/api/chat/sessions/${encodeURIComponent(sessionId)}`);
+                            if (sessRes.ok) {
+                                const sessData = await sessRes.json();
+                                if (sessData.session && sessData.session.status === 'BUSY') {
+                                    isGenerating = true;
+                                    updateSendButtonState();
+                                    const activeAsst = createAssistantMessageElement(sessionId);
+                                    activeAsst.contentEl.innerHTML = `<em>${currentLang === 'en' ? 'Continuing market intelligence investigation in background...' : 'Melanjutkan analisis intelijen pasar di latar belakang...'}</em>`;
+                                    activeAsst.setLatticeStatus('thinking');
+                                    chatView.appendChild(activeAsst.element);
+
+                                    pollBusySession(sessionId, activeAsst);
+                                }
+                            }
+                        } catch (err) {
+                            console.error('Failed to verify session status', err);
+                        }
+
                         scrollToBottom();
                     } else {
                         chatView.innerHTML = '';
@@ -1343,6 +1394,42 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 } catch (e) {
                     console.error('Failed to load session history', e);
                 }
+            }
+
+            let busyPollInterval = null;
+
+            function pollBusySession(sessionId, asstElement) {
+                if (busyPollInterval) {
+                    clearInterval(busyPollInterval);
+                    busyPollInterval = null;
+                }
+
+                busyPollInterval = setInterval(async () => {
+                    if (currentSessionId !== sessionId) {
+                        clearInterval(busyPollInterval);
+                        busyPollInterval = null;
+                        return;
+                    }
+
+                    try {
+                        const checkRes = await fetch(`${API_BASE}/api/chat/sessions/${encodeURIComponent(sessionId)}`);
+                        if (!checkRes.ok) return;
+                        const data = await checkRes.json();
+                        if (data.session && data.session.status !== 'BUSY') {
+                            clearInterval(busyPollInterval);
+                            busyPollInterval = null;
+                            isGenerating = false;
+                            updateSendButtonState();
+
+                            // Reload complete messages now that background agent finished
+                            if (currentSessionId === sessionId) {
+                                switchSession(sessionId, document.getElementById('currentSessionLabel').textContent);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error during busy session poll', e);
+                    }
+                }, 1500);
             }
 
             async function deleteSession(sessionId) {
@@ -2352,6 +2439,14 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     behavior: 'smooth'
                 });
             }
+
+            // Accidental Navigation Guard: Warn user before reloading if analysis is actively streaming/thinking
+            window.addEventListener('beforeunload', (e) => {
+                if (isGenerating) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
 
     // --- 07_settings.js ---
 // 10. Navigation, Dedicated Memory Graph & Settings/Toolkit Integration

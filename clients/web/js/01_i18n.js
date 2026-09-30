@@ -416,7 +416,12 @@
                 const key = el.getAttribute('data-i18n-tooltip');
                 if (dict[key]) {
                     el.setAttribute('data-tooltip', dict[key]);
-                    el.setAttribute('title', dict[key]);
+                    // Do NOT set native title if the element uses CSS data-tooltip to avoid double tooltips and tooltip freezing
+                    if (!el.hasAttribute('data-tooltip') && !el.classList.contains('nav-link-item')) {
+                        el.setAttribute('title', dict[key]);
+                    } else {
+                        el.removeAttribute('title');
+                    }
                 }
             });
 
