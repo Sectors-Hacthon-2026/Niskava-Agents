@@ -51,8 +51,5 @@
   "bugs": {
     "url": "https://github.com/Sectors-Hacthon-2026/Niskava-Agents/issues"
   },
-  "homepage": "https://github.com/Sectors-Hacthon-2026/Niskava-Agents#readme",
-  "dependencies": {
-    "@zyrexnns/niskava-agent": "^0.1.4"
-  }
+  "homepage": "https://github.com/Sectors-Hacthon-2026/Niskava-Agents#readme"
 }
