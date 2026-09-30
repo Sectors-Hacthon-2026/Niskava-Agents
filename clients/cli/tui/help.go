@@ -9,6 +9,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// padRight pads a string with spaces until its visual display width (measured by lipgloss.Width) reaches targetWidth.
+func padRight(s string, targetWidth int) string {
+	w := lipgloss.Width(s)
+	if w >= targetWidth {
+		return s
+	}
+	return s + strings.Repeat(" ", targetWidth-w)
+}
+
 // GetFullHelpGuideString builds and returns the formatted instruction manual string.
 func GetFullHelpGuideString(overrideWidth ...int) string {
 	w := GetTermWidth()
@@ -69,15 +78,8 @@ func GetFullHelpGuideString(overrideWidth ...int) string {
 	}
 
 	keyColWidth := 22
-	if w < 50 {
-		keyColWidth = 16
-	}
-
 	for _, item := range sec1Items {
-		paddedKey := item.Key
-		if len(item.Key) < keyColWidth {
-			paddedKey = fmt.Sprintf("%-*s", keyColWidth, item.Key)
-		}
+		paddedKey := padRight(item.Key, keyColWidth)
 		prefix := fmt.Sprintf("   • %s : ", keyStyle.Render(paddedKey))
 		b.WriteString(formatHelpItem(prefix, item.Desc, w-2))
 	}
@@ -96,16 +98,9 @@ func GetFullHelpGuideString(overrideWidth ...int) string {
 		{"[E] / [8]", T("help_sec1_key_e")},
 	}
 
-	hkColWidth := 10
-	if w < 45 {
-		hkColWidth = 8
-	}
-
+	hkColWidth := 11
 	for _, hk := range hotkeys {
-		paddedHk := hk.Key
-		if len(hk.Key) < hkColWidth {
-			paddedHk = fmt.Sprintf("%-*s", hkColWidth, hk.Key)
-		}
+		paddedHk := padRight(hk.Key, hkColWidth)
 		prefix := fmt.Sprintf("     - %s : ", keyStyle.Render(paddedHk))
 		b.WriteString(formatHelpItem(prefix, hk.Desc, w-2))
 	}
@@ -184,22 +179,22 @@ func GetFullHelpGuideString(overrideWidth ...int) string {
 		{"/exit, quit", T("slash_exit_desc")},
 	}
 
-	scColWidth := 21
-	if w < 75 && w >= 55 {
-		scColWidth = 18
-	} else if w < 55 && w >= 40 {
-		scColWidth = 14
-	} else if w < 40 {
-		scColWidth = 10
-	}
-
-	for _, sc := range slashCmds {
-		paddedCmd := sc.Cmd
-		if len(sc.Cmd) < scColWidth {
-			paddedCmd = fmt.Sprintf("%-*s", scColWidth, sc.Cmd)
+	if w >= 85 {
+		scColWidth := 21
+		for _, sc := range slashCmds {
+			paddedCmd := padRight(sc.Cmd, scColWidth)
+			prefix := fmt.Sprintf("   • %s : ", cmdStyle.Render(paddedCmd))
+			b.WriteString(formatHelpItem(prefix, sc.Desc, w-2))
 		}
-		prefix := fmt.Sprintf("   • %s : ", cmdStyle.Render(paddedCmd))
-		b.WriteString(formatHelpItem(prefix, sc.Desc, w-2))
+	} else {
+		for _, sc := range slashCmds {
+			b.WriteString(fmt.Sprintf("   • %s:\n", cmdStyle.Render(sc.Cmd)))
+			wrapped := wrapText(sc.Desc, descWidth)
+			for _, line := range strings.Split(wrapped, "\n") {
+				b.WriteString("     " + line + "\n")
+			}
+			b.WriteString("\n")
+		}
 	}
 	b.WriteString("\n")
 
