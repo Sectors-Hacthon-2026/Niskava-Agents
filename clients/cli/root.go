@@ -87,9 +87,8 @@ and qualitative market disclosures/news.`,
 			selected := resModel.Selected
 			switch selected {
 			case "web":
-				tui.PrintWebWorkspaceLaunchScreen(srv.URL)
 				_ = server.OpenBrowser(srv.URL)
-				tui.PromptPressEscToReturn()
+				tui.ShowWebWorkspaceLaunchScreen(srv.URL)
 
 			case "terminal":
 				// RunLiveREPL returns control to launcher menu when user exits or types /back or /exit
@@ -106,8 +105,7 @@ and qualitative market disclosures/news.`,
 				tui.PrintFullHelpGuide()
 
 			case "health":
-				tui.PrintHealthDiagnostics(cfg, srv.URL)
-				tui.PromptPressEscToReturn()
+				tui.ShowHealthDiagnosticsScreen(cfg, srv.URL)
 
 			case "lang":
 				langModel := tui.NewLangSelectorModel()

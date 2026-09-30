@@ -31,16 +31,11 @@ type SessionSelectorModel struct {
 	ExportFormatIndex int // 0: Markdown (.md), 1: JSON (.json), 2: Plain Text (.txt)
 	StatusNotice      string
 	StatusNoticeTime  time.Time
+	Width             int
+	Height            int
 }
 
 var (
-	sessionBoxStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(ColorAccent).
-			Width(76).
-			Padding(0, 1).
-			Foreground(ColorFg)
-
 	sessionTitleStyle = lipgloss.NewStyle().
 				Bold(true).
 				Foreground(ColorAccent)
@@ -69,6 +64,8 @@ func NewSessionSelectorModelWithDB(sessions []db.ChatSession, appDB *db.DB) Sess
 		AppDB:    appDB,
 		Sessions: sorted,
 		Cursor:   0,
+		Width:    GetTermWidth(),
+		Height:   GetTermHeight(),
 	}
 }
 
@@ -239,6 +236,11 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	filtered := m.getFilteredSessions()
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.Width = msg.Width
+		m.Height = msg.Height
+		return m, nil
+
 	case tea.KeyMsg:
 		k := strings.ToLower(msg.String())
 
@@ -505,6 +507,22 @@ func SanitizePreviewText(raw string) string {
 func (m SessionSelectorModel) View() string {
 	var b strings.Builder
 
+	termW := m.Width
+	if termW <= 0 {
+		termW = GetTermWidth()
+	}
+	boxW := termW - 4
+	if boxW < 36 {
+		boxW = 36
+	}
+
+	sessionBoxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(ColorAccent).
+		Width(boxW).
+		Padding(0, 1).
+		Foreground(ColorFg)
+
 	title := T("session_selector_title")
 	b.WriteString(sessionTitleStyle.Render(title))
 	b.WriteString("\n\n")
@@ -612,32 +630,30 @@ func (m SessionSelectorModel) View() string {
 			dateStr = strings.Replace(dateStr[:16], "T", " ", 1)
 		}
 
-		// Clean and sanitize preview string (strip newlines, markdown, and emojis to prevent line breaking inside card)
 		preview := SanitizePreviewText(s.LastMessagePreview)
-		previewRunes := []rune(preview)
-		if len(previewRunes) > 40 {
-			preview = string(previewRunes[:37]) + "..."
-		}
 		if preview == "" {
 			preview = "-"
 		}
+		preview = Truncate(preview, boxW-10)
 
 		rawTitle := SanitizePreviewText(s.Title)
-		titleRunes := []rune(rawTitle)
 		title := rawTitle
 		if s.IsPinned {
-			if len(titleRunes) > 13 {
-				title = "📌 " + string(titleRunes[:10]) + "..."
-			} else {
-				title = "📌 " + title
-			}
-		} else {
-			if len(titleRunes) > 16 {
-				title = string(titleRunes[:13]) + "..."
-			}
+			title = "📌 " + title
 		}
 
-		lineTitle := fmt.Sprintf("%-18s %-16s (%d msgs) [%s]", s.ID, title, s.MessageCount, dateStr)
+		var lineTitle string
+		if boxW < 50 {
+			titleCompact := Truncate(title, boxW-12)
+			lineTitle = fmt.Sprintf("%s | %s", s.ID, titleCompact)
+		} else {
+			titleMax := boxW - 38
+			if titleMax < 10 {
+				titleMax = 10
+			}
+			title = Truncate(title, titleMax)
+			lineTitle = fmt.Sprintf("%-18s %-16s (%d msgs) [%s]", s.ID, title, s.MessageCount, dateStr)
+		}
 		previewLine := fmt.Sprintf("    ↳ %s", preview)
 
 		if i == m.Cursor {

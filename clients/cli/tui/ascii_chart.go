@@ -80,7 +80,7 @@ func RenderASCIIAnomalyChart(ticker string, anomalies []ipc.Event, days int) str
 
 		if idx < len(anomalies)-1 {
 			b.WriteString("  ")
-			b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render("· · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · ·"))
+			b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render("· · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · ·"))
 			b.WriteString("\n")
 		}
 	}
