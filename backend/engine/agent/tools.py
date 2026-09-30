@@ -422,7 +422,7 @@ class NiskavaToolRegistry:
                             "type": "object",
                             "description": (
                                 "Skill parameters. For stock analysis skills: {'ticker': 'ANTM'} is required. "
-                                "For investigation_report_pdf: {'summary': '...'} is required, optional: 'ticker' (defaults to 'MARKET'), 'title', 'news_items', 'sections', 'report_type'."
+                                "For investigation_report_pdf: requires either 'summary' or 'blocks' (array of callout/markdown/table/key_value). Optional: 'ticker' (defaults to 'MARKET'), 'title', 'custom_tables', 'metrics', 'evidence'."
                             ),
                         },
                     },

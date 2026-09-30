@@ -91,6 +91,18 @@ class InvestigationReportPdfSkill(BaseSkill):
                         ),
                         "items": {"type": "object"},
                     },
+                    "blocks": {
+                        "type": "array",
+                        "description": (
+                            "Ordered list of dynamic blocks ('callout', 'markdown', 'table', 'key_value', 'quant_metrics', 'evidence_matrix', 'news_matrix')."
+                        ),
+                        "items": {"type": "object"},
+                    },
+                    "custom_tables": {
+                        "type": "array",
+                        "description": "List of custom data tables (headers, rows, title).",
+                        "items": {"type": "object"},
+                    },
                     "session_id": {
                         "type": "string",
                         "description": "Current investigation session ID for traceability.",
@@ -104,8 +116,9 @@ class InvestigationReportPdfSkill(BaseSkill):
         """Execute PDF generation from pre-computed investigation or market news data.
 
         Args:
-            arguments: Contains 'summary' and optional 'ticker' (defaults to 'MARKET'),
-                       'title', 'report_type', 'metrics', 'evidence', 'news_items', 'sections', 'session_id'.
+            arguments: Contains 'summary' (or 'blocks') and optional 'ticker' (defaults to 'MARKET'),
+                       'title', 'report_type', 'metrics', 'evidence', 'news_items', 'sections',
+                       'blocks', 'custom_tables', 'session_id'.
             context: Agent execution context. Reads '_output_dir' (Path) for test overrides.
                      May contain 'emitter' for IPC event notifications.
                      Does NOT read sectors_client — zero API calls by design (Law 5).
@@ -117,14 +130,18 @@ class InvestigationReportPdfSkill(BaseSkill):
         ticker = raw_ticker.upper() if raw_ticker else "MARKET"
 
         summary = arguments.get("summary", "")
-        if not summary:
+        blocks = arguments.get("blocks")
+        if not summary and not blocks:
             return SkillResult(
                 skill_id=self.skill_id,
                 verification_status="CONTRADICTED",
                 confidence_score=0.55,
-                metrics={"error": "summary is required"},
-                summary="PDF generation failed: 'summary' argument is missing.",
+                metrics={"error": "summary or blocks is required"},
+                summary="PDF generation failed: 'summary' or 'blocks' argument is missing.",
             )
+
+        if not summary and blocks:
+            summary = "Investigation report generated with dynamic blocks."
 
         output_dir_arg = arguments.get("output_dir") or arguments.get("_output_dir")
         output_dir: Optional[Path] = context.get("_output_dir") or (
@@ -145,6 +162,8 @@ class InvestigationReportPdfSkill(BaseSkill):
             "evidence": arguments.get("evidence") or [],
             "news_items": arguments.get("news_items") or [],
             "sections": arguments.get("sections") or [],
+            "blocks": blocks or [],
+            "custom_tables": arguments.get("custom_tables") or [],
             "session_id": str(session_id),
         }
 
