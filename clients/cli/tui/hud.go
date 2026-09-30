@@ -792,4 +792,3 @@ func RenderResponsiveASCIIHeader(width int, style lipgloss.Style) string {
 
 	return b.String()
 }
-

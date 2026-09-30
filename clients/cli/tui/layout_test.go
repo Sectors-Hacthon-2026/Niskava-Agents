@@ -62,4 +62,3 @@ func TestTruncateMiddle(t *testing.T) {
 		t.Errorf("TruncateMiddle visual width = %d; want <= 30", lipgloss.Width(truncated))
 	}
 }
-
