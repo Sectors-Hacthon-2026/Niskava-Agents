@@ -274,7 +274,7 @@ func SaveSetupConfiguration(p SetupParams) error {
 	// 2. Best-effort local .env in current directory (non-fatal if current working directory is read-only)
 	if err := os.WriteFile(".env", []byte(envContent), 0600); err != nil {
 		fmt.Printf("  %s Note: Could not write local .env in current directory (%v). User configuration in ~/.niskava/config.yaml will be active.\n",
-			wizardWarnBadgeStyle.Render("[!]"), err)
+			wizardWarnBadgeStyle.Render("⚠️"), err)
 	}
 
 	return nil
@@ -846,7 +846,7 @@ func RunInteractiveSetup() error {
 	if ok {
 		fmt.Printf("%s %s\n", wizardSuccessBadgeStyle.Render("[✓ CONNECTED]"), wizardMutedStyle.Render(msg))
 	} else {
-		fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("[! NOTICE]"), wizardMutedStyle.Render(msg))
+		fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("⚠️  NOTICE"), wizardMutedStyle.Render(msg))
 		fmt.Println(wizardMutedStyle.Render("    Warning: The AI gateway endpoint appears offline or unreachable."))
 		fmt.Println(wizardMutedStyle.Render("    (Configuration will still be saved. Ensure your local gateway/LLM is running before querying)."))
 	}
@@ -857,7 +857,7 @@ func RunInteractiveSetup() error {
 		if secOK {
 			fmt.Printf("%s %s\n", wizardSuccessBadgeStyle.Render("[✓ CONNECTED]"), wizardMutedStyle.Render(secMsg))
 		} else {
-			fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("[! NOTICE]"), wizardMutedStyle.Render(secMsg))
+			fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("⚠️  NOTICE"), wizardMutedStyle.Render(secMsg))
 			if strings.Contains(secMsg, "401") {
 				fmt.Println(wizardMutedStyle.Render("    Note: Sectors API key returned HTTP 401 Unauthorized. Niskava will use Offline/Mock data until a valid key is provided."))
 			}
@@ -871,7 +871,7 @@ func RunInteractiveSetup() error {
 	if pyReady {
 		fmt.Printf("  %s %s (%s)\n", wizardSuccessBadgeStyle.Render("[✓ READY]"), pyBin, wizardMutedStyle.Render(pyDesc))
 	} else {
-		fmt.Printf("  %s %s (%s)\n", wizardWarnBadgeStyle.Render("[! ACTION REQUIRED]"), pyBin, wizardMutedStyle.Render(pyDesc))
+		fmt.Printf("  %s %s (%s)\n", wizardWarnBadgeStyle.Render("⚠️  ACTION REQUIRED"), pyBin, wizardMutedStyle.Render(pyDesc))
 		fmt.Printf("\n  %s Would you like Niskava to set up .venv and install requirements automatically? [Y/n, default: Y]: ", wizardStepStyle.Render("►"))
 		autoChoice, _ := reader.ReadString('\n')
 		autoChoice = strings.ToLower(strings.TrimSpace(autoChoice))
@@ -935,7 +935,7 @@ func RunInteractiveSetup() error {
 		if _, err := fmt.Sscanf(rawSecs, "%f", &parsed); err == nil && parsed >= 10 && parsed <= 300 {
 			chosenTimeoutSecs = parsed
 		} else {
-			fmt.Printf("  %s Invalid value. Using Balanced (60s).\n", wizardWarnBadgeStyle.Render("[!]"))
+			fmt.Printf("  %s Invalid value. Using Balanced (60s).\n", wizardWarnBadgeStyle.Render("⚠️"))
 			chosenTimeoutSecs = 60.0
 		}
 	default:
