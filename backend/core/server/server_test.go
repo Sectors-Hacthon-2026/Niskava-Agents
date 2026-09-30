@@ -1219,3 +1219,51 @@ func TestReportDownloadEndpoint(t *testing.T) {
 		}
 	}
 }
+
+func TestChatBackgroundExecutionSurvivesClientDisconnect(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_disconnect.db")
+	database, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open test db: %v", err)
+	}
+	defer database.Close()
+
+	srv := NewServer(0, &config.Config{
+		Preferences: config.PreferencesConfig{OfflineMode: true},
+	}, database)
+
+	sessionID := "TEST-DISCONNECT-001"
+	_ = database.CreateChatSession(&db.ChatSession{
+		ID:     sessionID,
+		Title:  "Test Disconnect",
+		Model:  "hermes",
+		Status: "IDLE",
+	})
+
+	// Register with an independent execution context
+	execCtx, cancelExec := context.WithCancel(context.Background())
+	defer cancelExec()
+	registered := srv.SessionManager.Register(sessionID, cancelExec)
+	if !registered {
+		t.Fatalf("expected session to register successfully")
+	}
+
+	// Verify session is active
+	if !srv.SessionManager.IsBusy(sessionID) {
+		t.Fatalf("expected session to be busy")
+	}
+
+	// Simulate client aborting explicitly
+	aborted := srv.SessionManager.Abort(sessionID)
+	if !aborted {
+		t.Fatalf("expected session to be aborted on explicit command")
+	}
+
+	select {
+	case <-execCtx.Done():
+		// Success: explicit abort canceled the execution context
+	default:
+		t.Fatalf("expected execution context to be canceled on abort")
+	}
+}

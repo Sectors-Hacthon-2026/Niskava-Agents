@@ -317,6 +317,27 @@
                                 chatView.appendChild(asst.element);
                             }
                         });
+
+                        // Check if session is currently active/busy in background (e.g. after browser refresh)
+                        try {
+                            const sessRes = await fetch(`${API_BASE}/api/chat/sessions/${encodeURIComponent(sessionId)}`);
+                            if (sessRes.ok) {
+                                const sessData = await sessRes.json();
+                                if (sessData.session && sessData.session.status === 'BUSY') {
+                                    isGenerating = true;
+                                    updateSendButtonState();
+                                    const activeAsst = createAssistantMessageElement(sessionId);
+                                    activeAsst.contentEl.innerHTML = `<em>${currentLang === 'en' ? 'Continuing market intelligence investigation in background...' : 'Melanjutkan analisis intelijen pasar di latar belakang...'}</em>`;
+                                    activeAsst.setLatticeStatus('thinking');
+                                    chatView.appendChild(activeAsst.element);
+
+                                    pollBusySession(sessionId, activeAsst);
+                                }
+                            }
+                        } catch (err) {
+                            console.error('Failed to verify session status', err);
+                        }
+
                         scrollToBottom();
                     } else {
                         chatView.innerHTML = '';
@@ -325,6 +346,42 @@
                 } catch (e) {
                     console.error('Failed to load session history', e);
                 }
+            }
+
+            let busyPollInterval = null;
+
+            function pollBusySession(sessionId, asstElement) {
+                if (busyPollInterval) {
+                    clearInterval(busyPollInterval);
+                    busyPollInterval = null;
+                }
+
+                busyPollInterval = setInterval(async () => {
+                    if (currentSessionId !== sessionId) {
+                        clearInterval(busyPollInterval);
+                        busyPollInterval = null;
+                        return;
+                    }
+
+                    try {
+                        const checkRes = await fetch(`${API_BASE}/api/chat/sessions/${encodeURIComponent(sessionId)}`);
+                        if (!checkRes.ok) return;
+                        const data = await checkRes.json();
+                        if (data.session && data.session.status !== 'BUSY') {
+                            clearInterval(busyPollInterval);
+                            busyPollInterval = null;
+                            isGenerating = false;
+                            updateSendButtonState();
+
+                            // Reload complete messages now that background agent finished
+                            if (currentSessionId === sessionId) {
+                                switchSession(sessionId, document.getElementById('currentSessionLabel').textContent);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error during busy session poll', e);
+                    }
+                }, 1500);
             }
 
             async function deleteSession(sessionId) {

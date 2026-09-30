@@ -208,21 +208,27 @@ type UpdateSettingsRequest struct {
 	} `json:"telegram"`
 }
 
-// Start launches the background HTTP server on the specified port (or auto-finds free port).
-func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.Config) (*Server, error) {
-	mux := http.NewServeMux()
-
+// NewServer constructs a new Server instance with initialized SessionManager.
+func NewServer(requestedPort int, cfg *config.Config, database *db.DB) *Server {
 	activeCfg := cfg
 	if activeCfg == nil {
 		activeCfg = config.DefaultConfig()
 	}
 
-	s := &Server{
+	return &Server{
 		Port:           requestedPort,
 		DB:             database,
 		SessionManager: NewSessionManager(),
 		Config:         activeCfg,
 	}
+}
+
+// Start launches the background HTTP server on the specified port (or auto-finds free port).
+func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.Config) (*Server, error) {
+	mux := http.NewServeMux()
+
+	s := NewServer(requestedPort, cfg, database)
+	activeCfg := s.Config
 
 	if activeCfg.Telegram.Enabled && strings.TrimSpace(activeCfg.Telegram.BotToken) != "" {
 		if botSvc, err := telegram.NewBotService(s.Config, s.DB, s.SessionManager); err == nil {
@@ -1765,15 +1771,19 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 		_ = rc.SetWriteDeadline(time.Time{})
 		_ = rc.SetReadDeadline(time.Time{})
 
-		// Create cancellable context for this chat execution
-		chatCtx, cancelChat := context.WithCancel(r.Context())
-		defer cancelChat()
+		// Execution context is decoupled from client HTTP connection (r.Context()).
+		// This ensures that browser refresh (TCP pipe drop) does NOT kill the Python subprocess,
+		// allowing research to finish and persist to SQLite (Zero Wasted Tokens & Law 5 compliance).
+		execCtx, cancelExec := context.WithCancel(context.Background())
+		defer cancelExec()
 
-		if !s.SessionManager.Register(sessionID, cancelChat) {
+		if !s.SessionManager.Register(sessionID, cancelExec) {
 			http.Error(w, `{"error": "session is currently busy"}`, http.StatusConflict)
 			return
 		}
 		defer s.SessionManager.Unregister(sessionID)
+
+		clientDone := r.Context().Done()
 
 		defer func() {
 			if database != nil {
@@ -1831,26 +1841,36 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			EnvOverrides: s.buildSubprocessEnv(),
 		}
 
-		eventsChan, errChan := ipc.RunSubprocess(chatCtx, runnerParams)
+		eventsChan, errChan := ipc.RunSubprocess(execCtx, runnerParams)
 
 		// Periodic keep-alive comment to prevent proxy/socket timeouts during long multi-tool LLM turns
 		keepAliveTicker := time.NewTicker(15 * time.Second)
 		defer keepAliveTicker.Stop()
 
 		var assistantResponse strings.Builder
-		wasAborted := false
+		clientDisconnected := false
 
 		for {
 			select {
 			case <-keepAliveTicker.C:
 				// SSE comment line: keep-alive (ignored by event parsers, prevents socket idle death)
-				fmt.Fprintf(w, ": keep-alive\n\n")
-				flusher.Flush()
+				if !clientDisconnected {
+					fmt.Fprintf(w, ": keep-alive\n\n")
+					flusher.Flush()
+				}
 
-			case <-chatCtx.Done():
-				wasAborted = true
-				fmt.Fprintf(w, "event: session_error\ndata: {\"error\": \"execution aborted by user or context cancelled\"}\n\n")
-				flusher.Flush()
+			case <-clientDone:
+				if !clientDisconnected {
+					clientDisconnected = true
+					clientDone = nil // Disables this case in select to prevent busy spin
+				}
+
+			case <-execCtx.Done():
+				// Explicit abort triggered via /api/chat/sessions/{id}/abort or shutdown
+				if !clientDisconnected {
+					fmt.Fprintf(w, "event: session_error\ndata: {\"error\": \"execution aborted by user\"}\n\n")
+					flusher.Flush()
+				}
 				if database != nil && assistantResponse.Len() > 0 {
 					_ = database.SaveChatMessage(&db.ChatMessage{
 						ID:        fmt.Sprintf("MSG-%d", time.Now().UnixNano()),
@@ -1868,14 +1888,16 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 					errChan = nil
 					continue
 				}
-				if err != nil && !wasAborted {
-					errPayload, _ := json.Marshal(map[string]interface{}{
-						"event":      "session_error",
-						"session_id": sessionID,
-						"error":      err.Error(),
-					})
-					fmt.Fprintf(w, "event: session_error\ndata: %s\n\n", errPayload)
-					flusher.Flush()
+				if err != nil {
+					if !clientDisconnected {
+						errPayload, _ := json.Marshal(map[string]interface{}{
+							"event":      "session_error",
+							"session_id": sessionID,
+							"error":      err.Error(),
+						})
+						fmt.Fprintf(w, "event: session_error\ndata: %s\n\n", errPayload)
+						flusher.Flush()
+					}
 
 					if database != nil && assistantResponse.Len() > 0 {
 						_ = database.SaveChatMessage(&db.ChatMessage{
@@ -1892,9 +1914,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 
 			case ev, ok := <-eventsChan:
 				if !ok {
-					// Complete
-					fmt.Fprintf(w, "event: done\ndata: {\"session_id\": \"%s\"}\n\n", sessionID)
-					flusher.Flush()
+					// Subprocess finished completely
+					if !clientDisconnected {
+						fmt.Fprintf(w, "event: done\ndata: {\"session_id\": \"%s\"}\n\n", sessionID)
+						flusher.Flush()
+					}
 
 					// Save assistant response
 					if database != nil && assistantResponse.Len() > 0 {
@@ -1915,9 +1939,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 					assistantResponse.WriteString(ev.Chunk)
 				}
 
-				dataBytes, _ := json.Marshal(ev)
-				fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.Event, string(dataBytes))
-				flusher.Flush()
+				if !clientDisconnected {
+					dataBytes, _ := json.Marshal(ev)
+					fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.Event, string(dataBytes))
+					flusher.Flush()
+				}
 			}
 		}
 	})
