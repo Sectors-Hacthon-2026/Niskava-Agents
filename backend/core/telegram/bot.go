@@ -172,11 +172,11 @@ func (s *BotService) Start() error {
 	s.registerHandlers()
 
 	_ = s.bot.SetCommands([]telebot.Command{
-		{Text: "new", Description: "Mulai sesi riset baru"},
-		{Text: "export", Description: "Unduh laporan riset (.md)"},
-		{Text: "status", Description: "Status sesi aktif & model AI"},
-		{Text: "stop", Description: "Batalkan analisis yang sedang berjalan"},
-		{Text: "help", Description: "Panduan & batasan non-advisory"},
+		{Text: "new", Description: "Start a new research session"},
+		{Text: "export", Description: "Download research report (.md)"},
+		{Text: "status", Description: "Active session & AI model status"},
+		{Text: "stop", Description: "Abort currently running analysis"},
+		{Text: "help", Description: "Usage guide & platform information"},
 	})
 
 	s.wg.Add(1)

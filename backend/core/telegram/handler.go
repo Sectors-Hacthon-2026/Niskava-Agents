@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,8 +16,8 @@ import (
 )
 
 var (
-	btnNew    = telebot.InlineButton{Unique: "btn_new_session", Text: "🔄 Sesi Baru"}
-	btnExport = telebot.InlineButton{Unique: "btn_export_session", Text: "📑 Export Dokumen"}
+	btnNew    = telebot.InlineButton{Unique: "btn_new_session", Text: "🔄 New Session"}
+	btnExport = telebot.InlineButton{Unique: "btn_export_session", Text: "📑 Export Document"}
 	btnStatus = telebot.InlineButton{Unique: "btn_status_session", Text: "ℹ️ Status"}
 )
 
@@ -88,7 +89,7 @@ func (s *BotService) authMiddleware() telebot.MiddlewareFunc {
 	return func(next telebot.HandlerFunc) telebot.HandlerFunc {
 		return func(c telebot.Context) error {
 			if !s.isAuthorized(c.Sender()) {
-				return c.Reply("⛔ Akses ditolak. Akun Telegram Anda belum terdaftar dalam daftar pengguna terotorisasi Niskava Agent.")
+				return c.Reply("⛔ Access denied. Your Telegram account is not authorized to access Niskava Agent.")
 			}
 			return next(c)
 		}
@@ -99,16 +100,16 @@ func (s *BotService) authMiddleware() telebot.MiddlewareFunc {
 func (s *BotService) handleStart(c telebot.Context) error {
 	welcomeMsg := `🔍 *Niskava Agent — IDX Autonomous Financial Intelligence*
 
-Selamat datang! Niskava Agent adalah platform intelijen dan riset pasar modal otonom khusus Bursa Efek Indonesia (IDX). Sistem menjembatani fakta kuantitatif Sectors Financial API v2 dengan bukti keterbukaan informasi dan berita emiten.
+Welcome! Niskava Agent is an autonomous financial intelligence platform built for the Indonesia Stock Exchange (IDX). It bridges quantitative facts from Sectors Financial API v2 with qualitative corporate disclosures and market filings.
 
-*Perintah Tersedia:*
-• /start atau /help — Menampilkan panduan dan bantuan penggunaan bot
-• /new atau /reset — Memulai sesi investigasi/percakapan baru
-• /export — Unduh laporan riset (.md)
-• /status — Menampilkan status sesi, kesibukan agent, dan konfigurasi model
-• /stop — Membatalkan proses investigasi yang sedang berjalan
+*Available Commands:*
+• /start or /help — Display usage guide and instructions
+• /new or /reset — Start a fresh research/investigation session
+• /export — Download session research report (.md)
+• /status — View session activity, model configuration, and status
+• /stop — Abort currently executing investigation
 
-Silakan ketik pertanyaan atau perintah investigasi saham IDX (contoh: _"Analisis anomali volume saham ANTM dalam 30 hari terakhir"_).`
+Feel free to ask any question or command for IDX equities (e.g., _"Analyze volume anomalies for ANTM over the last 30 days"_).`
 
 	formatted := FormatFinalResponse(welcomeMsg, "")
 	return s.sendMarkdownOrPlain(c, formatted)
@@ -117,7 +118,7 @@ Silakan ketik pertanyaan atau perintah investigasi saham IDX (contoh: _"Analisis
 // handleNewSession creates a brand-new chat session for the current Telegram chat.
 func (s *BotService) handleNewSession(c telebot.Context) error {
 	if s.db == nil {
-		return s.sendMarkdownOrPlain(c, "⚠️ Database tidak tersedia.")
+		return s.sendMarkdownOrPlain(c, "⚠️ Database is currently unavailable.")
 	}
 
 	sender := c.Sender()
@@ -130,35 +131,35 @@ func (s *BotService) handleNewSession(c telebot.Context) error {
 
 	newSessionID, err := s.db.ResetTelegramChatSession(c.Chat().ID, userID, username)
 	if err != nil {
-		return s.sendMarkdownOrPlain(c, fmt.Sprintf("⚠️ Gagal membuat sesi baru: %v", err))
+		return s.sendMarkdownOrPlain(c, fmt.Sprintf("⚠️ Failed to create a new session: %v", err))
 	}
 
-	msg := fmt.Sprintf("✨ *Sesi baru berhasil dibuat!*\nSession ID: `%s`\n\nRiwayat percakapan sebelumnya telah diarsipkan. Silakan ajukan pertanyaan atau emiten yang ingin dianalisis.", newSessionID)
+	msg := fmt.Sprintf("✨ *New session created successfully!*\nSession ID: `%s`\n\nPrevious conversation history has been archived. You may now submit your queries or tickers to analyze.", newSessionID)
 	return s.sendMarkdownOrPlain(c, FormatFinalResponse(msg, ""))
 }
 
 // handleStop aborts any active running query in the current chat session.
 func (s *BotService) handleStop(c telebot.Context) error {
 	if s.db == nil || s.sm == nil {
-		return s.sendMarkdownOrPlain(c, "⚠️ Layanan internal tidak tersedia.")
+		return s.sendMarkdownOrPlain(c, "⚠️ Internal service is unavailable.")
 	}
 
 	chat, err := s.db.GetTelegramChat(c.Chat().ID)
 	if err != nil || chat == nil || chat.CurrentSessionID == "" {
-		return s.sendMarkdownOrPlain(c, "ℹ️ Tidak ada sesi aktif yang ditemukan.")
+		return s.sendMarkdownOrPlain(c, "ℹ️ No active session found.")
 	}
 
 	aborted := s.sm.Abort(chat.CurrentSessionID)
 	if aborted {
-		return s.sendMarkdownOrPlain(c, fmt.Sprintf("🛑 Eksekusi investigasi untuk sesi `%s` berhasil dibatalkan.", chat.CurrentSessionID))
+		return s.sendMarkdownOrPlain(c, fmt.Sprintf("🛑 Investigation execution for session `%s` has been cancelled.", chat.CurrentSessionID))
 	}
 
-	return s.sendMarkdownOrPlain(c, fmt.Sprintf("ℹ️ Tidak ada proses investigasi aktif yang sedang berjalan pada sesi `%s`.", chat.CurrentSessionID))
+	return s.sendMarkdownOrPlain(c, fmt.Sprintf("ℹ️ No active running investigation was found in session `%s`.", chat.CurrentSessionID))
 }
 
 // handleStatus returns diagnostic status information about the active session and configuration.
 func (s *BotService) handleStatus(c telebot.Context) error {
-	sessionID := "Belum dibuat"
+	sessionID := "Not initialized"
 	isBusy := false
 
 	if s.db != nil {
@@ -171,9 +172,9 @@ func (s *BotService) handleStatus(c telebot.Context) error {
 		}
 	}
 
-	busyText := "🟢 Idle (Siap menerima query)"
+	busyText := "🟢 Idle (Ready for queries)"
 	if isBusy {
-		busyText = "🟡 Memproses Analisis (Sedang berjalan)"
+		busyText = "🟡 Processing (Running analysis)"
 	}
 
 	modelInfo := "Default"
@@ -199,13 +200,13 @@ func (s *BotService) handleStatus(c telebot.Context) error {
 		offlineMode = s.cfg.Preferences.OfflineMode
 	}
 
-	statusMsg := fmt.Sprintf(`📊 *Status Niskava Agent*
+	statusMsg := fmt.Sprintf(`📊 *Niskava Agent Status*
 
 • *Session ID:* `+"`%s`"+`
-• *Status Aktivitas:* %s
-• *Model AI:* %s
-• *Pasar:* %s
-• *Mode Offline:* %t`,
+• *Activity Status:* %s
+• *AI Model:* %s
+• *Market:* %s
+• *Offline Mode:* %t`,
 		sessionID,
 		busyText,
 		modelInfo,
@@ -234,30 +235,30 @@ func (s *BotService) handleCallbackStatus(c telebot.Context) error {
 // formatExportDocument formats the session chat history into a structured Markdown research report.
 func formatExportDocument(sessionID, model string, history []db.ChatMessage) string {
 	var sb strings.Builder
-	sb.WriteString("# Laporan Riset Pasar Niskava\n\n")
+	sb.WriteString("# Niskava Market Intelligence Research Report\n\n")
 	sb.WriteString(fmt.Sprintf("- **Session ID:** `%s`\n", sessionID))
-	sb.WriteString(fmt.Sprintf("- **Model AI:** %s\n", model))
-	sb.WriteString(fmt.Sprintf("- **Waktu Ekspor:** %s\n\n", time.Now().UTC().Format(time.RFC3339)))
+	sb.WriteString(fmt.Sprintf("- **AI Model:** %s\n", model))
+	sb.WriteString(fmt.Sprintf("- **Export Timestamp:** %s\n\n", time.Now().UTC().Format(time.RFC3339)))
 
-	sb.WriteString("> **Pemberitahuan Kepatuhan (Law 2 — Non-Advisory Boundary):**\n")
-	sb.WriteString("> Niskava Agent adalah platform intelijen dan riset pasar modal otonom IDX, BUKAN penasihat investasi atau broker terdaftar. Seluruh data, analisis anomali, dan korelasi bukti disajikan secara independen semata-mata untuk verifikasi fakta dan riset pasar modal. Tidak ada bagian dari laporan ini yang merupakan rekomendasi beli/jual atau nasihat investasi keuangan berlisensi.\n\n")
+	sb.WriteString("> **Compliance Notice (Law 2 — Non-Advisory Boundary):**\n")
+	sb.WriteString("> Niskava Agent is an autonomous market intelligence and research platform for the Indonesia Stock Exchange (IDX), NOT a registered investment advisor or broker-dealer. All data, anomaly detections, and evidence correlations are provided independently for fact verification and capital market research purposes only. No part of this document constitutes a buy/sell recommendation or licensed financial advice.\n\n")
 	sb.WriteString("---\n\n")
-	sb.WriteString("## Riwayat Percakapan & Investigasi\n\n")
+	sb.WriteString("## Conversation & Investigation History\n\n")
 
 	for i, msg := range history {
 		roleTitle := "👤 User"
 		if strings.EqualFold(msg.Role, "assistant") {
 			roleTitle = "🤖 Niskava Agent"
 		} else if strings.EqualFold(msg.Role, "system") {
-			roleTitle = "⚙️ Sistem"
+			roleTitle = "⚙️ System"
 		} else if strings.EqualFold(msg.Role, "tool") {
-			roleTitle = "🔧 Pemanggilan Tool"
+			roleTitle = "🔧 Tool Execution"
 		}
 
 		sb.WriteString(fmt.Sprintf("### %d. %s (`%s`)\n\n", i+1, roleTitle, msg.CreatedAt))
 
 		if msg.Thought != nil && strings.TrimSpace(*msg.Thought) != "" {
-			sb.WriteString("<details>\n<summary>Proses Penalaran (Chain of Thought)</summary>\n\n")
+			sb.WriteString("<details>\n<summary>Reasoning Process (Chain of Thought)</summary>\n\n")
 			sb.WriteString(strings.TrimSpace(*msg.Thought))
 			sb.WriteString("\n\n</details>\n\n")
 		}
@@ -266,14 +267,14 @@ func formatExportDocument(sessionID, model string, history []db.ChatMessage) str
 		sb.WriteString("\n\n---\n\n")
 	}
 
-	sb.WriteString("*Dokumen ini digenerate secara otomatis oleh Niskava Agent.*\n")
+	sb.WriteString("*This document was generated automatically by Niskava Agent.*\n")
 	return sb.String()
 }
 
 // handleExport generates and sends a markdown document containing the current session's chat history.
 func (s *BotService) handleExport(c telebot.Context) error {
 	if s.db == nil {
-		return s.sendMarkdownOrPlain(c, "⚠️ Database tidak tersedia.")
+		return s.sendMarkdownOrPlain(c, "⚠️ Database is currently unavailable.")
 	}
 
 	chat := c.Chat()
@@ -291,21 +292,21 @@ func (s *BotService) handleExport(c telebot.Context) error {
 
 	sessionID, err := s.db.GetOrCreateTelegramChatSession(chat.ID, userID, username)
 	if err != nil {
-		return s.sendMarkdownOrPlain(c, fmt.Sprintf("⚠️ Gagal memuat sesi percakapan: %v", err))
+		return s.sendMarkdownOrPlain(c, fmt.Sprintf("⚠️ Failed to load chat session: %v", err))
 	}
 
 	session, err := s.db.GetChatSession(sessionID)
 	if err != nil {
-		return s.sendMarkdownOrPlain(c, fmt.Sprintf("⚠️ Gagal memuat detail sesi: %v", err))
+		return s.sendMarkdownOrPlain(c, fmt.Sprintf("⚠️ Failed to load session details: %v", err))
 	}
 
 	history, err := s.db.GetChatHistory(sessionID, 500)
 	if err != nil {
-		return s.sendMarkdownOrPlain(c, fmt.Sprintf("⚠️ Gagal memuat riwayat percakapan: %v", err))
+		return s.sendMarkdownOrPlain(c, fmt.Sprintf("⚠️ Failed to load chat history: %v", err))
 	}
 
 	if len(history) == 0 {
-		emptyMsg := "⚠️ Belum ada riwayat percakapan untuk diekspor pada sesi ini."
+		emptyMsg := "⚠️ No conversation history found to export for this session."
 		if err := c.Reply(emptyMsg); err != nil {
 			return c.Send(emptyMsg)
 		}
@@ -332,7 +333,7 @@ func (s *BotService) handleExport(c telebot.Context) error {
 		File:     telebot.FromReader(strings.NewReader(docContent)),
 		FileName: fmt.Sprintf("niskava-session-%s.md", sessionID),
 		MIME:     "text/markdown",
-		Caption:  fmt.Sprintf("📑 Laporan Riset Sesi %s", sessionID),
+		Caption:  fmt.Sprintf("📑 Research Report Session %s", sessionID),
 	}
 	return c.Send(doc)
 }
@@ -348,7 +349,7 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 	if s.rateLimiter != nil && sender != nil {
 		allowed, retryAfter := s.rateLimiter.Allow(sender.ID)
 		if !allowed {
-			msg := fmt.Sprintf("⚠️ Terlalu banyak permintaan. Silakan tunggu %d detik.", int(retryAfter.Seconds())+1)
+			msg := fmt.Sprintf("⚠️ Too many requests. Please wait %d seconds.", int(retryAfter.Seconds())+1)
 			if err := c.Reply(msg); err != nil {
 				return c.Send(msg)
 			}
@@ -357,7 +358,7 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 	}
 
 	if s.db == nil {
-		return s.sendMarkdownOrPlain(c, "⚠️ Database tidak tersedia.")
+		return s.sendMarkdownOrPlain(c, "⚠️ Database is currently unavailable.")
 	}
 
 	var userID int64
@@ -369,11 +370,11 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 
 	sessionID, err := s.db.GetOrCreateTelegramChatSession(c.Chat().ID, userID, username)
 	if err != nil {
-		return s.sendMarkdownOrPlain(c, fmt.Sprintf("⚠️ Gagal menyiapkan sesi percakapan: %v", err))
+		return s.sendMarkdownOrPlain(c, fmt.Sprintf("⚠️ Failed to initialize chat session: %v", err))
 	}
 
 	if s.sm != nil && s.sm.IsBusy(sessionID) {
-		return s.sendMarkdownOrPlain(c, "⚠️ Sesi sedang memproses query sebelumnya. Ketik /stop untuk membatalkan.")
+		return s.sendMarkdownOrPlain(c, "⚠️ Session is currently processing a previous query. Type /stop to cancel.")
 	}
 
 	childCtx, cancelChild := context.WithCancel(s.ctx)
@@ -381,7 +382,7 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 
 	if s.sm != nil {
 		if !s.sm.Register(sessionID, cancelChild) {
-			return s.sendMarkdownOrPlain(c, "⚠️ Sesi sedang memproses query sebelumnya. Ketik /stop untuk membatalkan.")
+			return s.sendMarkdownOrPlain(c, "⚠️ Session is currently processing a previous query. Type /stop to cancel.")
 		}
 		defer s.sm.Unregister(sessionID)
 	}
@@ -429,7 +430,7 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 
 	// Prepare subprocess runner configuration
 	wd, _ := os.Getwd()
-	lang := "id"
+	lang := "en"
 	var offline bool
 	var pythonBin, enginePath string
 	envOverrides := make(map[string]string)
@@ -459,6 +460,7 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 
 	var contentBuilder strings.Builder
 	var thoughtBuilder strings.Builder
+	var generatedPdfs []string
 	var lastError error
 	wasAborted := false
 
@@ -492,6 +494,10 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 				if ev.Thought != "" {
 					thoughtBuilder.WriteString(ev.Thought)
 				}
+			case ipc.EventPdfReportReady:
+				if ev.PdfPath != "" {
+					generatedPdfs = append(generatedPdfs, ev.PdfPath)
+				}
 			case ipc.EventSessionError:
 				if ev.Error != "" {
 					lastError = fmt.Errorf("%s", ev.Error)
@@ -506,7 +512,7 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 	stopTypingFunc()
 
 	if wasAborted {
-		abortedText := "⚠️ Proses investigasi dibatalkan oleh pengguna."
+		abortedText := "⚠️ Investigation process was cancelled by the user."
 		if contentBuilder.Len() > 0 {
 			_ = s.db.SaveChatMessage(&db.ChatMessage{
 				ID:        fmt.Sprintf("MSG-%d", time.Now().UnixNano()),
@@ -521,7 +527,7 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 	}
 
 	if lastError != nil && contentBuilder.Len() == 0 {
-		errMsg := fmt.Sprintf("⚠️ Terjadi kesalahan saat memproses investigasi: %v", lastError)
+		errMsg := fmt.Sprintf("⚠️ An error occurred while processing the investigation: %v", lastError)
 		_ = s.db.SaveChatMessage(&db.ChatMessage{
 			ID:        fmt.Sprintf("MSG-%d", time.Now().UnixNano()),
 			SessionID: sessionID,
@@ -539,7 +545,7 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 		finalContent = finalThought
 	}
 	if finalContent == "" {
-		finalContent = "Penyelidikan selesai tanpa respons teks tambahan."
+		finalContent = "Investigation completed without additional text response."
 	}
 
 	finalText := FormatFinalResponse(finalContent, finalThought)
@@ -595,6 +601,24 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 				_ = c.Send(chunk)
 			}
 		}
+	}
+
+	// Dispatch any physical PDF reports generated during the turn
+	for _, pdfPath := range generatedPdfs {
+		cleanPath := strings.TrimSpace(pdfPath)
+		if cleanPath == "" {
+			continue
+		}
+		if _, statErr := os.Stat(cleanPath); statErr != nil {
+			continue
+		}
+		doc := &telebot.Document{
+			File:     telebot.FromDisk(cleanPath),
+			FileName: filepath.Base(cleanPath),
+			MIME:     "application/pdf",
+			Caption:  fmt.Sprintf("📑 Research Report PDF: %s", filepath.Base(cleanPath)),
+		}
+		_ = c.Send(doc)
 	}
 
 	return nil

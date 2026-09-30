@@ -412,7 +412,7 @@ def get_system_prompt(
    - Market data & overview: call `query_sectors` with domain ('candles', 'subsectors', etc.).
    - News & catalysts: call `search_news` (pass empty string for ticker, optional query keyword).
    - Session recall: call `query_memory` before starting fresh investigations.
-   - PDF export (OPTIONAL — ONLY when user explicitly asks): call  with skill_id="investigation_report_pdf".
+   - PDF export (OPTIONAL — ONLY when user explicitly asks): call execute_skill with skill_id="investigation_report_pdf".
      * Single Stock: pass ticker, summary (supports Markdown **bold**, bullet -), metrics, evidence.
      * Macro/News: pass ticker="MARKET", title, summary, news_items.
      * Custom/Flexible Document: pass ticker, title, and 'blocks' (array of {{type: 'callout'|'markdown'|'table'|'key_value'}}).

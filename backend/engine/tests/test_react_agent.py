@@ -45,6 +45,13 @@ def test_system_prompt_includes_comprehensive_tool_catalog():
     assert "skill_market_anomaly_recon" in prompt
 
 
+def test_system_prompt_pdf_syntax():
+    """Ensure system prompt specifies execute_skill for investigation_report_pdf."""
+    from engine.agent.react_agent import get_system_prompt
+    prompt = get_system_prompt()
+    assert 'call execute_skill with skill_id="investigation_report_pdf"' in prompt
+
+
 class TestLeanSystemPrompt:
     """Verifies the refactored get_system_prompt produces a lean, compliant output."""
 
