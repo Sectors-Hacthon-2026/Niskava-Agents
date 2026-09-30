@@ -236,22 +236,48 @@ type ReplInputModel struct {
 	NavigatingHist    bool
 	ActiveToast       string
 	ToastTime         time.Time
+	ModelLabel        string
+	ServerURL         string
+	SessionID         string
+	DBPath            string
+	Width             int
+	Height            int
 }
 
-// RenderToastPill renders a non-blocking styled floating notification toast badge.
-func RenderToastPill(message string) string {
+// RenderToastPill renders a non-blocking styled floating notification toast badge bounded by width.
+func RenderToastPill(message string, overrideWidth ...int) string {
 	if strings.TrimSpace(message) == "" {
 		return ""
 	}
+	w := GetTermWidth()
+	if len(overrideWidth) > 0 && overrideWidth[0] > 0 {
+		w = overrideWidth[0]
+	}
+	boxW := w - 4
+	if boxW > w-2 {
+		boxW = w - 2
+	}
+	if boxW < 16 {
+		boxW = max(10, w-2)
+	}
+
+	contentW := boxW - 4
+	if contentW < 10 {
+		contentW = 10
+	}
+
+	msgTruncated := Truncate(message, contentW)
+
 	toastStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(ColorBg).
 		Background(ColorAccent).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(ColorAccent).
+		Width(boxW).
 		Padding(0, 1)
 
-	return toastStyle.Render(message)
+	return toastStyle.Render(msgTruncated)
 }
 
 // NewReplInputModel initializes the interactive REPL prompt input.
@@ -261,10 +287,28 @@ func NewReplInputModel(promptPrefix string) ReplInputModel {
 
 // NewReplInputModelWithHistory initializes prompt input with existing prompt history.
 func NewReplInputModelWithHistory(promptPrefix string, history []string) ReplInputModel {
+	return NewReplInputModelWithParams(promptPrefix, history, "", "", "", "")
+}
+
+// NewReplInputModelWithParams initializes prompt input with session context for dynamic resize re-rendering.
+func NewReplInputModelWithParams(promptPrefix string, history []string, modelLabel, serverURL, sessionID, dbPath string) ReplInputModel {
+	w := GetTermWidth()
+	h := GetTermHeight()
+
+	if w < 50 {
+		promptPrefix = "niskava >"
+	}
+
 	ti := textinput.New()
 	ti.Prompt = promptBoxStyle.Render(promptPrefix + " ")
 	ti.Placeholder = T("prompt_placeholder")
 	ti.Focus()
+
+	inputW := w - len(promptPrefix) - 3
+	if inputW < 15 {
+		inputW = 15
+	}
+	ti.Width = inputW
 
 	cmds := GetLocalizedSlashCommands()
 	return ReplInputModel{
@@ -274,6 +318,12 @@ func NewReplInputModelWithHistory(promptPrefix string, history []string) ReplInp
 		FilteredCommands: cmds,
 		History:          history,
 		HistoryIndex:     len(history),
+		ModelLabel:       modelLabel,
+		ServerURL:        serverURL,
+		SessionID:        sessionID,
+		DBPath:           dbPath,
+		Width:            w,
+		Height:           h,
 	}
 }
 
@@ -285,6 +335,29 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		widthChanged := m.Width > 0 && m.Width != msg.Width
+		m.Width = msg.Width
+		m.Height = msg.Height
+		if msg.Width < 50 {
+			m.PromptPrefix = "niskava >"
+		} else if m.ModelLabel != "" {
+			m.PromptPrefix = fmt.Sprintf("niskava [%s] >", m.ModelLabel)
+		}
+		m.TextInput.Prompt = promptBoxStyle.Render(m.PromptPrefix + " ")
+
+		inputW := msg.Width - len(m.PromptPrefix) - 3
+		if inputW < 15 {
+			inputW = 15
+		}
+		m.TextInput.Width = inputW
+
+		if widthChanged && m.ModelLabel != "" {
+			fmt.Print("\033[H\033[2J")
+			renderBanner(m.ModelLabel, m.ServerURL, m.SessionID, m.DBPath)
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
@@ -482,9 +555,21 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m ReplInputModel) View() string {
 	var b strings.Builder
 
+	termW := m.Width
+	if termW <= 0 {
+		termW = GetTermWidth()
+	}
+	boxW := termW - 4
+	if boxW > termW-2 {
+		boxW = termW - 2
+	}
+	if boxW < 16 {
+		boxW = max(10, termW-2)
+	}
+
 	// Render Active Toast Notification if present & fresh (< 3 seconds)
 	if m.ActiveToast != "" && !m.ToastTime.IsZero() && time.Since(m.ToastTime) <= 3*time.Second {
-		b.WriteString(RenderToastPill(m.ActiveToast))
+		b.WriteString(RenderToastPill(m.ActiveToast, termW))
 		b.WriteString("\n")
 	}
 
@@ -535,10 +620,16 @@ func (m ReplInputModel) View() string {
 		boxStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(ColorAccent).
+			Width(boxW).
 			Padding(0, 1)
 
 		var popupLines []string
 		popupLines = append(popupLines, popupHeader)
+
+		descAvail := boxW - 25
+		if descAvail < 10 {
+			descAvail = 10
+		}
 
 		for i := m.SlashScrollOffset; i < endIdx; i++ {
 			sc := m.FilteredCommands[i]
@@ -554,14 +645,14 @@ func (m ReplInputModel) View() string {
 					Foreground(ColorMuted).
 					Render(fmt.Sprintf("[%s] ", sc.Category))
 			}
-			descStr := sc.Description
+			descStr := Truncate(sc.Description, descAvail)
 
 			if i == m.SlashCursor {
 				cmdR := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(cmdStr)
 				descR := lipgloss.NewStyle().Foreground(ColorFg).Render(descStr)
 				popupLines = append(popupLines, fmt.Sprintf("%s%s%s%s", lipgloss.NewStyle().Foreground(ColorAccent).Render(cursor), cmdR, catBadge, descR))
 				if sc.FormatHint != "" {
-					hintR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("    " + sc.FormatHint)
+					hintR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("    " + Truncate(sc.FormatHint, boxW-8))
 					popupLines = append(popupLines, hintR)
 				}
 			} else {
@@ -582,7 +673,7 @@ func (m ReplInputModel) View() string {
 		b.WriteString("\n")
 	}
 
-	return b.String()
+	return b.String() + "\033[J"
 }
 
 // renderResumedHistory displays past user and assistant turns when resuming an earlier session.
@@ -710,8 +801,11 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 	}
 
 	for {
-		// Run interactive Bubbletea prompt input with live OpenCode slash popup and prompt history
-		inputModel := NewReplInputModelWithHistory(promptPrefix, promptHistory)
+		dbP := ""
+		if cfg != nil {
+			dbP = cfg.Storage.DBPath
+		}
+		inputModel := NewReplInputModelWithParams(promptPrefix, promptHistory, modelLabel, serverURL, sessionID, dbP)
 		p := tea.NewProgram(inputModel)
 		m, err := p.Run()
 		if err != nil {
@@ -1201,7 +1295,12 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 
 func renderBanner(modelLabel, serverURL, sessionID, dbPath string) {
 	fmt.Print(RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID))
-	helpHint := lipgloss.NewStyle().Foreground(ColorMuted).Render(T("banner_hint"))
+	w := GetTermWidth()
+	hintText := T("banner_hint")
+	if w < 75 {
+		hintText = "[/help guide • /chats resume • /back menu • /exit quit]"
+	}
+	helpHint := lipgloss.NewStyle().Foreground(ColorMuted).Render(hintText)
 	fmt.Printf("\n%s\n", helpHint)
 }
 
@@ -1398,8 +1497,9 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				stopSpinner()
 				// Process finished: clear spinner and render output
 				fmt.Print("\r\033[K")
+				w := GetTermWidth()
 				if sessionError != "" {
-					fmt.Print(renderSessionErrorCard(sessionError))
+					fmt.Print(renderSessionErrorCard(sessionError, w))
 				} else {
 					renderFinalMarkdown(assistantResponse.String())
 				}
@@ -1419,7 +1519,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				}
 
 				// Render official completion badge with timing & statistics
-				fmt.Print(renderCompletionBadge(time.Since(turnStart), sessionID, modelLabel, totalAnomalies, totalFindings))
+				fmt.Print(renderCompletionBadge(time.Since(turnStart), sessionID, modelLabel, totalAnomalies, totalFindings, w))
 				return
 			}
 
@@ -1462,7 +1562,9 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 					"repl_anomaly_alert",
 					ev.MetricType, ev.Ticker, ev.ZScore, ev.MetricValue, ev.BaselineValue,
 				)
-				fmt.Println(replAnomalyBoxStyle.Render(anomalyText))
+				w := GetTermWidth()
+				anomalyBoxStyle := replAnomalyBoxStyle.Width(max(16, w-4))
+				fmt.Println(anomalyBoxStyle.Render(wrapText(anomalyText, max(12, w-6))))
 
 			case ipc.EventFindingEmitted:
 				fmt.Print("\r\033[K")
@@ -1495,18 +1597,46 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 	}
 }
 
-func renderSessionErrorCard(errMessage string) string {
+func renderSessionErrorCard(errMessage string, overrideWidth ...int) string {
+	w := GetTermWidth()
+	if len(overrideWidth) > 0 && overrideWidth[0] > 0 {
+		w = overrideWidth[0]
+	}
+	boxW := w - 4
+	if boxW > w-2 {
+		boxW = w - 2
+	}
+	if boxW < 16 {
+		boxW = max(10, w-2)
+	}
+
+	contentW := boxW - 4
+	if contentW < 15 {
+		contentW = 15
+	}
+
+	wrappedErr := wrapText("❌ [SESSION ERROR]: "+errMessage, contentW)
+
 	errBox := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(ColorDanger).
+		Width(boxW).
 		Padding(0, 1).
 		Foreground(ColorFg).
-		Render(fmt.Sprintf("❌ [SESSION ERROR]: %s", errMessage))
+		Render(wrappedErr)
 	return "\n" + errBox + "\n"
 }
 
-func renderCompletionBadge(duration time.Duration, sessionID, model string, anomalies, findings int) string {
-	sep := lipgloss.NewStyle().Foreground(ColorMuted).Render("─────────────────────────────────────────────────────────────────────────────")
+func renderCompletionBadge(duration time.Duration, sessionID, model string, anomalies, findings int, overrideWidth ...int) string {
+	w := GetTermWidth()
+	if len(overrideWidth) > 0 && overrideWidth[0] > 0 {
+		w = overrideWidth[0]
+	}
+	sepW := w - 2
+	if sepW < 15 {
+		sepW = 15
+	}
+	sep := RenderConstellationLine(sepW)
 	badge := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(T("badge_completed"))
 	detail := TF("badge_completed_detail", duration.Seconds(), model, sessionID)
 	if anomalies > 0 || findings > 0 {
@@ -1520,9 +1650,18 @@ func renderFinalMarkdown(markdownContent string, terminalWidth ...int) {
 		return
 	}
 
-	wrapWidth := 95
+	w := GetTermWidth()
 	if len(terminalWidth) > 0 && terminalWidth[0] > 20 {
-		wrapWidth = terminalWidth[0] - 4
+		w = terminalWidth[0]
+	}
+
+	// Cap max-width for optimal readability on ultra-wide monitors (max 120)
+	wrapWidth := w - 4
+	if wrapWidth > 120 {
+		wrapWidth = 120
+	}
+	if wrapWidth < 30 {
+		wrapWidth = 30
 	}
 
 	fmt.Println()
@@ -1582,28 +1721,49 @@ func printSessions(appDB *db.DB) {
 		return
 	}
 
+	termW := GetTermWidth()
+	tier := GetBreakpointTier(termW)
+
 	fmt.Println(T("sessions_header"))
-	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
-	fmt.Printf("%-22s %-8s %-12s %-20s %s\n", "SESSION ID", "TICKER", "STATUS", "STARTED AT", "SUMMARY")
-	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
+	fmt.Println(Sep(2, termW))
 
-	for _, inv := range investigations {
-		summary := "-"
-		if inv.SummaryText != nil && *inv.SummaryText != "" {
-			summary = *inv.SummaryText
-			if len(summary) > 35 {
-				summary = summary[:32] + "..."
+	if tier == TierCompact {
+		for _, inv := range investigations {
+			summary := "-"
+			if inv.SummaryText != nil && *inv.SummaryText != "" {
+				summary = Truncate(*inv.SummaryText, termW-6)
 			}
+			fmt.Printf("• %s | %s [%s]\n  %s\n", inv.ID, inv.Ticker, inv.Status, summary)
+		}
+	} else {
+		idW := 22
+		tickerW := 8
+		statusW := 12
+		dateW := 19
+		summaryW := termW - (idW + tickerW + statusW + dateW + 8)
+		if summaryW < 10 {
+			summaryW = 10
 		}
 
-		dateStr := inv.StartedAt
-		if len(dateStr) > 19 {
-			dateStr = strings.Replace(dateStr[:19], "T", " ", 1)
-		}
+		headerFmt := fmt.Sprintf("%%-%ds %%-%ds %%-%ds %%-%ds %%s\n", idW, tickerW, statusW, dateW)
+		fmt.Printf(headerFmt, "SESSION ID", "TICKER", "STATUS", "STARTED AT", "SUMMARY")
+		fmt.Println(Sep(2, termW))
 
-		fmt.Printf("%-22s %-8s %-12s %-20s %s\n", inv.ID, inv.Ticker, inv.Status, dateStr, summary)
+		for _, inv := range investigations {
+			summary := "-"
+			if inv.SummaryText != nil && *inv.SummaryText != "" {
+				summary = Truncate(*inv.SummaryText, summaryW)
+			}
+
+			dateStr := inv.StartedAt
+			if len(dateStr) > 19 {
+				dateStr = strings.Replace(dateStr[:19], "T", " ", 1)
+			}
+
+			rowFmt := fmt.Sprintf("%%-%ds %%-%ds %%-%ds %%-%ds %%s\n", idW, tickerW, statusW, dateW)
+			fmt.Printf(rowFmt, inv.ID, inv.Ticker, inv.Status, dateStr, summary)
+		}
 	}
-	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
 }
 
 func resolveSessionOrSearch(appDB *db.DB, idOrQuery string) (*db.ChatSession, []db.ChatMessage, error) {

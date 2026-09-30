@@ -31,7 +31,7 @@ func RenderASCIIAnomalyChart(ticker string, anomalies []ipc.Event, days int) str
 	b.WriteString("\n")
 
 	if len(anomalies) == 0 {
-		b.WriteString(lipgloss.NewStyle().Foreground(ColorSuccess).Render(T("slash_anomalies_empty")))
+		b.WriteString(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_anomalies_empty")))
 		b.WriteString("\n")
 		return boxStyle.Render(b.String())
 	}
@@ -80,7 +80,7 @@ func RenderASCIIAnomalyChart(ticker string, anomalies []ipc.Event, days int) str
 
 		if idx < len(anomalies)-1 {
 			b.WriteString("  ")
-			b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render("· · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · ·"))
+			b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render("· · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · ·"))
 			b.WriteString("\n")
 		}
 	}

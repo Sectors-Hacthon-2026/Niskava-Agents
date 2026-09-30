@@ -230,13 +230,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	var b strings.Builder
 
+	w := m.Width
+	if w <= 0 {
+		w = GetTermWidth()
+	}
+
 	// 1. Header Banner
 	b.WriteString("\n")
 	b.WriteString(titleStyle.Render(T("header_title")))
 	b.WriteString(T("target_label"))
 	b.WriteString(tickerBadgeStyle.Render(m.Ticker))
 	b.WriteString(fmt.Sprintf(T("observation_horizon"), m.Days))
-	b.WriteString(RenderConstellationLine(80))
+	b.WriteString(RenderConstellationLine(w))
 	b.WriteString("\n\n")
 
 	// 2. Live Thought Stream (ReAct Inner Monologue)
@@ -277,7 +282,8 @@ func (m Model) View() string {
 
 	// 5. Findings Section (Audit Trail 3-Tier Taxonomy)
 	if len(m.Findings) > 0 {
-		b.WriteString("─────────────────────────────────────────────────────────────────────────────\n")
+		b.WriteString(Sep(0, w))
+		b.WriteString("\n")
 		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(ColorFg).Render(T("audit_trail_summary")))
 		b.WriteString("\n")
 
@@ -302,7 +308,9 @@ func (m Model) View() string {
 
 	// 6. Final Summary
 	if m.Summary != "" {
-		b.WriteString("\n─────────────────────────────────────────────────────────────────────────────\n")
+		b.WriteString("\n")
+		b.WriteString(Sep(0, w))
+		b.WriteString("\n")
 		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(m.Summary))
 		b.WriteString("\n")
 	}

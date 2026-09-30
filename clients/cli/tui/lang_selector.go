@@ -15,15 +15,11 @@ type LangSelectorModel struct {
 	Cursor    int
 	Selected  string
 	Canceled  bool
+	Width     int
+	Height    int
 }
 
 var (
-	langBoxStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(ColorAccent).
-			Padding(1, 2).
-			Foreground(ColorFg)
-
 	langTitleStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(ColorAccent)
@@ -53,6 +49,8 @@ func NewLangSelectorModel() LangSelectorModel {
 	return LangSelectorModel{
 		Languages: langs,
 		Cursor:    cursor,
+		Width:     GetTermWidth(),
+		Height:    GetTermHeight(),
 	}
 }
 
@@ -62,6 +60,11 @@ func (m LangSelectorModel) Init() tea.Cmd {
 
 func (m LangSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.Width = msg.Width
+		m.Height = msg.Height
+		return m, nil
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc", "q", "ctrl+c":
@@ -109,16 +112,36 @@ func (m LangSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m LangSelectorModel) View() string {
 	var b strings.Builder
 
+	termW := m.Width
+	if termW <= 0 {
+		termW = GetTermWidth()
+	}
+	boxW := termW - 4
+	if boxW > termW-2 {
+		boxW = termW - 2
+	}
+	if boxW < 16 {
+		boxW = max(10, termW-2)
+	}
+
+	langBoxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(ColorAccent).
+		Width(boxW).
+		Padding(1, 2).
+		Foreground(ColorFg)
+
 	title := T("lang_selector_title")
 	b.WriteString(langTitleStyle.Render(title))
 	b.WriteString("\n\n")
 
 	for i, l := range m.Languages {
 		shortcut := fmt.Sprintf("[%d]", i+1)
-		lineStr := fmt.Sprintf("%s %s %s (%s)", shortcut, l.FlagSymbol, l.NativeName, l.Name)
+		codeBadge := fmt.Sprintf("[%s]", strings.ToUpper(l.Code))
+		lineStr := fmt.Sprintf("%s %s %s (%s)", shortcut, codeBadge, l.NativeName, l.Name)
 
 		if l.Code == ActiveLanguage {
-			lineStr += " " + activeBadgeStyle.Render(T("lang_active_badge"))
+			lineStr += " " + AtomicBadge(T("lang_active_badge"), activeBadgeStyle)
 		}
 
 		if i == m.Cursor {
@@ -135,5 +158,5 @@ func (m LangSelectorModel) View() string {
 	b.WriteString("\n")
 	b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(T("lang_selector_hint")))
 
-	return "\n" + langBoxStyle.Render(b.String()) + "\n"
+	return "\n" + langBoxStyle.Render(b.String()) + "\n\033[J"
 }
