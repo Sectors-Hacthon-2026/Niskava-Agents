@@ -68,8 +68,14 @@ func GetFullHelpGuideString(overrideWidth ...int) string {
 		{"Direct Hotkeys", T("help_sec1_hotkeys")},
 	}
 
+	keyColWidth := 22
+	if w < 50 {
+		keyColWidth = 16
+	}
+
 	for _, item := range sec1Items {
-		prefix := fmt.Sprintf("   • %s : ", keyStyle.Render(item.Key))
+		paddedKey := fmt.Sprintf("%-*s", keyColWidth, Truncate(item.Key, keyColWidth))
+		prefix := fmt.Sprintf("   • %s : ", keyStyle.Render(paddedKey))
 		b.WriteString(formatHelpItem(prefix, item.Desc, w-2))
 	}
 
@@ -87,8 +93,14 @@ func GetFullHelpGuideString(overrideWidth ...int) string {
 		{"[E] / [8]", T("help_sec1_key_e")},
 	}
 
+	hkColWidth := 10
+	if w < 45 {
+		hkColWidth = 8
+	}
+
 	for _, hk := range hotkeys {
-		prefix := fmt.Sprintf("     - %s : ", keyStyle.Render(hk.Key))
+		paddedHk := fmt.Sprintf("%-*s", hkColWidth, Truncate(hk.Key, hkColWidth))
+		prefix := fmt.Sprintf("     - %s : ", keyStyle.Render(paddedHk))
 		b.WriteString(formatHelpItem(prefix, hk.Desc, w-2))
 	}
 	b.WriteString("\n")
@@ -166,13 +178,18 @@ func GetFullHelpGuideString(overrideWidth ...int) string {
 		{"/exit, quit", T("slash_exit_desc")},
 	}
 
+	scColWidth := 21
+	if w < 75 && w >= 55 {
+		scColWidth = 18
+	} else if w < 55 && w >= 40 {
+		scColWidth = 14
+	} else if w < 40 {
+		scColWidth = 10
+	}
+
 	for _, sc := range slashCmds {
-		var prefix string
-		if w >= 65 {
-			prefix = fmt.Sprintf("   • %-18s : ", cmdStyle.Render(sc.Cmd))
-		} else {
-			prefix = fmt.Sprintf("   • %s : ", cmdStyle.Render(sc.Cmd))
-		}
+		paddedCmd := fmt.Sprintf("%-*s", scColWidth, Truncate(sc.Cmd, scColWidth))
+		prefix := fmt.Sprintf("   • %s : ", cmdStyle.Render(paddedCmd))
 		b.WriteString(formatHelpItem(prefix, sc.Desc, w-2))
 	}
 	b.WriteString("\n")
@@ -200,8 +217,18 @@ func GetFullHelpGuideString(overrideWidth ...int) string {
 		{"niskava completion [shell]", "Generate shell autocompletion script."},
 	}
 
+	cliColWidth := 38
+	if w < 85 && w >= 65 {
+		cliColWidth = 30
+	} else if w < 65 && w >= 45 {
+		cliColWidth = 24
+	} else if w < 45 {
+		cliColWidth = 16
+	}
+
 	for _, item := range cliCmds {
-		prefix := fmt.Sprintf("   • %s : ", mutedStyle.Render(item.Cmd))
+		paddedCmd := fmt.Sprintf("%-*s", cliColWidth, Truncate(item.Cmd, cliColWidth))
+		prefix := fmt.Sprintf("   • %s : ", mutedStyle.Render(paddedCmd))
 		b.WriteString(formatHelpItem(prefix, item.Desc, w-2))
 	}
 	b.WriteString("\n")
