@@ -33,12 +33,35 @@ Niskava Agent enforces an **evidence-first investigative approach**:
 
 ## System Quick Start
 
-### 1. Prerequisites
+### Instant Run via NPX / NPM (Zero-Clone)
+If you have Node.js (>= 18), you can run Niskava immediately:
+
+```bash
+# 1. Run interactive configuration wizard
+npx @zyrexnns/niskava-agent setup
+
+# 2. Run system doctor diagnostics
+npx @zyrexnns/niskava-agent doctor
+
+# 3. Launch interactive REPL terminal
+npx @zyrexnns/niskava-agent
+
+# 4. Or launch the local Web Workspace (:20128)
+npx @zyrexnns/niskava-agent serve
+```
+
+Or install globally: `npm install -g @zyrexnns/niskava-agent`.
+
+---
+
+### Alternative: Clone and Run from Source
+
+#### 1. Prerequisites
 - **Go**: Version 1.22 or higher
 - **Python**: Version 3.11 or higher
 - **Git**: Version 2.30 or higher
 
-### 2. Clone and Configure
+#### 2. Clone and Configure
 ```bash
 git clone https://github.com/Sectors-Hacthon-2026/Niskava-Agents.git
 cd Niskava-Agents
@@ -48,7 +71,7 @@ go run ./cmd/niskava setup
 ```
 The wizard guides you through setting your Sectors Financial API key, choosing your AI provider (OpenRouter, Google Gemini, Ollama, DeepSeek, Groq, OpenAI, or vLLM), and creating the Python virtual environment.
 
-### 3. Launch an Investigation
+#### 3. Launch an Investigation
 ```bash
 # Compile standalone binary
 go build -o niskava ./cmd/niskava

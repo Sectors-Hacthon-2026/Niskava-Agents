@@ -21,27 +21,51 @@ Ensure your host environment meets the minimum software requirements before proc
 
 ### Option 0: Zero-Clone via NPX / NPM (Instant Run)
 
-If you have Node.js (>= 18) installed, you can launch Niskava Agent immediately without cloning the git repository:
+If you have Node.js (version 18 or higher) installed, you can launch Niskava Agent immediately without cloning the git repository or manually compiling Go/Python binaries:
 
 ```bash
-# Run interactive setup wizard
+# 1. Run interactive configuration wizard (sets API keys and provider)
 npx @zyrexnns/niskava-agent setup
 
-# Check environment readiness
+# 2. Run system doctor to verify environment readiness
 npx @zyrexnns/niskava-agent doctor
 
-# Run conversational terminal (REPL)
+# 3. Launch interactive REPL research terminal
 npx @zyrexnns/niskava-agent
 
-# Start local web workspace (:20128)
+# 4. Run an autonomous investigation on an IDX ticker
+npx @zyrexnns/niskava-agent investigate ANTM --days 30
+
+# 5. Start local Web Workspace (:20128) and open browser
 npx @zyrexnns/niskava-agent serve
 ```
 
-To install globally as a system-wide command:
+#### Global Installation (System-Wide Command)
+For regular use, install globally so `niskava` is accessible anywhere in your shell:
+
 ```bash
 npm install -g @zyrexnns/niskava-agent
+
+# Check installed version
+niskava version
+
+# Run setup and diagnostics
 niskava setup
+niskava doctor
+
+# Run REPL or Web Workspace
+niskava terminal
+niskava serve
 ```
+
+#### How the NPM Launcher Works Under the Hood
+1. **User-Space Isolation**: Binaries are downloaded and cached strictly in `~/.niskava/bin/` (on Windows: `%USERPROFILE%\.niskava\bin`). No files are written inside `node_modules`, completely preventing `EACCES` permission denied errors even when running without root/administrator privileges.
+2. **Platform Native Resolution**: Resolves the exact OS and CPU architecture:
+   - Linux: `x64` (`amd64`), `arm64`
+   - macOS: Apple Silicon (`arm64`), Intel (`x64`)
+   - Windows: `x64` (`amd64`)
+3. **Automatic Fallback**: If the release asset cannot be reached, the launcher checks for a local Go compiler (`go`) to compile directly on host, or guides you with direct download links.
+4. **Python Bridge**: If Python 3.11+ is detected, the launcher automatically connects the Python quantitative engine (`numpy`, `pandas`, `networkx`) and exports `NISKAVA_PYTHON_BIN`.
 
 ---
 

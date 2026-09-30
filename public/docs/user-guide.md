@@ -117,7 +117,7 @@ Type `/` in the prompt input to open the interactive autocomplete popup:
 ### Session Selector Hotkeys (`/chats`)
 When opening the session selector menu via `/chats` or the Main Launcher `[S]`, interactive management hotkeys are available:
 
-- **`Ctrl+P` (Pin / Unpin)**: Pin critical investigation sessions to the top with a visual `📌` badge.
+- **`Ctrl+P` (Pin / Unpin)**: Pin critical investigation sessions to the top with a visual pinned indicator.
 - **`Ctrl+D` or `Delete` (Delete Confirmation)**: Safely prompts `[y/N]` before permanently purging a session and cascading its associated memory edges.
 - **`Ctrl+E` (Export Modal Dialog)**: Opens an interactive modal to export full transcripts to Markdown (`.md`), Raw JSON (`.json`), or Plain Text (`.txt`) saved into `~/.niskava/exports/`.
 - **`Ctrl+Y` (Instant Clipboard Copy)**: Copies session ID, title, and last preview snippet directly to your operating system clipboard (supports Windows `clip`, macOS `pbcopy`, Linux `wl-copy`/`xclip`/`xsel`).

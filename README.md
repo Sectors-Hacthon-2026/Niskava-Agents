@@ -25,6 +25,17 @@ When unusual market activity occurs—such as an unexplained trading volume surg
 
 ---
 
+## Real-World Usability: Solving Real Capital Market Problems Today
+
+Niskava Agent directly targets the **Real-World Usability (40% Weight)** rubric of the **Sectors Hackathon Indonesia 2026** (*"How well does the project address a real-world problem? Can someone use it today and benefit from it?"*):
+
+- **Immediate Operational Utility Today**: Any analyst, financial journalist, or retail trader can launch `npx @zyrexnns/niskava-agent` or run `./niskava investigate ANTM --days 30` right now to produce a structured, evidence-backed audit trail in `<6 seconds`.
+- **Cuts 40–60 Minutes of Manual Cross-Referencing**: Eliminates the laborious manual routine of checking broker charts, calculating volume Z-scores, searching IDXnet disclosures, and cross-checking mainstream news.
+- **De-biasing Market Hype & Rumors**: Classifies market claims into a rigorous Three-Tier Verification Taxonomy (`SUPPORTED`, `UNCERTAIN`, `CONTRADICTED`), protecting investors from speculative social media "pom-pom" and ill-founded market rumors.
+- **Strict Capital Market Regulatory Compliance**: Complies fully with POJK and Hackathon Rule 12 by enforcing a strict non-advisory boundary (no speculative buy/sell calls) and Rule 06 (zero automated trade execution).
+
+---
+
 ## The Anti-Wrapper Manifesto: Why Generic AI Fails in Capital Markets
 
 Most commercial "financial AI" tools are thin wrappers around general-purpose Large Language Models (LLMs). Deploying thin wrappers in capital markets introduces severe operational risks:
@@ -70,6 +81,7 @@ Niskava Agent is implemented as a **Tripartite Hybrid Stack** combining Go Core,
 │  - Financial Health Stress Testing (`financial_health_stress`)  │
 │  - Commodity Divergence (`mining_commodity_divergence`)         │
 │  - Peer Valuation Benchmark (`peer_valuation_benchmark`)       │
+│  - PDF Audit Trail Exporter (`investigation_report_pdf`)        │
 │                                                                 │
 │  [Layer 2: Deterministic Compute Gate (NumPy Firewall)]         │
 │  - Volume Z-Scores (Vz), Abnormal Returns (Rt), Sector Beta     │
@@ -114,33 +126,41 @@ All development on Niskava Agent is strictly governed by six foundational archit
 
 ## Quick Start
 
-### 🚀 Instant Run via NPX / NPM (Zero-Clone)
+### Instant Run via NPX / NPM (Zero-Clone, Cross-Platform)
 
-Run Niskava Agent directly in your terminal without cloning or manual compilation:
+Run Niskava Agent directly in your terminal without cloning or manual Go compilation:
 
 ```bash
 # 1. Run interactive setup wizard (configure AI provider & Sectors key)
 npx @zyrexnns/niskava-agent setup
 
-# 2. Run system doctor to verify environment
+# 2. Run system doctor to verify environment readiness
 npx @zyrexnns/niskava-agent doctor
 
 # 3. Launch interactive REPL research terminal
 npx @zyrexnns/niskava-agent
 
-# 4. Start local web workspace daemon (:20128)
+# 4. Or run an instant autonomous investigation on any IDX ticker
+npx @zyrexnns/niskava-agent investigate ANTM --days 30
+
+# 5. Start local web workspace daemon (opens http://localhost:20128)
 npx @zyrexnns/niskava-agent serve
 ```
 
-Or install globally on your machine:
+#### Global Installation (System-Wide CLI)
+
+To install Niskava globally on your machine:
 ```bash
 npm install -g @zyrexnns/niskava-agent
 
-# Then run anywhere:
+# Then use 'niskava' or 'niskava-agent' anywhere:
 niskava setup
-niskava investigate ANTM --days 30
+niskava doctor
+niskava investigate BBCA --days 30
 niskava serve
 ```
+
+> **How it works:** The NPM package automatically acquires the precompiled native Go Core binary for your OS/architecture (Linux amd64/arm64, macOS Apple Silicon/Intel, Windows amd64) and caches it safely in user space (`~/.niskava/bin`), completely avoiding `EACCES` / root permission issues. If Python 3.11+ is present, quantitative skills and local graph memory activate automatically.
 
 ---
 

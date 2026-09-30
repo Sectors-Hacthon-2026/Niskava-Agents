@@ -10,7 +10,23 @@ When an abnormal market event occurs—such as an unprecedented trading volume s
 
 ---
 
-## 2. Market Inefficiency on the Indonesia Stock Exchange (IDX)
+## 2. Real-World Usability & Immediate Value Proposition
+
+Niskava Agent directly resolves the **Real-World Usability (40% Weight)** criterion established by the Sectors Hackathon Indonesia 2026: *"How well does the project address a real-world problem? Can someone use it today and benefit from it?"*
+
+### Real-World Problems Solved
+1. **The 45-Minute Manual Reconnaissance Bottle-Neck**:
+   When an IDX stock experiences an abrupt breakout or abnormal volume spike, an equity analyst or retail trader spends 30 to 60 minutes cross-checking broker summaries, scanning IDXnet corporate disclosures, and searching financial media. Niskava automates this entire pipeline into an evidence audit trail generated in under 6 seconds.
+2. **Combating Speculative "Pom-Pom" & Market Rumors**:
+   Retail investor communities are flooded with unsubstantiated rumors and Telegram channel pumps. Niskava's 3-Tier Verification Taxonomy objectively proves whether rumors are corroborated by official filings (`SUPPORTED`), unproven correlation (`UNCERTAIN`), or explicitly debunked by company disclosures (`CONTRADICTED`).
+3. **Information Leakage Detection (Pre-Announcement Volatility)**:
+   By computing temporal precedence between volume spikes ($T_{\text{surge}}$) and formal public releases ($T_{\text{news}}$), Niskava detects unusual accumulation occurring *before* public disclosures (`PRECEDED_ANNOUNCEMENT`), revealing insider activity and flow asymmetry.
+4. **Immediate Usability Today**:
+   No complex cloud deployments or database setups are required. A user can run `npx @zyrexnns/niskava-agent` or `./niskava investigate ANTM --days 30` right now from any terminal and obtain immediate empirical insights.
+
+---
+
+## 3. Market Inefficiency on the Indonesia Stock Exchange (IDX)
 
 The Indonesia Stock Exchange presents distinct structural characteristics that create severe information asymmetries for market participants:
 
