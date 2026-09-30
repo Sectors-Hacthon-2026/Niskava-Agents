@@ -122,29 +122,29 @@ func TestFormatFinalResponse(t *testing.T) {
 	content := "Analisis saham ANTM menunjukkan anomali volume Z-Score = 3.2."
 	thought := "Proses berpikir ReAct engine..."
 
-	// 1. Without disclaimer present
+	// 1. Regular response should be clean without automatic disclaimer attached
 	formatted := FormatFinalResponse(content, thought)
-	if !strings.Contains(formatted, content) {
-		t.Errorf("expected formatted text to contain content")
+	if formatted != content {
+		t.Errorf("expected clean content %q, got %q", content, formatted)
 	}
-	if !strings.Contains(formatted, StandardDisclaimer) {
-		t.Errorf("expected formatted text to contain standard disclaimer")
-	}
-
-	// 2. Calling FormatFinalResponse again should not duplicate disclaimer
-	doubleFormatted := FormatFinalResponse(formatted, "")
-	count := strings.Count(doubleFormatted, StandardDisclaimer)
-	if count != 1 {
-		t.Errorf("expected exactly 1 disclaimer, got %d", count)
+	if strings.Contains(formatted, StandardDisclaimer) {
+		t.Errorf("expected formatted text NOT to contain standard disclaimer in chat bubbles")
 	}
 
-	// 3. If content is empty, falls back to thought
+	// 2. If content is empty, falls back to thought without disclaimer
 	formattedFromThought := FormatFinalResponse("", thought)
-	if !strings.Contains(formattedFromThought, thought) {
-		t.Errorf("expected formatted text to use thought when content is empty")
+	if formattedFromThought != thought {
+		t.Errorf("expected formatted text to use thought %q, got %q", thought, formattedFromThought)
 	}
-	if !strings.Contains(formattedFromThought, StandardDisclaimer) {
-		t.Errorf("expected disclaimer attached to thought fallback")
+	if strings.Contains(formattedFromThought, StandardDisclaimer) {
+		t.Errorf("expected thought fallback NOT to contain disclaimer")
+	}
+
+	// 3. If content already contains disclaimer (e.g. user or skill included it), it remains untouched
+	contentWithDisc := content + "\n\n" + StandardDisclaimer
+	preserved := FormatFinalResponse(contentWithDisc, "")
+	if preserved != contentWithDisc {
+		t.Errorf("expected content with existing disclaimer to be preserved, got %q", preserved)
 	}
 }
 

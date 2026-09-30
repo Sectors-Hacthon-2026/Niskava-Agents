@@ -7,7 +7,7 @@ import (
 
 const (
 	// StandardDisclaimer is the mandatory non-advisory disclaimer for Niskava Agent.
-	StandardDisclaimer = "*Disclaimer: Niskava Agent adalah platform intelijen dan riset pasar modal otonom IDX, BUKAN penasihat investasi atau broker. Analisis disajikan untuk riset dan verifikasi fakta.*"
+	StandardDisclaimer = "*Disclaimer: Niskava Agent is an autonomous IDX capital market research intelligence platform, NOT an investment advisor or registered broker. Analysis is presented solely for research and fact-verification.*"
 
 	// DisclaimerSuffix is appended to responses that don't already contain the disclaimer.
 	DisclaimerSuffix = "\n\n---\n" + StandardDisclaimer
@@ -69,19 +69,15 @@ func SplitMessage(text string, maxLen int) []string {
 	return chunks
 }
 
-// FormatFinalResponse formats the final response string and appends the standard
-// non-advisory disclaimer if not already present.
+// FormatFinalResponse formats the final response string.
+// Conversational chat bubbles omit repeated disclaimers for cleaner UX,
+// while formal export documents and generated PDFs retain strict compliance disclaimers.
 func FormatFinalResponse(content string, thought string) string {
-	text := content
-	if text == "" && thought != "" {
-		text = thought
+	text := strings.TrimSpace(content)
+	if text == "" && strings.TrimSpace(thought) != "" {
+		text = strings.TrimSpace(thought)
 	}
-
-	if strings.Contains(text, StandardDisclaimer) {
-		return text
-	}
-
-	return text + DisclaimerSuffix
+	return text
 }
 
 // WrapMarkdownTables detects Markdown tables and wraps them inside preformatted blocks (```)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/db"
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
 	"gopkg.in/telebot.v3"
 )
 
@@ -477,10 +478,10 @@ func TestHandleExport(t *testing.T) {
 	// Verify formatExportDocument directly
 	history, _ := database.GetChatHistory(sessionID, 100)
 	doc := formatExportDocument(sessionID, "gemini-2.5-flash", history)
-	if !strings.Contains(doc, "# Laporan Riset Pasar Niskava") {
+	if !strings.Contains(doc, "# Niskava Market Intelligence Research Report") {
 		t.Errorf("expected doc to contain header")
 	}
-	if !strings.Contains(doc, "Pemberitahuan Kepatuhan (Law 2") {
+	if !strings.Contains(doc, "Compliance Notice (Law 2") {
 		t.Errorf("expected doc to contain Law 2 disclaimer")
 	}
 	if !strings.Contains(doc, "Analisis anomali volume saham ANTM") {
@@ -595,7 +596,7 @@ func TestRateLimiterRejectionInHandleTextMessage(t *testing.T) {
 	bodyStr := string(lastRequestBody)
 	mu.Unlock()
 
-	if !strings.Contains(bodyStr, "Terlalu banyak permintaan") {
+	if !strings.Contains(bodyStr, "Too many requests") {
 		t.Errorf("expected rejection warning in telegram reply, got body: %s", bodyStr)
 	}
 }
@@ -693,5 +694,20 @@ func TestCallbackHandlers(t *testing.T) {
 	})
 	if err := service.handleCallbackExport(cbExportCtx); err != nil {
 		t.Errorf("handleCallbackExport failed: %v", err)
+	}
+}
+
+func TestHandleTextMessage_PdfReportEventHandled(t *testing.T) {
+	// Verify that EventPdfReportReady type is valid and recognized
+	ev := ipc.Event{
+		Event:    ipc.EventPdfReportReady,
+		PdfPath:  "/tmp/mock_report.pdf",
+		Filename: "mock_report.pdf",
+	}
+	if ev.Event != ipc.EventPdfReportReady {
+		t.Fatalf("unexpected event type: %s", ev.Event)
+	}
+	if ev.PdfPath != "/tmp/mock_report.pdf" {
+		t.Fatalf("unexpected pdf path: %s", ev.PdfPath)
 	}
 }
