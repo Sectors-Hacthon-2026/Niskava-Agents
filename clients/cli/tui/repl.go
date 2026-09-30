@@ -244,20 +244,40 @@ type ReplInputModel struct {
 	Height            int
 }
 
-// RenderToastPill renders a non-blocking styled floating notification toast badge.
-func RenderToastPill(message string) string {
+// RenderToastPill renders a non-blocking styled floating notification toast badge bounded by width.
+func RenderToastPill(message string, overrideWidth ...int) string {
 	if strings.TrimSpace(message) == "" {
 		return ""
 	}
+	w := GetTermWidth()
+	if len(overrideWidth) > 0 && overrideWidth[0] > 0 {
+		w = overrideWidth[0]
+	}
+	boxW := w - 4
+	if boxW > w-2 {
+		boxW = w - 2
+	}
+	if boxW < 16 {
+		boxW = max(10, w-2)
+	}
+
+	contentW := boxW - 4
+	if contentW < 10 {
+		contentW = 10
+	}
+
+	msgTruncated := Truncate(message, contentW)
+
 	toastStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(ColorBg).
 		Background(ColorAccent).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(ColorAccent).
+		Width(boxW).
 		Padding(0, 1)
 
-	return toastStyle.Render(message)
+	return toastStyle.Render(msgTruncated)
 }
 
 // NewReplInputModel initializes the interactive REPL prompt input.
@@ -535,9 +555,21 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m ReplInputModel) View() string {
 	var b strings.Builder
 
+	termW := m.Width
+	if termW <= 0 {
+		termW = GetTermWidth()
+	}
+	boxW := termW - 4
+	if boxW > termW-2 {
+		boxW = termW - 2
+	}
+	if boxW < 16 {
+		boxW = max(10, termW-2)
+	}
+
 	// Render Active Toast Notification if present & fresh (< 3 seconds)
 	if m.ActiveToast != "" && !m.ToastTime.IsZero() && time.Since(m.ToastTime) <= 3*time.Second {
-		b.WriteString(RenderToastPill(m.ActiveToast))
+		b.WriteString(RenderToastPill(m.ActiveToast, termW))
 		b.WriteString("\n")
 	}
 
@@ -588,10 +620,16 @@ func (m ReplInputModel) View() string {
 		boxStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(ColorAccent).
+			Width(boxW).
 			Padding(0, 1)
 
 		var popupLines []string
 		popupLines = append(popupLines, popupHeader)
+
+		descAvail := boxW - 25
+		if descAvail < 10 {
+			descAvail = 10
+		}
 
 		for i := m.SlashScrollOffset; i < endIdx; i++ {
 			sc := m.FilteredCommands[i]
@@ -607,14 +645,14 @@ func (m ReplInputModel) View() string {
 					Foreground(ColorMuted).
 					Render(fmt.Sprintf("[%s] ", sc.Category))
 			}
-			descStr := sc.Description
+			descStr := Truncate(sc.Description, descAvail)
 
 			if i == m.SlashCursor {
 				cmdR := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(cmdStr)
 				descR := lipgloss.NewStyle().Foreground(ColorFg).Render(descStr)
 				popupLines = append(popupLines, fmt.Sprintf("%s%s%s%s", lipgloss.NewStyle().Foreground(ColorAccent).Render(cursor), cmdR, catBadge, descR))
 				if sc.FormatHint != "" {
-					hintR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("    " + sc.FormatHint)
+					hintR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("    " + Truncate(sc.FormatHint, boxW-8))
 					popupLines = append(popupLines, hintR)
 				}
 			} else {
@@ -1379,8 +1417,9 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				stopSpinner()
 				// Process finished: clear spinner and render output
 				fmt.Print("\r\033[K")
+				w := GetTermWidth()
 				if sessionError != "" {
-					fmt.Print(renderSessionErrorCard(sessionError))
+					fmt.Print(renderSessionErrorCard(sessionError, w))
 				} else {
 					renderFinalMarkdown(assistantResponse.String())
 				}
@@ -1400,7 +1439,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				}
 
 				// Render official completion badge with timing & statistics
-				fmt.Print(renderCompletionBadge(time.Since(turnStart), sessionID, modelLabel, totalAnomalies, totalFindings))
+				fmt.Print(renderCompletionBadge(time.Since(turnStart), sessionID, modelLabel, totalAnomalies, totalFindings, w))
 				return
 			}
 
@@ -1443,7 +1482,9 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 					"repl_anomaly_alert",
 					ev.MetricType, ev.Ticker, ev.ZScore, ev.MetricValue, ev.BaselineValue,
 				)
-				fmt.Println(replAnomalyBoxStyle.Render(anomalyText))
+				w := GetTermWidth()
+				anomalyBoxStyle := replAnomalyBoxStyle.Width(max(16, w-4))
+				fmt.Println(anomalyBoxStyle.Render(wrapText(anomalyText, max(12, w-6))))
 
 			case ipc.EventFindingEmitted:
 				fmt.Print("\r\033[K")
@@ -1476,18 +1517,46 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 	}
 }
 
-func renderSessionErrorCard(errMessage string) string {
+func renderSessionErrorCard(errMessage string, overrideWidth ...int) string {
+	w := GetTermWidth()
+	if len(overrideWidth) > 0 && overrideWidth[0] > 0 {
+		w = overrideWidth[0]
+	}
+	boxW := w - 4
+	if boxW > w-2 {
+		boxW = w - 2
+	}
+	if boxW < 16 {
+		boxW = max(10, w-2)
+	}
+
+	contentW := boxW - 4
+	if contentW < 15 {
+		contentW = 15
+	}
+
+	wrappedErr := wrapText("❌ [SESSION ERROR]: "+errMessage, contentW)
+
 	errBox := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(ColorDanger).
+		Width(boxW).
 		Padding(0, 1).
 		Foreground(ColorFg).
-		Render(fmt.Sprintf("❌ [SESSION ERROR]: %s", errMessage))
+		Render(wrappedErr)
 	return "\n" + errBox + "\n"
 }
 
-func renderCompletionBadge(duration time.Duration, sessionID, model string, anomalies, findings int) string {
-	sep := Sep(2)
+func renderCompletionBadge(duration time.Duration, sessionID, model string, anomalies, findings int, overrideWidth ...int) string {
+	w := GetTermWidth()
+	if len(overrideWidth) > 0 && overrideWidth[0] > 0 {
+		w = overrideWidth[0]
+	}
+	sepW := w - 2
+	if sepW < 15 {
+		sepW = 15
+	}
+	sep := RenderConstellationLine(sepW)
 	badge := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(T("badge_completed"))
 	detail := TF("badge_completed_detail", duration.Seconds(), model, sessionID)
 	if anomalies > 0 || findings > 0 {
