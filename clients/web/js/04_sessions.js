@@ -69,7 +69,17 @@
 
             function formatSessionTitle(s) {
                 let title = (s.title || '').trim();
-                if (!title || title === 'Sesi Riset Pasar' || title.startsWith('CHAT-') || title.startsWith('WEB-')) {
+                // Treat generic or timestamp-based Telegram titles as placeholders.
+                // Telegram session titles follow "Telegram (@user) · 30 Sep 15:04:05".
+                // Once the first message arrives, UpdateChatSession sets a topic-based title,
+                // but last_message_preview is a shorter fallback to display in the sidebar.
+                const isGenericTitle = !title ||
+                    title === 'Sesi Riset Pasar' ||
+                    title.startsWith('CHAT-') ||
+                    title.startsWith('WEB-') ||
+                    title.startsWith('TELE-') ||
+                    /^Telegram\s*(\(@[^)]+\))?\s*·/.test(title);
+                if (isGenericTitle) {
                     title = (s.last_message_preview || s.first_message || '').trim();
                 }
                 if (!title) {
@@ -168,6 +178,20 @@
                 historyScrollContainer.addEventListener('scroll', closeHistoryDropdown, { passive: true });
             }
 
+            /**
+             * Returns a small inline badge HTML string indicating the session's platform origin.
+             * Telegram sessions carry a TELE- ID prefix per the DB convention.
+             * Returns empty string for Web sessions.
+             * @param {string} sessionId
+             * @returns {string}
+             */
+            function getSessionPlatformBadge(sessionId) {
+                if (sessionId && sessionId.startsWith('TELE-')) {
+                    return `<span title="Sesi dari Telegram Bot" style="font-size:10px; background:rgba(39,174,245,0.15); color:#27aef5; border-radius:4px; padding:1px 5px; margin-right:4px; vertical-align:middle; flex-shrink:0; line-height:1.6; display:inline-block; font-weight:600;">TG</span>`;
+                }
+                return '';
+            }
+
             function renderChatHistoryGroups(sessions) {
                 closeHistoryDropdown();
                 historyList.innerHTML = '';
@@ -203,6 +227,7 @@
 
                     itemEl.innerHTML = `
                         ${isPinned ? `<span class="history-item-pin-badge" title="${t('menu_pin')}"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-2l-2-3V6a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v6l-2 3v2z"></path></svg></span>` : ''}
+                        ${getSessionPlatformBadge(sId)}
                         <span class="history-item-label" title="${escapeHtml(fullTitle)}">${escapeHtml(displayTitle)}</span>
                         <button class="history-more-btn" title="${t('options_tooltip')}" aria-label="Opsi">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">

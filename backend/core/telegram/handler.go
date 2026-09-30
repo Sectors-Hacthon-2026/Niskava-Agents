@@ -398,6 +398,22 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 	}
 	_ = s.db.SaveChatMessage(userMsg)
 
+	// Auto-update session title from the first user message so each session is
+	// identifiable in the Web Workspace sidebar by its actual research topic.
+	if s.db != nil {
+		if sess, err := s.db.GetChatSession(sessionID); err == nil && sess != nil && sess.MessageCount == 0 {
+			topic := strings.TrimSpace(prompt)
+			topic = strings.TrimLeft(topic, "#> *`-_")
+			topic = strings.TrimSpace(topic)
+			if len(topic) > 45 {
+				topic = topic[:42] + "..."
+			}
+			if topic != "" {
+				_ = s.db.UpdateChatSession(sessionID, &topic, nil, nil)
+			}
+		}
+	}
+
 	// Background typing indicator loop
 	stopTyping := make(chan struct{})
 	var typingWg sync.WaitGroup
