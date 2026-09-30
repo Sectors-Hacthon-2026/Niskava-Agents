@@ -396,3 +396,274 @@ def test_renderer_clean_text_extended_symbols():
     # Ensure latin-1 encodable without throwing
     cleaned.encode("latin-1")
 
+
+def test_render_markdown_and_callout_box(tmp_path):
+    """Test that markdown formatting and callout box render cleanly without fpdf exceptions."""
+    from engine.skills.investigation_report_pdf.renderer import (
+        _NiskavaReportPDF,
+        _render_markdown_text,
+        _render_callout_box,
+    )
+
+    pdf = _NiskavaReportPDF(ticker="ANTM", session_id="TEST01")
+    pdf.add_page()
+
+    # Callout box
+    _render_callout_box(pdf, text="Key Takeaway: Nickel supply surplus expected in Q3.", title="EXECUTIVE TAKEAWAYS", style="info")
+
+    # Markdown formatted text
+    md_content = (
+        "### 1. Market Overview\n"
+        "Saham **ANTM** mencatatkan *abnormal return* sebesar **+6.2%**.\n\n"
+        "- Volume spike mencapai 3.84x sigma\n"
+        "- Net foreign inflow sebesar Rp 45 Miliar\n"
+        "- IDX net disclosure terverifikasi resmi"
+    )
+    _render_markdown_text(pdf, md_content)
+
+    out_file = tmp_path / "test_md_callout.pdf"
+    pdf.output(str(out_file))
+
+    assert out_file.exists()
+    assert out_file.stat().st_size > 1000
+
+
+def test_render_generic_table_and_key_value_grid(tmp_path):
+    """Test deterministic rendering of generic tables and key-value grids."""
+    from engine.skills.investigation_report_pdf.renderer import (
+        _NiskavaReportPDF,
+        _render_generic_table,
+        _render_key_value_grid,
+    )
+
+    pdf = _NiskavaReportPDF(ticker="BBCA", session_id="TEST-GRID-001")
+    pdf.add_page()
+
+    # 1. Render Generic Table with custom widths and rows
+    table_data = {
+        "title": "PEER VALUATION COMPARISON",
+        "headers": ["Ticker", "PER", "PBV", "ROE (%)"],
+        "col_widths": [40, 45, 45, 60],
+        "rows": [
+            ["BBCA", "18.5x", "4.2x", "22.1%"],
+            ["BBRI", "12.8x", "2.1x", "17.4%"],
+            ["BMRI", "11.0x", "1.9x", "16.8%"],
+        ],
+    }
+    _render_generic_table(pdf, table_data)
+
+    # 2. Render Key-Value Grid (dict form)
+    kv_dict = {
+        "title": "FINANCIAL HIGHLIGHTS",
+        "Market Capitalization": "Rp 1,250 Trillion",
+        "Dividend Yield": "3.8%",
+        "Free Float": "45.2%",
+        "Sector": "Financial Services",
+    }
+    _render_key_value_grid(pdf, kv_dict)
+
+    # 3. Render Key-Value Grid (explicit items and cols=1 form)
+    kv_items = {
+        "title": "CORPORATE METRICS",
+        "cols": 1,
+        "items": [
+            {"key": "Auditor", "value": "Big Four Accounting Firm"},
+            {"key": "Listing Date", "value": "2000-05-31"},
+        ],
+    }
+    _render_key_value_grid(pdf, kv_items)
+
+    # 4. Graceful handling of empty table & empty kv_data
+    _render_generic_table(pdf, {})
+    _render_generic_table(pdf, {"headers": [], "rows": []})
+    _render_key_value_grid(pdf, {})
+    _render_key_value_grid(pdf, {"items": []})
+
+    out_file = tmp_path / "test_table_kv_grid.pdf"
+    pdf.output(str(out_file))
+
+    assert out_file.exists()
+    assert out_file.stat().st_size > 1500
+
+    pdf_bytes = out_file.read_bytes()
+    assert b"PEER VALUATION COMPARISON" in pdf_bytes
+    assert b"BBCA" in pdf_bytes
+    assert b"18.5x" in pdf_bytes
+    assert b"FINANCIAL HIGHLIGHTS" in pdf_bytes
+    assert b"Market Capitalization" in pdf_bytes
+    assert b"CORPORATE METRICS" in pdf_bytes
+    assert b"Big Four" in pdf_bytes
+
+
+def test_render_investigation_pdf_dynamic_blocks(tmp_path):
+    """Test dynamic block-based rendering in render_investigation_pdf and backward compatibility."""
+    from engine.skills.investigation_report_pdf.renderer import (
+        render_investigation_pdf,
+        NON_ADVISORY_DISCLAIMER,
+    )
+
+    # 1. Sequential dynamic blocks test
+    blocks_params = {
+        "ticker": "BBRI",
+        "title": "BBRI Dynamic Multi-Block Forensic Audit Trail",
+        "session_id": "DYN-BLOCKS-001",
+        "blocks": [
+            {
+                "type": "callout",
+                "title": "ANOMALY ALERT",
+                "text": "Abnormal volume spike detected concurrently with IDX corporate disclosure.",
+                "style": "warning",
+            },
+            {
+                "type": "markdown",
+                "title": "FORENSIC NARRATIVE",
+                "content": (
+                    "### Investigation Overview\n"
+                    "Forensic audit reveals **substantial foreign accumulation** prior to news.\n"
+                    "- Statistical anomaly verified by NumPy gate\n"
+                    "- IDXnet disclosure confirms dividend distribution plan"
+                ),
+            },
+            {
+                "type": "key_value",
+                "title": "VALUATION MULTIPLES",
+                "data": {
+                    "P/E Ratio": "12.8x",
+                    "P/BV Ratio": "2.1x",
+                    "ROE": "17.4%",
+                    "Dividend Payout": "80%",
+                },
+            },
+            {
+                "type": "table",
+                "title": "PEER BENCHMARK MATRIX",
+                "headers": ["Bank", "Ticker", "NPL (%)", "NIM (%)"],
+                "rows": [
+                    ["Bank Rakyat Indonesia", "BBRI", "2.8%", "7.6%"],
+                    ["Bank Mandiri", "BMRI", "1.2%", "5.3%"],
+                    ["Bank Central Asia", "BBCA", "1.8%", "5.6%"],
+                ],
+            },
+            {
+                "type": "quant_metrics",
+                "metrics": {
+                    "volume_z_score": 3.45,
+                    "foreign_flow_z_score": 2.80,
+                    "abnormal_return_pct": 5.8,
+                    "candles_analyzed": 60,
+                    "anomaly_detected": True,
+                    "latest_anomaly_date": "2026-09-28",
+                },
+            },
+            {
+                "type": "evidence_matrix",
+                "evidence": [
+                    {
+                        "date": "2026-09-28",
+                        "headline": "BBRI distributes interim cash dividend of Rp 120/share",
+                        "verification_status": "SUPPORTED",
+                        "confidence_score": 1.00,
+                    }
+                ],
+            },
+            {
+                "type": "news_matrix",
+                "news_items": [
+                    {
+                        "date": "2026-09-28",
+                        "source": "IDXnet",
+                        "headline": "Keterbukaan Informasi Rencana Dividen Interim BBRI",
+                        "status": "SUPPORTED",
+                    }
+                ],
+            },
+        ],
+    }
+
+    dyn_pdf_path = render_investigation_pdf(blocks_params, output_dir=tmp_path)
+    assert os.path.isabs(dyn_pdf_path)
+    assert os.path.exists(dyn_pdf_path)
+
+    dyn_bytes = Path(dyn_pdf_path).read_bytes()
+    assert b"ANOMALY ALERT" in dyn_bytes
+    assert b"FORENSIC NARRATIVE" in dyn_bytes
+    assert b"VALUATION MULTIPLES" in dyn_bytes
+    assert b"PEER BENCHMARK MATRIX" in dyn_bytes
+    assert b"QUANTITATIVE ANOMALY MATRIX" in dyn_bytes
+    assert b"EVIDENCE & CAUSALITY MATRIX" in dyn_bytes
+    assert b"MARKET NEWS DIGEST" in dyn_bytes
+    assert NON_ADVISORY_DISCLAIMER.encode("latin-1") in dyn_bytes or b"non-advisory" in dyn_bytes.lower()
+
+    # 2. Backward compatibility test: legacy keys including custom_tables
+    legacy_params = {
+        "ticker": "BMRI",
+        "title": "BMRI Legacy Investigation Report",
+        "session_id": "LEGACY-002",
+        "summary": "Mandiri demonstrates solid net interest margin performance.",
+        "metrics": {
+            "volume_z_score": 2.75,
+            "candles_analyzed": 30,
+            "anomaly_detected": True,
+        },
+        "custom_tables": [
+            {
+                "title": "CREDIT QUALITY BREAKDOWN",
+                "headers": ["Segment", "Loan Share", "NPL"],
+                "rows": [
+                    ["Corporate", "48%", "0.9%"],
+                    ["Commercial", "22%", "1.5%"],
+                    ["Micro & Retail", "30%", "2.1%"],
+                ],
+            }
+        ],
+    }
+
+    legacy_pdf_path = render_investigation_pdf(legacy_params, output_dir=tmp_path)
+    assert os.path.exists(legacy_pdf_path)
+    legacy_bytes = Path(legacy_pdf_path).read_bytes()
+    assert b"EXECUTIVE SUMMARY" in legacy_bytes
+    assert b"Mandiri demonstrates solid" in legacy_bytes
+    assert b"QUANTITATIVE ANOMALY MATRIX" in legacy_bytes
+    assert b"CREDIT QUALITY BREAKDOWN" in legacy_bytes
+    assert b"Corporate" in legacy_bytes
+
+
+def test_skill_execute_with_blocks(tmp_path):
+    """Test InvestigationReportPdfSkill.execute when passed dynamic blocks."""
+    from engine.skills.investigation_report_pdf.logic import InvestigationReportPdfSkill
+
+    skill = InvestigationReportPdfSkill()
+    events = []
+    result = skill.execute(
+        arguments={
+            "ticker": "ASII",
+            "blocks": [
+                {
+                    "type": "callout",
+                    "title": "SECTOR OVERVIEW",
+                    "text": "Automotive market share expanding across EV and hybrid categories.",
+                },
+                {
+                    "type": "table",
+                    "title": "SALES VOLUME",
+                    "headers": ["Quarter", "4W Units", "2W Units"],
+                    "rows": [
+                        {"Quarter": "Q1 2026", "4W Units": "125,000", "2W Units": "1,100,000"},
+                        {"Quarter": "Q2 2026", "4W Units": "132,000", "2W Units": "1,150,000"},
+                    ],
+                },
+            ],
+            "session_id": "ASII-TEST-BLOCKS",
+        },
+        context={"_output_dir": tmp_path, "emitter": events.append},
+    )
+
+    assert result.verification_status == "SUPPORTED"
+    assert result.confidence_score == 1.00
+    assert os.path.exists(result.metrics["pdf_path"])
+    assert len(events) == 1
+    assert events[0]["event"] == "pdf_report_ready"
+    assert events[0]["ticker"] == "ASII"
+
+
+

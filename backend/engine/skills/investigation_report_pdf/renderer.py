@@ -34,6 +34,17 @@ _CONTRADICTED_RED = (183, 28, 28)   # Crimson Red #B71C1C
 _LIGHT_GRAY = (245, 245, 245)
 _DARK_GRAY = (66, 66, 66)
 
+_CALLOUT_BG = {
+    "info": (238, 242, 250),      # Soft Navy Blue
+    "warning": (255, 248, 225),   # Soft Amber
+    "success": (232, 245, 233),   # Soft Emerald
+}
+_CALLOUT_BORDER = {
+    "info": _NISKAVA_BLUE,
+    "warning": _UNCERTAIN_ORANGE,
+    "success": _SUPPORTED_GREEN,
+}
+
 
 def _clean_text(text: Any, single_line: bool = False) -> str:
     """Sanitize string for core Helvetica Latin-1 font in fpdf2."""
@@ -83,6 +94,7 @@ class _NiskavaReportPDF(FPDF):
 
     def __init__(self, ticker: str, session_id: str) -> None:
         super().__init__()
+        self.set_compression(False)
         self._ticker = ticker
         self._session_id = session_id
 
@@ -125,12 +137,132 @@ def _section_title(pdf: FPDF, title: str) -> None:
     pdf.ln(1.5)
 
 
+def _render_callout_box(
+    pdf: FPDF,
+    text: str,
+    title: Optional[str] = None,
+    style: str = "info",
+) -> None:
+    """Render an institutional callout box with a colored left-accent bar."""
+    if not text:
+        return
+    bg_color = _CALLOUT_BG.get(style, _CALLOUT_BG["info"])
+    border_color = _CALLOUT_BORDER.get(style, _CALLOUT_BORDER["info"])
+
+    clean_body = _clean_text(text)
+    clean_title = _clean_text(title.upper()) if title else None
+
+    start_y = pdf.get_y()
+    if start_y > 240:
+        pdf.add_page()
+        start_y = pdf.get_y()
+
+    line_height = 4.5
+    title_height = 6.0 if clean_title else 0.0
+    box_w = 190.0
+
+    pdf.set_font("Helvetica", "", 8.5)
+    lines = pdf.multi_cell(180, line_height, clean_body, dry_run=True, output="LINES")
+    box_h = max(12.0, (len(lines) * line_height) + title_height + 5.0)
+
+    if start_y + box_h > 265:
+        pdf.add_page()
+        start_y = pdf.get_y()
+
+    pdf.set_fill_color(*bg_color)
+    pdf.rect(10, start_y, box_w, box_h, "F")
+
+    # Accent left bar
+    pdf.set_fill_color(*border_color)
+    pdf.rect(10, start_y, 3, box_h, "F")
+
+    curr_y = start_y + 2.5
+    if clean_title:
+        pdf.set_xy(16, curr_y)
+        pdf.set_font("Helvetica", "B", 8.5)
+        pdf.set_text_color(*border_color)
+        pdf.cell(180, 5, clean_title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        curr_y += 5.5
+
+    pdf.set_xy(16, curr_y)
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_text_color(*_DARK_GRAY)
+    pdf.multi_cell(180, line_height, clean_body, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_y(start_y + box_h + 3.5)
+
+
+def _render_markdown_text(
+    pdf: FPDF,
+    text: str,
+    default_font_size: float = 8.5,
+) -> None:
+    """Parse lightweight markdown (headers, bullets, bold) and render neatly."""
+    if not text:
+        return
+
+    clean = _clean_text(text)
+    lines = clean.split("\n")
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line:
+            pdf.ln(2.0)
+            continue
+
+        # Header 3: ### Heading
+        if line.startswith("### "):
+            pdf.ln(1.5)
+            pdf.set_font("Helvetica", "B", default_font_size + 1.0)
+            pdf.set_text_color(*_NISKAVA_BLUE)
+            pdf.cell(190, 5.5, line[4:].strip(), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.set_text_color(0, 0, 0)
+            continue
+
+        # Header 2: ## Heading
+        if line.startswith("## "):
+            pdf.ln(2.0)
+            pdf.set_font("Helvetica", "B", default_font_size + 2.0)
+            pdf.set_text_color(*_NISKAVA_BLUE)
+            pdf.cell(190, 6.0, line[3:].strip(), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.set_text_color(0, 0, 0)
+            continue
+
+        # Bullet list: - or *
+        is_bullet = line.startswith("- ") or line.startswith("* ")
+        bullet_indent = 16 if is_bullet else 10
+        text_content = line[2:].strip() if is_bullet else line
+
+        if is_bullet:
+            pdf.set_font("Helvetica", "B", default_font_size)
+            pdf.set_text_color(*_NISKAVA_BLUE)
+            pdf.set_x(10)
+            pdf.cell(5, 4.5, "-", align="R")
+
+        # Parse inline **bold**
+        pdf.set_x(bullet_indent)
+        pdf.set_text_color(0, 0, 0)
+        width_avail = 190 - (bullet_indent - 10)
+
+        if "**" in text_content:
+            parts = text_content.split("**")
+            for idx, part in enumerate(parts):
+                if not part:
+                    continue
+                is_bold = (idx % 2 == 1)
+                pdf.set_font("Helvetica", "B" if is_bold else "", default_font_size)
+                pdf.write(4.5, part)
+            pdf.ln(4.5)
+        else:
+            pdf.set_font("Helvetica", "", default_font_size)
+            pdf.multi_cell(width_avail, 4.5, text_content, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    pdf.ln(2.5)
+
+
 def _render_executive_summary(pdf: FPDF, summary: str, title: str = "EXECUTIVE SUMMARY") -> None:
     _section_title(pdf, title)
-    pdf.set_font("Helvetica", "", 8.5)
-    clean_summary = _clean_text(summary or "No analytical summary provided.")
-    pdf.multi_cell(190, 4.5, clean_summary, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-    pdf.ln(3.5)
+    _render_markdown_text(pdf, summary or "No analytical summary provided.")
 
 
 def _has_meaningful_quant_metrics(metrics: Dict[str, Any]) -> bool:
@@ -312,6 +444,283 @@ def _render_custom_sections(pdf: FPDF, sections: List[Dict[str, Any]]) -> None:
         pdf.ln(3.5)
 
 
+def _render_generic_table(pdf: FPDF, table: Dict[str, Any]) -> None:
+    """Render an institutional data table with headers and alternating row shading."""
+    if not table or not isinstance(table, dict):
+        return
+
+    sec_title = table.get("title") or table.get("heading")
+    headers = table.get("headers") or table.get("columns") or []
+    raw_rows = table.get("rows") or table.get("data") or []
+
+    # If rows are dicts and headers are empty:
+    if not headers and raw_rows and isinstance(raw_rows[0], dict):
+        headers = list(raw_rows[0].keys())
+
+    # If headers are dicts: extract name and width
+    col_widths_from_headers = None
+    if headers and isinstance(headers[0], dict):
+        col_widths_from_headers = [h.get("width") for h in headers if "width" in h]
+        headers = [h.get("name") or h.get("label") or h.get("title") or str(h) for h in headers]
+
+    headers = [str(h) for h in headers] if headers else []
+
+    if not headers and not raw_rows:
+        return
+
+    if sec_title:
+        _section_title(pdf, str(sec_title).upper())
+
+    total_w = 190.0
+    n_cols = len(headers) if headers else (len(raw_rows[0]) if raw_rows and isinstance(raw_rows[0], (list, tuple)) else 1)
+    if n_cols == 0:
+        return
+
+    user_widths = table.get("col_widths") or table.get("widths") or col_widths_from_headers
+    if user_widths and len(user_widths) == n_cols:
+        try:
+            parsed_w = [float(w) for w in user_widths]
+            sum_w = sum(parsed_w)
+            if abs(sum_w - total_w) < 1.0:
+                col_w = parsed_w
+            elif sum_w > 0:
+                scale = total_w / sum_w
+                col_w = [w * scale for w in parsed_w]
+            else:
+                col_w = [total_w / n_cols] * n_cols
+        except Exception:
+            col_w = [total_w / n_cols] * n_cols
+    else:
+        col_w = [total_w / n_cols] * n_cols
+
+    if pdf.get_y() > 250:
+        pdf.add_page()
+
+    # Table Header
+    if headers:
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_fill_color(*_NISKAVA_BLUE)
+        pdf.set_text_color(255, 255, 255)
+        for h, w in zip(headers, col_w):
+            clean_h = _clean_text(str(h), single_line=True)
+            pdf.cell(w, 6, f"  {clean_h}", border=1, fill=True)
+        pdf.ln()
+
+    # Table Data
+    pdf.set_font("Helvetica", "", 7.5)
+    for i, raw_row in enumerate(raw_rows):
+        if isinstance(raw_row, dict):
+            row_cells = [raw_row.get(h, "") for h in headers]
+        elif isinstance(raw_row, (list, tuple)):
+            row_cells = list(raw_row)
+        else:
+            row_cells = [raw_row]
+
+        if len(row_cells) < n_cols:
+            row_cells = list(row_cells) + [""] * (n_cols - len(row_cells))
+        elif len(row_cells) > n_cols:
+            row_cells = row_cells[:n_cols]
+
+        fill = (i % 2 == 0)
+        bg = (248, 248, 248) if fill else (255, 255, 255)
+        pdf.set_fill_color(*bg)
+        pdf.set_text_color(0, 0, 0)
+
+        for cell_val, w in zip(row_cells, col_w):
+            clean_val = _clean_text(str(cell_val) if cell_val is not None else "", single_line=True)
+            max_chars = max(10, int(w * 1.5))
+            if len(clean_val) > max_chars:
+                clean_val = clean_val[:max_chars - 3] + "..."
+            pdf.cell(w, 5.5, f"  {clean_val}", border=1, fill=fill)
+        pdf.ln()
+
+    pdf.ln(3.5)
+
+
+def _render_key_value_grid(
+    pdf: FPDF,
+    kv_data: Dict[str, Any],
+    title: Optional[str] = None,
+) -> None:
+    """Render a structured key-value grid (e.g. valuation multiples or company profile)."""
+    if not kv_data or not isinstance(kv_data, dict):
+        return
+
+    sec_title = title or kv_data.get("title") or kv_data.get("heading")
+
+    items_source = (
+        kv_data.get("items")
+        or kv_data.get("data")
+        or kv_data.get("metrics")
+        or kv_data.get("values")
+    )
+
+    pairs: List[tuple[str, str]] = []
+
+    if isinstance(items_source, dict):
+        for k, v in items_source.items():
+            if str(k).lower() not in ("title", "heading", "type", "cols"):
+                pairs.append((str(k), str(v)))
+    elif isinstance(items_source, list):
+        for entry in items_source:
+            if isinstance(entry, dict):
+                k = entry.get("key") or entry.get("label") or entry.get("name")
+                v = entry.get("value") or entry.get("val")
+                if k is not None and v is not None:
+                    pairs.append((str(k), str(v)))
+                else:
+                    for k_sub, v_sub in entry.items():
+                        if str(k_sub).lower() not in ("title", "heading", "type"):
+                            pairs.append((str(k_sub), str(v_sub)))
+            elif isinstance(entry, (list, tuple)) and len(entry) >= 2:
+                pairs.append((str(entry[0]), str(entry[1])))
+    else:
+        for k, v in kv_data.items():
+            if str(k).lower() not in ("title", "heading", "type", "cols", "items", "data", "metrics", "values"):
+                pairs.append((str(k), str(v)))
+
+    if not pairs:
+        return
+
+    if sec_title:
+        _section_title(pdf, str(sec_title).upper())
+
+    if pdf.get_y() > 250:
+        pdf.add_page()
+
+    cols = int(kv_data.get("cols", 2))
+    total_w = 190.0
+
+    if cols == 1:
+        k_w = 65.0
+        v_w = 125.0
+        for i, (k, v) in enumerate(pairs):
+            fill = (i % 2 == 0)
+            bg = (248, 248, 248) if fill else (255, 255, 255)
+            pdf.set_fill_color(*bg)
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.set_text_color(*_DARK_GRAY)
+            clean_k = _clean_text(k, single_line=True)
+            max_k = int(k_w * 1.5)
+            if len(clean_k) > max_k:
+                clean_k = clean_k[:max_k - 3] + "..."
+            pdf.cell(k_w, 5.5, f"  {clean_k}", border=1, fill=fill)
+
+            pdf.set_font("Helvetica", "", 8)
+            pdf.set_text_color(0, 0, 0)
+            clean_v = _clean_text(v, single_line=True)
+            max_v = int(v_w * 1.5)
+            if len(clean_v) > max_v:
+                clean_v = clean_v[:max_v - 3] + "..."
+            pdf.cell(v_w, 5.5, f"  {clean_v}", border=1, fill=fill)
+            pdf.ln()
+    else:
+        col_pair_w = total_w / 2.0  # 95.0mm
+        k_w = 42.0
+        v_w = col_pair_w - k_w      # 53.0mm
+
+        for idx in range(0, len(pairs), 2):
+            k1, v1 = pairs[idx]
+            has_second = (idx + 1 < len(pairs))
+            k2, v2 = pairs[idx + 1] if has_second else ("", "")
+
+            row_idx = idx // 2
+            fill = (row_idx % 2 == 0)
+            bg = (248, 248, 248) if fill else (255, 255, 255)
+
+            # Left pair
+            pdf.set_fill_color(*bg)
+            pdf.set_font("Helvetica", "B", 7.5)
+            pdf.set_text_color(*_DARK_GRAY)
+            clean_k1 = _clean_text(k1, single_line=True)
+            if len(clean_k1) > int(k_w * 1.5):
+                clean_k1 = clean_k1[:int(k_w * 1.5) - 3] + "..."
+            pdf.cell(k_w, 5.5, f"  {clean_k1}", border=1, fill=fill)
+
+            pdf.set_font("Helvetica", "", 7.5)
+            pdf.set_text_color(0, 0, 0)
+            clean_v1 = _clean_text(v1, single_line=True)
+            if len(clean_v1) > int(v_w * 1.5):
+                clean_v1 = clean_v1[:int(v_w * 1.5) - 3] + "..."
+            pdf.cell(v_w, 5.5, f"  {clean_v1}", border=1, fill=fill)
+
+            # Right pair
+            if has_second:
+                pdf.set_font("Helvetica", "B", 7.5)
+                pdf.set_text_color(*_DARK_GRAY)
+                clean_k2 = _clean_text(k2, single_line=True)
+                if len(clean_k2) > int(k_w * 1.5):
+                    clean_k2 = clean_k2[:int(k_w * 1.5) - 3] + "..."
+                pdf.cell(k_w, 5.5, f"  {clean_k2}", border=1, fill=fill)
+
+                pdf.set_font("Helvetica", "", 7.5)
+                pdf.set_text_color(0, 0, 0)
+                clean_v2 = _clean_text(v2, single_line=True)
+                if len(clean_v2) > int(v_w * 1.5):
+                    clean_v2 = clean_v2[:int(v_w * 1.5) - 3] + "..."
+                pdf.cell(v_w, 5.5, f"  {clean_v2}", border=1, fill=fill)
+            else:
+                pdf.cell(k_w + v_w, 5.5, "", border=1, fill=fill)
+
+            pdf.ln()
+
+    pdf.ln(3.5)
+
+
+def _render_block(pdf: FPDF, block: Dict[str, Any]) -> None:
+    """Render a single content block based on its block type."""
+    if not block or not isinstance(block, dict):
+        return
+
+    b_type = str(block.get("type", "")).lower().strip().replace("-", "_")
+
+    if b_type == "callout":
+        text = str(block.get("text") or block.get("content") or block.get("body") or "")
+        title = block.get("title") or block.get("heading")
+        style = str(block.get("style", "info")).lower()
+        _render_callout_box(pdf, text=text, title=title, style=style)
+
+    elif b_type in ("markdown", "text", "summary"):
+        title = block.get("title") or block.get("heading")
+        if title:
+            _section_title(pdf, str(title).upper())
+        content = str(block.get("content") or block.get("text") or block.get("body") or block.get("summary") or "")
+        _render_markdown_text(pdf, content)
+
+    elif b_type in ("table", "generic_table"):
+        table_data = block.get("table")
+        if isinstance(table_data, dict):
+            t_copy = dict(table_data)
+            if "title" not in t_copy and (block.get("title") or block.get("heading")):
+                t_copy["title"] = block.get("title") or block.get("heading")
+            _render_generic_table(pdf, t_copy)
+        else:
+            _render_generic_table(pdf, block)
+
+    elif b_type in ("key_value", "key_values", "metrics_grid"):
+        title = block.get("title") or block.get("heading")
+        data = block.get("data")
+        items = block.get("items")
+        if isinstance(data, dict):
+            _render_key_value_grid(pdf, data, title=title)
+        elif isinstance(items, (dict, list)):
+            _render_key_value_grid(pdf, block, title=title)
+        else:
+            _render_key_value_grid(pdf, block, title=title)
+
+    elif b_type in ("quant_metrics", "quant", "metrics"):
+        metrics = block.get("metrics") or block.get("data") or block
+        _render_quant_metrics(pdf, metrics)
+
+    elif b_type in ("evidence_matrix", "evidence"):
+        evidence = block.get("evidence") or block.get("items") or block.get("data") or []
+        _render_evidence_matrix(pdf, evidence)
+
+    elif b_type in ("news_matrix", "news", "news_items"):
+        news_items = block.get("news_items") or block.get("items") or block.get("data") or []
+        _render_news_matrix(pdf, news_items)
+
+
 def _detect_report_type(ticker: str, params: Dict[str, Any]) -> str:
     explicit = params.get("report_type")
     if explicit:
@@ -329,6 +738,16 @@ def _detect_report_type(ticker: str, params: Dict[str, Any]) -> str:
     if params.get("news_items"):
         return "MARKET_NEWS_BRIEF"
 
+    blocks = params.get("blocks") or []
+    if blocks:
+        for b in blocks:
+            b_type = str(b.get("type", "")).lower()
+            if "quant" in b_type:
+                return "TICKER_INVESTIGATION"
+            if "news" in b_type:
+                return "MARKET_NEWS_BRIEF"
+        return "CUSTOM_RESEARCH"
+
     if params.get("sections"):
         return "CUSTOM_RESEARCH"
 
@@ -341,10 +760,13 @@ def render_investigation_pdf(
 ) -> str:
     """Render a dynamic, section-driven investigation or market intelligence report to PDF.
 
+    Supports ordered dynamic blocks (`params["blocks"]`) or legacy section keys.
+
     Args:
         params: Dict with optional keys: ticker (str), title (str), summary (str),
                 metrics (dict), evidence (list[dict]), news_items (list[dict]),
-                sections (list[dict]), report_type (str), session_id (str).
+                sections (list[dict]), blocks (list[dict]), custom_tables (list[dict]),
+                report_type (str), session_id (str).
         output_dir: Directory to write the PDF. Defaults to ~/.niskava/reports/.
 
     Returns:
@@ -403,21 +825,58 @@ def render_investigation_pdf(
     )
     pdf.ln(3.5)
 
-    # Section 1: Executive Summary
-    _render_executive_summary(pdf, summary)
+    # Dynamic ordered blocks or backward-compatible legacy fallback
+    raw_blocks = params.get("blocks")
+    if raw_blocks and isinstance(raw_blocks, list):
+        for block in raw_blocks:
+            _render_block(pdf, block)
+    else:
+        # Build backward-compatible blocks list from legacy keys
+        legacy_blocks: List[Dict[str, Any]] = [
+            {
+                "type": "summary",
+                "title": "EXECUTIVE SUMMARY",
+                "content": summary or "No analytical summary provided.",
+            }
+        ]
+        if _has_meaningful_quant_metrics(metrics):
+            legacy_blocks.append({
+                "type": "quant_metrics",
+                "metrics": metrics,
+            })
+        if evidence:
+            legacy_blocks.append({
+                "type": "evidence_matrix",
+                "evidence": evidence,
+            })
+        if news_items:
+            legacy_blocks.append({
+                "type": "news_matrix",
+                "news_items": news_items,
+            })
+        custom_tables = params.get("custom_tables") or []
+        if custom_tables:
+            if isinstance(custom_tables, list):
+                for tbl in custom_tables:
+                    if isinstance(tbl, dict):
+                        tbl_b = dict(tbl)
+                        tbl_b.setdefault("type", "table")
+                        legacy_blocks.append(tbl_b)
+            elif isinstance(custom_tables, dict):
+                tbl_b = dict(custom_tables)
+                tbl_b.setdefault("type", "table")
+                legacy_blocks.append(tbl_b)
+        if sections:
+            for sec in sections:
+                if isinstance(sec, dict):
+                    legacy_blocks.append({
+                        "type": "markdown",
+                        "title": str(sec.get("heading") or sec.get("title") or "ANALYSIS").upper(),
+                        "content": sec.get("content") or sec.get("body") or "",
+                    })
 
-    # Dynamic Section 2: Quantitative Matrix (only if actual metrics exist)
-    if _has_meaningful_quant_metrics(metrics):
-        _render_quant_metrics(pdf, metrics)
-
-    # Dynamic Section 3: Evidence Matrix (if correlation evidence exists)
-    _render_evidence_matrix(pdf, evidence)
-
-    # Dynamic Section 4: Market News Digest (if news_items provided)
-    _render_news_matrix(pdf, news_items)
-
-    # Dynamic Section 5: Custom Analysis Sections
-    _render_custom_sections(pdf, sections)
+        for block in legacy_blocks:
+            _render_block(pdf, block)
 
     pdf.output(str(output_path))
     return str(output_path.resolve())
