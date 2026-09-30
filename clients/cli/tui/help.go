@@ -74,7 +74,10 @@ func GetFullHelpGuideString(overrideWidth ...int) string {
 	}
 
 	for _, item := range sec1Items {
-		paddedKey := fmt.Sprintf("%-*s", keyColWidth, Truncate(item.Key, keyColWidth))
+		paddedKey := item.Key
+		if len(item.Key) < keyColWidth {
+			paddedKey = fmt.Sprintf("%-*s", keyColWidth, item.Key)
+		}
 		prefix := fmt.Sprintf("   • %s : ", keyStyle.Render(paddedKey))
 		b.WriteString(formatHelpItem(prefix, item.Desc, w-2))
 	}
@@ -99,7 +102,10 @@ func GetFullHelpGuideString(overrideWidth ...int) string {
 	}
 
 	for _, hk := range hotkeys {
-		paddedHk := fmt.Sprintf("%-*s", hkColWidth, Truncate(hk.Key, hkColWidth))
+		paddedHk := hk.Key
+		if len(hk.Key) < hkColWidth {
+			paddedHk = fmt.Sprintf("%-*s", hkColWidth, hk.Key)
+		}
 		prefix := fmt.Sprintf("     - %s : ", keyStyle.Render(paddedHk))
 		b.WriteString(formatHelpItem(prefix, hk.Desc, w-2))
 	}
@@ -188,7 +194,10 @@ func GetFullHelpGuideString(overrideWidth ...int) string {
 	}
 
 	for _, sc := range slashCmds {
-		paddedCmd := fmt.Sprintf("%-*s", scColWidth, Truncate(sc.Cmd, scColWidth))
+		paddedCmd := sc.Cmd
+		if len(sc.Cmd) < scColWidth {
+			paddedCmd = fmt.Sprintf("%-*s", scColWidth, sc.Cmd)
+		}
 		prefix := fmt.Sprintf("   • %s : ", cmdStyle.Render(paddedCmd))
 		b.WriteString(formatHelpItem(prefix, sc.Desc, w-2))
 	}
@@ -217,19 +226,13 @@ func GetFullHelpGuideString(overrideWidth ...int) string {
 		{"niskava completion [shell]", "Generate shell autocompletion script."},
 	}
 
-	cliColWidth := 38
-	if w < 85 && w >= 65 {
-		cliColWidth = 30
-	} else if w < 65 && w >= 45 {
-		cliColWidth = 24
-	} else if w < 45 {
-		cliColWidth = 16
-	}
-
 	for _, item := range cliCmds {
-		paddedCmd := fmt.Sprintf("%-*s", cliColWidth, Truncate(item.Cmd, cliColWidth))
-		prefix := fmt.Sprintf("   • %s : ", mutedStyle.Render(paddedCmd))
-		b.WriteString(formatHelpItem(prefix, item.Desc, w-2))
+		b.WriteString(fmt.Sprintf("   • %s:\n", mutedStyle.Render(item.Cmd)))
+		wrapped := wrapText(item.Desc, descWidth)
+		for _, line := range strings.Split(wrapped, "\n") {
+			b.WriteString("     " + line + "\n")
+		}
+		b.WriteString("\n")
 	}
 	b.WriteString("\n")
 
