@@ -80,11 +80,8 @@ func RenderConstellationLine(overrideWidth ...int) string {
 	if len(overrideWidth) > 0 && overrideWidth[0] > 0 {
 		w = overrideWidth[0]
 	}
-	if w > 70 {
-		w = 70
-	}
-	if w < 30 {
-		w = 30
+	if w < 15 {
+		w = 15
 	}
 
 	n15 := int(float64(w) * 0.15)
@@ -119,15 +116,11 @@ func RenderConstellationLine(overrideWidth ...int) string {
 func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 	var b strings.Builder
 	w := GetTermWidth()
-	effW := w
-	if effW > 70 {
-		effW = 70
-	}
 
 	// 1. Top Matrix Background Dots
-	dotW := w
-	if dotW > 40 {
-		dotW = 40
+	dotW := w - 4
+	if dotW < 10 {
+		dotW = 10
 	}
 	b.WriteString("\n")
 	dotCount := (dotW - 4) / 2
@@ -165,9 +158,9 @@ func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 	b.WriteString("\n\n")
 
 	// 5. Upper Constellation Line
-	divW := w
-	if divW > 50 {
-		divW = 50
+	divW := w - 2
+	if divW < 15 {
+		divW = 15
 	}
 	b.WriteString(RenderConstellationLine(divW))
 	b.WriteString("\n\n")
