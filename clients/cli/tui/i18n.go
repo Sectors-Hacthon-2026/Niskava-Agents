@@ -254,8 +254,8 @@ var TUIStrings = map[string]map[string]string{
 		"id": "✓ Timeout inferensi diatur %.0fd (%s). Tersimpan ke config.",
 	},
 	"slash_timeout_invalid": {
-		"en": "⚠ Invalid. Use: /timeout fast(25s) | balanced(60s) | deep(120s) | local(180s) | <10–300>",
-		"id": "⚠ Tidak valid. Gunakan: /timeout fast(25d) | balanced(60d) | deep(120d) | local(180d) | <10–300>",
+		"en": "⚠️  Invalid. Use: /timeout fast(25s) | balanced(60s) | deep(120s) | local(180s) | <10–300>",
+		"id": "⚠️  Tidak valid. Gunakan: /timeout fast(25d) | balanced(60d) | deep(120d) | local(180d) | <10–300>",
 	},
 	"slash_timeout_current": {
 		"en": "Current inference timeout: %.0fs",
@@ -398,8 +398,8 @@ var TUIStrings = map[string]map[string]string{
 		"id": "🚨 [ANOMALI KUANTITATIF TERDETEKSI] %s | Ticker: %s | Z-Score: %.2fσ | Metric: %.2f (Baseline: %.2f)",
 	},
 	"repl_execution_cancelled": {
-		"en": "\n[!] Execution cancelled by user.\n",
-		"id": "\n[!] Eksekusi dibatalkan oleh pengguna.\n",
+		"en": "\n⚠️  Execution cancelled by user.\n",
+		"id": "\n⚠️  Eksekusi dibatalkan oleh pengguna.\n",
 	},
 	"slash_popup_header": {
 		"en": "SLASH COMMANDS (%d of %d)",
@@ -422,20 +422,20 @@ var TUIStrings = map[string]map[string]string{
 		"id": "  [✓] Sesi aktif [%s] tersimpan. Beralih ke: %s (%s)\n",
 	},
 	"repl_db_unavailable": {
-		"en": "  [!] SQLite database is not available.",
-		"id": "  [!] Database SQLite tidak tersedia.",
+		"en": "  ⚠️  SQLite database is not available.",
+		"id": "  ⚠️  Database SQLite tidak tersedia.",
 	},
 	"repl_chats_fetch_err": {
-		"en": "  [!] Failed to retrieve session history: %v",
-		"id": "  [!] Gagal mengambil riwayat sesi: %v",
+		"en": "  ⚠️  Failed to retrieve session history: %v",
+		"id": "  ⚠️  Gagal mengambil riwayat sesi: %v",
 	},
 	"repl_resume_usage": {
-		"en": "  [!] Usage format: /resume <SESSION_ID> (or type /chats to select)",
-		"id": "  [!] Format penggunaan: /resume <SESSION_ID> (atau ketik /chats untuk memilih)",
+		"en": "  ⚠️  Usage format: /resume <SESSION_ID> (or type /chats to select)",
+		"id": "  ⚠️  Format penggunaan: /resume <SESSION_ID> (atau ketik /chats untuk memilih)",
 	},
 	"repl_resume_not_found": {
-		"en": "  [!] Session '%s' not found in local database.",
-		"id": "  [!] Sesi '%s' tidak ditemukan di database lokal.",
+		"en": "  ⚠️  Session '%s' not found in local database.",
+		"id": "  ⚠️  Sesi '%s' tidak ditemukan di database lokal.",
 	},
 	"repl_resumed_history_divider": {
 		"en": "━━━ Previous Session History (%d Messages) ━━━",
@@ -450,12 +450,12 @@ var TUIStrings = map[string]map[string]string{
 		"id": "⚡ Niskava Agent:",
 	},
 	"repl_exit_confirm": {
-		"en": "  [!] Press Esc or Ctrl+C once more within 2 seconds to exit...",
-		"id": "  [!] Tekan Esc atau Ctrl+C sekali lagi dalam 2 detik untuk keluar...",
+		"en": "  ⚠️  Press Esc or Ctrl+C once more within 2 seconds to exit...",
+		"id": "  ⚠️  Tekan Esc atau Ctrl+C sekali lagi dalam 2 detik untuk keluar...",
 	},
 	"repl_interrupt_confirm": {
-		"en": "[!] Press Ctrl+C once more within 2 seconds to cancel investigation...",
-		"id": "[!] Tekan Ctrl+C sekali lagi dalam 2 detik untuk membatalkan investigasi...",
+		"en": "⚠️  Press Ctrl+C once more within 2 seconds to cancel investigation...",
+		"id": "⚠️  Tekan Ctrl+C sekali lagi dalam 2 detik untuk membatalkan investigasi...",
 	},
 	"repl_session_reset": {
 		"en": "\n[✓] Session reset and memory graph cleared. New conversation session: %s\n",
@@ -806,40 +806,40 @@ var TUIStrings = map[string]map[string]string{
 		"id": "✓ Laporan audit berhasil diekspor ke: %s",
 	},
 	"slash_export_db_err": {
-		"en": "⚠ SQLite database is not available for export.",
-		"id": "⚠ Database SQLite tidak tersedia untuk ekspor.",
+		"en": "⚠️  SQLite database is not available for export.",
+		"id": "⚠️  Database SQLite tidak tersedia untuk ekspor.",
 	},
 	"slash_export_empty": {
-		"en": "⚠ No chat history to export for session %s",
-		"id": "⚠ Tidak ada riwayat obrolan untuk diekspor pada sesi %s",
+		"en": "⚠️  No chat history to export for session %s",
+		"id": "⚠️  Tidak ada riwayat obrolan untuk diekspor pada sesi %s",
 	},
 	"slash_export_write_err": {
-		"en": "⚠ Failed to write export file: %v",
-		"id": "⚠ Gagal menulis berkas ekspor: %v",
+		"en": "⚠️  Failed to write export file: %v",
+		"id": "⚠️  Gagal menulis berkas ekspor: %v",
 	},
 	"slash_fork_db_err": {
-		"en": "⚠ SQLite database is not available for forking.",
-		"id": "⚠ Database SQLite tidak tersedia untuk forking.",
+		"en": "⚠️  SQLite database is not available for forking.",
+		"id": "⚠️  Database SQLite tidak tersedia untuk forking.",
 	},
 	"slash_fork_err": {
-		"en": "⚠ Failed to fork session: %v",
-		"id": "⚠ Gagal mencabangkan sesi: %v",
+		"en": "⚠️  Failed to fork session: %v",
+		"id": "⚠️  Gagal mencabangkan sesi: %v",
 	},
 	"slash_fork_success": {
 		"en": "✓ Session successfully forked from %s -> %s ('%s')",
 		"id": "✓ Sesi berhasil dicabangkan dari %s -> %s ('%s')",
 	},
 	"slash_search_usage": {
-		"en": "⚠ Usage: /search <keyword> (e.g. /search ANTM)",
-		"id": "⚠ Gunakan: /search <kata_kunci> (contoh: /search ANTM)",
+		"en": "⚠️  Usage: /search <keyword> (e.g. /search ANTM)",
+		"id": "⚠️  Gunakan: /search <kata_kunci> (contoh: /search ANTM)",
 	},
 	"slash_search_title_repl": {
 		"en": "🔍 Chat History Search Results ('%s'):",
 		"id": "🔍 Hasil Pencarian Riwayat ('%s'):",
 	},
 	"slash_anomalies_empty": {
-		"en": "ℹ No quantitative anomalies detected in active session.",
-		"id": "ℹ Tidak ada anomali kuantitatif terdeteksi pada sesi aktif saat ini.",
+		"en": "⚠️  No quantitative anomalies detected in active session.",
+		"id": "⚠️  Tidak ada anomali kuantitatif terdeteksi pada sesi aktif saat ini.",
 	},
 	"slash_anomalies_title": {
 		"en": "🚨 Quantitative Anomalies Detected:",
@@ -850,16 +850,16 @@ var TUIStrings = map[string]map[string]string{
 		"id": "🛠️ Katalog 6 Domain SOP Intelijen Pasar Niskava:",
 	},
 	"slash_cache_clean_err": {
-		"en": "⚠ Failed to clean cache: %v",
-		"id": "⚠ Gagal membersihkan cache: %v",
+		"en": "⚠️  Failed to clean cache: %v",
+		"id": "⚠️  Gagal membersihkan cache: %v",
 	},
 	"slash_cache_clean_success": {
 		"en": "✓ Successfully cleaned %d expired Sectors v2 cache entries.",
 		"id": "✓ Berhasil membersihkan %d entri cache Sectors v2 yang kadaluarsa.",
 	},
 	"slash_cache_stats_err": {
-		"en": "⚠ Failed to retrieve cache stats: %v",
-		"id": "⚠ Gagal mengambil statistik cache: %v",
+		"en": "⚠️  Failed to retrieve cache stats: %v",
+		"id": "⚠️  Gagal mengambil statistik cache: %v",
 	},
 	"slash_cache_stats_title": {
 		"en": "📊 Sectors API v2 Cache Stats (Law 5):",
@@ -966,16 +966,16 @@ var TUIStrings = map[string]map[string]string{
 		"id": "Cari & sorot pesan dalam riwayat sesi aktif yang sesuai kata kunci",
 	},
 	"slash_find_usage": {
-		"en": "Usage: /find <keyword> (e.g. /find dividend)",
-		"id": "Penggunaan: /find <kata_kunci> (contoh: /find dividen)",
+		"en": "⚠️  Usage: /find <keyword> (e.g. /find dividend)",
+		"id": "⚠️  Penggunaan: /find <kata_kunci> (contoh: /find dividen)",
 	},
 	"slash_find_empty": {
-		"en": "No history found for session %s.",
-		"id": "Tidak ada riwayat ditemukan untuk sesi %s.",
+		"en": "⚠️  No history found for session %s.",
+		"id": "⚠️  Tidak ada riwayat ditemukan untuk sesi %s.",
 	},
 	"slash_find_no_match": {
-		"en": "No messages found matching '%s' in current session.",
-		"id": "Tidak ada pesan yang cocok dengan '%s' di sesi ini.",
+		"en": "⚠️  No messages found matching '%s' in current session.",
+		"id": "⚠️  Tidak ada pesan yang cocok dengan '%s' di sesi ini.",
 	},
 	"slash_find_results_header": {
 		"en": "🔎 FOUND %d MESSAGES MATCHING '%s':",
@@ -986,16 +986,16 @@ var TUIStrings = map[string]map[string]string{
 		"id": "Salin ringkasan laporan investigasi aktif ke clipboard OS",
 	},
 	"slash_copy_empty": {
-		"en": "No messages available to copy in session %s.",
-		"id": "Tidak ada pesan yang dapat disalin pada sesi %s.",
+		"en": "⚠️  No messages available to copy in session %s.",
+		"id": "⚠️  Tidak ada pesan yang dapat disalin pada sesi %s.",
 	},
 	"slash_copy_no_assistant": {
-		"en": "No assistant response found to copy.",
-		"id": "Tidak ada balasan asisten yang ditemukan untuk disalin.",
+		"en": "⚠️  No assistant response found to copy.",
+		"id": "⚠️  Tidak ada balasan asisten yang ditemukan untuk disalin.",
 	},
 	"slash_copy_err": {
-		"en": "Failed to copy report to clipboard: %v",
-		"id": "Gagal menyalin laporan ke clipboard: %v",
+		"en": "⚠️  Failed to copy report to clipboard: %v",
+		"id": "⚠️  Gagal menyalin laporan ke clipboard: %v",
 	},
 	"slash_copy_success": {
 		"en": "📋 Latest investigation report copied to OS clipboard!",
@@ -1006,12 +1006,12 @@ var TUIStrings = map[string]map[string]string{
 		"id": "Bandingkan dua sesi investigasi bersandingan (/compare <ID1|TICKER1> <ID2|TICKER2>)",
 	},
 	"slash_compare_usage": {
-		"en": "Usage: /compare <SESSION_ID1|TICKER1> <SESSION_ID2|TICKER2> (e.g. /compare ANTM INCO)",
-		"id": "Penggunaan: /compare <ID1|TICKER1> <ID2|TICKER2> (contoh: /compare ANTM INCO)",
+		"en": "⚠️  Usage: /compare <SESSION_ID1|TICKER1> <SESSION_ID2|TICKER2> (e.g. /compare ANTM INCO)",
+		"id": "⚠️  Penggunaan: /compare <ID1|TICKER1> <ID2|TICKER2> (contoh: /compare ANTM INCO)",
 	},
 	"slash_compare_not_found": {
-		"en": "Session or ticker '%s' not found in database.",
-		"id": "Sesi atau kode saham '%s' tidak ditemukan di database.",
+		"en": "⚠️  Session or ticker '%s' not found in database.",
+		"id": "⚠️  Sesi atau kode saham '%s' tidak ditemukan di database.",
 	},
 	"slash_compare_title": {
 		"en": "📊 SIDE-BY-SIDE AUDIT COMPARISON: %s VS %s",
