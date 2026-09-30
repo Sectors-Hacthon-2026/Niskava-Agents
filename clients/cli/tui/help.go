@@ -324,7 +324,7 @@ func (m HelpViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m HelpViewerModel) View() string {
 	if !m.Ready {
-		return "\n  Initializing help viewer...\n"
+		return "\n  Initializing help viewer...\n\033[J"
 	}
 	w := m.Viewport.Width
 	if w <= 0 {
@@ -338,7 +338,7 @@ func (m HelpViewerModel) View() string {
 		footerText = "[↑/↓ Scroll • Esc Menu]"
 	}
 	footer := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(footerText)
-	return fmt.Sprintf("%s\n\n  %s", m.Viewport.View(), footer)
+	return fmt.Sprintf("%s\n\n  %s", m.Viewport.View(), footer) + "\033[J"
 }
 
 // PrintFullHelpGuide displays the interactive scrollable help guide.

@@ -219,8 +219,11 @@ func (m LauncherModel) View() string {
 
 	// 2. Solid Muted Green Separator
 	sepWidth := w - 4
-	if sepWidth < 30 {
-		sepWidth = 30
+	if sepWidth > w-2 {
+		sepWidth = w - 2
+	}
+	if sepWidth < 10 {
+		sepWidth = max(5, w-2)
 	}
 	solidLine := strings.Repeat("─", sepWidth)
 	if noColor {
@@ -336,7 +339,7 @@ func (m LauncherModel) View() string {
 		b.WriteString("\n")
 	}
 
-	return b.String()
+	return b.String() + "\033[J"
 }
 
 // PromptEscReturnModel is a Bubbletea sub-model that prompts the user to press ESC or Enter to return to main menu.
@@ -358,7 +361,7 @@ func (m PromptEscReturnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m PromptEscReturnModel) View() string {
-	return "\n" + lipgloss.NewStyle().Foreground(ColorMuted).Render(T("menu_press_enter")) + "\n"
+	return "\n" + lipgloss.NewStyle().Foreground(ColorMuted).Render(T("menu_press_enter")) + "\n\033[J"
 }
 
 // PromptPressEscToReturn renders "Press ESC to return to Menu..." and waits for keypress.

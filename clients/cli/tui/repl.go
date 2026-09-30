@@ -635,7 +635,7 @@ func (m ReplInputModel) View() string {
 		b.WriteString("\n")
 	}
 
-	return b.String()
+	return b.String() + "\033[J"
 }
 
 // renderResumedHistory displays past user and assistant turns when resuming an earlier session.

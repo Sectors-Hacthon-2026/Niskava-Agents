@@ -511,9 +511,16 @@ func (m SessionSelectorModel) View() string {
 	if termW <= 0 {
 		termW = GetTermWidth()
 	}
+	termH := m.Height
+	if termH <= 0 {
+		termH = GetTermHeight()
+	}
 	boxW := termW - 4
-	if boxW < 36 {
-		boxW = 36
+	if boxW > termW-2 {
+		boxW = termW - 2
+	}
+	if boxW < 16 {
+		boxW = max(10, termW-2)
 	}
 
 	sessionBoxStyle := lipgloss.NewStyle().
@@ -535,7 +542,7 @@ func (m SessionSelectorModel) View() string {
 			BorderForeground(ColorDanger).
 			Padding(1, 2).
 			Render(confirmStr)
-		return "\n" + sessionBoxStyle.Render(title+"\n\n"+box) + "\n"
+		return "\n" + sessionBoxStyle.Render(title+"\n\n"+box) + "\n\033[J"
 	}
 
 	// Render Export Modal Dialog if active
@@ -567,7 +574,7 @@ func (m SessionSelectorModel) View() string {
 			BorderForeground(ColorAccent).
 			Padding(1, 2).
 			Render(strings.Join(fLines, "\n"))
-		return "\n" + sessionBoxStyle.Render(title+"\n\n"+box) + "\n"
+		return "\n" + sessionBoxStyle.Render(title+"\n\n"+box) + "\n\033[J"
 	}
 
 	filtered := m.getFilteredSessions()
@@ -597,17 +604,28 @@ func (m SessionSelectorModel) View() string {
 	if totalAll == 0 {
 		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("session_selector_empty")))
 		b.WriteString("\n")
-		return "\n" + sessionBoxStyle.Render(b.String()) + "\n"
+		return "\n" + sessionBoxStyle.Render(b.String()) + "\n\033[J"
 	}
 
 	if totalFiltered == 0 {
 		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("session_selector_no_match")))
 		b.WriteString("\n")
-		return "\n" + sessionBoxStyle.Render(b.String()) + "\n"
+		return "\n" + sessionBoxStyle.Render(b.String()) + "\n\033[J"
 	}
 
-	// Sliding Viewport Window (max 5 sessions visible simultaneously)
-	maxVisible := 5
+	// Sliding Viewport Window dynamically bounded by terminal height
+	overhead := 10
+	if m.StatusNotice != "" {
+		overhead += 2
+	}
+	maxVisible := (termH - overhead) / 2
+	if maxVisible < 2 {
+		maxVisible = 2
+	}
+	if maxVisible > 8 {
+		maxVisible = 8
+	}
+
 	windowStart := 0
 	if m.Cursor >= maxVisible {
 		windowStart = m.Cursor - maxVisible + 1
@@ -674,5 +692,5 @@ func (m SessionSelectorModel) View() string {
 	b.WriteString("\n")
 	b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(T("session_selector_hint")))
 
-	return "\n" + sessionBoxStyle.Render(b.String()) + "\n"
+	return "\n" + sessionBoxStyle.Render(b.String()) + "\n\033[J"
 }

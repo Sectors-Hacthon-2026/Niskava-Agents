@@ -381,8 +381,11 @@ func (m HealthViewerModel) View() string {
 		w = GetTermWidth()
 	}
 	boxW := w - 4
-	if boxW < 30 {
-		boxW = 30
+	if boxW > w-2 {
+		boxW = w - 2
+	}
+	if boxW < 16 {
+		boxW = max(10, w-2)
 	}
 
 	headerStyle := lipgloss.NewStyle().
@@ -505,7 +508,7 @@ func (m HealthViewerModel) View() string {
 	b.WriteString("\n\n")
 	b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("[Press Esc or Enter to Return to Menu]"))
 
-	return "\n  " + cardStyle.Render(b.String()) + "\n"
+	return "\n  " + cardStyle.Render(b.String()) + "\n\033[J"
 }
 
 // ShowHealthDiagnosticsScreen displays interactive AltScreen health diagnostics card that live-resizes on window resize.
@@ -640,12 +643,15 @@ func (m WebWorkspaceViewerModel) View() string {
 		w = GetTermWidth()
 	}
 	boxW := w - 4
-	if boxW < 30 {
-		boxW = 30
+	if boxW > w-2 {
+		boxW = w - 2
+	}
+	if boxW < 16 {
+		boxW = max(10, w-2)
 	}
 	contentW := boxW - 6
-	if contentW < 18 {
-		contentW = 18
+	if contentW < 14 {
+		contentW = max(8, boxW-4)
 	}
 
 	headerStyle := lipgloss.NewStyle().
@@ -721,7 +727,7 @@ func (m WebWorkspaceViewerModel) View() string {
 	b.WriteString("\n\n")
 	b.WriteString(mutedStyle.Render("[Press Esc or Enter to Return to Menu]"))
 
-	return "\n  " + cardStyle.Render(b.String()) + "\n"
+	return "\n  " + cardStyle.Render(b.String()) + "\n\033[J"
 }
 
 // ShowWebWorkspaceLaunchScreen displays the interactive AltScreen Web Workspace card that live-resizes on window resize.

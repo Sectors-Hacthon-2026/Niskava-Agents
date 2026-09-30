@@ -117,8 +117,11 @@ func (m LangSelectorModel) View() string {
 		termW = GetTermWidth()
 	}
 	boxW := termW - 4
-	if boxW < 36 {
-		boxW = 36
+	if boxW > termW-2 {
+		boxW = termW - 2
+	}
+	if boxW < 16 {
+		boxW = max(10, termW-2)
 	}
 
 	langBoxStyle := lipgloss.NewStyle().
@@ -155,5 +158,5 @@ func (m LangSelectorModel) View() string {
 	b.WriteString("\n")
 	b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(T("lang_selector_hint")))
 
-	return "\n" + langBoxStyle.Render(b.String()) + "\n"
+	return "\n" + langBoxStyle.Render(b.String()) + "\n\033[J"
 }
