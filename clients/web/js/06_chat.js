@@ -402,10 +402,14 @@
                 });
 
                 const btnCopy = msgDiv.querySelector('.btn-copy-report');
-                btnCopy.addEventListener('click', () => {
-                    navigator.clipboard.writeText(contentEl.innerText).then(() => {
+                btnCopy.addEventListener('click', async () => {
+                    const text = contentEl.innerText || contentEl.textContent || '';
+                    const ok = await copyToClipboard(text);
+                    if (ok) {
                         showToast(t('toast_copied'));
-                    });
+                    } else {
+                        showToast(currentLang === 'en' ? 'Failed to copy to clipboard' : 'Gagal menyalin ke papan klip', true);
+                    }
                 });
 
                 const btnExport = msgDiv.querySelector('.btn-export-md');

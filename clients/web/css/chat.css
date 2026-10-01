@@ -350,6 +350,19 @@
             border-radius: 4px;
             color: var(--code-color);
         }
+        .markdown-rendered a,
+        .markdown-rendered .md-link {
+            color: var(--accent-text);
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            font-weight: 500;
+            transition: opacity 0.2s ease, text-decoration-color 0.2s ease;
+        }
+        .markdown-rendered a:hover,
+        .markdown-rendered .md-link:hover {
+            opacity: 0.85;
+            text-decoration-thickness: 2px;
+        }
         /* Code Blocks & Wrappers */
         .code-block-wrapper {
             margin: 14px 0;

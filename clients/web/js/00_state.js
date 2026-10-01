@@ -6,6 +6,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
             let currentSessionId = 'WEB-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(1000 + Math.random() * 9000);
             let isGenerating = false;
             let currentAbortController = null;
+            let switchMainView = null;
 
             // DOM Elements
 

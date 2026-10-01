@@ -1,6 +1,6 @@
 // 10. Navigation, Dedicated Memory Graph & Settings/Toolkit Integration
             function initNavigationAndSettings() {
-                const composerContainer = document.querySelector('.composer-container');
+                const composerContainer = document.getElementById('composerContainer') || document.querySelector('.composer-container');
                 const globalComplianceBox = document.getElementById('globalComplianceBox');
                 const graphPageView = document.getElementById('graphPageView');
                 const workspaceContent = document.getElementById('workspaceContent');
@@ -253,7 +253,7 @@
                 const btnCleanCache = document.getElementById('btnCleanCache');
                 const diagnosticsDetails = document.getElementById('diagnosticsDetails');
 
-                function switchMainView(targetNav) {
+                switchMainView = function(targetNav) {
                     if (typeof closeMobileSidebar === 'function') {
                         closeMobileSidebar();
                     }
@@ -1374,8 +1374,12 @@
                                 e.preventDefault();
                                 const path = btn.getAttribute('data-path');
                                 if (path) {
-                                    navigator.clipboard.writeText(path).then(() => {
-                                        showToast(isEn ? 'Path copied to clipboard' : 'Jalur disalin ke papan klip');
+                                    copyToClipboard(path).then((success) => {
+                                        if (success) {
+                                            showToast(isEn ? 'Path copied to clipboard' : 'Jalur disalin ke papan klip');
+                                        } else {
+                                            showToast(isEn ? 'Failed to copy path' : 'Gagal menyalin jalur', 'error');
+                                        }
                                     });
                                 }
                             });

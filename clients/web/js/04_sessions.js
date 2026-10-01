@@ -269,17 +269,23 @@
                 loadLiveGraph(sessionId);
 
                 // Ensure workspace switches back to active Chat View from other tabs
-                const invPageView = document.getElementById('investigationsPageView');
-                const graphPageView = document.getElementById('graphPageView');
-                const composerContainer = document.getElementById('composerContainer');
-                const globalComplianceBox = document.getElementById('globalComplianceBox');
-                if (invPageView) invPageView.style.display = 'none';
-                if (graphPageView) graphPageView.style.display = 'none';
-                if (globalComplianceBox) globalComplianceBox.style.display = 'block';
-                if (composerContainer) composerContainer.style.display = 'flex';
-                document.querySelectorAll('.nav-link-item').forEach(item => {
-                    item.classList.toggle('active', item.getAttribute('data-nav') === 'chat');
-                });
+                if (typeof switchMainView === 'function') {
+                    switchMainView('chat');
+                } else {
+                    const invPageView = document.getElementById('investigationsPageView');
+                    const graphPageView = document.getElementById('graphPageView');
+                    const composerContainer = document.getElementById('composerContainer') || document.querySelector('.composer-container');
+                    const globalComplianceBox = document.getElementById('globalComplianceBox');
+                    const workspaceContent = document.getElementById('workspaceContent');
+                    if (workspaceContent) workspaceContent.classList.remove('graph-mode');
+                    if (invPageView) invPageView.style.display = 'none';
+                    if (graphPageView) graphPageView.style.display = 'none';
+                    if (globalComplianceBox) globalComplianceBox.style.display = 'block';
+                    if (composerContainer) composerContainer.style.display = 'flex';
+                    document.querySelectorAll('.nav-link-item').forEach(item => {
+                        item.classList.toggle('active', item.getAttribute('data-nav') === 'chat');
+                    });
+                }
 
                 if (chatView) {
                     chatView.innerHTML = '';
@@ -599,6 +605,9 @@
                 if (chatView) {
                     chatView.innerHTML = '';
                 }
+                if (typeof switchMainView === 'function') {
+                    switchMainView('chat');
+                }
                 showHeroView();
                 document.getElementById('currentSessionLabel').textContent = t('header_session_default');
                 chatInput.value = '';
@@ -648,3 +657,117 @@
             });
 
             // 7. Riwayat Items Handled Dynamically
+
+            // 8. Header Session Title Dropdown Menu (#sessionTitleDropdown)
+            const sessionTitleDropdown = document.getElementById('sessionTitleDropdown');
+            let headerDropdownEl = null;
+
+            function closeHeaderDropdown() {
+                if (headerDropdownEl) {
+                    headerDropdownEl.remove();
+                    headerDropdownEl = null;
+                }
+                if (sessionTitleDropdown) {
+                    sessionTitleDropdown.classList.remove('open');
+                    sessionTitleDropdown.setAttribute('aria-expanded', 'false');
+                }
+            }
+
+            function toggleHeaderDropdown(e) {
+                if (e) e.stopPropagation();
+                if (headerDropdownEl) {
+                    closeHeaderDropdown();
+                    return;
+                }
+                if (!sessionTitleDropdown) return;
+
+                if (typeof closeHistoryDropdown === 'function') {
+                    closeHistoryDropdown();
+                }
+                sessionTitleDropdown.classList.add('open');
+                sessionTitleDropdown.setAttribute('aria-expanded', 'true');
+                headerDropdownEl = document.createElement('div');
+                headerDropdownEl.className = 'header-sessions-dropdown';
+
+                const isEn = (currentLang === 'en');
+                const recentSessions = (cachedChatSessions || []).slice(0, 8);
+
+                let listHtml = '';
+                if (recentSessions.length === 0) {
+                    listHtml = `<div class="header-session-empty">${isEn ? 'No recent sessions' : 'Belum ada riwayat percakapan'}</div>`;
+                } else {
+                    listHtml = recentSessions.map(s => {
+                        const sId = s.id || s.session_id;
+                        const fullTitle = formatSessionTitle(s);
+                        const isActive = (sId === currentSessionId);
+                        return `
+                            <button type="button" class="header-session-item${isActive ? ' active' : ''}" data-session-id="${escapeHtml(sId)}" title="${escapeHtml(fullTitle)}">
+                                <div style="display:flex; align-items:center; gap:8px; min-width:0; overflow:hidden;">
+                                    ${getSessionPlatformBadge(sId)}
+                                    <span class="header-session-title">${escapeHtml(fullTitle)}</span>
+                                </div>
+                                ${isActive ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--primary); flex-shrink:0;"><polyline points="20 6 9 17 4 12"></polyline></svg>' : ''}
+                            </button>
+                        `;
+                    }).join('');
+                }
+
+                headerDropdownEl.innerHTML = `
+                    <div class="header-sessions-header">
+                        <span class="header-sessions-title">${isEn ? 'Recent Sessions' : 'Sesi Terkini'}</span>
+                        <button type="button" class="btn-header-new-session" id="btnHeaderNewSession" title="${isEn ? 'New Research' : 'Mulai Riset Baru'}">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            <span>${isEn ? 'New' : 'Riset Baru'}</span>
+                        </button>
+                    </div>
+                    <div class="header-sessions-list">
+                        ${listHtml}
+                    </div>
+                `;
+
+                headerDropdownEl.addEventListener('click', (evt) => {
+                    evt.stopPropagation();
+                });
+
+                const btnNew = headerDropdownEl.querySelector('#btnHeaderNewSession');
+                if (btnNew) {
+                    btnNew.addEventListener('click', () => {
+                        closeHeaderDropdown();
+                        if (btnNewResearch) btnNewResearch.click();
+                    });
+                }
+
+                headerDropdownEl.querySelectorAll('.header-session-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const sid = item.getAttribute('data-session-id');
+                        const target = (cachedChatSessions || []).find(s => (s.id || s.session_id) === sid);
+                        const fullTitle = target ? formatSessionTitle(target) : (isEn ? 'Chat Session' : 'Sesi Percakapan');
+                        closeHeaderDropdown();
+                        switchSession(sid, fullTitle);
+                    });
+                });
+
+                sessionTitleDropdown.appendChild(headerDropdownEl);
+            }
+
+            if (sessionTitleDropdown) {
+                sessionTitleDropdown.setAttribute('aria-expanded', 'false');
+                sessionTitleDropdown.addEventListener('click', (e) => {
+                    toggleHeaderDropdown(e);
+                });
+                sessionTitleDropdown.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleHeaderDropdown(e);
+                    } else if (e.key === 'Escape') {
+                        closeHeaderDropdown();
+                    }
+                });
+            }
+
+            document.addEventListener('click', (e) => {
+                if (headerDropdownEl && !e.target.closest('#sessionTitleDropdown')) {
+                    closeHeaderDropdown();
+                }
+            });
+            window.addEventListener('resize', closeHeaderDropdown);

@@ -10,6 +10,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
             let currentSessionId = 'WEB-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(1000 + Math.random() * 9000);
             let isGenerating = false;
             let currentAbortController = null;
+            let switchMainView = null;
 
             // DOM Elements
 
@@ -759,6 +760,22 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
 
             // View visibility state controllers (Clean synchronization without conflicting inline styles)
             function showChatView() {
+                const graphPageView = document.getElementById('graphPageView');
+                const invPageView = document.getElementById('investigationsPageView');
+                const composerContainer = document.getElementById('composerContainer') || document.querySelector('.composer-container');
+                const globalComplianceBox = document.getElementById('globalComplianceBox');
+                const workspaceContent = document.getElementById('workspaceContent');
+
+                if (graphPageView) graphPageView.style.display = 'none';
+                if (invPageView) invPageView.style.display = 'none';
+                if (workspaceContent) workspaceContent.classList.remove('graph-mode');
+                if (globalComplianceBox) globalComplianceBox.style.display = 'block';
+                if (composerContainer) composerContainer.style.display = 'flex';
+
+                document.querySelectorAll('.nav-link-item').forEach(item => {
+                    item.classList.toggle('active', item.getAttribute('data-nav') === 'chat');
+                });
+
                 if (heroView) {
                     heroView.classList.add('hidden');
                     heroView.style.display = 'none';
@@ -772,6 +789,22 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
             }
 
             function showHeroView() {
+                const graphPageView = document.getElementById('graphPageView');
+                const invPageView = document.getElementById('investigationsPageView');
+                const composerContainer = document.getElementById('composerContainer') || document.querySelector('.composer-container');
+                const globalComplianceBox = document.getElementById('globalComplianceBox');
+                const workspaceContent = document.getElementById('workspaceContent');
+
+                if (graphPageView) graphPageView.style.display = 'none';
+                if (invPageView) invPageView.style.display = 'none';
+                if (workspaceContent) workspaceContent.classList.remove('graph-mode');
+                if (globalComplianceBox) globalComplianceBox.style.display = 'block';
+                if (composerContainer) composerContainer.style.display = 'flex';
+
+                document.querySelectorAll('.nav-link-item').forEach(item => {
+                    item.classList.toggle('active', item.getAttribute('data-nav') === 'chat');
+                });
+
                 if (chatView) {
                     chatView.classList.remove('active');
                     chatView.style.display = 'none';
@@ -790,6 +823,37 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 if (!str) return '';
                 return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             }
+
+            // Universal Clipboard Copy with Fallback for non-HTTPS / LAN IP environments
+            async function copyToClipboard(text) {
+                if (!text) return false;
+                if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        return true;
+                    } catch (e) {
+                        console.warn('navigator.clipboard.writeText failed, falling back to execCommand:', e);
+                    }
+                }
+                try {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.style.position = 'fixed';
+                    textarea.style.left = '-9999px';
+                    textarea.style.top = '-9999px';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.focus();
+                    textarea.select();
+                    const success = document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    return success;
+                } catch (err) {
+                    console.error('execCommand copy fallback failed:', err);
+                    return false;
+                }
+            }
+            window.copyToClipboard = copyToClipboard;
 
             // ==========================================================================
 
@@ -1323,17 +1387,23 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 loadLiveGraph(sessionId);
 
                 // Ensure workspace switches back to active Chat View from other tabs
-                const invPageView = document.getElementById('investigationsPageView');
-                const graphPageView = document.getElementById('graphPageView');
-                const composerContainer = document.getElementById('composerContainer');
-                const globalComplianceBox = document.getElementById('globalComplianceBox');
-                if (invPageView) invPageView.style.display = 'none';
-                if (graphPageView) graphPageView.style.display = 'none';
-                if (globalComplianceBox) globalComplianceBox.style.display = 'block';
-                if (composerContainer) composerContainer.style.display = 'flex';
-                document.querySelectorAll('.nav-link-item').forEach(item => {
-                    item.classList.toggle('active', item.getAttribute('data-nav') === 'chat');
-                });
+                if (typeof switchMainView === 'function') {
+                    switchMainView('chat');
+                } else {
+                    const invPageView = document.getElementById('investigationsPageView');
+                    const graphPageView = document.getElementById('graphPageView');
+                    const composerContainer = document.getElementById('composerContainer') || document.querySelector('.composer-container');
+                    const globalComplianceBox = document.getElementById('globalComplianceBox');
+                    const workspaceContent = document.getElementById('workspaceContent');
+                    if (workspaceContent) workspaceContent.classList.remove('graph-mode');
+                    if (invPageView) invPageView.style.display = 'none';
+                    if (graphPageView) graphPageView.style.display = 'none';
+                    if (globalComplianceBox) globalComplianceBox.style.display = 'block';
+                    if (composerContainer) composerContainer.style.display = 'flex';
+                    document.querySelectorAll('.nav-link-item').forEach(item => {
+                        item.classList.toggle('active', item.getAttribute('data-nav') === 'chat');
+                    });
+                }
 
                 if (chatView) {
                     chatView.innerHTML = '';
@@ -1653,6 +1723,9 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 if (chatView) {
                     chatView.innerHTML = '';
                 }
+                if (typeof switchMainView === 'function') {
+                    switchMainView('chat');
+                }
                 showHeroView();
                 document.getElementById('currentSessionLabel').textContent = t('header_session_default');
                 chatInput.value = '';
@@ -1702,6 +1775,120 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
             });
 
             // 7. Riwayat Items Handled Dynamically
+
+            // 8. Header Session Title Dropdown Menu (#sessionTitleDropdown)
+            const sessionTitleDropdown = document.getElementById('sessionTitleDropdown');
+            let headerDropdownEl = null;
+
+            function closeHeaderDropdown() {
+                if (headerDropdownEl) {
+                    headerDropdownEl.remove();
+                    headerDropdownEl = null;
+                }
+                if (sessionTitleDropdown) {
+                    sessionTitleDropdown.classList.remove('open');
+                    sessionTitleDropdown.setAttribute('aria-expanded', 'false');
+                }
+            }
+
+            function toggleHeaderDropdown(e) {
+                if (e) e.stopPropagation();
+                if (headerDropdownEl) {
+                    closeHeaderDropdown();
+                    return;
+                }
+                if (!sessionTitleDropdown) return;
+
+                if (typeof closeHistoryDropdown === 'function') {
+                    closeHistoryDropdown();
+                }
+                sessionTitleDropdown.classList.add('open');
+                sessionTitleDropdown.setAttribute('aria-expanded', 'true');
+                headerDropdownEl = document.createElement('div');
+                headerDropdownEl.className = 'header-sessions-dropdown';
+
+                const isEn = (currentLang === 'en');
+                const recentSessions = (cachedChatSessions || []).slice(0, 8);
+
+                let listHtml = '';
+                if (recentSessions.length === 0) {
+                    listHtml = `<div class="header-session-empty">${isEn ? 'No recent sessions' : 'Belum ada riwayat percakapan'}</div>`;
+                } else {
+                    listHtml = recentSessions.map(s => {
+                        const sId = s.id || s.session_id;
+                        const fullTitle = formatSessionTitle(s);
+                        const isActive = (sId === currentSessionId);
+                        return `
+                            <button type="button" class="header-session-item${isActive ? ' active' : ''}" data-session-id="${escapeHtml(sId)}" title="${escapeHtml(fullTitle)}">
+                                <div style="display:flex; align-items:center; gap:8px; min-width:0; overflow:hidden;">
+                                    ${getSessionPlatformBadge(sId)}
+                                    <span class="header-session-title">${escapeHtml(fullTitle)}</span>
+                                </div>
+                                ${isActive ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--primary); flex-shrink:0;"><polyline points="20 6 9 17 4 12"></polyline></svg>' : ''}
+                            </button>
+                        `;
+                    }).join('');
+                }
+
+                headerDropdownEl.innerHTML = `
+                    <div class="header-sessions-header">
+                        <span class="header-sessions-title">${isEn ? 'Recent Sessions' : 'Sesi Terkini'}</span>
+                        <button type="button" class="btn-header-new-session" id="btnHeaderNewSession" title="${isEn ? 'New Research' : 'Mulai Riset Baru'}">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            <span>${isEn ? 'New' : 'Riset Baru'}</span>
+                        </button>
+                    </div>
+                    <div class="header-sessions-list">
+                        ${listHtml}
+                    </div>
+                `;
+
+                headerDropdownEl.addEventListener('click', (evt) => {
+                    evt.stopPropagation();
+                });
+
+                const btnNew = headerDropdownEl.querySelector('#btnHeaderNewSession');
+                if (btnNew) {
+                    btnNew.addEventListener('click', () => {
+                        closeHeaderDropdown();
+                        if (btnNewResearch) btnNewResearch.click();
+                    });
+                }
+
+                headerDropdownEl.querySelectorAll('.header-session-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const sid = item.getAttribute('data-session-id');
+                        const target = (cachedChatSessions || []).find(s => (s.id || s.session_id) === sid);
+                        const fullTitle = target ? formatSessionTitle(target) : (isEn ? 'Chat Session' : 'Sesi Percakapan');
+                        closeHeaderDropdown();
+                        switchSession(sid, fullTitle);
+                    });
+                });
+
+                sessionTitleDropdown.appendChild(headerDropdownEl);
+            }
+
+            if (sessionTitleDropdown) {
+                sessionTitleDropdown.setAttribute('aria-expanded', 'false');
+                sessionTitleDropdown.addEventListener('click', (e) => {
+                    toggleHeaderDropdown(e);
+                });
+                sessionTitleDropdown.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleHeaderDropdown(e);
+                    } else if (e.key === 'Escape') {
+                        closeHeaderDropdown();
+                    }
+                });
+            }
+
+            document.addEventListener('click', (e) => {
+                if (headerDropdownEl && !e.target.closest('#sessionTitleDropdown')) {
+                    closeHeaderDropdown();
+                }
+            });
+            window.addEventListener('resize', closeHeaderDropdown);
 
     // --- 05_graph.js ---
 // 8. Memory Graph: Dynamic Knowledge Graph Visualizer & Anomaly Feed
@@ -1866,7 +2053,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                         .replace(/&/g, '&amp;')
                         .replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;');
-                    const langBadge = lang ? `<div class="code-block-header"><span class="code-lang-label">${lang.toUpperCase()}</span><button class="btn-copy-code" onclick="navigator.clipboard.writeText(this.getAttribute('data-code')).then(()=>showToast(currentLang==='en'?'Code copied!':'Kode disalin!'))" data-code="${code.replace(/"/g, '&quot;')}">Salin</button></div>` : '';
+                    const langBadge = lang ? `<div class="code-block-header"><span class="code-lang-label">${lang.toUpperCase()}</span><button class="btn-copy-code" onclick="copyToClipboard(this.getAttribute('data-code')).then(ok=>{if(ok)showToast(currentLang==='en'?'Code copied!':'Kode disalin!')})" data-code="${code.replace(/"/g, '&quot;')}">Salin</button></div>` : '';
                     codeBlocks.push(`<div class="code-block-wrapper">${langBadge}<pre><code class="language-${lang || 'plaintext'}">${escapedCode}</code></pre></div>`);
                     return id;
                 });
@@ -1902,6 +2089,9 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
                 text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
                 text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+                // Step 7b: Markdown Links [label](url)
+                text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+|\/[a-zA-Z0-9_\-\.\/]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="md-link">$1</a>');
 
                 // Step 8: Tables and Lists line-by-line processing
                 const lines = text.split('\n');
@@ -2390,10 +2580,14 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 });
 
                 const btnCopy = msgDiv.querySelector('.btn-copy-report');
-                btnCopy.addEventListener('click', () => {
-                    navigator.clipboard.writeText(contentEl.innerText).then(() => {
+                btnCopy.addEventListener('click', async () => {
+                    const text = contentEl.innerText || contentEl.textContent || '';
+                    const ok = await copyToClipboard(text);
+                    if (ok) {
                         showToast(t('toast_copied'));
-                    });
+                    } else {
+                        showToast(currentLang === 'en' ? 'Failed to copy to clipboard' : 'Gagal menyalin ke papan klip', true);
+                    }
                 });
 
                 const btnExport = msgDiv.querySelector('.btn-export-md');
@@ -2457,7 +2651,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
     // --- 07_settings.js ---
 // 10. Navigation, Dedicated Memory Graph & Settings/Toolkit Integration
             function initNavigationAndSettings() {
-                const composerContainer = document.querySelector('.composer-container');
+                const composerContainer = document.getElementById('composerContainer') || document.querySelector('.composer-container');
                 const globalComplianceBox = document.getElementById('globalComplianceBox');
                 const graphPageView = document.getElementById('graphPageView');
                 const workspaceContent = document.getElementById('workspaceContent');
@@ -2710,7 +2904,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 const btnCleanCache = document.getElementById('btnCleanCache');
                 const diagnosticsDetails = document.getElementById('diagnosticsDetails');
 
-                function switchMainView(targetNav) {
+                switchMainView = function(targetNav) {
                     if (typeof closeMobileSidebar === 'function') {
                         closeMobileSidebar();
                     }
@@ -3831,8 +4025,12 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                                 e.preventDefault();
                                 const path = btn.getAttribute('data-path');
                                 if (path) {
-                                    navigator.clipboard.writeText(path).then(() => {
-                                        showToast(isEn ? 'Path copied to clipboard' : 'Jalur disalin ke papan klip');
+                                    copyToClipboard(path).then((success) => {
+                                        if (success) {
+                                            showToast(isEn ? 'Path copied to clipboard' : 'Jalur disalin ke papan klip');
+                                        } else {
+                                            showToast(isEn ? 'Failed to copy path' : 'Gagal menyalin jalur', 'error');
+                                        }
                                     });
                                 }
                             });

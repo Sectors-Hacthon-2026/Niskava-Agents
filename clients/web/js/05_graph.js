@@ -160,7 +160,7 @@
                         .replace(/&/g, '&amp;')
                         .replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;');
-                    const langBadge = lang ? `<div class="code-block-header"><span class="code-lang-label">${lang.toUpperCase()}</span><button class="btn-copy-code" onclick="navigator.clipboard.writeText(this.getAttribute('data-code')).then(()=>showToast(currentLang==='en'?'Code copied!':'Kode disalin!'))" data-code="${code.replace(/"/g, '&quot;')}">Salin</button></div>` : '';
+                    const langBadge = lang ? `<div class="code-block-header"><span class="code-lang-label">${lang.toUpperCase()}</span><button class="btn-copy-code" onclick="copyToClipboard(this.getAttribute('data-code')).then(ok=>{if(ok)showToast(currentLang==='en'?'Code copied!':'Kode disalin!')})" data-code="${code.replace(/"/g, '&quot;')}">Salin</button></div>` : '';
                     codeBlocks.push(`<div class="code-block-wrapper">${langBadge}<pre><code class="language-${lang || 'plaintext'}">${escapedCode}</code></pre></div>`);
                     return id;
                 });
@@ -196,6 +196,9 @@
                 text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
                 text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
                 text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+                // Step 7b: Markdown Links [label](url)
+                text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+|\/[a-zA-Z0-9_\-\.\/]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="md-link">$1</a>');
 
                 // Step 8: Tables and Lists line-by-line processing
                 const lines = text.split('\n');

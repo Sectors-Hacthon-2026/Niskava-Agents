@@ -204,6 +204,22 @@
 
             // View visibility state controllers (Clean synchronization without conflicting inline styles)
             function showChatView() {
+                const graphPageView = document.getElementById('graphPageView');
+                const invPageView = document.getElementById('investigationsPageView');
+                const composerContainer = document.getElementById('composerContainer') || document.querySelector('.composer-container');
+                const globalComplianceBox = document.getElementById('globalComplianceBox');
+                const workspaceContent = document.getElementById('workspaceContent');
+
+                if (graphPageView) graphPageView.style.display = 'none';
+                if (invPageView) invPageView.style.display = 'none';
+                if (workspaceContent) workspaceContent.classList.remove('graph-mode');
+                if (globalComplianceBox) globalComplianceBox.style.display = 'block';
+                if (composerContainer) composerContainer.style.display = 'flex';
+
+                document.querySelectorAll('.nav-link-item').forEach(item => {
+                    item.classList.toggle('active', item.getAttribute('data-nav') === 'chat');
+                });
+
                 if (heroView) {
                     heroView.classList.add('hidden');
                     heroView.style.display = 'none';
@@ -217,6 +233,22 @@
             }
 
             function showHeroView() {
+                const graphPageView = document.getElementById('graphPageView');
+                const invPageView = document.getElementById('investigationsPageView');
+                const composerContainer = document.getElementById('composerContainer') || document.querySelector('.composer-container');
+                const globalComplianceBox = document.getElementById('globalComplianceBox');
+                const workspaceContent = document.getElementById('workspaceContent');
+
+                if (graphPageView) graphPageView.style.display = 'none';
+                if (invPageView) invPageView.style.display = 'none';
+                if (workspaceContent) workspaceContent.classList.remove('graph-mode');
+                if (globalComplianceBox) globalComplianceBox.style.display = 'block';
+                if (composerContainer) composerContainer.style.display = 'flex';
+
+                document.querySelectorAll('.nav-link-item').forEach(item => {
+                    item.classList.toggle('active', item.getAttribute('data-nav') === 'chat');
+                });
+
                 if (chatView) {
                     chatView.classList.remove('active');
                     chatView.style.display = 'none';
@@ -235,5 +267,36 @@
                 if (!str) return '';
                 return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             }
+
+            // Universal Clipboard Copy with Fallback for non-HTTPS / LAN IP environments
+            async function copyToClipboard(text) {
+                if (!text) return false;
+                if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        return true;
+                    } catch (e) {
+                        console.warn('navigator.clipboard.writeText failed, falling back to execCommand:', e);
+                    }
+                }
+                try {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.style.position = 'fixed';
+                    textarea.style.left = '-9999px';
+                    textarea.style.top = '-9999px';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.focus();
+                    textarea.select();
+                    const success = document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    return success;
+                } catch (err) {
+                    console.error('execCommand copy fallback failed:', err);
+                    return false;
+                }
+            }
+            window.copyToClipboard = copyToClipboard;
 
             // ==========================================================================

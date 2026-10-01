@@ -886,6 +886,107 @@
         .header-title-dropdown:hover {
             background: var(--bg-card-hover);
         }
+        .header-title-dropdown.open svg {
+            transform: rotate(180deg);
+        }
+        .header-title-dropdown svg {
+            transition: transform 0.2s ease;
+        }
+        .workspace-header .header-title-dropdown.open::after {
+            display: none !important;
+        }
+        .header-sessions-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            width: 300px;
+            max-width: 90vw;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.08);
+            z-index: 10000;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            animation: popMenu 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+            cursor: default;
+        }
+        .header-sessions-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+        }
+        .header-sessions-title {
+            font-size: 11.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+        .btn-header-new-session {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: var(--primary);
+            color: var(--primary-text);
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-header-new-session:hover {
+            background: var(--primary-hover);
+        }
+        .header-sessions-list {
+            max-height: 280px;
+            overflow-y: auto;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .header-session-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 12.5px;
+            color: var(--text-primary);
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+            transition: background 0.12s ease;
+        }
+        .header-session-item:hover {
+            background: var(--bg-card-hover);
+        }
+        .header-session-item.active {
+            background: var(--pill-active-bg);
+            color: var(--primary-text);
+            font-weight: 600;
+        }
+        .header-session-title {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 220px;
+        }
+        .header-session-empty {
+            padding: 18px 12px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
         .header-right {
             display: flex;
             align-items: center;
