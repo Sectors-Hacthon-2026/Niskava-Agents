@@ -37,6 +37,8 @@ _SECTORS_DOMAIN_MAP: dict[str, str] = {
     "mining_detail": "get_mining_detail",
     "news": "get_news",
     "subsectors": "get_subsectors",
+    "top_changes": "get_top_changes",
+    "most_traded": "get_most_traded",
 }
 
 
@@ -144,9 +146,14 @@ class NiskavaToolRegistry:
             )
 
         client_method = getattr(self.sectors_client, method_name)
-        force_refresh = False
+        # Flatten nested params if model passes {'params': {'classification': ...}}
+        merged_params: Dict[str, Any] = {}
         if isinstance(params, dict):
-            force_refresh = bool(params.get("force_refresh", False))
+            merged_params.update(params)
+            if "params" in params and isinstance(params["params"], dict):
+                merged_params.update(params["params"])
+
+        force_refresh = bool(merged_params.get("force_refresh", False))
 
         try:
             kwargs = {}
@@ -155,6 +162,16 @@ class NiskavaToolRegistry:
 
             if domain == "subsectors":
                 return client_method(**kwargs)
+            if domain == "top_changes":
+                cls_val = (merged_params.get("classification") or merged_params.get("classifications") or "top_gainers")
+                period_val = (merged_params.get("period") or merged_params.get("periods") or "1d")
+                n_stock_val = int(merged_params.get("n_stock", 5)) if "n_stock" in merged_params else 5
+                return client_method(classification=cls_val, period=period_val, n_stock=n_stock_val, **kwargs)
+            if domain == "most_traded":
+                n_stock = int(merged_params.get("n_stock", 5)) if "n_stock" in merged_params else 5
+                start = merged_params.get("start")
+                end = merged_params.get("end")
+                return client_method(start=start, end=end, n_stock=n_stock, **kwargs)
 
             # Domains with a non-ticker primary key
             if domain == "subsector_peers":
@@ -444,7 +461,9 @@ class NiskavaToolRegistry:
                     "subsector_peers (subsector peer comparison and valuation multiples), "
                     "mining_detail (operational mining concessions, IUP permits, and smelter assets), "
                     "news (curated financial news from Sectors API), "
-                    "subsectors (official list of IDX sectors and subsectors)."
+                    "subsectors (official list of IDX sectors and subsectors), "
+                    "top_changes (top gainers or top losers on IDX), "
+                    "most_traded (most active/traded stocks by volume or turnover)."
                 ),
                 "parameters": {
                     "type": "object",
@@ -455,17 +474,20 @@ class NiskavaToolRegistry:
                                 "Sectors API dataset domain. Required. Choose one: "
                                 "candles | fundamentals | foreign_flow | suspensions | "
                                 "filings | broker_summary | corporate_actions | "
-                                "subsector_peers | mining_detail | news | subsectors."
+                                "subsector_peers | mining_detail | news | subsectors | "
+                                "top_changes | most_traded."
                             ),
                         },
                         "ticker": {
                             "type": "string",
-                            "description": "4-letter IDX stock ticker symbol (e.g. ANTM, BBCA). Case-insensitive. Optional or empty string for subsectors domain or macro index overview.",
+                            "description": "4-letter IDX stock ticker symbol (e.g. ANTM, BBCA). Case-insensitive. Optional or empty string for subsectors, top_changes, most_traded, or macro index overview.",
                         },
                         "params": {
                             "type": "object",
                             "description": (
                                 "Optional extra query parameters, e.g.: "
+                                "{'classification': 'top_gainers'|'top_losers', 'period': '1d'} for top_changes, "
+                                "{'n_stock': 10} for most_traded, "
                                 "{'subsector': 'metals-mining'} for subsector_peers, "
                                 "{'slug': 'antm'} for mining_detail."
                             ),

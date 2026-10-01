@@ -312,6 +312,88 @@ class SectorsAPIClient:
         endpoint = "/subsectors/"
         return self._request(endpoint, ttl_seconds=2592000, force_refresh=force_refresh)
 
+    def get_top_changes(
+        self,
+        classification: str = "top_gainers",
+        period: str = "1d",
+        n_stock: int = 5,
+        force_refresh: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """Fetch extreme market changes (top gainers or top losers) over specified period.
+
+        Sectors API v2 official endpoint: /v2/companies/top-changes/
+        Query params: classifications (top_gainers|top_losers), periods (1d|7d|14d|30d|365d), n_stock (1-10)
+
+        Args:
+            classification: 'top_gainers' or 'top_losers'.
+            period: Duration window ('1d', '7d', '14d', '30d', '365d').
+            n_stock: Number of stocks (default 5, max 10).
+            force_refresh: Bypass SQLite cache if True.
+        """
+        endpoint = "/companies/top-changes/"
+        clean_cls = "top_losers" if "loser" in classification.lower() else "top_gainers"
+        valid_periods = {"1d", "7d", "14d", "30d", "365d"}
+        clean_period = period.lower() if period.lower() in valid_periods else "1d"
+        clean_n = max(1, min(10, int(n_stock)))
+
+        params = {
+            "classifications": clean_cls,
+            "periods": clean_period,
+            "n_stock": clean_n,
+        }
+        # 15 minutes TTL for real-time market action
+        raw = self._request(endpoint, params, ttl_seconds=900, force_refresh=force_refresh)
+
+        # Unpack nested dict response: {"top_gainers": {"1d": [...]}}
+        if isinstance(raw, dict):
+            if clean_cls in raw and isinstance(raw[clean_cls], dict):
+                items = raw[clean_cls].get(clean_period, [])
+                if isinstance(items, list):
+                    return self._normalize_list_response(items)
+            # Fallback if raw is already a list or directly contains results
+            for k in ("results", "data"):
+                if k in raw and isinstance(raw[k], list):
+                    return self._normalize_list_response(raw[k])
+
+        return self._normalize_list_response(raw)
+
+    def get_most_traded(
+        self,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        n_stock: int = 5,
+        force_refresh: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """Fetch the most actively traded stocks by volume/turnover on the exchange.
+
+        Sectors API v2 official endpoint: /v2/most-traded/
+        Returns either a list of stock objects or a dict keyed by date (e.g. {"2026-09-30": [...]}).
+
+        Args:
+            start: Start date YYYY-MM-DD (optional).
+            end: End date YYYY-MM-DD (optional).
+            n_stock: Number of top stocks to return (default 5).
+            force_refresh: Bypass SQLite cache if True.
+        """
+        endpoint = "/most-traded/"
+        clean_n = max(1, int(n_stock))
+        params: Dict[str, Any] = {"n_stock": clean_n}
+        if start:
+            params["start"] = start
+        if end:
+            params["end"] = end
+        # 1 hour TTL
+        raw = self._request(endpoint, params, ttl_seconds=3600, force_refresh=force_refresh)
+
+        # If response is a dict keyed by date (e.g. {"2026-09-30": [...]}), extract the latest date list
+        if isinstance(raw, dict):
+            dates = sorted(raw.keys(), reverse=True)
+            for d in dates:
+                if isinstance(raw[d], list) and raw[d]:
+                    return self._normalize_list_response(raw[d])
+
+        return self._normalize_list_response(raw)
+
     def _generate_mock_data(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Any:
         """Generate realistic mock data fixtures for offline development and CI tests."""
         raw_sym = params.get("symbol") if params else None
@@ -568,6 +650,41 @@ class SectorsAPIClient:
                 {"sector": "Infrastructure", "subsector": "telecommunications"},
                 {"sector": "Infrastructure", "subsector": "transportation-infrastructure"},
                 {"sector": "Transportation & Logistics", "subsector": "logistics-and-deliveries"},
+            ]
+
+        if "/top-changes/" in endpoint or "/companies/top-changes/" in endpoint:
+            cls_param = (params or {}).get("classifications") or (params or {}).get("classification") or "top_gainers"
+            clean_cls = "top_losers" if "loser" in str(cls_param).lower() else "top_gainers"
+            period_param = (params or {}).get("periods") or (params or {}).get("period") or "1d"
+            clean_period = str(period_param).lower()
+
+            losers_1d = [
+                {"name": "Fortune Indonesia Tbk", "symbol": "FORU.JK", "price_change": -0.145, "last_close_price": 224, "latest_close_date": "2026-09-30"},
+                {"name": "PT GoTo Gojek Tokopedia Tbk", "symbol": "GOTO.JK", "price_change": -0.135, "last_close_price": 32, "latest_close_date": "2026-09-30"},
+                {"name": "PT Transcoal Pacific Tbk", "symbol": "TCPI.JK", "price_change": -0.101, "last_close_price": 1550, "latest_close_date": "2026-09-30"},
+                {"name": "PT MNC Digital Entertainment Tbk", "symbol": "MSIN.JK", "price_change": -0.097, "last_close_price": 186, "latest_close_date": "2026-09-30"},
+                {"name": "PT Bank KB Indonesia Tbk", "symbol": "BBKP.JK", "price_change": -0.071, "last_close_price": 39, "latest_close_date": "2026-09-30"},
+            ]
+            gainers_1d = [
+                {"name": "Bank of India Indonesia Tbk", "symbol": "BSWD.JK", "price_change": 0.246, "last_close_price": 2880, "latest_close_date": "2026-09-30"},
+                {"name": "PT Sinar Mas Agro Resources and Technology Tbk", "symbol": "SMAR.JK", "price_change": 0.12, "last_close_price": 7700, "latest_close_date": "2026-09-30"},
+                {"name": "Metropolitan Land Tbk", "symbol": "MTLA.JK", "price_change": 0.104, "last_close_price": 740, "latest_close_date": "2026-09-30"},
+                {"name": "United Tractors Tbk", "symbol": "UNTR.JK", "price_change": 0.075, "last_close_price": 27075, "latest_close_date": "2026-09-30"},
+                {"name": "PT Jhonlin Agro Raya Tbk", "symbol": "JARR.JK", "price_change": 0.068, "last_close_price": 3580, "latest_close_date": "2026-09-30"},
+            ]
+
+            return {
+                "top_gainers": {clean_period: gainers_1d},
+                "top_losers": {clean_period: losers_1d},
+            }
+
+        if "/most-traded/" in endpoint:
+            return [
+                {"symbol": "BBRI", "company_name": "Bank Rakyat Indonesia Tbk", "volume": 1_450_000_000, "turnover": 725_000_000_000, "price": 5000},
+                {"symbol": "BBCA", "company_name": "Bank Central Asia Tbk", "volume": 890_000_000, "turnover": 910_000_000_000, "price": 10225},
+                {"symbol": "BMRI", "company_name": "Bank Mandiri Tbk", "volume": 680_000_000, "turnover": 490_000_000_000, "price": 7200},
+                {"symbol": "ANTM", "company_name": "Aneka Tambang Tbk", "volume": 450_000_000, "turnover": 724_500_000_000, "price": 1610},
+                {"symbol": "ASII", "company_name": "Astra International Tbk", "volume": 310_000_000, "turnover": 155_000_000_000, "price": 5000},
             ]
 
         return {"status": "ok", "mock": True}

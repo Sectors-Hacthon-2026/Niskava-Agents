@@ -259,6 +259,9 @@ _GENERAL_KEYWORDS = frozenset({
     "potensial", "potential", "big move", "sentimen", "sentiment", "headline",
     "macro", "makro", "overview", "rangkuman", "ringkasan", "summary",
     "rekomendasi umum", "watchlist hari ini",
+    "top gainers", "top gainer", "top losers", "top loser", "paling naik",
+    "paling turun", "saham naik", "saham turun", "most traded", "paling ramai",
+    "paling aktif", "likuiditas tertinggi", "screener",
 })
 
 _DEEP_KEYWORDS = frozenset({
@@ -409,6 +412,7 @@ def get_system_prompt(
 
 4. TOOL SELECTION:
    - Deep investigation: call `execute_skill` with appropriate skill_id.
+   - Market screener (top gainers/losers/most active): call `query_sectors` with domain='top_changes' (params: {{'classification': 'top_gainers'|'top_losers', 'period': '1d'}}) or domain='most_traded' (params: {{'n_stock': 10}}).
    - Market data & overview: call `query_sectors` with domain ('candles', 'subsectors', etc.).
    - News & catalysts: call `search_news` (pass empty string for ticker, optional query keyword).
    - Session recall: call `query_memory` before starting fresh investigations.

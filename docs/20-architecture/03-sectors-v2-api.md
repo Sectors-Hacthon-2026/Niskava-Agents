@@ -46,7 +46,7 @@ Sistem mengintegrasikan 7 domain endpoint resmi API v2 Indonesia:
 | `GET /v2/daily/{symbol}/` | `symbol` (e.g. `ANTM`), `start`, `end` | Menarik deret OHLCV harian s.d 90 hari untuk baseline $V_z$ & $R_t$. | **Permanen** untuk $T < \text{hari ini}$. |
 | `GET /v2/daily-close/` | `date` (format `YYYY-MM-DD`) | Menarik harga penutupan seluruh emiten IDX dalam satu panggilan. | **Permanen** (data lampau). |
 | `GET /v2/most-traded/` | `start`, `end`, `n_stock` (default 5) | Menemukan saham paling aktif diperdagangkan untuk *market screener*. | **24 Jam** (TTL). |
-| `GET /v2/top-changes/` | `classification` (`top_gainers` / `top_losers`), `period` (`1d`,`7d`,`14d`,`30d`,`365d`) | Mendeteksi kandidat anomali lonjakan atau kejatuhan harga ekstrim. | **15 Menit** (hari bursa aktif). |
+| `GET /v2/companies/top-changes/` | `classifications` (`top_gainers` / `top_losers`), `periods` (`1d`,`7d`,`14d`,`30d`,`365d`), `n_stock` | Mendeteksi kandidat anomali lonjakan atau kejatuhan harga ekstrim (1 kredit per kombinasi). | **15 Menit** (hari bursa aktif). |
 | `GET /v2/idx-total/` | `start`, `end` (s.d 90 hari) | Menghitung kapitalisasi pasar agregat IHSG sebagai pembanding makro. | **Permanen** (data lampau). |
 | `GET /v2/index-daily/{index}/` | `index` (e.g. `LQ45`, `IDX30`, `KOMPAS100`) | Menghitung return benchmark indeks untuk kalkulasi *Abnormal Return* ($R_t$). | **Permanen** (data lampau). |
 
