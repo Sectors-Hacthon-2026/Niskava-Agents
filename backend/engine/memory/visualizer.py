@@ -31,8 +31,8 @@ def format_node_label(text: str, max_chars_per_line: int = 22, max_lines: int = 
     return "\n".join(lines)
 
 
-# Institutional financial node styling - Synaptic Neural Network Architecture
-# Circular dot neurons with dynamic synaptic mass, glow borders, and high-contrast dark void palette
+# Institutional financial market network styling - High-contrast knowledge graph
+# Circular dot nodes with dynamic degree mass, crisp borders, and institutional dark void palette
 NODE_TYPE_STYLES = {
     "TICKER": {
         "color": {
@@ -210,36 +210,62 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             overflow-y: auto;
             z-index: 20;
             box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+            flex-shrink: 0;
+            transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .brand {
             display: flex;
-            flex-direction: column;
-            gap: 4px;
+            align-items: center;
+            justify-content: space-between;
             padding-bottom: 12px;
             border-bottom: 1px solid var(--border-subtle);
         }
-        .brand-title {
+        .brand-left-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .brand-logo-badge {
+            width: 34px;
+            height: 34px;
+            border-radius: 9px;
+            background: #FFFFFF;
+            border: 1.5px solid rgba(252, 213, 53, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+        }
+        .brand-logo-badge:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(252, 213, 53, 0.35);
+        }
+        .brand-logo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .brand-title-wrap {
+            display: flex;
+            align-items: baseline;
+            gap: 5px;
+            line-height: 1.1;
+        }
+        .brand-name {
             font-size: 15px;
             font-weight: 800;
-            letter-spacing: 0.8px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            color: #FFFFFF;
+            letter-spacing: 0.5px;
         }
-        .brand-logo-text {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .brand-niskava { color: #FFFFFF; font-weight: 800; }
-        .brand-agent { color: var(--accent-gold); font-weight: 800; }
-        .brand-subtitle {
+        .brand-tag {
             font-size: 11px;
-            color: var(--text-muted);
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+            font-weight: 700;
+            color: var(--accent-gold);
+            letter-spacing: 0.4px;
         }
         .badge-live {
             background: rgba(252, 213, 53, 0.1);
@@ -303,37 +329,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
         .search-clear:hover { color: #FFF; }
 
-        /* Segmented control for hops */
-        .segmented-control {
-            display: flex;
-            background: var(--surface-card);
-            border: 1px solid var(--border);
-            border-radius: 7px;
-            padding: 3px;
-            gap: 2px;
-        }
-        .seg-btn {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            font-size: 11.5px;
-            font-weight: 600;
-            padding: 6px 0;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .seg-btn:hover {
-            color: var(--text-main);
-            background: rgba(255, 255, 255, 0.04);
-        }
-        .seg-btn.active {
-            background: var(--border);
-            color: var(--accent-gold);
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-        }
-
         /* Legend Classification */
         .legend {
             display: flex;
@@ -351,6 +346,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
         .legend-item:hover {
             background: var(--surface-hover);
+        }
+        .legend-item.active {
+            background: rgba(252, 213, 53, 0.12);
+            border: 1px solid rgba(252, 213, 53, 0.35);
+        }
+        .legend-item.active .legend-item-left span:last-child {
+            color: var(--accent-gold);
+            font-weight: 700;
         }
         .legend-item-left {
             display: flex;
@@ -421,50 +424,81 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .hub-list {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 8px;
         }
         .hub-item {
-            padding: 6px 8px;
-            border-radius: 6px;
-            background: #10141F;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, rgba(21, 26, 38, 0.7) 0%, rgba(16, 21, 32, 0.9) 100%);
             border: 1px solid var(--border-subtle);
             cursor: pointer;
-            transition: all 0.15s ease;
+            transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
         }
         .hub-item:hover {
-            border-color: var(--accent-gold);
+            border-color: rgba(252, 213, 53, 0.4);
             background: #171E2D;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
         .hub-item-top {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            font-size: 11.5px;
+            gap: 8px;
+            width: 100%;
         }
-        .hub-rank {
-            font-size: 10px;
-            font-weight: 700;
+        .hub-item-left {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            min-width: 0;
+            flex: 1;
+        }
+        .hub-rank-badge {
+            font-size: 9px;
+            font-weight: 800;
             color: var(--accent-gold);
-            margin-right: 4px;
+            background: rgba(252, 213, 53, 0.12);
+            border: 1px solid rgba(252, 213, 53, 0.25);
+            padding: 2px 5px;
+            border-radius: 4px;
+            flex-shrink: 0;
+            letter-spacing: 0.3px;
         }
         .hub-label {
             color: var(--text-main);
             font-weight: 600;
-            flex: 1;
+            font-size: 11px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            display: inline-block;
         }
         .hub-conn {
-            font-size: 10.5px;
+            font-size: 10px;
             font-family: monospace;
             color: var(--accent-blue);
+            background: rgba(56, 189, 248, 0.08);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            padding: 1px 6px;
+            border-radius: 4px;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+        .hub-meta-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
         }
         .hub-bar-bg {
-            height: 3px;
-            background: #1E2638;
+            flex: 1;
+            height: 4px;
+            background: #18202F;
             border-radius: 2px;
-            margin-top: 5px;
             overflow: hidden;
         }
         .hub-bar-fill {
@@ -472,11 +506,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             background: linear-gradient(90deg, var(--accent-blue), var(--accent-gold));
             border-radius: 2px;
         }
-        .hub-sub {
-            font-size: 9.5px;
+        .pr-pill {
+            font-size: 9px;
             color: var(--text-muted);
             font-family: monospace;
-            margin-top: 3px;
+            flex-shrink: 0;
         }
 
         /* Buttons */
@@ -653,7 +687,32 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             background: var(--surface-hover);
         }
 
-        /* Right Inspector Panel - Intelligence Dossier */
+        /* Toast notification */
+        .toast-msg {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid var(--accent-gold);
+            color: var(--text-main);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 11.5px;
+            font-weight: 600;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(12px);
+            opacity: 0;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+            z-index: 100;
+        }
+        .toast-msg.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Right Inspector Panel - Knowledge Inspector */
         .inspector {
             width: 340px;
             background: var(--surface);
@@ -665,6 +724,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             overflow-y: auto;
             z-index: 20;
             box-shadow: -4px 0 24px rgba(0, 0, 0, 0.4);
+            flex-shrink: 0;
+            transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .inspector-header {
             display: flex;
@@ -741,10 +802,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             display: flex;
             flex-direction: column;
             gap: 4px;
-            transition: border-color 0.15s ease;
+            cursor: pointer;
+            transition: all 0.15s ease;
         }
         .relation-card:hover {
-            border-color: var(--border);
+            border-color: rgba(252, 213, 53, 0.45);
+            background: #171E2E;
+            transform: translateY(-1px);
         }
         .relation-header {
             display: flex;
@@ -777,21 +841,210 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             background: var(--accent-blue);
             border-radius: 2px;
         }
+        .causality-card {
+            background: var(--surface-card);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 10px 12px;
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .causality-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+        .causality-flow-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .causality-badge {
+            background: #141B28;
+            border: 1px solid var(--border);
+            color: var(--accent-gold);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            max-width: 140px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .causality-badge:hover {
+            border-color: var(--accent-gold);
+            background: #1E273A;
+            transform: translateY(-1px);
+        }
+        .causality-arrow {
+            color: var(--accent-blue);
+            font-weight: 800;
+            font-size: 13px;
+        }
+        .evidence-quote {
+            color: var(--text-secondary);
+            font-size: 11.5px;
+            line-height: 1.5;
+            background: #0B0E16;
+            border-left: 3px solid var(--accent-gold);
+            padding: 6px 10px;
+            border-radius: 0 4px 4px 0;
+            margin-top: 3px;
+            word-break: break-word;
+        }
+
+        /* Drawer Backdrop Overlay & Controls */
+        .drawer-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(8, 11, 17, 0.72);
+            backdrop-filter: blur(4px);
+            z-index: 25;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+            pointer-events: none;
+        }
+        .drawer-backdrop.active {
+            display: block;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .drawer-close-btn {
+            background: transparent;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            font-size: 13px;
+            cursor: pointer;
+            padding: 2px 7px;
+            border-radius: 4px;
+            display: none;
+            line-height: 1;
+            transition: all 0.15s ease;
+        }
+        .drawer-close-btn:hover {
+            color: var(--text-main);
+            border-color: var(--border);
+            background: var(--surface-card);
+        }
+
+        .drawer-toggle-btn {
+            display: none;
+        }
+
+        /* Responsive Media Queries */
+        @media (max-width: 1024px) {
+            .inspector {
+                position: fixed;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                height: 100vh;
+                width: 360px;
+                max-width: 85vw;
+                z-index: 30;
+                transform: translateX(100%);
+                box-shadow: -8px 0 32px rgba(0, 0, 0, 0.6);
+            }
+            .inspector.open, .inspector.drawer-open {
+                transform: translateX(0);
+            }
+            .inspector .drawer-close-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            #inspectorToggleBtn {
+                display: flex;
+            }
+            .top-bar-left .hud-pill:nth-child(2) {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                height: 100vh;
+                width: 320px;
+                max-width: 85vw;
+                z-index: 30;
+                transform: translateX(-100%);
+                box-shadow: 8px 0 32px rgba(0, 0, 0, 0.6);
+            }
+            .sidebar.open, .sidebar.drawer-open {
+                transform: translateX(0);
+            }
+            .sidebar .drawer-close-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            #sidebarToggleBtn {
+                display: flex;
+            }
+            .canvas-area {
+                width: 100vw;
+                height: 100vh;
+                flex: 1 1 100%;
+            }
+            .top-bar {
+                top: 8px;
+                left: 8px;
+                right: 8px;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+            .top-bar-center {
+                display: none;
+            }
+            .hud-pill {
+                padding: 4px 8px;
+                font-size: 11px;
+                gap: 5px;
+            }
+            .hud-btn {
+                padding: 4px 8px;
+                font-size: 11px;
+                gap: 5px;
+            }
+            .hud-btn span.btn-label-optional {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
+    <div class="drawer-backdrop" id="drawerBackdrop" onclick="closeDrawers()"></div>
     <div class="sidebar">
         <div class="brand">
-            <div class="brand-title">
-                <div class="brand-logo-text">
-                    <span class="brand-niskava">NISKAVA AGENT</span>
+            <div class="brand-left-group">
+                <div class="brand-logo-badge" title="Niskava Agent Market Intelligence">
+                    <img src="data:image/png;base64,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" alt="Niskava" class="brand-logo-img">
                 </div>
-                <span class="badge-live">Market Intelligence</span>
+                <div class="brand-title-wrap">
+                    <span class="brand-name">Niskava</span>
+                    <span class="brand-tag">Agent</span>
+                </div>
             </div>
-            <div class="brand-subtitle">
-                <span>Synaptic Memory Graph</span>
-                <span style="color:var(--text-muted);">•</span>
-                <span>IDX Real-Time</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span class="badge-live">Market Intelligence</span>
+                <button class="drawer-close-btn" onclick="closeDrawers()" title="Close Sidebar">✕</button>
             </div>
         </div>
 
@@ -800,13 +1053,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             <input type="text" id="searchInput" class="search-box" placeholder="Search ticker, broker, disclosure..." oninput="searchAndHighlight()">
             <button class="search-clear" id="searchClearBtn" onclick="clearSearch()" title="Clear">✕</button>
-        </div>
-
-        <div class="section-title">Ego-Graph Radius</div>
-        <div class="segmented-control">
-            <button class="seg-btn" id="btnHop1" onclick="filterHops(1)">1-Hop</button>
-            <button class="seg-btn" id="btnHop2" onclick="filterHops(2)">2-Hop</button>
-            <button class="seg-btn active" id="btnResetHop" onclick="resetFilter()">Reset</button>
         </div>
 
         <div class="section-title">Node Classification</div>
@@ -869,6 +1115,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="canvas-area">
         <div class="top-bar">
             <div class="top-bar-left">
+                <button class="hud-btn drawer-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebar()" title="Toggle Sidebar">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                    <span>Menu</span>
+                </button>
                 <div class="hud-pill">
                     <span class="hud-dot"></span>
                     <span class="hud-label">Research Session:</span>
@@ -882,17 +1132,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <div class="top-bar-center">
                 <div class="hud-pill">
                     <div class="telemetry-item">
-                        <span class="telemetry-label">Neurons:</span>
+                        <span class="telemetry-label">Entities:</span>
                         <span class="telemetry-val" id="hudTotalNodes">0</span>
                     </div>
                     <div class="telemetry-sep"></div>
                     <div class="telemetry-item">
-                        <span class="telemetry-label">Synapses:</span>
+                        <span class="telemetry-label">Relations:</span>
                         <span class="telemetry-val" id="hudTotalEdges">0</span>
                     </div>
                     <div class="telemetry-sep"></div>
                     <div class="telemetry-item">
-                        <span class="telemetry-label">Active Hub:</span>
+                        <span class="telemetry-label">Central Hub:</span>
                         <span class="telemetry-val" id="hudTopHub" style="color:var(--accent-gold);">-</span>
                     </div>
                 </div>
@@ -902,9 +1152,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                     <span id="physicsStatusText">Physics: Settled</span>
                 </button>
-                <button class="hud-btn" onclick="fitView()" title="Fit view to all neurons">
+                <button class="hud-btn" onclick="fitView()" title="Fit view to all entities">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
-                    <span>Fit Canvas</span>
+                    <span class="btn-label-optional">Fit Canvas</span>
+                </button>
+                <button class="hud-btn drawer-toggle-btn" id="inspectorToggleBtn" onclick="toggleInspector()" title="Toggle Inspector Panel">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    <span>Inspector</span>
                 </button>
             </div>
         </div>
@@ -926,14 +1180,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     <div class="inspector" id="inspectorPanel">
         <div class="inspector-header">
-            <div class="section-title">Intelligence Dossier</div>
-            <span class="inspector-status">IDXnet Verified</span>
+            <div class="section-title">Knowledge Inspector</div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span class="inspector-status">IDXnet Verified</span>
+                <button class="drawer-close-btn" onclick="closeDrawers()" title="Close Inspector">✕</button>
+            </div>
         </div>
         <div id="inspectorContent">
             <div class="inspector-empty">
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted); opacity:0.5;"><circle cx="12" cy="12" r="3"></circle><circle cx="19" cy="5" r="2"></circle><circle cx="5" cy="19" r="2"></circle><path d="M10.4 10.4 6.4 17.6"></path><path d="M13.6 13.6 17.6 6.4"></path></svg>
                 <p style="color:var(--text-muted); font-size:12px; line-height:1.6;">
-                    Select an entity or relation on canvas to inspect official IDX disclosure quotes, temporal recency weight, and metadata.
+                    Select an entity or relation on the canvas to inspect verified IDX disclosures, market causality, and metadata.
                 </p>
             </div>
         </div>
@@ -972,8 +1229,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 },
                 edges: {
                     smooth: { type: 'continuous', roundness: 0.18 },
-                    selectionWidth: 3,
-                    hoverWidth: 2
+                    selectionWidth: 4,
+                    hoverWidth: 3
                 },
                 physics: {
                     enabled: true,
@@ -995,7 +1252,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 },
                 interaction: {
                     hover: true,
-                    hoverConnectedEdges: true,
+                    hoverConnectedEdges: false,
+                    edgeThreshold: 20,
                     tooltipDelay: 90,
                     hideEdgesOnDrag: false,
                     navigationButtons: false,
@@ -1016,6 +1274,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             });
 
             window.addEventListener('resize', function() {
+                if (window.innerWidth > 1024) {
+                    closeDrawers();
+                }
                 fitView();
             });
 
@@ -1023,33 +1284,92 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
             network.on("hoverNode", function (params) {
                 if (isFocused) return;
-                highlightSynapticNeighbors(params.node);
+                highlightNeighbors(params.node);
             });
 
             network.on("blurNode", function () {
                 if (isFocused) return;
-                restoreSynapticView();
+                restoreGraphView();
             });
 
             network.on("click", function (params) {
-                if (params.nodes.length > 0) {
+                if (params.nodes && params.nodes.length > 0) {
                     isFocused = true;
-                    highlightSynapticNeighbors(params.nodes[0]);
+                    highlightNeighbors(params.nodes[0]);
                     inspectNode(params.nodes[0]);
-                } else if (params.edges.length > 0) {
-                    isFocused = false;
-                    restoreSynapticView();
-                    inspectEdge(params.edges[0]);
+                } else if (params.edges && params.edges.length > 0) {
+                    isFocused = true;
+                    const clickedEdgeId = params.edges[0];
+                    highlightEdge(clickedEdgeId);
+                    inspectEdge(clickedEdgeId);
                 } else {
                     isFocused = false;
-                    restoreSynapticView();
+                    restoreGraphView();
+                    showDefaultInspector();
                 }
             });
+
+            // Delegated click handler for Inspector elements (XSS-safe & quote-escaping safe)
+            const inspectorPanelEl = document.getElementById('inspectorPanel');
+            if (inspectorPanelEl) {
+                inspectorPanelEl.addEventListener('click', function(e) {
+                    const focusBtn = e.target.closest('[data-focus-entity]');
+                    if (focusBtn) {
+                        const ent = focusBtn.getAttribute('data-focus-entity');
+                        if (ent) focusOnEntity(ent);
+                        return;
+                    }
+                    const relCard = e.target.closest('[data-edge-id]');
+                    if (relCard) {
+                        const eid = relCard.getAttribute('data-edge-id');
+                        if (eid) {
+                            highlightEdge(eid);
+                            inspectEdge(eid);
+                        }
+                        return;
+                    }
+                });
+            }
 
             renderStats();
         }
 
-        function highlightSynapticNeighbors(nodeId) {
+        function highlightEdge(edgeId) {
+            const edge = allEdges.find(function(e) { return e.id === edgeId; });
+            if (!edge) return;
+
+            const endpointIds = new Set([edge.from, edge.to]);
+
+            const nodeUpdates = allNodes.map(function (n) {
+                if (endpointIds.has(n.id)) {
+                    return { id: n.id, opacity: 1.0 };
+                } else {
+                    return { id: n.id, opacity: 0.14 };
+                }
+            });
+
+            const edgeUpdates = allEdges.map(function (e) {
+                if (e.id === edgeId) {
+                    return {
+                        id: e.id,
+                        color: { color: '#FCD535', highlight: '#FCD535' },
+                        width: (e.width || 2) + 2.5,
+                        opacity: 1.0
+                    };
+                } else {
+                    return {
+                        id: e.id,
+                        color: { color: 'rgba(148, 163, 184, 0.05)' },
+                        opacity: 0.05
+                    };
+                }
+            });
+
+            nodesDataSet.update(nodeUpdates);
+            edgesDataSet.update(edgeUpdates);
+        }
+
+        function highlightNeighbors(nodeId) {
             const connectedNodeIds = new Set(network.getConnectedNodes(nodeId));
             connectedNodeIds.add(nodeId);
             const connectedEdgeIds = new Set(network.getConnectedEdges(nodeId));
@@ -1067,14 +1387,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     return {
                         id: e.id,
                         color: { color: '#FCD535', highlight: '#FCD535' },
-                        width: (e.width || 1) + 1.5,
-                        opacity: 0.95
+                        width: (e.width || 2) + 2.0,
+                        opacity: 1.0
                     };
                 } else {
                     return {
                         id: e.id,
-                        color: { color: 'rgba(148, 163, 184, 0.04)' },
-                        opacity: 0.04
+                        color: { color: 'rgba(148, 163, 184, 0.05)' },
+                        opacity: 0.05
                     };
                 }
             });
@@ -1083,7 +1403,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             edgesDataSet.update(edgeUpdates);
         }
 
-        function restoreSynapticView() {
+        function restoreGraphView() {
             const nodeResets = allNodes.map(function (n) {
                 return { id: n.id, opacity: 1.0 };
             });
@@ -1092,6 +1412,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             });
             nodesDataSet.update(nodeResets);
             edgesDataSet.update(edgeResets);
+        }
+
+        function showDefaultInspector() {
+            const panel = document.getElementById('inspectorContent');
+            if (!panel) return;
+            panel.innerHTML = '<div class="inspector-empty">' +
+                '  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted); opacity:0.5;"><circle cx="12" cy="12" r="3"></circle><circle cx="19" cy="5" r="2"></circle><circle cx="5" cy="19" r="2"></circle><path d="M10.4 10.4 6.4 17.6"></path><path d="M13.6 13.6 17.6 6.4"></path></svg>' +
+                '  <p style="color:var(--text-muted); font-size:12px; line-height:1.6;">' +
+                '    Select an entity or relation on the canvas to inspect verified IDX disclosures, market causality, and metadata.' +
+                '  </p>' +
+                '</div>';
         }
 
         function renderStats() {
@@ -1127,15 +1458,31 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             if (topEntities.length > 0) {
                 hubListHTML = topEntities.slice(0, 5).map(function(e, idx) {
                     const pct = Math.min(100, Math.round((e.connections / maxConn) * 100));
-                    const pr = e.pagerank ? ' <span class="hub-sub">PR: ' + e.pagerank + '</span>' : '';
-                    const safeLabel = (e.label || '').replace(/"/g, '&quot;');
-                    return '<div class="hub-item" data-entity="' + safeLabel + '">' +
+                    const pr = e.pagerank ? '<span class="pr-pill">PR: ' + e.pagerank + '</span>' : '';
+                    const rawLabel = e.label || '';
+                    const safeLabel = rawLabel.replace(/"/g, '&quot;');
+                    // Clean long anomaly or corporate disclosure titles for concise display
+                    let displayLabel = rawLabel;
+                    if (displayLabel.startsWith('VOLUME_AND_PRICE_SURGE_')) {
+                        const parts = displayLabel.split('_');
+                        displayLabel = 'SURGE ' + (parts[4] || '');
+                    } else if (displayLabel.length > 24) {
+                        displayLabel = displayLabel.slice(0, 22) + '...';
+                    }
+                    const safeDisplay = displayLabel.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+                    return '<div class="hub-item" data-entity="' + safeLabel + '" title="' + safeLabel + '">' +
                            '  <div class="hub-item-top">' +
-                           '    <div><span class="hub-rank">#' + (idx + 1) + '</span><strong class="hub-label">' + e.label + '</strong></div>' +
+                           '    <div class="hub-item-left">' +
+                           '      <span class="hub-rank-badge">#' + (idx + 1) + '</span>' +
+                           '      <strong class="hub-label">' + safeDisplay + '</strong>' +
+                           '    </div>' +
                            '    <span class="hub-conn">' + e.connections + ' links</span>' +
                            '  </div>' +
-                           '  <div class="hub-bar-bg"><div class="hub-bar-fill" style="width:' + pct + '%;"></div></div>' +
-                           (pr ? '<div style="margin-top:2px;">' + pr + '</div>' : '') +
+                           '  <div class="hub-meta-row">' +
+                           '    <div class="hub-bar-bg"><div class="hub-bar-fill" style="width:' + pct + '%;"></div></div>' +
+                           '    ' + pr +
+                           '  </div>' +
                            '</div>';
                 }).join('');
             } else {
@@ -1169,17 +1516,27 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         function inspectNode(nodeId) {
             const node = allNodes.find(function(n) { return n.id === nodeId; });
             if (!node) return;
+            if (window.innerWidth <= 1024) {
+                toggleInspector(true);
+            }
+            const panel = document.getElementById('inspectorContent');
+            if (!panel) return;
 
             const connectedEdges = allEdges.filter(function(e) { return e.from === nodeId || e.to === nodeId; });
-            const panel = document.getElementById('inspectorContent');
+            const maxEdgeWeight = allEdges.reduce(function(m, e) {
+                return Math.max(m, e.effective_weight || 1.0);
+            }, 3.0);
 
             const edgeHTML = connectedEdges.map(function(e) {
                 const isOutgoing = (e.from === nodeId);
-                const connLabel = isOutgoing ? ('➔ ' + e.to) : ('⬅ ' + e.from);
+                const targetNode = allNodes.find(function(n) { return n.id === (isOutgoing ? e.to : e.from); });
+                const targetLabel = targetNode ? (targetNode.raw_label || targetNode.label) : (isOutgoing ? e.to : e.from);
+                const connLabel = isOutgoing ? ('➔ ' + targetLabel) : ('⬅ ' + targetLabel);
                 const supersededBadge = e.is_superseded ? ' <span style="color:var(--accent-rose); font-size:10px;">[SUPERSEDED]</span>' : '';
-                const pct = Math.min(100, Math.round((e.effective_weight / 3.0) * 100));
+                const pct = Math.min(100, Math.max(8, Math.round((e.effective_weight / maxEdgeWeight) * 100)));
+                const safeEdgeId = (e.id || '').replace(/"/g, '&quot;');
 
-                return '<div class="relation-card">' +
+                return '<div class="relation-card" data-edge-id="' + safeEdgeId + '" title="Click to inspect this relation">' +
                        '  <div class="relation-header">' +
                        '    <span class="relation-type-tag">[' + e.relation + ']</span>' +
                        '    <span style="font-size:10.5px; color:var(--text-secondary);">' + connLabel + supersededBadge + '</span>' +
@@ -1206,16 +1563,61 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         function inspectEdge(edgeId) {
             const edge = allEdges.find(function(e) { return e.id === edgeId; });
             if (!edge) return;
+            if (window.innerWidth <= 1024) {
+                toggleInspector(true);
+            }
             const panel = document.getElementById('inspectorContent');
-            const supersededInfo = edge.is_superseded ? '<div class="detail-row"><span class="detail-label" style="color:var(--accent-rose);">Validity Status</span><span style="color:var(--accent-rose); font-weight:600;">SUPERSEDED (Superseded by new transaction)</span></div>' : '';
-            panel.innerHTML = '<div class="inspector-title">[' + edge.relation + ']</div>' +
-                '<div class="inspector-badge" style="background:#064E3B; border:1px solid #10B981; color:#6EE7B7;">RELATION</div>' +
+            if (!panel) return;
+
+            const fromNode = allNodes.find(function(n) { return n.id === edge.from; });
+            const toNode = allNodes.find(function(n) { return n.id === edge.to; });
+            const fromLabel = fromNode ? (fromNode.raw_label || fromNode.label) : edge.from;
+            const toLabel = toNode ? (toNode.raw_label || toNode.label) : edge.to;
+            const safeFrom = (edge.from || '').replace(/"/g, '&quot;');
+            const safeTo = (edge.to || '').replace(/"/g, '&quot;');
+
+            const maxEdgeWeight = allEdges.reduce(function(m, e) {
+                return Math.max(m, e.effective_weight || 1.0);
+            }, 3.0);
+            const pct = Math.min(100, Math.max(10, Math.round((edge.effective_weight / maxEdgeWeight) * 100)));
+
+            const supersededInfo = edge.is_superseded
+                ? '<div class="detail-row"><span class="detail-label" style="color:var(--accent-rose);">Validity Status</span><span style="color:var(--accent-rose); font-weight:600;">SUPERSEDED (Superseded by recent transaction)</span></div>'
+                : '<div class="detail-row"><span class="detail-label" style="color:var(--accent-emerald);">Validity Status</span><span style="color:var(--accent-emerald); font-weight:600;">ACTIVE (Valid Market Relation)</span></div>';
+
+            panel.innerHTML =
+                '<div class="inspector-title">[' + edge.relation + ']</div>' +
+                '<div class="inspector-badge" style="background:#0F291E; border:1px solid #10B981; color:#34D399;">MARKET RELATION</div>' +
+                '<div class="causality-card">' +
+                '  <div class="causality-title">Causality Flow</div>' +
+                '  <div class="causality-flow-row">' +
+                '    <button class="causality-badge" data-focus-entity="' + safeFrom + '" title="Focus on source entity">' + fromLabel + '</button>' +
+                '    <span class="causality-arrow">➔</span>' +
+                '    <button class="causality-badge" data-focus-entity="' + safeTo + '" title="Focus on target entity">' + toLabel + '</button>' +
+                '  </div>' +
+                '</div>' +
                 '<div class="detail-grid">' +
-                '  <div class="detail-row"><span class="detail-label">Causality Connection</span><span>' + edge.from + ' ➔ ' + edge.to + '</span></div>' +
-                '  <div class="detail-row"><span class="detail-label">Evidence Snippet / Document</span><span>' + (edge.context_snippet || '-') + '</span></div>' +
-                '  <div class="detail-row"><span class="detail-label">Temporal Effective Weight</span><span class="stats-val">' + edge.effective_weight + ' (Base: ' + edge.weight + ')</span></div>' +
+                '  <div class="detail-row">' +
+                '    <span class="detail-label">Evidence Snippet / Disclosure Quote</span>' +
+                '    <div class="evidence-quote">' + (edge.context_snippet || 'No specific disclosure quote recorded.') + '</div>' +
+                '  </div>' +
+                '  <div class="detail-row">' +
+                '    <span class="detail-label">Temporal Effective Weight</span>' +
+                '    <div class="weight-meter" style="margin-top:4px;">' +
+                '      <span class="stats-val">' + edge.effective_weight + '</span>' +
+                '      <span style="color:var(--text-muted); font-size:10px;">(Base: ' + edge.weight + ')</span>' +
+                '      <div class="weight-bar-bg"><div class="weight-bar-fill" style="width:' + pct + '%;"></div></div>' +
+                '    </div>' +
+                '  </div>' +
                 supersededInfo +
-                '  <div class="detail-row"><span class="detail-label">Investigation Session</span><code>' + (edge.session_id || '-') + '</code></div>' +
+                '  <div class="detail-row">' +
+                '    <span class="detail-label">Last Observation</span>' +
+                '    <span>' + (edge.last_observed_at || '-') + '</span>' +
+                '  </div>' +
+                '  <div class="detail-row">' +
+                '    <span class="detail-label">Investigation Session</span>' +
+                '    <code>' + (edge.session_id || '-') + '</code>' +
+                '  </div>' +
                 '</div>';
         }
 
@@ -1225,7 +1627,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
 
             if (!q) {
-                restoreSynapticView();
+                restoreGraphView();
                 return;
             }
             const matched = allNodes.filter(function(n) {
@@ -1233,7 +1635,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             });
             if (matched.length > 0) {
                 const target = matched[0];
-                highlightSynapticNeighbors(target.id);
+                highlightNeighbors(target.id);
                 network.focus(target.id, { scale: 1.15, animation: { duration: 400, easingFunction: 'easeInOutQuad' } });
                 inspectNode(target.id);
             }
@@ -1242,7 +1644,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         function clearSearch() {
             document.getElementById('searchInput').value = '';
             document.getElementById('searchClearBtn').style.display = 'none';
-            restoreSynapticView();
+            restoreGraphView();
         }
 
         function focusOnEntity(entityLabel) {
@@ -1252,76 +1654,109 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             if (matched.length > 0) {
                 const target = matched[0];
                 network.selectNodes([target.id]);
-                highlightSynapticNeighbors(target.id);
+                highlightNeighbors(target.id);
                 network.focus(target.id, { scale: 1.25, animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
                 inspectNode(target.id);
             }
         }
 
-        function filterByGroup(groupName) {
-            const groupNodes = allNodes.filter(function(n) { return n.group === groupName; });
-            if (groupNodes.length === 0) return;
-            const groupNodeIds = new Set(groupNodes.map(function(n) { return n.id; }));
-            const filteredEdges = allEdges.filter(function(e) {
-                return groupNodeIds.has(e.from) && groupNodeIds.has(e.to);
-            });
-            nodesDataSet.clear();
-            nodesDataSet.add(groupNodes);
-            edgesDataSet.clear();
-            edgesDataSet.add(filteredEdges);
-            fitView();
+        function showToast(message) {
+            let toast = document.getElementById('appToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'appToast';
+                toast.className = 'toast-msg';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(function() {
+                toast.classList.remove('show');
+            }, 2800);
         }
 
-        function filterHops(radius) {
-            const selected = network.getSelectedNodes();
-            if (selected.length === 0) {
-                alert("Please select one node before applying Ego-Graph hop filter.");
+        let activeGroupFilter = null;
+
+        function filterByGroup(groupName) {
+            const legendItems = document.querySelectorAll('.legend-item');
+            
+            // Toggle off if clicking same active group
+            if (activeGroupFilter === groupName) {
+                activeGroupFilter = null;
+                legendItems.forEach(function(el) { el.classList.remove('active'); });
+                restoreGraphView();
+                showToast("Classification filter cleared");
                 return;
             }
-            const root = selected[0];
-            let activeNodes = new Set([root]);
-            let frontier = [root];
 
-            for (let r = 0; r < radius; r++) {
-                let nextFrontier = [];
-                for (const curr of frontier) {
-                    const conn = network.getConnectedNodes(curr);
-                    for (const neighbor of conn) {
-                        if (!activeNodes.has(neighbor)) {
-                            activeNodes.add(neighbor);
-                            nextFrontier.push(neighbor);
-                        }
-                    }
-                }
-                frontier = nextFrontier;
+            const groupNodes = allNodes.filter(function(n) { return n.group === groupName; });
+            if (groupNodes.length === 0) {
+                showToast("No entities found for group: " + groupName);
+                return;
             }
 
-            const filteredNodes = allNodes.filter(function(n) { return activeNodes.has(n.id); });
-            const filteredEdges = allEdges.filter(function(e) { return activeNodes.has(e.from) && activeNodes.has(e.to); });
-            nodesDataSet.clear();
-            nodesDataSet.add(filteredNodes);
-            edgesDataSet.clear();
-            edgesDataSet.add(filteredEdges);
+            activeGroupFilter = groupName;
+            legendItems.forEach(function(el) {
+                const groupAttr = el.getAttribute('onclick') || '';
+                if (groupAttr.includes("'" + groupName + "'")) {
+                    el.classList.add('active');
+                } else {
+                    el.classList.remove('active');
+                }
+            });
 
-            document.querySelectorAll('.seg-btn').forEach(function(b) { b.classList.remove('active'); });
-            const btn = document.getElementById('btnHop' + radius);
-            if (btn) btn.classList.add('active');
+            const groupNodeIds = new Set(groupNodes.map(function(n) { return n.id; }));
+            const incidentEdges = allEdges.filter(function(e) {
+                return groupNodeIds.has(e.from) || groupNodeIds.has(e.to);
+            });
+            const incidentEdgeIds = new Set(incidentEdges.map(function(e) { return e.id; }));
 
-            fitView();
+            // High-contrast highlighting without destroying node positions
+            const nodeUpdates = allNodes.map(function(n) {
+                if (groupNodeIds.has(n.id)) {
+                    return { id: n.id, opacity: 1.0 };
+                } else {
+                    return { id: n.id, opacity: 0.12 };
+                }
+            });
+
+            const edgeUpdates = allEdges.map(function(e) {
+                if (incidentEdgeIds.has(e.id)) {
+                    return {
+                        id: e.id,
+                        color: { color: '#FCD535', highlight: '#FCD535' },
+                        width: (e.width || 1) + 1,
+                        opacity: 0.85
+                    };
+                } else {
+                    return {
+                        id: e.id,
+                        color: { color: 'rgba(148, 163, 184, 0.04)' },
+                        opacity: 0.03
+                    };
+                }
+            });
+
+            nodesDataSet.update(nodeUpdates);
+            edgesDataSet.update(edgeUpdates);
+
+            if (groupNodes.length > 0) {
+                const groupIds = groupNodes.map(function(n) { return n.id; });
+                network.fit({
+                    nodes: groupIds,
+                    animation: { duration: 450, easingFunction: 'easeInOutQuad' }
+                });
+            }
+
+            showToast("Focused on classification: " + groupName);
         }
 
         function resetFilter() {
-            nodesDataSet.clear();
-            nodesDataSet.add(allNodes);
-            edgesDataSet.clear();
-            edgesDataSet.add(allEdges);
-            restoreSynapticView();
-
-            document.querySelectorAll('.seg-btn').forEach(function(b) { b.classList.remove('active'); });
-            const resetBtn = document.getElementById('btnResetHop');
-            if (resetBtn) resetBtn.classList.add('active');
-
+            activeGroupFilter = null;
+            document.querySelectorAll('.legend-item').forEach(function(el) { el.classList.remove('active'); });
+            restoreGraphView();
             fitView();
+            showToast("Graph reset to complete market network.");
         }
 
         function togglePhysics() {
@@ -1362,6 +1797,85 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 network.moveTo({ scale: scale * 0.75, animation: { duration: 250, easingFunction: 'easeInOutQuad' } });
             }
         }
+
+        function toggleSidebar(forceState) {
+            const sidebar = document.querySelector('.sidebar');
+            const backdrop = document.getElementById('drawerBackdrop');
+            if (!sidebar) return;
+            const shouldOpen = typeof forceState === 'boolean' ? forceState : !sidebar.classList.contains('open');
+            if (shouldOpen) {
+                sidebar.classList.add('open');
+                if (window.innerWidth <= 768) {
+                    const inspector = document.querySelector('.inspector');
+                    if (inspector) inspector.classList.remove('open');
+                }
+                if (backdrop && window.innerWidth <= 768) {
+                    backdrop.classList.add('active');
+                }
+            } else {
+                sidebar.classList.remove('open');
+                const inspector = document.querySelector('.inspector');
+                if (backdrop && (!inspector || !inspector.classList.contains('open'))) {
+                    backdrop.classList.remove('active');
+                }
+            }
+        }
+
+        function toggleInspector(forceState) {
+            const inspector = document.querySelector('.inspector');
+            const backdrop = document.getElementById('drawerBackdrop');
+            if (!inspector) return;
+            const shouldOpen = typeof forceState === 'boolean' ? forceState : !inspector.classList.contains('open');
+            if (shouldOpen) {
+                inspector.classList.add('open');
+                if (window.innerWidth <= 768) {
+                    const sidebar = document.querySelector('.sidebar');
+                    if (sidebar) sidebar.classList.remove('open');
+                }
+                if (backdrop && window.innerWidth <= 1024) {
+                    backdrop.classList.add('active');
+                }
+            } else {
+                inspector.classList.remove('open');
+                const sidebar = document.querySelector('.sidebar');
+                if (backdrop && (!sidebar || !sidebar.classList.contains('open'))) {
+                    backdrop.classList.remove('active');
+                }
+            }
+        }
+
+        function closeDrawers() {
+            const sidebar = document.querySelector('.sidebar');
+            const inspector = document.querySelector('.inspector');
+            const backdrop = document.getElementById('drawerBackdrop');
+            if (sidebar) sidebar.classList.remove('open');
+            if (inspector) inspector.classList.remove('open');
+            if (backdrop) backdrop.classList.remove('active');
+        }
+
+        document.addEventListener('click', function(e) {
+            const sidebar = document.querySelector('.sidebar');
+            const inspector = document.querySelector('.inspector');
+            const sidebarBtn = document.getElementById('sidebarToggleBtn');
+            const inspectorBtn = document.getElementById('inspectorToggleBtn');
+
+            if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('open')) {
+                if (!sidebar.contains(e.target) && (!sidebarBtn || !sidebarBtn.contains(e.target))) {
+                    toggleSidebar(false);
+                }
+            }
+            if (window.innerWidth <= 1024 && inspector && inspector.classList.contains('open')) {
+                if (!inspector.contains(e.target) && (!inspectorBtn || !inspectorBtn.contains(e.target)) && !e.target.closest('#network')) {
+                    toggleInspector(false);
+                }
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeDrawers();
+            }
+        });
 
         window.addEventListener('load', initNetwork);
     </script>
@@ -1445,17 +1959,32 @@ class GraphVisualizer:
             rel = edge.get("relation", "RELATES_TO")
             base_w = float(edge.get("weight", 1.0))
             eff_w = float(edge.get("effective_weight", base_w))
-            edge_width = min(5, max(1, int(eff_w * 1.5)))
+            edge_width = max(2, min(5, round(eff_w * 1.5)))
 
-            # Neural edge color: subtle translucent axon with recency-driven brightness
-            alpha = max(0.18, min(0.65, eff_w * 0.35))
-            edge_color_rgba = f"rgba(148, 163, 184, {alpha:.2f})"
+            # High-contrast institutional relation palette (inspired by Graphify & Bloomberg terminal)
             if rel in ("TRIGGERED_ANOMALY", "VOLATILITY_SURGE"):
-                edge_color_rgba = f"rgba(239, 68, 68, {max(0.3, alpha):.2f})"
-            elif rel in ("CATALYZED_BY", "ANNOUNCED_ACTION"):
-                edge_color_rgba = f"rgba(16, 185, 129, {max(0.3, alpha):.2f})"
-            elif rel in ("ACCUMULATED_BY", "NET_FLOW"):
-                edge_color_rgba = f"rgba(139, 92, 246, {max(0.3, alpha):.2f})"
+                edge_color_rgba = "rgba(244, 63, 94, 0.85)"  # Rose / Coral
+                edge_highlight = "#FDA4AF"
+            elif rel in ("CATALYZED_BY", "ANNOUNCED_ACTION", "DISCLOSURE"):
+                edge_color_rgba = "rgba(16, 185, 129, 0.85)"  # Emerald / Mint
+                edge_highlight = "#6EE7B7"
+            elif rel in ("ACCUMULATED_BY", "NET_FLOW", "BROKER_TRANSACTION"):
+                edge_color_rgba = "rgba(168, 85, 247, 0.85)"  # Purple / Violet
+                edge_highlight = "#D8B4FE"
+            elif rel in ("MENTIONED_IN_BRIEFING", "RESEARCHED", "INVESTIGATED"):
+                edge_color_rgba = "rgba(56, 189, 248, 0.80)"  # Sky Blue / Cyan
+                edge_highlight = "#7DD3FC"
+            elif rel in ("OPERATES_IN_SECTOR", "SECTOR_PEER", "INDUSTRY"):
+                edge_color_rgba = "rgba(245, 158, 11, 0.80)"  # Amber / Gold
+                edge_highlight = "#FDE68A"
+            else:
+                edge_color_rgba = "rgba(148, 163, 184, 0.70)"  # Crisp Slate Blue
+                edge_highlight = "#FCD535"
+
+            is_superseded = bool(edge.get("is_superseded", False))
+            if is_superseded:
+                edge_color_rgba = "rgba(100, 116, 139, 0.40)"
+                edge_highlight = "#EF4444"
 
             retained_edges.append({
                 "id": f"{u}_{rel}_{v}",
@@ -1465,19 +1994,20 @@ class GraphVisualizer:
                 "title": f"[{rel}] {u} ➔ {v} (Effective Weight: {eff_w})",
                 "relation": rel,
                 "font": {"size": 9, "color": "#94A3B8", "strokeWidth": 2, "strokeColor": "#0B0E14", "align": "horizontal"},
-                "arrows": {"to": {"enabled": True, "scaleFactor": 0.45}},
+                "arrows": {"to": {"enabled": True, "scaleFactor": 0.65}},
                 "color": {
                     "color": edge_color_rgba,
-                    "highlight": "#38BDF8",
+                    "highlight": edge_highlight,
                     "hover": "#FCD535",
                 },
+                "dashes": [4, 4] if is_superseded else False,
                 "width": edge_width,
                 "weight": base_w,
                 "effective_weight": eff_w,
                 "context_snippet": edge.get("context_snippet", ""),
                 "session_id": edge_session,
                 "last_observed_at": edge.get("last_observed_at", ""),
-                "is_superseded": edge.get("is_superseded", False),
+                "is_superseded": is_superseded,
             })
 
         active_node_ids = set()
@@ -1487,7 +2017,7 @@ class GraphVisualizer:
             if e.get("to"):
                 active_node_ids.add(e["to"])
 
-        # Calculate node degrees for synaptic mass scaling
+        # Calculate node degrees for degree centrality scaling
         node_degrees: Dict[str, int] = {}
         for e in retained_edges:
             if e.get("from"):
