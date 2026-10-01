@@ -147,8 +147,11 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 inv_anomaly_title: "Ringkasan Anomali Deterministik (Law 1)",
                 inv_chart_title: "Visualisasi Candlestick & Volume Spike (TradingView)",
                 inv_matrix_title: "Matriks Verifikasi Bukti 3-Tier (Law 2)",
-                inv_timeline_title: "Timeline Kronologis Kejadian (OSINT)",
+                inv_timeline_title: "Timeline Kronologis Bukti & Berita",
                 inv_disclaimer: "<strong>Kepatuhan Regulasi (Law 2 & Law 3):</strong> Seluruh dossier dan temuan investigasi disajikan secara obyektif berdasarkan data historis keterbukaan informasi IDXnet dan bukan merupakan rekomendasi transaksi finansial.",
+                graph_page_title: "Memory Graph — Jaringan Asosiasi Pasar Modal",
+                graph_page_desc: "Visualisasi interaktif graf asosiasi multi-entitas pasar modal Indonesia (Emiten, Katalis Komoditas, Broker, Regulasi, dan Anomali Volume).",
+                btn_reload_graph: "Segarkan Graf",
                 graph_open_tab: "Buka Tab Mandiri",
                 graph_total_nodes: "Total Simpul (Nodes)",
                 graph_total_edges: "Total Relasi (Edges)",
@@ -336,8 +339,11 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 inv_anomaly_title: "Deterministic Anomaly Summary (Law 1)",
                 inv_chart_title: "Candlestick & Volume Spike Visualization (TradingView)",
                 inv_matrix_title: "3-Tier Evidence Verification Matrix (Law 2)",
-                inv_timeline_title: "Chronological Timeline (OSINT)",
+                inv_timeline_title: "Chronological Evidence & News Timeline",
                 inv_disclaimer: "<strong>Regulatory Compliance (Law 2 & Law 3):</strong> All dossiers and investigative findings are presented objectively based on historical IDXnet disclosures and are not financial transaction recommendations.",
+                graph_page_title: "Memory Graph — Market Intelligence Knowledge Network",
+                graph_page_desc: "Interactive multi-entity association graph for Indonesian capital markets (Issuers, Commodity Catalysts, Brokers, Regulators, and Volume Anomalies).",
+                btn_reload_graph: "Refresh Graph",
                 graph_open_tab: "Open Independent Tab",
                 graph_total_nodes: "Total Nodes",
                 graph_total_edges: "Total Edges",
@@ -2454,6 +2460,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 const composerContainer = document.querySelector('.composer-container');
                 const globalComplianceBox = document.getElementById('globalComplianceBox');
                 const graphPageView = document.getElementById('graphPageView');
+                const workspaceContent = document.getElementById('workspaceContent');
                 const settingsModal = document.getElementById('settingsModal');
 
                 // Graph Page Elements
@@ -2468,6 +2475,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 const btnResetGraphFilter = document.getElementById('btnResetGraphFilter');
                 const graphFrame = document.getElementById('graphFrame');
                 const btnOpenGraphExternal = document.getElementById('btnOpenGraphExternal');
+                const btnReloadGraph = document.getElementById('btnReloadGraph');
                 const btnBackToChat = document.getElementById('btnBackToChat');
 
                 // Settings Modal Elements
@@ -2714,6 +2722,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     const invPageView = document.getElementById('investigationsPageView');
 
                     if (targetNav === 'investigations') {
+                        if (workspaceContent) workspaceContent.classList.remove('graph-mode');
                         if (heroView) {
                             heroView.classList.add('hidden');
                             heroView.style.display = 'none';
@@ -2728,6 +2737,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                         if (invPageView) invPageView.style.display = 'flex';
                         loadInvestigations();
                     } else if (targetNav === 'graphify') {
+                        if (workspaceContent) workspaceContent.classList.add('graph-mode');
                         if (invPageView) invPageView.style.display = 'none';
                         if (heroView) {
                             heroView.classList.add('hidden');
@@ -2742,9 +2752,11 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                         if (graphPageView) graphPageView.style.display = 'flex';
                         loadGraphPageData();
                     } else if (targetNav === 'toolkit') {
+                        if (workspaceContent) workspaceContent.classList.remove('graph-mode');
                         openSettingsModal();
                     } else {
                         // Default: chat view
+                        if (workspaceContent) workspaceContent.classList.remove('graph-mode');
                         if (invPageView) invPageView.style.display = 'none';
                         if (graphPageView) graphPageView.style.display = 'none';
                         if (globalComplianceBox) globalComplianceBox.style.display = 'block';
@@ -2769,53 +2781,27 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 }
 
                 // Dedicated Memory Graph Page loader
-                async function loadGraphPageData() {
-                    const ticker = graphFilterTicker ? graphFilterTicker.value.trim().toUpperCase() : '';
-                    const depth = graphFilterDepth ? graphFilterDepth.value : '1';
-                    const nodeTypes = graphFilterNodeType ? graphFilterNodeType.value : '';
-
-                    const params = new URLSearchParams();
-                    // NOTE: currentSessionId intentionally NOT forwarded (Law 6 — global cumulative graph)
-                    if (ticker) params.set('ticker', ticker);
-                    if (depth) params.set('depth', depth);
-                    if (nodeTypes) params.set('node_types', nodeTypes);
-
-                    // Standalone URL for opening in a new tab without embed mode
-                    const externalUrl = `${API_BASE}/graph?${params.toString()}`;
+                function loadGraphPageData() {
+                    const externalUrl = `${API_BASE}/graph`;
                     if (btnOpenGraphExternal) btnOpenGraphExternal.href = externalUrl;
 
-                    // Embedded iframe URL with embed=true to eliminate duplicate header/sidebar
-                    const embedParams = new URLSearchParams(params);
-                    embedParams.set('embed', 'true');
-                    const frameUrl = `${API_BASE}/graph?${embedParams.toString()}`;
-                    if (graphFrame) graphFrame.src = frameUrl;
-
-                    if (statActiveSession) {
-                        if (ticker) {
-                            statActiveSession.textContent = `Ego: ${ticker}`;
-                        } else {
-                            statActiveSession.textContent = currentLang === 'en' ? 'Global Graph' : 'Global Graf';
+                    // Load the full authentic memory graph directly
+                    if (graphFrame) {
+                        const currentSrc = graphFrame.getAttribute('src');
+                        if (!currentSrc || currentSrc === 'about:blank') {
+                            graphFrame.src = externalUrl;
                         }
                     }
+                }
 
-                    try {
-                        const res = await fetch(`${API_BASE}/api/graph/stats?${params.toString()}`);
-                        if (res.ok) {
-                            const stats = await res.json();
-                            if (statTotalNodes) statTotalNodes.textContent = stats.total_nodes ?? 0;
-                            if (statTotalEdges) statTotalEdges.textContent = stats.total_edges ?? 0;
-                            if (statTopHub) {
-                                if (stats.top_hub_nodes && stats.top_hub_nodes.length > 0) {
-                                    const top = stats.top_hub_nodes[0];
-                                    statTopHub.textContent = `${top.label || top.id} (${top.degree || 0})`;
-                                } else {
-                                    statTopHub.textContent = ticker || '-';
-                                }
-                            }
+                if (btnReloadGraph) {
+                    btnReloadGraph.addEventListener('click', () => {
+                        if (graphFrame) {
+                            const sep = API_BASE.includes('?') ? '&' : '?';
+                            graphFrame.src = `${API_BASE}/graph${sep}_t=${Date.now()}`;
                         }
-                    } catch (e) {
-                        console.warn('Gagal memuat statistik graf:', e);
-                    }
+                        showToast(currentLang === 'en' ? 'Memory Graph refreshed' : 'Graf Memori disegarkan');
+                    });
                 }
 
                 if (btnApplyGraphFilter) {
@@ -3099,7 +3085,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                         console.warn('Gagal memuat findings:', e);
                     }
 
-                    // 4. Render OSINT Timeline
+                    // 4. Render Evidence & News Timeline
                     const timelineContainer = document.getElementById('invTimelineContainer');
                     if (timelineContainer) {
                         const isEn = currentLang === 'en';

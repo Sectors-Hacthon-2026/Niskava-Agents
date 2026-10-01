@@ -3,6 +3,7 @@
                 const composerContainer = document.querySelector('.composer-container');
                 const globalComplianceBox = document.getElementById('globalComplianceBox');
                 const graphPageView = document.getElementById('graphPageView');
+                const workspaceContent = document.getElementById('workspaceContent');
                 const settingsModal = document.getElementById('settingsModal');
 
                 // Graph Page Elements
@@ -17,6 +18,7 @@
                 const btnResetGraphFilter = document.getElementById('btnResetGraphFilter');
                 const graphFrame = document.getElementById('graphFrame');
                 const btnOpenGraphExternal = document.getElementById('btnOpenGraphExternal');
+                const btnReloadGraph = document.getElementById('btnReloadGraph');
                 const btnBackToChat = document.getElementById('btnBackToChat');
 
                 // Settings Modal Elements
@@ -263,6 +265,7 @@
                     const invPageView = document.getElementById('investigationsPageView');
 
                     if (targetNav === 'investigations') {
+                        if (workspaceContent) workspaceContent.classList.remove('graph-mode');
                         if (heroView) {
                             heroView.classList.add('hidden');
                             heroView.style.display = 'none';
@@ -277,6 +280,7 @@
                         if (invPageView) invPageView.style.display = 'flex';
                         loadInvestigations();
                     } else if (targetNav === 'graphify') {
+                        if (workspaceContent) workspaceContent.classList.add('graph-mode');
                         if (invPageView) invPageView.style.display = 'none';
                         if (heroView) {
                             heroView.classList.add('hidden');
@@ -291,9 +295,11 @@
                         if (graphPageView) graphPageView.style.display = 'flex';
                         loadGraphPageData();
                     } else if (targetNav === 'toolkit') {
+                        if (workspaceContent) workspaceContent.classList.remove('graph-mode');
                         openSettingsModal();
                     } else {
                         // Default: chat view
+                        if (workspaceContent) workspaceContent.classList.remove('graph-mode');
                         if (invPageView) invPageView.style.display = 'none';
                         if (graphPageView) graphPageView.style.display = 'none';
                         if (globalComplianceBox) globalComplianceBox.style.display = 'block';
@@ -318,53 +324,27 @@
                 }
 
                 // Dedicated Memory Graph Page loader
-                async function loadGraphPageData() {
-                    const ticker = graphFilterTicker ? graphFilterTicker.value.trim().toUpperCase() : '';
-                    const depth = graphFilterDepth ? graphFilterDepth.value : '1';
-                    const nodeTypes = graphFilterNodeType ? graphFilterNodeType.value : '';
-
-                    const params = new URLSearchParams();
-                    // NOTE: currentSessionId intentionally NOT forwarded (Law 6 — global cumulative graph)
-                    if (ticker) params.set('ticker', ticker);
-                    if (depth) params.set('depth', depth);
-                    if (nodeTypes) params.set('node_types', nodeTypes);
-
-                    // Standalone URL for opening in a new tab without embed mode
-                    const externalUrl = `${API_BASE}/graph?${params.toString()}`;
+                function loadGraphPageData() {
+                    const externalUrl = `${API_BASE}/graph`;
                     if (btnOpenGraphExternal) btnOpenGraphExternal.href = externalUrl;
 
-                    // Embedded iframe URL with embed=true to eliminate duplicate header/sidebar
-                    const embedParams = new URLSearchParams(params);
-                    embedParams.set('embed', 'true');
-                    const frameUrl = `${API_BASE}/graph?${embedParams.toString()}`;
-                    if (graphFrame) graphFrame.src = frameUrl;
-
-                    if (statActiveSession) {
-                        if (ticker) {
-                            statActiveSession.textContent = `Ego: ${ticker}`;
-                        } else {
-                            statActiveSession.textContent = currentLang === 'en' ? 'Global Graph' : 'Global Graf';
+                    // Load the full authentic memory graph directly
+                    if (graphFrame) {
+                        const currentSrc = graphFrame.getAttribute('src');
+                        if (!currentSrc || currentSrc === 'about:blank') {
+                            graphFrame.src = externalUrl;
                         }
                     }
+                }
 
-                    try {
-                        const res = await fetch(`${API_BASE}/api/graph/stats?${params.toString()}`);
-                        if (res.ok) {
-                            const stats = await res.json();
-                            if (statTotalNodes) statTotalNodes.textContent = stats.total_nodes ?? 0;
-                            if (statTotalEdges) statTotalEdges.textContent = stats.total_edges ?? 0;
-                            if (statTopHub) {
-                                if (stats.top_hub_nodes && stats.top_hub_nodes.length > 0) {
-                                    const top = stats.top_hub_nodes[0];
-                                    statTopHub.textContent = `${top.label || top.id} (${top.degree || 0})`;
-                                } else {
-                                    statTopHub.textContent = ticker || '-';
-                                }
-                            }
+                if (btnReloadGraph) {
+                    btnReloadGraph.addEventListener('click', () => {
+                        if (graphFrame) {
+                            const sep = API_BASE.includes('?') ? '&' : '?';
+                            graphFrame.src = `${API_BASE}/graph${sep}_t=${Date.now()}`;
                         }
-                    } catch (e) {
-                        console.warn('Gagal memuat statistik graf:', e);
-                    }
+                        showToast(currentLang === 'en' ? 'Memory Graph refreshed' : 'Graf Memori disegarkan');
+                    });
                 }
 
                 if (btnApplyGraphFilter) {
@@ -648,7 +628,7 @@
                         console.warn('Gagal memuat findings:', e);
                     }
 
-                    // 4. Render OSINT Timeline
+                    // 4. Render Evidence & News Timeline
                     const timelineContainer = document.getElementById('invTimelineContainer');
                     if (timelineContainer) {
                         const isEn = currentLang === 'en';

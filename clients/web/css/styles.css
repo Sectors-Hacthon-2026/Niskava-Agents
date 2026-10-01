@@ -2478,15 +2478,22 @@
             transform: translateY(0);
         }
 
-        /* Memory Graph Dedicated Page View */
+        /* Memory Graph Dedicated Full-Page View */
         .graph-page-view {
             width: 100%;
-            max-width: 1120px;
+            max-width: 100%;
+            height: calc(100vh - 72px);
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 10px;
             z-index: 2;
-            padding-bottom: 24px;
+            padding: 0 4px 6px 4px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        .workspace-content.graph-mode {
+            padding: 8px 16px;
+            overflow: hidden;
         }
         .graph-header-box {
             display: flex;
@@ -2494,27 +2501,33 @@
             justify-content: space-between;
             flex-wrap: wrap;
             gap: 12px;
-            background: var(--bg-card);
+            background: linear-gradient(135deg, rgba(21, 26, 38, 0.85) 0%, rgba(15, 19, 29, 0.95) 100%);
+            backdrop-filter: blur(16px);
             border: 1px solid var(--border-subtle);
-            border-radius: 14px;
-            padding: 16px 20px;
+            border-top: 1px solid rgba(252, 213, 53, 0.25);
+            border-radius: 12px;
+            padding: 10px 18px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+            flex-shrink: 0;
         }
         .graph-header-title-col {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 3px;
         }
         .graph-header-title {
-            font-size: 18px;
-            font-weight: 750;
+            font-size: 16px;
+            font-weight: 800;
             color: var(--text-primary);
             display: flex;
             align-items: center;
             gap: 8px;
+            letter-spacing: 0.2px;
         }
         .graph-header-desc {
-            font-size: 12px;
+            font-size: 11.5px;
             color: var(--text-muted);
+            letter-spacing: 0.1px;
         }
         .graph-header-actions {
             display: flex;
@@ -2531,37 +2544,54 @@
             .graph-stats-row { grid-template-columns: repeat(2, 1fr); }
         }
         .graph-stat-card {
-            background: var(--bg-card);
+            background: linear-gradient(180deg, rgba(22, 28, 42, 0.7) 0%, rgba(16, 21, 32, 0.9) 100%);
             border: 1px solid var(--border-subtle);
+            border-top: 2px solid var(--border-subtle);
             border-radius: 12px;
-            padding: 12px 16px;
+            padding: 14px 18px;
             display: flex;
             flex-direction: column;
             gap: 4px;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
         }
+        .graph-stat-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(252, 213, 53, 0.4);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+        }
+        .graph-stat-card:nth-child(1) { border-top-color: #FCD535; }
+        .graph-stat-card:nth-child(2) { border-top-color: #38BDF8; }
+        .graph-stat-card:nth-child(3) { border-top-color: #10B981; }
+        .graph-stat-card:nth-child(4) { border-top-color: #8B5CF6; }
+
         .graph-stat-num {
-            font-size: 22px;
+            font-size: 24px;
             font-weight: 800;
             color: var(--text-primary);
             font-family: var(--font-mono);
+            letter-spacing: -0.5px;
         }
         .graph-stat-label {
             font-size: 11px;
             color: var(--text-muted);
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.05em;
         }
         .graph-filters-bar {
-            background: var(--bg-card);
+            background: linear-gradient(135deg, rgba(21, 26, 38, 0.75) 0%, rgba(15, 19, 29, 0.85) 100%);
+            backdrop-filter: blur(14px);
             border: 1px solid var(--border-subtle);
             border-radius: 14px;
-            padding: 14px 18px;
+            padding: 12px 18px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
             gap: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
         }
         .graph-filter-inputs {
             display: flex;
@@ -2570,40 +2600,46 @@
             flex-wrap: wrap;
         }
         .graph-input-sm {
-            height: 34px;
-            padding: 0 12px;
+            height: 36px;
+            padding: 0 14px;
             border-radius: 8px;
             border: 1px solid var(--border-subtle);
-            background: var(--bg-input);
+            background: rgba(11, 14, 22, 0.8);
             font-size: 12px;
             color: var(--text-primary);
             font-family: var(--font-main);
+            transition: all 0.15s ease;
         }
         .graph-input-sm:focus {
-            border-color: var(--border-focus);
+            border-color: #FCD535;
+            background: #101420;
+            box-shadow: 0 0 0 1px rgba(252, 213, 53, 0.25);
             outline: none;
         }
         .graph-select-sm {
-            height: 34px;
-            padding: 0 10px;
+            height: 36px;
+            padding: 0 12px;
             border-radius: 8px;
             border: 1px solid var(--border-subtle);
-            background: var(--bg-input);
+            background: rgba(11, 14, 22, 0.8);
             font-size: 12px;
             color: var(--text-primary);
             font-family: var(--font-main);
             cursor: pointer;
+            transition: all 0.15s ease;
         }
         .graph-select-sm:focus {
-            border-color: var(--border-focus);
+            border-color: #FCD535;
             outline: none;
         }
         .graph-canvas-wrapper {
+            flex: 1;
             width: 100%;
-            height: 600px;
+            height: 100%;
+            min-height: 0;
             background: var(--bg-card);
             border: 1px solid var(--border-subtle);
-            border-radius: 16px;
+            border-radius: 12px;
             overflow: hidden;
             position: relative;
             box-shadow: var(--shadow-card);
@@ -2614,7 +2650,7 @@
             border: none;
             background: transparent;
             overflow: hidden;
-            border-radius: 8px;
+            border-radius: 11px;
             display: block;
         }
 

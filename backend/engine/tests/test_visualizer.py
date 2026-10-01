@@ -53,8 +53,8 @@ def test_export_graph_data(populated_memory):
     # Check node properties
     antm_node = next(n for n in data["nodes"] if n["label"] == "ANTM")
     assert antm_node["group"] == "TICKER"
-    assert antm_node["shape"] == "box"
-    assert antm_node["color"]["background"] == "#1E3A8A"
+    assert antm_node["shape"] == "dot"
+    assert antm_node["color"]["background"] == "#1E2329"
     assert antm_node["raw_label"] == "ANTM"
     assert antm_node["widthConstraint"] == {"maximum": 150, "minimum": 80}
     assert antm_node["margin"] == 10

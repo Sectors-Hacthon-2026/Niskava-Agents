@@ -260,16 +260,20 @@
                     <div class="graph-header-box">
                         <div class="graph-header-title-col">
                             <div class="graph-header-title">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-                                <span>Memory Graph — Cyber-OSINT Association Matrix</span>
-                                <span class="panel-card-badge" style="background:rgba(252,213,53,0.18); color:var(--text-primary);">Ego-Network Active</span>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                                <span data-i18n="graph_page_title">Memory Graph — Jaringan Asosiasi Pasar Modal</span>
+                                <span class="panel-card-badge" style="background:rgba(252,213,53,0.18); color:var(--text-primary);">Law 6 Local Ego-Network</span>
                             </div>
-                            <span class="graph-header-desc">Pemetaan asosiasi interaktif multi-entitas pasar modal (Emiten, Katalis Komoditas, Broker, Regulasi, dan Anomali Volume).</span>
+                            <span class="graph-header-desc" data-i18n="graph_page_desc">Visualisasi interaktif graf asosiasi multi-entitas pasar modal Indonesia (Emiten, Katalis Komoditas, Broker, Regulasi, dan Anomali Volume).</span>
                         </div>
                         <div class="graph-header-actions">
                             <button class="btn-test-conn" id="btnBackToChat" title="Kembali ke Percakapan AI">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                                 <span data-i18n="btn_inv_back_to_chat">Percakapan AI</span>
+                            </button>
+                            <button class="btn-test-conn" id="btnReloadGraph" title="Muat Ulang Graf">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                <span data-i18n="btn_reload_graph">Segarkan Graf</span>
                             </button>
                             <a id="btnOpenGraphExternal" href="/graph" target="_blank" class="btn-test-conn" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
@@ -278,61 +282,7 @@
                         </div>
                     </div>
 
-                    <!-- Top Stats Cards -->
-                    <div class="graph-stats-row">
-                        <div class="graph-stat-card">
-                            <span class="graph-stat-label" data-i18n="graph_total_nodes">Total Simpul (Nodes)</span>
-                            <span class="graph-stat-num" id="statTotalNodes">0</span>
-                        </div>
-                        <div class="graph-stat-card">
-                            <span class="graph-stat-label" data-i18n="graph_total_edges">Total Relasi (Edges)</span>
-                            <span class="graph-stat-num" id="statTotalEdges">0</span>
-                        </div>
-                        <div class="graph-stat-card">
-                            <span class="graph-stat-label" data-i18n="graph_top_hub">Sentralitas Hub Utama</span>
-                            <span class="graph-stat-num" id="statTopHub" style="font-size:15px; font-weight:700;">-</span>
-                        </div>
-                        <div class="graph-stat-card">
-                            <span class="graph-stat-label" data-i18n="graph_coverage">Cakupan Graf</span>
-                            <span class="graph-stat-num" id="statActiveSession" style="font-size:13px; font-weight:700; word-break:break-all;">-</span>
-                        </div>
-                    </div>
-
-                    <!-- Filters and Controls Bar -->
-                    <div class="graph-filters-bar">
-                        <div class="graph-filter-inputs">
-                            <input type="text" class="graph-input-sm" id="graphFilterTicker" placeholder="Filter Ticker (cth: ANTM, BBRI)..." data-i18n-placeholder="graph_filter_ticker_ph" style="width:180px;">
-                            <select class="graph-select-sm" id="graphFilterDepth" title="Kedalaman Hop (Law 6: k ≤ 2)">
-                                <option value="1" data-i18n="graph_hop_1">1 Hop (Tetangga Langsung)</option>
-                                <option value="2" data-i18n="graph_hop_2">2 Hops (Maks)</option>
-                            </select>
-                            <select class="graph-select-sm" id="graphFilterNodeType" title="Saring Tipe Entitas">
-                                <option value="" data-i18n="graph_node_all">Semua Tipe Entitas</option>
-                                <option value="TICKER" data-i18n="graph_node_ticker">Emiten Saham (TICKER)</option>
-                                <option value="CATALYST" data-i18n="graph_node_catalyst">Katalis Komoditas (CATALYST)</option>
-                                <option value="BROKER" data-i18n="graph_node_broker">Broker Sekuritas (BROKER)</option>
-                                <option value="REGULATOR" data-i18n="graph_node_regulator">Regulator BEI/OJK (REGULATOR)</option>
-                                <option value="ANOMALY" data-i18n="graph_node_anomaly">Anomali Volume (ANOMALY)</option>
-                                <option value="EVENT" data-i18n="graph_node_event">Aksi Korporasi (EVENT)</option>
-                            </select>
-                            <button class="btn-test-conn" id="btnApplyGraphFilter" data-i18n="btn_apply_filter" style="background:var(--primary); color:#1E2329; border:none; font-weight:700;">
-                                Terapkan Filter
-                            </button>
-                            <button class="btn-test-conn" id="btnResetGraphFilter" data-i18n="btn_reset_filter">
-                                Reset
-                            </button>
-                            <button class="btn-test-conn" id="btnPruneMockData" title="Bersihkan Sesi & Node Uji Coba Sintetis (EVAL-*)">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                <span data-i18n="btn_clean_test_data">Bersihkan Data Uji</span>
-                            </button>
-                        </div>
-                        <div style="font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:6px;">
-                            <span class="live-dot" style="background:#10B981;"></span>
-                            <span>Live Graph Engine</span>
-                        </div>
-                    </div>
-
-                    <!-- Graph Canvas Frame -->
+                    <!-- Graph Canvas Frame (Full Height Interactive Canvas) -->
                     <div class="graph-canvas-wrapper">
                         <iframe class="graph-iframe" id="graphFrame" src="about:blank" title="Niskava Interactive Memory Graph"></iframe>
                     </div>
@@ -485,7 +435,7 @@
                                     <div>
                                         <div style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">
                                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                            <span data-i18n="inv_timeline_title">Timeline Kronologis Kejadian (OSINT)</span>
+                                            <span data-i18n="inv_timeline_title">Timeline Kronologis Bukti & Berita</span>
                                         </div>
                                         <div class="signal-list" id="invTimelineContainer"></div>
                                     </div>
