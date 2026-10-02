@@ -79,7 +79,7 @@
                             inputOpenaiBaseUrl.value = 'http://localhost:20128/v1';
                         }
                         if (inputOpenaiModel && !inputOpenaiModel.value.trim()) {
-                            inputOpenaiModel.value = 'hermes';
+                            inputOpenaiModel.value = 'gpt-4o-mini';
                         }
                     } else if (prov === 'ollama') {
                         if (inputOllamaBaseUrl && !inputOllamaBaseUrl.value.trim()) {

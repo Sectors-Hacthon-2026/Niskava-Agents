@@ -179,6 +179,7 @@ type UpdateSettingsRequest struct {
 		OpenAIBaseURL   *string `json:"openai_base_url"`
 		OpenAIModel     *string `json:"openai_model"`
 		AnthropicAPIKey *string `json:"anthropic_api_key"`
+		AnthropicModel  *string `json:"anthropic_model"`
 		OllamaBaseURL   *string `json:"ollama_base_url"`
 		OllamaModel     *string `json:"ollama_model"`
 	} `json:"auth"`
@@ -348,6 +349,9 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 					} else if !strings.Contains(*req.Auth.AnthropicAPIKey, "****") {
 						s.Config.Auth.AnthropicAPIKey = *req.Auth.AnthropicAPIKey
 					}
+				}
+				if req.Auth.AnthropicModel != nil && *req.Auth.AnthropicModel != "" {
+					s.Config.Auth.AnthropicModel = *req.Auth.AnthropicModel
 				}
 				if req.Auth.OllamaBaseURL != nil && *req.Auth.OllamaBaseURL != "" {
 					s.Config.Auth.OllamaBaseURL = *req.Auth.OllamaBaseURL
@@ -1161,7 +1165,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				req.Title = "Sesi Riset Pasar"
 			}
 			if req.Model == "" {
-				req.Model = "hermes"
+				if cfg != nil {
+					req.Model = cfg.GetActiveModel()
+				} else {
+					req.Model = "niskava"
+				}
 			}
 			sess := &db.ChatSession{
 				ID:     req.ID,
@@ -1730,10 +1738,14 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				if sessionTitle == "" {
 					sessionTitle = "Sesi Riset Pasar"
 				}
+				activeModel := "niskava"
+				if cfg != nil {
+					activeModel = cfg.GetActiveModel()
+				}
 				_ = database.CreateChatSession(&db.ChatSession{
 					ID:     sessionID,
 					Title:  sessionTitle,
-					Model:  "hermes",
+					Model:  activeModel,
 					Status: "BUSY",
 				})
 			} else {

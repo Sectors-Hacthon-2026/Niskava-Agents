@@ -167,7 +167,7 @@ func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 
 	// 6. Metadata HUD Stats Panel
 	if modelLabel == "" {
-		modelLabel = "hermes"
+		modelLabel = "niskava"
 	}
 	if sessionID == "" {
 		sessionID = "LIVE-SESSION"

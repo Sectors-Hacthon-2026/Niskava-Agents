@@ -764,23 +764,11 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 
 // RunLiveREPLWithInitialPrompt starts an interactive REPL pre-seeded with an initial prompt.
 func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL string, initialSessionID string, initialPrompt string) string {
-	// Determine active model and provider display
 	providerLabel := "openai"
-	if cfg != nil && cfg.Auth.AIProvider != "" {
-		providerLabel = cfg.Auth.AIProvider
-	}
-	modelLabel := ""
+	modelLabel := "niskava"
 	if cfg != nil {
-		if strings.EqualFold(providerLabel, "gemini") && cfg.Auth.GeminiModel != "" {
-			modelLabel = cfg.Auth.GeminiModel
-		} else if cfg.Auth.OpenAIModel != "" {
-			modelLabel = cfg.Auth.OpenAIModel
-		} else if cfg.Auth.GeminiModel != "" {
-			modelLabel = cfg.Auth.GeminiModel
-		}
-	}
-	if modelLabel == "" {
-		modelLabel = "hermes"
+		providerLabel = cfg.GetActiveProvider()
+		modelLabel = cfg.GetActiveModel()
 	}
 
 	sessionID := fmt.Sprintf("CHAT-%s-%04d", time.Now().Format("20060102"), time.Now().Unix()%10000)
@@ -806,7 +794,14 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 		}
 	}
 
-	promptPrefix := fmt.Sprintf("niskava [%s:%s] >", providerLabel, modelLabel)
+	var promptPrefix string
+	if modelLabel == "niskava" || modelLabel == "" {
+		promptPrefix = "niskava >"
+	} else if strings.EqualFold(providerLabel, "gemini") || strings.Contains(strings.ToLower(modelLabel), strings.ToLower(providerLabel)) {
+		promptPrefix = fmt.Sprintf("niskava [%s] >", modelLabel)
+	} else {
+		promptPrefix = fmt.Sprintf("niskava [%s:%s] >", providerLabel, modelLabel)
+	}
 
 	if strings.TrimSpace(initialPrompt) != "" {
 		promptHistory = append(promptHistory, initialPrompt)
@@ -1385,13 +1380,9 @@ func startLiveSpinner(ctx context.Context, getStatus func() string) func() {
 
 func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, appDB *db.DB) {
 	usingDaemon := IsDaemonAlive(serverURL)
-	modelLabel := "hermes"
+	modelLabel := "niskava"
 	if cfg != nil {
-		if cfg.Auth.OpenAIModel != "" {
-			modelLabel = cfg.Auth.OpenAIModel
-		} else if cfg.Auth.GeminiModel != "" {
-			modelLabel = cfg.Auth.GeminiModel
-		}
+		modelLabel = cfg.GetActiveModel()
 	}
 
 	// Record User Message and ensure ChatSession metadata exists in SQLite if running standalone subprocess mode

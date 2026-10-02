@@ -154,7 +154,7 @@ func GetProviderPresets() map[string]ProviderPreset {
 			ID:             "router_local",
 			Name:           "Local Router (9router / LiteLLM)",
 			BaseURL:        "http://localhost:20128/v1",
-			DefaultModel:   "hermes",
+			DefaultModel:   "gpt-4o-mini",
 			KeyPlaceholder: "sk-...",
 			Description:    "Local proxy running on port 20128 or custom",
 		},

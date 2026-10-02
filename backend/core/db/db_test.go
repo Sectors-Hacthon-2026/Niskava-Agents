@@ -181,7 +181,7 @@ func TestChatSessionsCompleteLifecycle(t *testing.T) {
 	sess := &ChatSession{
 		ID:     sessionID,
 		Title:  "Analisis Saham ANTM",
-		Model:  "hermes",
+		Model:  "gemini-2.0-flash",
 		Status: "IDLE",
 	}
 	if err := database.CreateChatSession(sess); err != nil {
@@ -324,7 +324,7 @@ func TestDB_Path_SelfHealing_And_SearchMessages(t *testing.T) {
 	err = db1.CreateChatSession(&ChatSession{
 		ID:     sessionID,
 		Title:  "Analisis ANTM",
-		Model:  "hermes",
+		Model:  "gemini-2.0-flash",
 		Status: "BUSY",
 	})
 	if err != nil {
@@ -756,7 +756,7 @@ func TestListChatSessionsFiltersEmptySessions(t *testing.T) {
 	sessWithMsg := &ChatSession{
 		ID:                 "TELE-20260930-0001",
 		Title:              "Telegram (@testuser)",
-		Model:              "hermes",
+		Model:              "gemini-2.0-flash",
 		Status:             "IDLE",
 		MessageCount:       3,
 		LastMessagePreview: "Analisis ANTM volume anomaly...",
@@ -769,7 +769,7 @@ func TestListChatSessionsFiltersEmptySessions(t *testing.T) {
 	ghostSess := &ChatSession{
 		ID:                 "TELE-20260930-0002",
 		Title:              "Telegram (@testuser)",
-		Model:              "hermes",
+		Model:              "gemini-2.0-flash",
 		Status:             "IDLE",
 		MessageCount:       0,
 		LastMessagePreview: "",

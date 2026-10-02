@@ -1,6 +1,6 @@
 # Panduan Alur Kerja CLI & Integrasi Terminal — Niskava Agent
 
-Panduan praktis pengoperasian dan integrasi antarmuka terminal (*Command Line Interface* & *Terminal User Interface*) untuk **Niskava Agent**. Dokumen ini mencakup panduan interaktif Hermes-style REPL, navigasi popup slash commands, integrasi Model Context Protocol (MCP) dengan AI desktop clients (Claude Desktop & Cursor), serta skrip otomasi headless.
+Panduan praktis pengoperasian dan integrasi antarmuka terminal (*Command Line Interface* & *Terminal User Interface*) untuk **Niskava Agent**. Dokumen ini mencakup panduan interaktif REPL terminal, navigasi popup slash commands, integrasi Model Context Protocol (MCP) dengan AI desktop clients (Claude Desktop & Cursor), serta skrip otomasi headless.
 
 ---
 

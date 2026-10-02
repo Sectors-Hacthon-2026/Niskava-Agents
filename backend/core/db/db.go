@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS memory_edges (
 CREATE TABLE IF NOT EXISTS chat_sessions (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
-    model TEXT NOT NULL DEFAULT 'hermes',
+    model TEXT NOT NULL DEFAULT 'niskava',
     status TEXT NOT NULL DEFAULT 'IDLE',
     message_count INTEGER NOT NULL DEFAULT 0,
     last_message_preview TEXT,
@@ -318,7 +318,7 @@ func Open(dbPath string) (*DB, error) {
 		SELECT 
 			session_id,
 			COALESCE(SUBSTR(MIN(CASE WHEN role = 'user' THEN content END), 1, 40), session_id) as title,
-			'hermes',
+			'niskava',
 			'IDLE',
 			COUNT(id) as message_count,
 			COALESCE(MAX(content), ''),
@@ -518,7 +518,7 @@ func (d *DB) Conn() *sql.DB {
 	return d.conn
 }
 
-// ChatSession represents an explicit conversational research session (Hermes/OpenCode pattern).
+// ChatSession represents an explicit conversational research session.
 type ChatSession struct {
 	ID                 string  `json:"id"`
 	Title              string  `json:"title"`
@@ -579,7 +579,7 @@ func (d *DB) SaveChatMessage(msg *ChatMessage) error {
 
 	upsertQuery := `
 		INSERT INTO chat_sessions (id, title, model, status, message_count, last_message_preview, is_pinned, created_at, updated_at)
-		VALUES (?, ?, 'hermes', 'IDLE', 1, ?, 0, ?, ?)
+		VALUES (?, ?, 'niskava', 'IDLE', 1, ?, 0, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			title = CASE WHEN title = 'Sesi Riset Pasar' OR title = '' OR title IS NULL THEN excluded.title ELSE title END,
 			message_count = message_count + 1,
@@ -680,7 +680,7 @@ func (d *DB) CreateChatSession(s *ChatSession) error {
 		s.Status = "IDLE"
 	}
 	if s.Model == "" {
-		s.Model = "hermes"
+		s.Model = "niskava"
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	if s.CreatedAt == "" {
@@ -1570,7 +1570,7 @@ func (d *DB) ResetTelegramChatSession(chatID int64, userID int64, username strin
 	sess := &ChatSession{
 		ID:     newSessionID,
 		Title:  sessionTitle,
-		Model:  "hermes",
+		Model:  "niskava",
 		Status: "IDLE",
 	}
 	if err := d.CreateChatSession(sess); err != nil {

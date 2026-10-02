@@ -2730,7 +2730,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                             inputOpenaiBaseUrl.value = 'http://localhost:20128/v1';
                         }
                         if (inputOpenaiModel && !inputOpenaiModel.value.trim()) {
-                            inputOpenaiModel.value = 'hermes';
+                            inputOpenaiModel.value = 'gpt-4o-mini';
                         }
                     } else if (prov === 'ollama') {
                         if (inputOllamaBaseUrl && !inputOllamaBaseUrl.value.trim()) {

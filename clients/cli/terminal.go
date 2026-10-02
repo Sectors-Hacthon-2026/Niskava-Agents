@@ -15,7 +15,7 @@ var terminalCmd = &cobra.Command{
 	Use:     "terminal",
 	Aliases: []string{"repl", "chat"},
 	Short:   "Launch interactive conversational intelligence REPL directly",
-	Long: `Launch interactive Hermes-style conversational research REPL terminal directly
+	Long: `Launch interactive conversational research REPL terminal directly
 to dialog with the investigation agent, evaluate quantitative anomalies, and inspect evidence.`,
 	Example: `  # Launch interactive REPL directly:
   niskava terminal

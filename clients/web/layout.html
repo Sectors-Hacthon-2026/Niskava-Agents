@@ -581,7 +581,7 @@
                                 </div>
                                 <select class="form-input" id="selectAiProvider" style="display:none;">
                                     <option value="gemini" data-i18n="opt_gemini">Google Gemini (AI Studio)</option>
-                                    <option value="openai" data-i18n="opt_openai">9router / OpenAI Compatible Gateway (Local: localhost:20128 / Hermes)</option>
+                                    <option value="openai" data-i18n="opt_openai">OpenAI Compatible Gateway (Local / Cloud)</option>
                                     <option value="ollama" data-i18n="opt_ollama">Ollama (Lokal On-Premise - deepseek-r1 / llama3)</option>
                                     <option value="anthropic" data-i18n="opt_anthropic">Anthropic Claude (claude-3-5-sonnet)</option>
                                 </select>
@@ -606,7 +606,7 @@
                                         <span class="provider-tag" id="tagOpenaiStatus">Gateway</span>
                                     </div>
                                     <div class="provider-name">OpenAI / 9router</div>
-                                    <div class="provider-sub">Hermes / GPT-4o / Local</div>
+                                    <div class="provider-sub">GPT-4o / DeepSeek / Local</div>
                                 </button>
 
                                 <button type="button" class="provider-card-tile" data-provider="ollama">
@@ -696,10 +696,10 @@
                             </div>
                             <div class="form-row" style="margin-top:4px;">
                                 <label class="form-label"><span>OpenAI Model Name</span></label>
-                                <input type="text" class="form-input code-font" id="inputOpenaiModel" placeholder="hermes atau gpt-4o">
+                                <input type="text" class="form-input code-font" id="inputOpenaiModel" placeholder="gpt-4o-mini atau gpt-4o">
                                 <div class="quick-preset-chips">
                                     <span class="preset-chip-label">Preset:</span>
-                                    <button type="button" class="preset-chip" data-fill="inputOpenaiModel" data-val="hermes">hermes</button>
+                                    <button type="button" class="preset-chip" data-fill="inputOpenaiModel" data-val="deepseek-chat">deepseek-chat</button>
                                     <button type="button" class="preset-chip" data-fill="inputOpenaiModel" data-val="gpt-4o">gpt-4o</button>
                                     <button type="button" class="preset-chip" data-fill="inputOpenaiModel" data-val="gpt-4o-mini">gpt-4o-mini</button>
                                 </div>

@@ -183,7 +183,7 @@ func TestBuildEnvContentIncludesLLMTimeout(t *testing.T) {
 	p := SetupParams{
 		AIProvider:     "openai",
 		OpenAIBaseURL:  "http://localhost:20128/v1",
-		OpenAIModel:    "hermes",
+		OpenAIModel:    "gpt-4o-mini",
 		LLMTimeoutSecs: 90.0,
 	}
 	content := BuildEnvContent(p)

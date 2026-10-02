@@ -316,7 +316,7 @@ Untuk fleksibilitas integrasi, Niskava menyediakan adapter ganda untuk mengonsum
 │ • Digunakan oleh internal engine   │ • Diekspos sebagai MCP tool       │
 │ • Caching permanen candlestick     │   registry standar untuk agent    │
 │ • Zero overhead IPC                │ • Kompatibel dengan ekosistem MCP │
-│ • Python SectorsAPIClient          │   (Claude Desktop, Cursor, Hermes)│
+│ • Python SectorsAPIClient          │   (Claude Desktop, Cursor, etc.)  │
 └────────────────────────────────────┴───────────────────────────────────┘
 ```
 

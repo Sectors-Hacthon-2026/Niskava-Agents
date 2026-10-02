@@ -108,7 +108,7 @@ Arsitektur 7-Stage Pipeline dirancang secara khusus untuk memenuhi kriteria eval
 
 ## 4. Mode Asisten Percakapan (Prompt-Driven ReAct Loop)
 
-Selain eksekusi batch otomatis (`niskava investigate <TICKER>`), Niskava Agent menyediakan antarmuka asisten riset percakapan (Hermes-style) melalui Terminal REPL dan Web Canvas (`/api/chat`).
+Selain eksekusi batch otomatis (`niskava investigate <TICKER>`), Niskava Agent menyediakan antarmuka asisten riset percakapan interaktif melalui Terminal REPL dan Web Canvas (`/api/chat`).
 
 ### Alur Penalaran ReAct Multi-Turn:
 ```text

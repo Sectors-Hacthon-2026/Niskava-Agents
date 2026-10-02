@@ -65,13 +65,13 @@ func TestAllTranslationKeysAreSynchronized(t *testing.T) {
 
 func TestTFHelper(t *testing.T) {
 	SetLanguage("en")
-	resEn := TF("thinking_init", "hermes")
+	resEn := TF("thinking_init", "gemini-2.0-flash")
 	if resEn == "" || !strings.Contains(resEn, "Initializing analysis") {
 		t.Errorf("expected English formatted output containing 'Initializing analysis', got %q", resEn)
 	}
 
 	SetLanguage("id")
-	resId := TF("thinking_init", "hermes")
+	resId := TF("thinking_init", "gemini-2.0-flash")
 	if resId == "" || !strings.Contains(resId, "Menginisialisasi analisis") {
 		t.Errorf("expected Indonesian formatted output containing 'Menginisialisasi analisis', got %q", resId)
 	}

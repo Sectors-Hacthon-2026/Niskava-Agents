@@ -1,10 +1,10 @@
 # Niskava Agent
 
-**Autonomous Financial Market Intelligence Orchestration Platform for the Indonesia Stock Exchange (IDX)**
+**Autonomous Financial Market Intelligence & Quantitative Research Orchestration Platform for the Indonesia Stock Exchange (IDX)**
 
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![NPM Version](https://img.shields.io/npm/v/@zyrexnns/niskava-agent.svg?style=flat&color=CB3837)](https://www.npmjs.com/package/@zyrexnns/niskava-agent)
-[![Track](https://img.shields.io/badge/Sectors%20Hackathon%202026-Track%201%3A%20AI%20Agents%20%26%20Assistants-0969da.svg)](https://hackathon.sectors.app/)
+[![Powered by Sectors API](https://img.shields.io/badge/Data%20Source-Sectors%20Financial%20API%20v2-0969da.svg)](https://sectors.app/)
 [![Target Market](https://img.shields.io/badge/Market-IDX%20%28Indonesia%20Stock%20Exchange%29-1a7f37.svg)](#)
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8.svg)](https://go.dev/)
 [![Python Version](https://img.shields.io/badge/Python-3.11+-3776AB.svg)](https://www.python.org/)
@@ -15,441 +15,316 @@
 
 ## Overview
 
-**Niskava Agent** is an autonomous market intelligence and equity research orchestration platform engineered specifically for the Indonesia Stock Exchange (IDX / Bursa Efek Indonesia).
+**Niskava Agent** is an autonomous market intelligence and equity research platform designed specifically for the **Indonesia Stock Exchange (IDX / Bursa Efek Indonesia)**.
 
-It bridges the critical operational gap between structured quantitative exchange facts (powered by the **Sectors Financial API v2**) and unstructured qualitative market intelligence (official IDXnet regulatory disclosures, corporate announcements, and syndicated business news).
+It bridges the critical gap between structured quantitative market facts (powered by official **Sectors Financial API v2** endpoints) and qualitative external intelligence (official IDXnet corporate disclosures, regulatory filings, and vetted financial news).
 
-When unusual market activity occurs—such as an unexplained trading volume surge, abrupt price breakout, or aggressive foreign capital accumulation—Niskava does not rely on passive chart visualization or speculative chatbot commentary. Instead, it formulates investigative hypotheses, executes deterministic mathematical anomaly detection, harvests contemporaneous external disclosures within a strict temporal window ($T_{\text{anomaly}} \pm 2\text{ days}$), and compiles an empirical evidence audit trail classified into `SUPPORTED`, `UNCERTAIN`, or `CONTRADICTED` findings.
+When unusual market activity occurs—such as a volume surge, price breakout, or aggressive foreign accumulation—Niskava does not output speculative chatbot commentary. Instead, it computes deterministic statistics via NumPy/Pandas, formulates investigative hypotheses, harvests external disclosures within a strict chronological window ($T_{\text{anomaly}} \pm 2\text{ days}$), and compiles an empirical evidence audit trail classified into `SUPPORTED`, `UNCERTAIN`, or `CONTRADICTED` findings.
 
-> **Core Motto:** *"Don't just answer questions. Investigate them."*
-
----
-
-## Real-World Usability: Solving Real Capital Market Problems Today
-
-Niskava Agent directly targets the **Real-World Usability (40% Weight)** rubric of the **Sectors Hackathon Indonesia 2026** (*"How well does the project address a real-world problem? Can someone use it today and benefit from it?"*):
-
-- **Immediate Operational Utility Today**: Any analyst, financial journalist, or retail trader can launch `npx @zyrexnns/niskava-agent` or run `./niskava investigate ANTM --days 30` right now to produce a structured, evidence-backed audit trail in `<6 seconds`.
-- **Cuts 40–60 Minutes of Manual Cross-Referencing**: Eliminates the laborious manual routine of checking broker charts, calculating volume Z-scores, searching IDXnet disclosures, and cross-checking mainstream news.
-- **De-biasing Market Hype & Rumors**: Classifies market claims into a rigorous Three-Tier Verification Taxonomy (`SUPPORTED`, `UNCERTAIN`, `CONTRADICTED`), protecting investors from speculative social media "pom-pom" and ill-founded market rumors.
-- **Strict Capital Market Regulatory Compliance**: Complies fully with POJK and Hackathon Rule 12 by enforcing a strict non-advisory boundary (no speculative buy/sell calls) and Rule 06 (zero automated trade execution).
+> **Core Philosophy:** *"Don't just answer questions. Investigate them."*
 
 ---
 
-## The Anti-Wrapper Manifesto: Why Generic AI Fails in Capital Markets
+## Key Capabilities
 
-Most commercial "financial AI" tools are thin wrappers around general-purpose Large Language Models (LLMs). Deploying thin wrappers in capital markets introduces severe operational risks:
-
-| Thin AI Wrapper Anti-Pattern | Niskava Architectural Defense |
-|---|---|
-| **Raw JSON Prompt Stuffing:** Dumping hundreds of raw candlestick rows exhausts token limits and degrades reasoning quality. | **Deterministic Compute Gate:** Raw time series data is processed locally by deterministic algorithms; only verified anomaly indicators enter model context. |
-| **Mental Math Hallucinations:** Asking an LLM to calculate moving averages or Z-scores produces fabricated numbers. | **Law 1 (Deterministic Before Generative):** LLMs are strictly forbidden from performing mathematical calculations. All statistics are computed via NumPy. |
-| **Atemporal Search (Causality Inversion):** Standard semantic search retrieves articles without date constraints, attributing price spikes to news published days *after* the event. | **Temporal-Aware News Anchoring:** Web and disclosure harvesting is locked strictly around the anomaly event date ($T_{\text{anomaly}} \pm 2\text{ days}$) to verify chronological precedence. |
-| **Monolithic Prompts:** Single monolithic prompts fail to isolate analytical methodologies or support structured backtracking. | **4-Layer Cognitive Hierarchy:** Clean separation between MCP primitives, compute gates, modular domain skills (SOPs), and the cognitive ReAct loop. |
-| **Unregulated Speculative Advice:** Thin wrappers often generate illegal buy/sell recommendations or price targets. | **Law 2 (Strict Non-Advisory Boundary):** Outputs an objective evidence audit trail. Zero buy/sell recommendations or price targets. |
+* **Deterministic NumPy Firewall (Law 1):** Zero mathematical hallucinations. Moving averages, Z-scores, abnormal returns, and sector divergence are computed deterministically before any LLM is invoked.
+* **6 Modular Domain Skills:** Pre-packaged institutional SOP modules (Insider Bandarmology, Market Anomaly Recon, Financial Health Stress Testing, Commodity Divergence, Peer Valuation Benchmarks, and Event Causality Audits).
+* **Multi-Surface Architecture:**
+  - **Interactive Research REPL & Terminal:** Fast, keyboard-driven terminal with interactive prompt history, Braille spinners, and streaming Glamour markdown rendering.
+  - **Web Workspace Canvas (`:20128`):** Bloomberg Terminal-inspired dark/light workspace with interactive TradingView candlestick charts, anomaly badges, and live SSE streaming.
+  - **Autonomous Headless Pipeline:** Single CLI command (`niskava investigate <TICKER> --days 30`) producing structured JSON-Lines and Markdown audit dossiers.
+  - **Telegram Bot Runner:** Personal research assistant on Telegram with whitelist access security.
+* **Unified Model Context Protocol (MCP) Server:** Native MCP integration exposing tools and resources to external agents (Claude Desktop, Cursor, Antigravity).
+* **Local-First Data Sovereignty:** Zero cloud telemetry. All sessions, memory graphs, and caches live locally in `~/.niskava/niskava.db` via pure-Go SQLite with Write-Ahead Logging (WAL).
 
 ---
 
-## System Architecture
+## Quantitative Mathematical Engine
 
-Niskava Agent is implemented as a **Tripartite Hybrid Stack** combining Go Core, a Python Agent Engine, and a React SPA Web Workspace:
+Niskava strictly enforces **Law 1 (Deterministic Before Generative)**. The quantitative engine computes mathematical indicators locally using NumPy before constructing any model prompts.
+
+### 1. Volume Anomaly Z-Score ($V_z$)
+Measures the statistical significance of trading volume on day $t$ relative to its 20-day historical baseline:
+
+$$\mu_{20} = \frac{1}{20} \sum_{i=1}^{20} V_{t-i}$$
+
+$$\sigma_{20} = \sqrt{\frac{1}{20} \sum_{i=1}^{20} (V_{t-i} - \mu_{20})^2}$$
+
+$$V_z = \frac{V_t - \mu_{20}}{\sigma_{20}}$$
+
+* **Trigger Condition:** $V_z \ge 2.5\sigma$ triggers an abnormal volume surge (probability of random occurrence in a normal distribution is $< 0.6\%$).
+
+---
+
+### 2. Abnormal Price Return ($R_t$)
+Measures the single-session price breakout magnitude relative to the previous trading day's close:
+
+$$R_t = \left( \frac{P_{\text{close}, t} - P_{\text{close}, t-1}}{P_{\text{close}, t-1}} \right) \times 100\%$$
+
+* **Trigger Condition:** $|R_t| \ge 5.0\%$ flags a price breakout anomaly.
+
+---
+
+### 3. Sector Divergence Index ($D_t$)
+Differentiates whether a stock's movement is driven by broad industry momentum or idiosyncratic company catalysts:
+
+$$D_t = R_{\text{stock}, t} - R_{\text{sector}, t}$$
+
+* **Trigger Condition:** $|D_t| \ge 4.0\%$ indicates an **Idiosyncratic Catalyst** specific to the issuer rather than broader market beta.
+
+---
+
+### 4. Foreign Flow Accumulation Z-Score ($F_z$)
+Quantifies abnormal institutional or foreign capital movement (Net Foreign Buy/Sell in IDR):
+
+$$F_z = \frac{F_t - \mu_{F, 20}}{\sigma_{F, 20}}$$
+
+* **Trigger Condition:** $|F_z| \ge 2.5\sigma$ indicates significant institutional accumulation or distribution.
+
+---
+
+### Anomaly Decision & Routing Matrix
+
+| Condition $V_z$ | Condition $|R_t|$ | Condition $|D_t|$ | Classification | Engine Routing Action |
+|:---:|:---:|:---:|:---|:---|
+| $\ge 2.5\sigma$ | $\ge 5.0\%$ | $\ge 4.0\%$ | `IDIOSYNCRATIC_CATALYST` | Triggers high-priority `event_causality_audit` and disclosure harvest. |
+| $\ge 2.5\sigma$ | $< 5.0\%$ | Any | `VOLUME_ACCUMULATION` | Activates `insider_bandarmology_forensic` for foreign vs broker flow analysis. |
+| $< 2.5\sigma$ | $\ge 5.0\%$ | $< 4.0\%$ | `SECTOR_BETA_RALLY` | Classifies as macro/sector momentum; suppresses false-alarm company alerts. |
+| $< 2.5\sigma$ | $< 5.0\%$ | Any | `NORMAL_VARIANCE` | Routes to fundamental health and peer valuation screening. |
+
+---
+
+## Evidence Verification Taxonomy & Confidence Scoring
+
+All qualitative evidence collected from official corporate filings (IDXnet) and news outlets is evaluated through a strict temporal and structural verification taxonomy:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                            GO CORE                              │
-│  - Gateway CLI & Daemon Process (`cmd/niskava`, `clients/cli`)  │
-│  - Interactive Terminal HUD & REPL (charmbracelet/bubbletea)    │
-│  - High-Throughput REST API & SSE Streaming Server (:20128)     │
-│  - Static Web UI Bundler (//go:embed)                           │
-│  - Zero-CGO SQLite WAL Persistence (modernc.org/sqlite)         │
-│  - Subprocess IPC Broker (JSON-Lines over STDIN/STDOUT)         │
-└────────────────────────────────┬────────────────────────────────┘
-                                 │ Inter-Process Communication
-                                 ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      PYTHON AGENT ENGINE                        │
-│                                                                 │
-│  [Layer 4: ReAct Cognitive Orchestrator & Memory Engine]        │
-│  - Autonomous ReAct Agent Loop (Reasoning + Tool Action)        │
-│  - Local Associative Graph Memory (NetworkX + SQLite)           │
-│  - Temporal Precedence & Causality Inference Engine             │
-│                                                                 │
-│  [Layer 3: Modular Skills Registry (Domain SOP Modules)]        │
-│  - Market Anomaly Reconnaissance (`market_anomaly_recon`)       │
-│  - Event Causality Audit (`event_causality_audit`)              │
-│  - Insider & Foreign Flow Forensics (`insider_bandarmology`)    │
-│  - Financial Health Stress Testing (`financial_health_stress`)  │
-│  - Commodity Divergence (`mining_commodity_divergence`)         │
-│  - Peer Valuation Benchmark (`peer_valuation_benchmark`)       │
-│  - PDF Audit Trail Exporter (`investigation_report_pdf`)        │
-│                                                                 │
-│  [Layer 2: Deterministic Compute Gate (NumPy Firewall)]         │
-│  - Volume Z-Scores (Vz), Abnormal Returns (Rt), Sector Beta     │
-│  - Net Foreign Flow Z-Scores (Fz), Altman Z-Score Ratios        │
-│                                                                 │
-│  [Layer 1: Sectors MCP & News Engine Primitives]                │
-│  - Sectors Financial API v2 MCP Server Adapter                  │
-│  - Curated Sectors News & Corporate Filings Engine              │
-│  - Content Sanitization via Trafilatura (<evidence_context>)    │
-└────────────────────────────────┬────────────────────────────────┘
-                                 │
-                                 ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   REACT SPA WEB WORKSPACE                       │
-│  - Market Intelligence / Bloomberg Terminal Interface (Vite + Tailwind) │
-│  - TradingView / Recharts Candlestick Anomaly Overlays          │
-│  - Real-Time Thinking Stream via Server-Sent Events (SSE)       │
-│  - Interactive Evidence Matrix & Causality Timeline Graph       │
-└─────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                        3-TIER VERIFICATION TAXONOMY                    │
+├────────────────────────────────────────────────────────────────────────┤
+│  SUPPORTED   │ Directly validated by Sectors API records or official   │
+│              │ IDXnet regulatory filings (causal link proven).         │
+├──────────────┼─────────────────────────────────────────────────────────┤
+│  UNCERTAIN    │ Plausible correlation observed, but direct causality    │
+│              │ remains unconfirmed (e.g. market rumors, social buzz).   │
+├──────────────┼─────────────────────────────────────────────────────────┤
+│ CONTRADICTED │ Market claims refuted by formal corporate disclosures    │
+│              │ or official financial reports.                          │
+└──────────────┴─────────────────────────────────────────────────────────┘
 ```
 
----
-
-## The 6 Architectural Invariant Laws
-
-All development on Niskava Agent is strictly governed by six foundational architectural invariants (codified in `AGENTS.md`):
-
-1. **Law 1: Deterministic Before Generative**  
-   LLMs must never compute statistics, volume moving averages, standard deviations, Z-scores, abnormal returns, or sector divergence. All quantitative metrics are computed deterministically via Python NumPy before prompting an LLM.
-2. **Law 2: Strict Financial Non-Advisory Boundary (Sectors Hackathon Rule 12)**  
-   Niskava is an investigative intelligence platform, **NOT an investment advisor**. The platform never issues BUY/SELL recommendations, price targets, or financial advice. All findings fit a 3-tier verification taxonomy (`SUPPORTED`, `UNCERTAIN`, `CONTRADICTED`).
-3. **Law 3: Prohibition of Automated Trade Execution (Sectors Hackathon Rule 06)**  
-   Zero brokerage trading APIs, order routing logic, or account execution capabilities. Niskava is strictly read-only market intelligence.
-4. **Law 4: Local-First Data Sovereignty**  
-   Zero centralized cloud database. All user investigation sessions, findings, evidence graphs, chat histories, and caches reside locally in SQLite with Write-Ahead Logging (`~/.niskava/niskava.db`).
-5. **Law 5: Credit Budget Discipline & Local Caching**  
-   Strictly protects the 1,000 Sectors API credit grant. All historical daily candlestick data ($T < \text{today}$) is permanently cached (`expires_at = NULL`), incurring zero credit cost on repeat queries.
-6. **Law 6: Local Conversational Graph Memory Engine**  
-   Maintains multi-session associative context via local SQLite graph tables (`memory_nodes` and `memory_edges`) loaded into in-memory `networkx.DiGraph` queried via Ego-Graph traversal ($k \le 2$ hops) with exponential recency decay ($e^{-\lambda \Delta t}$).
+### Standardized Confidence Rubric
+Never assign continuous random floats. Niskava strictly adheres to discrete confidence tiers:
+* `1.00`: **EXTRACTED** — Directly backed by official exchange records or regulatory filings.
+* `0.95`: **Direct Structural Evidence** — Explicit timestamp correlation with official corporate press releases.
+* `0.85`: **Strong Inference** — High temporal correlation with major verified financial media reporting.
+* `0.75`: **Reasonable Inference** — Plausible catalyst from industry trends matching sector divergence.
+* `0.65`: **Weak Inference** — Unverified market commentary, social media sentiment, or unconfirmed rumors.
+* `0.55`: **Speculative** — Distant co-occurrence without temporal causality confirmation.
 
 ---
 
-## Quick Start
+## 6 Modular Domain Skills
 
-### Instant Run via NPX / NPM (Zero-Clone, Cross-Platform)
+Niskava organizes analytical expertise into domain-specific Standard Operating Procedures (SOPs):
 
-Run Niskava Agent directly in your terminal without cloning or manual Go compilation:
+1. **`market_anomaly_recon`**: Deterministic statistical screening over 30–90 trading days to detect volume spikes, price breakouts, and sector divergence.
+2. **`event_causality_audit`**: Anchors external news and IDXnet disclosures within $T_{\text{anomaly}} \pm 2\text{ days}$ to prove chronological precedence (`LIKELY_CATALYST` vs `PRECEDED_ANNOUNCEMENT`).
+3. **`insider_bandarmology_forensic`**: Tracks top broker accumulation/distribution, foreign net inflow streaks, and major shareholder insider transactions.
+4. **`financial_health_stress`**: Evaluates solvency, liquidity, Altman Z-score distress risk, debt-to-equity (DER), and debt coverage.
+5. **`mining_commodity_divergence`**: Correlates commodity export benchmarks (Nickel, Coal, Gold, CPO) with mining and agribusiness equity performance.
+6. **`peer_valuation_benchmark`**: Compares Price-to-Earnings (P/E), Price-to-Book (P/B), and EV/EBITDA against sub-sector peer medians.
+
+---
+
+## Quickstart & Installation
+
+Niskava provides three installation paths based on your workflow:
+
+### Option 1: Instant Zero-Clone via NPX / NPM (Recommended)
+
+Requires Node.js (version 18 or higher):
 
 ```bash
-# 1. Run interactive setup wizard (configure AI provider & Sectors key)
+# 1. Run interactive configuration wizard (sets API keys & preferences)
 npx @zyrexnns/niskava-agent setup
 
-# 2. Run system doctor to verify environment readiness
+# 2. Verify environment readiness and system health
 npx @zyrexnns/niskava-agent doctor
 
-# 3. Launch interactive REPL research terminal
+# 3. Launch the interactive REPL research terminal
 npx @zyrexnns/niskava-agent
 
-# 4. Or run an instant autonomous investigation on any IDX ticker
-npx @zyrexnns/niskava-agent investigate ANTM --days 30
-
-# 5. Start local web workspace daemon (opens http://localhost:20128)
+# 4. Or launch the local Web Workspace (:20128)
 npx @zyrexnns/niskava-agent serve
 ```
 
-#### Global Installation (System-Wide CLI)
-
-To install Niskava globally on your machine:
+#### Global Installation:
 ```bash
 npm install -g @zyrexnns/niskava-agent
 
-# Then use 'niskava' or 'niskava-agent' anywhere:
+# Run anywhere:
 niskava setup
 niskava doctor
-niskava investigate BBCA --days 30
+niskava investigate ANTM --days 30
 niskava serve
 ```
 
-> **How it works:** The NPM package automatically acquires the precompiled native Go Core binary for your OS/architecture (Linux amd64/arm64, macOS Apple Silicon/Intel, Windows amd64) and caches it safely in user space (`~/.niskava/bin`), completely avoiding `EACCES` / root permission issues. If Python 3.11+ is present, quantitative skills and local graph memory activate automatically.
+---
+
+### Option 2: Standalone Precompiled Binaries
+
+Download native prebuilt executables directly from [GitHub Releases](https://github.com/Sectors-Hacthon-2026/Niskava-Agents/releases):
+
+* **Linux**: `niskava-linux-amd64` / `niskava-linux-arm64`
+* **macOS**: `niskava-darwin-arm64` (Apple Silicon) / `niskava-darwin-amd64` (Intel)
+* **Windows**: `niskava-windows-amd64.exe`
+
+```bash
+# Example for Linux/macOS:
+chmod +x niskava-linux-amd64
+./niskava-linux-amd64 setup
+./niskava-linux-amd64
+```
 
 ---
 
-### 1. Fast Automated Installation (Clone & One-Liner Script)
+### Option 3: Build from Source Code (Developer Mode)
 
-Clone the repository and run the automated installer for your operating system:
+Requires **Go 1.22+** and **Python 3.11+**:
 
 ```bash
+# 1. Clone repository
 git clone https://github.com/Sectors-Hacthon-2026/Niskava-Agents.git
 cd Niskava-Agents
-```
 
-- **Linux & macOS:**
-  ```bash
-  chmod +x install.sh && ./install.sh
-  ```
-- **Windows (PowerShell):**
-  ```powershell
-  .\install.ps1
-  ```
-- **Docker Container (Zero-Install):**
-  ```bash
-  docker compose up -d
-  ```
+# 2. Automated setup script
+# On Linux/macOS:
+chmod +x install.sh && ./install.sh
 
-*The automated installer verifies Go/Python, creates `.venv`, installs quantitative packages (`numpy`, `pandas`, `networkx`), and compiles the standalone executable to `bin/`.*
+# On Windows (PowerShell):
+.\install.ps1
 
----
-
-### 2. Verify Environment & System Health (`niskava doctor`)
-
-Run the built-in system doctor to verify local SQLite WAL database, Python quant engine, and API connectivity:
-
-```bash
-./bin/niskava doctor
-# On Windows: .\bin\niskava.exe doctor
-```
-
----
-
-### 3. Interactive Configuration Wizard (`niskava setup`)
-
-Configure your AI provider (OpenRouter, Gemini, Ollama, DeepSeek, Groq) and Sectors API key (press ENTER for 100% Offline Mock Mode):
-
-```bash
+# 3. Run setup wizard
 ./bin/niskava setup
-# On Windows: .\bin\niskava.exe setup
+
+# 4. Verify system health
+./bin/niskava doctor
 ```
 
 ---
 
-### 4. Launch Web Workspace or Interactive Terminal
+## Interaction Surfaces
 
-- **Interactive Web Workspace (Dual-Theme Dashboard):**
-  ```bash
-  ./bin/niskava serve
-  # Automatically opens http://localhost:20128 in your default browser!
-  ```
-- **Interactive Terminal REPL & HUD:**
-  ```bash
-  ./bin/niskava terminal
-  # Or via short aliases:
-  ./bin/niskava repl
-  ./bin/niskava chat
-  ```
-- **Quick Desktop Launchers:**
-  - Linux/macOS: `./run.sh`
-  - Windows: Double-click `run.bat` or run `.\run.bat`
-
----
-
-## Interaction Modes & Usage
-
-Niskava provides multiple interaction surfaces for different workflows:
-
-### 1. Interactive Terminal UI (TUI) HUD Launcher & Direct REPL
-Running `niskava` without arguments launches the terminal HUD, while `niskava terminal` (or `niskava repl` / `niskava chat`) jumps directly into the research REPL:
+### 1. Interactive Terminal REPL & HUD
 ```bash
-./niskava terminal
+niskava terminal    # or: niskava repl / niskava chat
 ```
-- Interactive HUD launcher with diagnostics, session resume, and setup wizard.
-- Prompt-driven interactive REPL with **Up/Down arrow prompt history** navigation.
-- Live animated **Braille progress spinner** (`⠋`) showing real-time ReAct phase transitions.
-- Interactive Session Selector (`/chats`) with instant **Pin (`Ctrl+P`)**, **Delete (`Ctrl+D`)**, **Export Modal (`Ctrl+E`)**, and **Clipboard Copy (`Ctrl+Y`)**.
-- Autocomplete slash commands: `/help`, `/chats`, `/compact`, `/find`, `/copy`, `/resume <id>`, `/export`, `/fork`, `/search`, `/anomalies`, `/skills`, `/doctor`, `/cache`, `/timeout`, `/graph`, `/web`, `/sessions`, `/health`, `/lang`, `/reset`, `/clear`, `/back`, `/exit`.
+* **Autocomplete Slash Commands:** `/help`, `/chats`, `/model`, `/setup`, `/config`, `/compact`, `/export`, `/graph`, `/doctor`, `/exit`.
+* **Prompt History:** Navigate previous queries using `Up` / `Down` arrows.
+* **Braille Progress Spinner:** Live indicator of ReAct phase transitions (NumPy math, news harvest, synthesis).
 
-### 2. Autonomous Headless & Interactive Investigation CLI
-Execute a full 7-stage investigation directly from the shell, or manage local SQLite session history with subcommands:
+### 2. Autonomous Headless Investigation
 ```bash
-# Headless run:
-./niskava investigate ANTM --days 30
+# Run 30-day investigation on any IDX ticker:
+niskava investigate BBCA --days 30
 
-# Interactive run pre-focused on ticker:
-./niskava investigate ANTM -i
-
-# Manage session history & audit trails:
-./niskava sessions list
-./niskava sessions delete CHAT-20260926-0001
-./niskava sessions search ANTM
-./niskava sessions export CHAT-20260926-0001 --format md
-```
-Flags:
-- `-i, --interactive`: Launches an interactive REPL session pre-seeded with the target ticker prompt post-investigation.
-- `--days <N>`: Trading sessions to analyze (default: 30).
-- `--offline`: Runs in offline mode using local mock fixtures without issuing live API requests.
-- `--lang <en|id>`: Output language (`en` for English, `id` for Indonesian).
-- `--verbose, -v`: Prints detailed debug logs and IPC payload messages.
-
-*Post-investigation CTA:* Running headless in an interactive terminal prompts `[Enter / y] Lanjutkan diskusi interaktif untuk emiten <TICKER>?` to seamlessly transition into live research.
-
-### 3. Local Web Workspace
-Launch the background REST/SSE server and interactive visual canvas:
-```bash
-./niskava serve --port 20128 --open
-```
-- Interactive candlestick chart with volume anomaly badges ($V_z \ge 2.5$) and breakout tags ($|R_t| \ge 5\%$).
-- Real-time Server-Sent Events (SSE) streaming of agent reasoning and tool execution.
-- Interactive Evidence Matrix and chronological causality graph.
-- Unified Institutional Settings Hub: dynamic AI provider selection (OpenRouter, Gemini, Ollama, DeepSeek, Groq, OpenAI), inference timeout sliders, and live latency diagnostics.
-- Dual-theme terminal aesthetics (Bloomberg Dark and Warm Matte Light) with live cache flush controls.
-
-### 4. Interactive Knowledge Graph Export
-Export the local associative knowledge graph into a standalone HTML file:
-```bash
-./niskava graph --open
+# Export structured PDF report:
+niskava investigate ANTM --days 30 --pdf
 ```
 
-### 5. Model Context Protocol (MCP) Server
-Expose Niskava tools, resources, and prompts to external agent environments (Claude Desktop, Cursor, Antigravity):
+### 3. Web Workspace Canvas
 ```bash
-./niskava mcp
+niskava serve --port 20128 --open
 ```
-Claude Desktop configuration (`claude_desktop_config.json`):
+* Institutional terminal aesthetics (Bloomberg Dark and Warm Matte Light themes).
+* Interactive TradingView candlestick charts with anomaly markers.
+* Real-time Server-Sent Events (SSE) reasoning stream.
+* Interactive Evidence Matrix and temporal causality graph.
+
+### 4. Model Context Protocol (MCP) Server
+```bash
+niskava mcp
+```
+Connects Niskava tools and resources to Claude Desktop, Cursor, and Antigravity. Example Claude Desktop config (`claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
     "niskava": {
-      "command": "/usr/local/bin/niskava",
+      "command": "niskava",
       "args": ["mcp"]
     }
   }
 }
 ```
 
-### 6. Telegram Bot Runner
-Deploy Niskava as a personal market intelligence Telegram bot:
+### 5. Telegram Bot
 ```bash
-export TELEGRAM_BOT_TOKEN="your_token"
-./niskava telegram
+niskava telegram
 ```
-
----
-
-## Quantitative Anomaly Formulas
-
-All quantitative indicators are calculated deterministically by NumPy before LLM activation:
-
-- **Volume Anomaly Z-Score ($V_z$):**
-  $$V_z = \frac{V_t - \mu_{20}}{\sigma_{20}}$$
-  $V_z \ge 2.5$ triggers a `VOLUME_SPIKE` event (probability $< 0.6\%$).
-- **Abnormal Price Return ($R_t$):**
-  $$R_t = \frac{P_{\text{close}, t} - P_{\text{close}, t-1}}{P_{\text{close}, t-1}} \times 100\%$$
-  $|R_t| \ge 5.0\%$ triggers a `PRICE_BREAKOUT` anomaly.
-- **Sector Divergence ($D_t$):**
-  $$D_t = R_{\text{stock}, t} - R_{\text{sector}, t}$$
-  $|D_t| \ge 4.0\%$ indicates an **Idiosyncratic Catalyst** specific to the issuer.
-- **Foreign Flow Inflow Z-Score ($F_z$):**
-  $$F_z = \frac{F_t - \mu_{F, 20}}{\sigma_{F, 20}}$$
-  $|F_z| \ge 2.5$ flags abnormal foreign capital movement.
-
----
-
-## Evidence Verification Taxonomy & Confidence Rubric
-
-Every finding is corroborated with a discrete confidence score:
-
-| Score | Verification Level | Source Validation Criteria |
-|:---:|:---|:---|
-| **`1.00`** | **EXTRACTED** | Directly backed by official Sectors API quantitative records or formal IDXnet regulatory filings. |
-| **`0.95`** | **Direct Structural Evidence** | Explicit timestamp correlation with official corporate press releases or regulatory disclosures. |
-| **`0.85`** | **Strong Inference** | High temporal correlation with major national business media reporting (Kontan, Bisnis Indonesia, CNBC). |
-| **`0.75`** | **Reasonable Inference** | Plausible catalyst from industry-wide trends corroborated by matching sector divergence metrics. |
-| **`0.65`** | **Weak Inference** | Unverified market commentary, social media sentiment, or unconfirmed financial forum discussions. |
-| **`0.55`** | **Speculative** | Distant co-occurrence without temporal causality or formal corroboration. |
+Runs a private Telegram bot research assistant with whitelist authorization.
 
 ---
 
 ## Configuration Reference
 
-Configuration can be provided via `~/.niskava/config.yaml` or environment variables:
+Niskava reads configuration from environment variables or `~/.niskava/config.yaml` / `~/.niskava/.env`:
 
-| Environment Variable | YAML Setting | Default Value | Description |
+| Environment Variable | YAML Key | Default | Description |
 |---|---|---|---|
-| `SECTORS_API_KEY` | `auth.sectors_api_key` | `""` | Sectors Financial API v2 key. |
+| `SECTORS_API_KEY` | `auth.sectors_api_key` | `""` | Sectors Financial API v2 key (**required for live IDX data**). |
 | `GEMINI_API_KEY` | `auth.gemini_api_key` | `""` | Google Gemini API key. |
 | `OPENAI_API_KEY` | `auth.openai_api_key` | `""` | OpenAI / OpenRouter API key. |
-| `NISKAVA_AI_PROVIDER` | `ai.provider` | `"gemini"` | Inference backend (`openrouter`, `gemini`, `ollama`, `deepseek`, `groq`, `openai`, `vllm`). |
-| `NISKAVA_AI_MODEL` | `ai.model` | `"gemini-2.5-flash"` | Target language model name. |
-| `NISKAVA_AI_ENDPOINT` | `ai.endpoint` | `""` | Custom API base URL (for Ollama or vLLM). |
+| `AI_PROVIDER` | `ai.provider` | `"gemini"` | LLM provider (`gemini`, `openai`, `openrouter`, `ollama`, `offline`). |
+| `OPENAI_MODEL` | `ai.model` | `"gemini-2.0-flash"` | Target model name. |
 | `NISKAVA_DB_PATH` | `storage.db_path` | `"~/.niskava/niskava.db"` | Local SQLite database file path. |
-| `NISKAVA_PORT` | `server.port` | `20128` | Daemon REST & SSE server port. |
-| `NISKAVA_LANG` | `preferences.language` | `"en"` | Default language (`"en"` or `"id"`). |
-| `MOCK_SECTORS` | — | `"0"` | Set to `1` to run offline using static mock fixtures. |
+| `NISKAVA_PORT` | `server.port` | `20128` | Local Web Workspace daemon port. |
+| `NISKAVA_LANG` | `preferences.language` | `"id"` | Interface language (`id` or `en`). |
+| `MOCK_SECTORS` | — | `"0"` | Set to `1` for offline testing fixtures (CI/CD only). |
+| `NISKAVA_OFFLINE` | `preferences.offline_mode` | `"0"` | Set to `1` to run completely offline without LLM calls. |
 
----
-
-## Detailed Public Documentation
-
-Comprehensive guides and architectural specifications are available in the [`public/docs/`](public/docs/README.md) directory:
-
-- **[Documentation Hub](public/docs/README.md)**: Sitemap and document index.
-- **[Project Concept & Vision](public/docs/project-concept.md)**: In-depth thesis, IDX market dynamics, and Anti-Wrapper manifesto.
-- **[Installation & Setup Guide](public/docs/installation.md)**: Prerequisites, cross-platform installation, virtualenv, and configuration.
-- **[User Guide & Interfaces](public/docs/user-guide.md)**: Comprehensive manual for TUI REPL, Web Workspace, CLI flags, MCP, and Telegram.
-- **[Features & System Architecture](public/docs/features-and-architecture.md)**: Tripartite stack, 6 Invariant Laws, 7-Stage pipeline, and mathematical formulas.
-- **[Troubleshooting & FAQ](public/docs/troubleshooting-and-faq.md)**: Error diagnostics, SQLite WAL recovery, credit conservation, and FAQ.
-
----
-
-## Repository Structure
-
-```text
-Niskava-Agents/
-├── AGENTS.md                  # Single Source of Truth (SSoT) & Architectural Invariants
-├── Makefile                   # Build and test automation
-├── README.md                  # Main repository overview and quick start
-├── public/                    # Public documentation assets & static files
-│   └── docs/                  # Detailed User Guides & Technical Manuals
-│       ├── README.md          # Documentation sitemap & index hub
-│       ├── project-concept.md # Project thesis, IDX market context, & Anti-Wrapper manifesto
-│       ├── installation.md    # Cross-platform installation & setup guide
-│       ├── user-guide.md      # TUI REPL, CLI commands, Web Canvas, & MCP manual
-│       ├── features-and-architecture.md # 7-stage pipeline & NumPy math specs
-│       └── troubleshooting-and-faq.md   # Error diagnostics & FAQ
-├── cmd/                       # Application binary entry points
-│   └── niskava/
-│       └── main.go            # Primary CLI binary entry point
-├── clients/                   # User Surfaces (Presentation & Interfaces)
-│   ├── cli/                   # Terminal Client (Cobra CLI subcommands & TUI)
-│   │   └── tui/               # Bubbletea TUI, HUD launcher, & REPL components
-│   └── web/                   # React SPA Web Workspace (Vite + Tailwind + shadcn/ui)
-├── backend/                   # Core Backend & Cognitive Computation Subsystems
-│   ├── core/                  # Go Core Daemon, REST/SSE Server, & SQLite WAL Persistence
-│   └── engine/                # Python Agent Engine (ReAct Agent, Quant Math, Sectors News, MCP)
-└── docs/                      # Internal Architecture Decision Records (ADR 01 - 11)
-```
+> **Live Mode Auto-Toggle:** When `SECTORS_API_KEY` is present and valid, Niskava automatically activates **Live Mode** (`MOCK_SECTORS=0`), ensuring you always analyze real exchange data.
 
 ---
 
 ## Testing & Quality Verification
 
-Run the automated test suites across Go and Python subsystems:
+Run the full automated test suites across Go and Python:
 
 ```bash
-# Run Python Engine unit tests (200+ unit tests)
-pytest backend/engine -v
+# Run all Python unit tests (320+ tests covering math, ReAct loop, skills, MCP)
+pytest backend/engine/tests/ -v
 
-# Run Go Core unit tests (IPC, SQLite WAL persistence, TUI)
-go test ./...
-```
-
-For offline verification without network requests or API credit consumption:
-```bash
-export MOCK_SECTORS=1
-./niskava investigate ANTM --days 30 --offline
+# Run all Go Core unit tests (IPC, SQLite WAL, config, TUI)
+go test ./clients/cli/... ./backend/core/... -v
 ```
 
 ---
 
-## Contributors
+## Documentation Hub
 
-This project is authored and maintained by:
+Detailed documentation is available in the [`public/docs/`](public/docs/README.md) directory:
 
-| [<img src="https://github.com/Zyrexnn.png?size=120" width="120px;" alt="Zyrexnn"/><br /><sub><b>Zyrexnn</b></sub>](https://github.com/Zyrexnn)<br /><sub><b>Author & Lead Architect</b></sub><br />[![GitHub](https://img.shields.io/badge/GitHub-Zyrexnn-181717?style=flat&logo=github)](https://github.com/Zyrexnn) | [<img src="https://github.com/Lutfi1i.png?size=120" width="120px;" alt="Lutfi1i"/><br /><sub><b>Lutfi1i</b></sub>](https://github.com/Lutfi1i)<br /><sub><b>Core Maintainer</b></sub><br />[![GitHub](https://img.shields.io/badge/GitHub-Lutfi1i-181717?style=flat&logo=github)](https://github.com/Lutfi1i) | [<img src="https://github.com/Sazhumaa.png?size=120" width="120px;" alt="Sazhumaa"/><br /><sub><b>Sazhumaa</b></sub>](https://github.com/Sazhumaa)<br /><sub><b>Core Maintainer</b></sub><br />[![GitHub](https://img.shields.io/badge/GitHub-Sazhumaa-181717?style=flat&logo=github)](https://github.com/Sazhumaa) |
-| :---: | :---: | :---: |
+* **[Documentation Index](public/docs/README.md)**: Navigation sitemap.
+* **[Installation Guide](public/docs/installation.md)**: In-depth setup for Linux, macOS, Windows, and Docker.
+* **[User Guide & Manual](public/docs/user-guide.md)**: Complete guide to REPL commands, Web Workspace, and Telegram bot.
+* **[Features & System Architecture](public/docs/features-and-architecture.md)**: Mathematical formulas, 6 Laws, and 7-stage pipeline.
+* **[Troubleshooting & FAQ](public/docs/troubleshooting-and-faq.md)**: Common error resolutions, Python environments, and FAQ.
+* **[Project Concept & Thesis](public/docs/project-concept.md)**: Market inefficiency thesis and the Anti-Wrapper manifesto.
 
 ---
 
 ## Financial Non-Advisory Disclaimer
 
-> **IMPORTANT DISCLAIMER**  
-> Niskava Agent is an automated market intelligence and empirical research platform. All findings, anomaly alerts, and correlated evidence generated by the platform are derived from historical market data, public regulatory disclosures, and news media.
+> **IMPORTANT NOTICE:**  
+> Niskava Agent is an automated financial market intelligence and empirical research platform. All findings, anomaly detections, and evidence correlations are generated from historical market facts, official regulatory disclosures, and accredited news media.
 >
-> Niskava Agent **DOES NOT** provide financial advice, investment recommendations, price targets, or solicitations to purchase or sell any security. Niskava operates under a strict non-advisory policy in compliance with Capital Market regulations (POJK / IDX) and Sectors Hackathon Rule 12. Users are solely responsible for their independent investment evaluations and risk assessments.
+> Niskava Agent **DOES NOT** provide financial advice, investment recommendations, price targets, or solicitations to buy or sell any security. Niskava operates under a strict non-advisory policy in compliance with Capital Market regulations (POJK / IDX). Users are solely responsible for their own investment evaluations and risk assessments.
 
 ---
 
-## Competition & License
+## License & Acknowledgments
 
-- **Hackathon:** [Sectors Hackathon Indonesia 2026](https://hackathon.sectors.app/)
-- **Category:** Track 1: AI Agents & Assistants
-- **License:** MIT License — see the [LICENSE](LICENSE) file for details.
+* **License:** [MIT License](LICENSE)
+* **Market Data Source:** Powered by official [Sectors Financial API v2](https://sectors.app/).
+* **Participating Project:** Developed for [Sectors Hackathon Indonesia 2026](https://hackathon.sectors.app/) (Track 1: AI Agents & Assistants).

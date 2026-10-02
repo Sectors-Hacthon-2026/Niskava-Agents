@@ -18,7 +18,7 @@ Dibangun menggunakan Go (`spf13/cobra`, `charmbracelet/bubbletea` untuk TUI inte
 
 ### Perintah Utama (CLI Commands)
 ```bash
-# 1. Mode Asisten Percakapan Finansial (Hermes-Style REPL & Interactive Launcher)
+# 1. Mode Asisten Percakapan Finansial (Interactive REPL & Launcher)
 # Menjalankan interactive launcher, HUD real-time, dan REPL tanya-jawab bahasa alami
 niskava
 
@@ -50,15 +50,15 @@ niskava serve --port 20128 --open
 niskava investigate ANTM --offline
 ```
 
-### Mockup Pengalaman Interaktif Terminal REPL (Hermes Mode):
+### Mockup Pengalaman Interaktif Terminal REPL:
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │               NISKAVA FINANCIAL AGENT v1.0.0               │
 │      Autonomous IDX Market Intelligence REPL        │
-│       Provider: 9router (hermes) | Storage: Local SQLite    │
+│       Provider: Google Gemini (gemini-2.0-flash) | Storage: Local SQLite    │
 └─────────────────────────────────────────────────────────────┘
 
-niskava [hermes] > Kenapa saham ANTM volumenya melonjak tinggi baru-baru ini?
+niskava [gemini-2.0-flash] > Kenapa saham ANTM volumenya melonjak tinggi baru-baru ini?
 
   ● Thought: Pengguna menanyakan anomali lonjakan volume saham ANTM.
     Sesuai Hukum 1 (Deterministic Before Generative), saya memanggil tool

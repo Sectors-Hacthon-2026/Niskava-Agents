@@ -183,7 +183,7 @@ Go Core Daemon menjalankan HTTP REST & Server-Sent Events (SSE) server lokal pad
 |---|---|---|---|---|
 | `GET` | `/api/health` | Health check & verifikasi runtime daemon | `-` | JSON status, version, market, timestamp |
 | `GET` | `/api/chat/sessions` | Mengambil daftar sesi percakapan | `?limit=50&offset=0&q={search}` | JSON `{sessions: [...], total: N, limit: 50, offset: 0}` |
-| `POST` | `/api/chat/sessions` | Membuat sesi percakapan baru | `{"title": "Analisis ANTM", "model": "hermes"}` | JSON `{session: {...}}` (HTTP 201) |
+| `POST` | `/api/chat/sessions` | Membuat sesi percakapan baru | `{"title": "Analisis ANTM", "model": "gemini-2.0-flash"}` | JSON `{session: {...}}` (HTTP 201) |
 | `GET` | `/api/chat/sessions/{id}` | Detail metadata sesi tertentu | URL Param `{id}` | JSON `{session: {...}}` |
 | `PATCH` | `/api/chat/sessions/{id}` | Update metadata sesi (rename, pin, status) | `{"title": "...", "is_pinned": true}` | JSON `{session: {...}}` |
 | `DELETE` | `/api/chat/sessions/{id}` | Hapus sesi beserta seluruh pesan (cascade) | URL Param `{id}` | JSON `{"deleted": true, "id": "..."}` |

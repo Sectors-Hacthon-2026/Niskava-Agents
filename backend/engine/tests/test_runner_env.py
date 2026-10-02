@@ -11,7 +11,7 @@ def test_load_dotenv_fallback_skips_empty_values(tmp_path):
     local_env = tmp_path / ".env"
     global_env = tmp_path / "global.env"
 
-    local_env.write_text("SECTORS_API_KEY=\nOPENAI_MODEL=hermes\n", encoding="utf-8")
+    local_env.write_text("SECTORS_API_KEY=\nOPENAI_MODEL=gpt-4o-mini\n", encoding="utf-8")
     global_env.write_text("SECTORS_API_KEY=valid_key_12345\n", encoding="utf-8")
 
     def mock_exists(p):
@@ -30,7 +30,7 @@ def test_load_dotenv_fallback_skips_empty_values(tmp_path):
                 with patch("builtins.open", side_effect=mock_open):
                     load_dotenv_fallback()
                     assert os.environ.get("SECTORS_API_KEY") == "valid_key_12345"
-                    assert os.environ.get("OPENAI_MODEL") == "hermes"
+                    assert os.environ.get("OPENAI_MODEL") == "gpt-4o-mini"
 
 
 def test_load_config_yaml_fallback(tmp_path):
@@ -126,5 +126,56 @@ def test_resolve_mock_mode_empty_sectors_key_no_flags():
         "NISKAVA_OFFLINE": "0",
     }
     assert resolve_mock_mode(args_offline=False, env=env) is False
+
+
+def test_react_agent_dynamic_provider_and_model_resolution():
+    """Verify NiskavaReActAgent dynamically honors AI_PROVIDER and model env variables."""
+    from engine.agent.react_agent import NiskavaReActAgent
+
+    # Case 1: Gemini Provider
+    with patch.dict(os.environ, {
+        "AI_PROVIDER": "gemini",
+        "GEMINI_API_KEY": "AIzaSyFakeKey",
+        "GEMINI_MODEL": "gemini-2.5-pro",
+        "OPENAI_MODEL": "gpt-4o-mini",
+        "OPENAI_BASE_URL": "http://localhost:20128/v1",
+    }, clear=True):
+        agent = NiskavaReActAgent(tool_registry=None, mock_mode=True)
+        assert agent.model == "gemini-2.5-pro"
+        assert agent.openai_model == "gemini-2.5-pro"
+        assert agent.base_url == "https://generativelanguage.googleapis.com/v1beta/openai"
+        assert agent.api_key == "AIzaSyFakeKey"
+
+    # Case 2: OpenAI / Gateway Provider with DeepSeek
+    with patch.dict(os.environ, {
+        "AI_PROVIDER": "openai",
+        "OPENAI_API_KEY": "sk-deepseek-key",
+        "OPENAI_MODEL": "deepseek-chat",
+        "OPENAI_BASE_URL": "https://api.deepseek.com/v1",
+        "GEMINI_MODEL": "gemini-2.0-flash",
+    }, clear=True):
+        agent = NiskavaReActAgent(tool_registry=None, mock_mode=True)
+        assert agent.model == "deepseek-chat"
+        assert agent.base_url == "https://api.deepseek.com/v1"
+        assert agent.api_key == "sk-deepseek-key"
+
+    # Case 3: Ollama Local Provider
+    with patch.dict(os.environ, {
+        "AI_PROVIDER": "ollama",
+        "OLLAMA_BASE_URL": "http://localhost:11434",
+        "OLLAMA_MODEL": "llama3.2",
+    }, clear=True):
+        agent = NiskavaReActAgent(tool_registry=None, mock_mode=True)
+        assert agent.model == "llama3.2"
+        assert agent.base_url == "http://localhost:11434/v1"
+
+    # Case 4: Explicit NISKAVA_MODEL override
+    with patch.dict(os.environ, {
+        "AI_PROVIDER": "gemini",
+        "NISKAVA_MODEL": "custom-fin-tuned-model",
+        "GEMINI_MODEL": "gemini-2.0-flash",
+    }, clear=True):
+        agent = NiskavaReActAgent(tool_registry=None, mock_mode=True)
+        assert agent.model == "custom-fin-tuned-model"
 
 

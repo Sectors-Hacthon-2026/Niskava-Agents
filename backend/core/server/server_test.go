@@ -289,7 +289,7 @@ func TestChatSessions_REST_Endpoints(t *testing.T) {
 	}
 
 	// 2. POST /api/chat/sessions (create session)
-	createPayload := []byte(`{"id":"TEST-WEB-001","title":"Analisis ANTM","model":"hermes"}`)
+	createPayload := []byte(`{"id":"TEST-WEB-001","title":"Analisis ANTM","model":"gemini-2.0-flash"}`)
 	resp, err = client.Post(srv.URL+"/api/chat/sessions", "application/json", bytes.NewReader(createPayload))
 	if err != nil {
 		t.Fatalf("POST /api/chat/sessions failed: %v", err)
@@ -413,7 +413,7 @@ func TestChatSession_Export_And_Search(t *testing.T) {
 	_ = database.CreateChatSession(&db.ChatSession{
 		ID:     sessionID,
 		Title:  "Riset Komoditas ANTM",
-		Model:  "hermes",
+		Model:  "gemini-2.0-flash",
 		Status: "IDLE",
 	})
 
@@ -1237,7 +1237,7 @@ func TestChatBackgroundExecutionSurvivesClientDisconnect(t *testing.T) {
 	_ = database.CreateChatSession(&db.ChatSession{
 		ID:     sessionID,
 		Title:  "Test Disconnect",
-		Model:  "hermes",
+		Model:  "gemini-2.0-flash",
 		Status: "IDLE",
 	})
 

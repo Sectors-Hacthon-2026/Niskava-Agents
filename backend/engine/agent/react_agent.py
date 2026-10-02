@@ -553,39 +553,65 @@ class NiskavaReActAgent:
             else float(os.environ.get("NISKAVA_LLM_TIMEOUT", str(DEFAULT_LLM_TIMEOUT)))
         )
 
-        # Primary Active Model & Universal Endpoint Resolution
-        self.model = (
-            model
-            or os.environ.get("NISKAVA_MODEL")
-            or os.environ.get("OPENAI_MODEL")
-            or os.environ.get("GEMINI_MODEL")
-            or "hermes"
-        )
-
-        resolved_base_url = (
-            base_url
-            or os.environ.get("NISKAVA_BASE_URL")
-            or os.environ.get("OPENAI_BASE_URL")
-        )
-
-        self.api_key = (
-            api_key
-            or os.environ.get("NISKAVA_API_KEY")
-            or os.environ.get("OPENAI_API_KEY")
-            or os.environ.get("GEMINI_API_KEY")
-            or ""
-        )
-
-        # Transparent adapter for Google API keys (speaks standard OpenAI protocol)
-        if not resolved_base_url:
-            raw_prov = (ai_provider or os.environ.get("AI_PROVIDER", "")).lower()
-            if (raw_prov == "gemini" or os.environ.get("GEMINI_API_KEY")) and not os.environ.get("OPENAI_BASE_URL"):
-                resolved_base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
-                if not model and not os.environ.get("NISKAVA_MODEL") and not os.environ.get("OPENAI_MODEL"):
-                    self.model = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+        # Determine normalized active provider
+        raw_prov = (
+            ai_provider
+            or os.environ.get("AI_PROVIDER", "")
+        ).lower().strip()
+        if not raw_prov:
+            if os.environ.get("GEMINI_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
+                raw_prov = "gemini"
+            elif os.environ.get("ANTHROPIC_API_KEY"):
+                raw_prov = "anthropic"
+            elif os.environ.get("OLLAMA_BASE_URL"):
+                raw_prov = "ollama"
             else:
-                resolved_base_url = os.environ.get("OPENAI_BASE_URL", "http://localhost:20128/v1")
+                raw_prov = "openai"
 
+        # Determine active model honoring active provider
+        if model:
+            active_model = model
+        elif os.environ.get("NISKAVA_MODEL"):
+            active_model = os.environ.get("NISKAVA_MODEL")
+        elif raw_prov == "gemini":
+            active_model = os.environ.get("GEMINI_MODEL") or "gemini-2.0-flash"
+        elif raw_prov == "ollama":
+            active_model = os.environ.get("OLLAMA_MODEL") or os.environ.get("OPENAI_MODEL") or "deepseek-r1:8b"
+        elif raw_prov == "anthropic":
+            active_model = os.environ.get("ANTHROPIC_MODEL") or "claude-3-5-haiku-latest"
+        else:
+            active_model = os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
+
+        self.model = active_model
+
+        # Universal Endpoint Resolution based on provider
+        if base_url:
+            resolved_base_url = base_url
+        elif os.environ.get("NISKAVA_BASE_URL"):
+            resolved_base_url = os.environ.get("NISKAVA_BASE_URL")
+        elif raw_prov == "gemini":
+            resolved_base_url = os.environ.get("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai"
+        elif raw_prov == "ollama":
+            raw_ollama = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+            resolved_base_url = raw_ollama if raw_ollama.endswith("/v1") else f"{raw_ollama.rstrip('/')}/v1"
+        else:
+            resolved_base_url = os.environ.get("OPENAI_BASE_URL", "http://localhost:20128/v1")
+
+        # API Key Resolution based on provider
+        if api_key:
+            resolved_api_key = api_key
+        elif os.environ.get("NISKAVA_API_KEY"):
+            resolved_api_key = os.environ.get("NISKAVA_API_KEY")
+        elif raw_prov == "gemini":
+            resolved_api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY") or ""
+        elif raw_prov == "ollama":
+            resolved_api_key = os.environ.get("OPENAI_API_KEY") or "ollama"
+        elif raw_prov == "anthropic":
+            resolved_api_key = os.environ.get("ANTHROPIC_API_KEY") or ""
+        else:
+            resolved_api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("GEMINI_API_KEY") or ""
+
+        self.api_key = resolved_api_key
         self.base_url = resolved_base_url.rstrip("/")
         # Backward compatibility aliases
         self.openai_base_url = self.base_url
@@ -707,7 +733,7 @@ class NiskavaReActAgent:
                     VALUES (?, ?, ?, 'IDLE', 0, '', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     ON CONFLICT(id) DO UPDATE SET title = excluded.title
                     """,
-                    (session_id, title, self.model or "hermes"),
+                    (session_id, title, self.model or "niskava"),
                 )
                 conn.commit()
         except Exception:

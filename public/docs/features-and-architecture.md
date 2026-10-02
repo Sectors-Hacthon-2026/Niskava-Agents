@@ -1,12 +1,12 @@
 # Features & System Architecture
 
-This document provides a technical specification of the Niskava Agent architecture, the Tripartite Hybrid Stack, the 4-Layer Cognitive Hierarchy, the 6 Invariant Laws, the 7-Stage Investigation Pipeline, and the deterministic mathematical formulas powering the anomaly detection engine.
+This document provides the definitive technical specification of Niskava Agent: the Tripartite Hybrid Stack, the 6 Invariant Laws, the 7-Stage Investigation Pipeline, the deterministic mathematical formulas, the 6 modular domain skills, and the Unified Model Context Protocol (MCP) server.
 
 ---
 
 ## 1. Tripartite Hybrid Stack Architecture
 
-Niskava Agent combines the low-latency systems capabilities of Go, the scientific computing and AI ecosystem of Python, and the responsive user experience of React:
+Niskava Agent combines the low-latency systems capabilities of Go, the scientific computing and AI ecosystem of Python, and the visual ergonomics of React:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -27,6 +27,7 @@ Niskava Agent combines the low-latency systems capabilities of Go, the scientifi
 │  - Autonomous ReAct Agent Loop (Reasoning + Action)             │
 │  - Local Associative Graph Memory (NetworkX + SQLite)           │
 │  - Temporal Precedence & Causality Inference Engine             │
+│                                                                 │
 │  [Layer 3: Modular Skills Registry (Domain SOP Modules)]        │
 │  - Market Anomaly Reconnaissance (`market_anomaly_recon`)       │
 │  - Event Causality Audit (`event_causality_audit`)              │
@@ -34,7 +35,7 @@ Niskava Agent combines the low-latency systems capabilities of Go, the scientifi
 │  - Financial Health Stress Testing (`financial_health_stress`)  │
 │  - Commodity Divergence (`mining_commodity_divergence`)         │
 │  - Peer Valuation Benchmark (`peer_valuation_benchmark`)       │
-│  - PDF Audit Trail Exporter (`investigation_report_pdf`)        │
+│  - Institutional PDF Exporter (`investigation_report_pdf`)      │
 │                                                                 │
 │  [Layer 2: Deterministic Compute Gate (NumPy Firewall)]         │
 │  - Volume Z-Scores, Abnormal Returns, Sector Divergence         │
@@ -49,7 +50,7 @@ Niskava Agent combines the low-latency systems capabilities of Go, the scientifi
                                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                   REACT SPA WEB WORKSPACE                       │
-│  - Terminal / Market Intelligence Design Language                       │
+│  - Bloomberg Terminal-Inspired Dark & Light Themes              │
 │  - Interactive Candlestick Charts & Anomaly Overlays            │
 │  - Real-Time Thinking Stream via Server-Sent Events (SSE)       │
 │  - Interactive Evidence Matrix & Causality Timeline Graph       │
@@ -60,110 +61,41 @@ Niskava Agent combines the low-latency systems capabilities of Go, the scientifi
 
 ## 2. The 6 Non-Negotiable Invariant Architectural Laws
 
-Every subsystem within Niskava Agent is strictly governed by six foundational architectural invariants:
+Every subsystem within Niskava Agent is governed by six foundational architectural invariants (codified in `AGENTS.md`):
 
 ### Law 1: Deterministic Before Generative
-- **Rule:** Large Language Models are strictly prohibited from calculating time-series statistics, moving averages, standard deviations, Z-scores, abnormal returns, or sector divergence.
-- **Mechanism:** All numerical operations are computed deterministically via Python NumPy and Pandas before any LLM prompt is constructed. The LLM receives verified statistical summaries, never raw data arrays.
-- **Rationale:** Completely eliminates numerical hallucinations and preserves token budget.
+* **Rule:** Large Language Models are strictly prohibited from calculating time-series statistics, moving averages, standard deviations, Z-scores, abnormal returns, or sector divergence.
+* **Mechanism:** All numerical operations are computed deterministically via Python NumPy and Pandas before any LLM prompt is constructed. The LLM receives verified statistical summaries, never raw data arrays.
+* **Rationale:** Completely eliminates numerical hallucinations and preserves token budget.
 
 ### Law 2: Strict Financial Non-Advisory Boundary
-- **Rule:** Niskava is an investigative market intelligence platform, **NOT an investment advisor**. The system must never emit direct BUY/SELL recommendations, price targets, or portfolio allocation advice.
-- **Mechanism:** All findings are strictly classified into a 3-tier verification taxonomy:
+* **Rule:** Niskava is an investigative market intelligence platform, **NOT an investment advisor**. The system must never emit direct BUY/SELL recommendations, price targets, or portfolio allocation advice.
+* **Mechanism:** All findings are strictly classified into a 3-tier verification taxonomy:
   - `SUPPORTED`: Validated by official Sectors API records or formal IDXnet regulatory disclosures.
   - `UNCERTAIN`: Plausible correlation observed, but direct causal proof is unverified.
   - `CONTRADICTED`: Market speculation refuted by corporate filings or audited statements.
-- **Compliance:** Enforces OJK / IDX securities regulations and Sectors Hackathon Rule 12 across all interfaces.
+* **Compliance:** Enforces OJK / IDX securities regulations across all CLI and web output surfaces.
 
 ### Law 3: Prohibition of Automated Trade Execution
-- **Rule:** The system may analyze, screen, score, alert, and correlate evidence, but may never place, execute, or automate trade orders.
-- **Mechanism:** The codebase contains zero trading execution APIs, broker connection libraries, or order-routing dependencies. It is strictly read-only market intelligence.
+* **Rule:** The system may analyze, screen, score, alert, and correlate evidence, but may never place, execute, or automate trade orders.
+* **Mechanism:** The codebase contains zero trading execution APIs, broker connection libraries, or order-routing dependencies. It is strictly read-only market intelligence.
 
 ### Law 4: Local-First Data Sovereignty
-- **Rule:** No centralized cloud database. All user investigation sessions, findings, evidence graphs, chat transcripts, and API caches must reside locally on the host machine.
-- **Mechanism:** Go Core uses pure-Go zero-CGO SQLite (`modernc.org/sqlite`); Python uses standard library `sqlite3`. Database files are stored at `~/.niskava/niskava.db` with Write-Ahead Logging (`PRAGMA journal_mode = WAL;`) for concurrent read/write access.
+* **Rule:** No centralized cloud database. All user investigation sessions, findings, evidence graphs, chat transcripts, and API caches must reside locally on the host machine.
+* **Mechanism:** Go Core uses pure-Go zero-CGO SQLite (`modernc.org/sqlite`); Python uses standard library `sqlite3`. Database files are stored at `~/.niskava/niskava.db` with Write-Ahead Logging (`PRAGMA journal_mode = WAL;`) for concurrent read/write access.
 
 ### Law 5: Credit Budget Discipline & Local Caching
-- **Rule:** Strictly protect the 1,000 Sectors API credit allocation. Zero redundant HTTP requests.
-- **Mechanism:** All requests check the local `sectors_cache` table before issuing HTTP requests to `https://api.sectors.app/v2`. Historical daily candlestick data ($T < \text{today}$) is permanently cached (`expires_at = NULL`), incurring zero credit cost on repeat queries.
-- **Offline Support:** Supports `MOCK_SECTORS=1` using static JSON fixtures for CI/CD pipelines and unit testing.
+* **Rule:** Strictly protect the 1,000 Sectors API credit allocation. Zero redundant HTTP requests.
+* **Mechanism:** All requests check the local `sectors_cache` table before issuing HTTP requests to `https://api.sectors.app/v2`. Historical daily candlestick data ($T < \text{today}$) is permanently cached (`expires_at = NULL`), incurring zero credit cost on repeat queries.
+* **Offline Support:** Supports `MOCK_SECTORS=1` using static JSON fixtures strictly for CI/CD pipelines and unit testing.
 
 ### Law 6: Local Conversational Graph Memory Engine
-- **Rule:** Agents must maintain associative context across multi-turn sessions without relying on expensive cloud vector databases or heavy external graph services.
-- **Mechanism:** Entities and relationships are persisted in SQLite (`memory_nodes` and `memory_edges`), loaded into an in-memory `networkx.DiGraph`, and queried via Ego-Graph traversal ($k \le 2$ hops) with exponential recency decay ($e^{-\lambda \Delta t}$).
+* **Rule:** Agents must maintain associative context across multi-turn sessions without relying on expensive cloud vector databases or heavy external graph services.
+* **Mechanism:** Entities and relationships are persisted in SQLite (`memory_nodes` and `memory_edges`), loaded into an in-memory `networkx.DiGraph`, and queried via Ego-Graph traversal ($k \le 2$ hops) with exponential recency decay ($e^{-\lambda \Delta t}$).
 
 ---
 
-## 3. The 7-Stage Investigation Pipeline Protocol
-
-Whenever a ticker investigation is initiated (e.g., `niskava investigate ANTM --days 30`), Niskava executes a sequential 7-stage protocol:
-
-```
-[1. INITIATION]
-       │
-       ▼
-[2. SECTORS_BASELINE]
-       │
-       ▼
-[3. QUANT_ANOMALY] ──(No Anomaly)──▶ [Fundamental Screening]
-       │ (Anomaly Detected)                       │
-       ▼                                          │
-[4. GAP_DETECTION]                                │
-       │                                          │
-       ▼                                          │
-[5. NEWS_HARVEST]                                │
-       │                                          │
-       ▼                                          │
-[6. EVIDENCE_CORRELATION] ◀───────────────────────┘
-       │
-       ▼
-[7. SYNTHESIS_AND_STREAMING]
-```
-
-1. **Stage 1: INITIATION**
-   - Receives target ticker symbol (e.g., `ANTM`).
-   - Creates an investigation session record in SQLite (`status = 'PENDING'`).
-   - Transitions state to `RUNNING` and initializes IPC stream.
-
-2. **Stage 2: SECTORS_BASELINE**
-   - Queries `sectors_cache` to retrieve or fetch:
-     - 30 to 90 days of daily OHLCV candlesticks (`/v2/daily/{symbol}/`).
-     - Company overview, management, and major shareholders (`/v2/company/report/{symbol}/`).
-     - Daily Net Foreign Flow records (`/v2/foreign-flow/{symbol}/`).
-     - Scheduled and historical corporate actions (`/v2/corporate-actions/{symbol}/`).
-     - Trading suspension history (`/v2/suspensions/`).
-
-3. **Stage 3: QUANT_ANOMALY**
-   - Executes deterministic NumPy anomaly formulas across price series and foreign flow.
-   - Evaluates Volume Z-Score ($V_z$), Abnormal Return ($R_t$), Sector Divergence ($D_t$), and Foreign Flow Z-Score ($F_z$).
-   - If statistical anomalies are identified, flags the anomaly date $T_{\text{anomaly}}$ and transitions to Stage 4. If no anomalies exist, transitions directly to fundamental screening.
-
-4. **Stage 4: GAP_DETECTION**
-   - Formulates targeted temporal investigation hypotheses centered tightly around the anomaly window: $T_{\text{anomaly}} \pm 2\text{ days}$.
-   - Generates structured search dork queries combining the company name, ticker, and exchange-specific disclosure terminology.
-
-5. **Stage 5: NEWS_HARVEST**
-   - Retrieves curated news, corporate actions, and regulatory filings directly from Sectors Financial API v2 (`/v2/news/` and `/v2/corporate-actions/`).
-   - Filters contemporaneous intelligence strictly within the anomaly observation window ($T_{\text{anomaly}} \pm 2\text{ days}$).
-   - Sanitizes and extracts article text using `trafilatura`.
-   - Wraps content in strict boundary delimiters (`<evidence_context>`) to neutralize prompt injection attacks from untrusted external text.
-
-6. **Stage 6: EVIDENCE_CORRELATION**
-   - Performs temporal sequence verification:
-     - If verified disclosure precedes volume spike $\to$ `LIKELY_CATALYST`.
-     - If volume spike precedes corporate disclosure $\to$ `PRECEDED_ANNOUNCEMENT` (possible information leakage).
-     - If volume spike occurs without public news $\to$ `UNEXPLAINED_BY_NEWS`.
-   - Assigns verification tags (`SUPPORTED`, `UNCERTAIN`, `CONTRADICTED`) and discrete confidence ratings.
-
-7. **Stage 7: SYNTHESIS_AND_STREAMING**
-   - Synthesizes findings, event timelines, and narrative conclusions.
-   - Persists all results to local SQLite database tables (`investigations`, `findings`, `timeline_events`, `evidence_sources`).
-   - Streams progress and structured findings via JSON-Lines over IPC to Go Core for real-time SSE delivery.
-   - **Optional On-Demand PDF Report Export**: When requested by the user, triggers `investigation_report_pdf` to compile an institutional-grade PDF research dossier directly to `~/.niskava/reports/` with immediate download links served on Web and CLI.
-
----
-
-## 4. Deterministic Quantitative Anomaly Formulas
+## 3. Deterministic Quantitative Anomaly Formulas
 
 All quantitative indicators are calculated deterministically by the Python Engine before LLM activation.
 
@@ -176,14 +108,14 @@ $$\sigma_{20} = \sqrt{\frac{1}{20} \sum_{i=1}^{20} (V_{t-i} - \mu_{20})^2}$$
 
 $$V_z = \frac{V_t - \mu_{20}}{\sigma_{20}}$$
 
-* **Trigger Threshold:** $V_z \ge 2.5$ triggers a `VOLUME_SPIKE` event (probability of random occurrence in a normal distribution is $< 0.6\%$).
+* **Trigger Threshold:** $V_z \ge 2.5\sigma$ triggers a `VOLUME_SPIKE` event (probability of random occurrence in a normal distribution is $< 0.6\%$).
 
 ---
 
 ### B. Abnormal Price Return ($R_t$)
 Measures the percentage price movement on day $t$ compared to the previous trading session's close:
 
-$$R_t = \frac{P_{\text{close}, t} - P_{\text{close}, t-1}}{P_{\text{close}, t-1}} \times 100\%$$
+$$R_t = \left( \frac{P_{\text{close}, t} - P_{\text{close}, t-1}}{P_{\text{close}, t-1}} \right) \times 100\%$$
 
 * **Trigger Threshold:** $|R_t| \ge 5.0\%$ triggers a `PRICE_BREAKOUT` anomaly.
 
@@ -205,7 +137,26 @@ $$F_z = \frac{F_t - \mu_{F, 20}}{\sigma_{F, 20}}$$
 
 Where $F_t$ represents the Net Foreign Flow (in IDR) on trading session $t$.
 
-* **Trigger Threshold:** $|F_z| \ge 2.5$ signifies an abnormal foreign capital allocation event.
+* **Trigger Threshold:** $|F_z| \ge 2.5\sigma$ signifies an abnormal foreign capital allocation event.
+
+---
+
+### E. Altman Z-Score Distress Index ($Z$)
+Used by the `financial_health_stress` skill to evaluate balance sheet bankruptcy risk:
+
+$$Z = 1.2 X_1 + 1.4 X_2 + 3.3 X_3 + 0.6 X_4 + 1.0 X_5$$
+
+Where:
+* $X_1 = \text{Working Capital} / \text{Total Assets}$ (Liquidity)
+* $X_2 = \text{Retained Earnings} / \text{Total Assets}$ (Cumulative Profitability)
+* $X_3 = \text{EBIT} / \text{Total Assets}$ (Operating Efficiency)
+* $X_4 = \text{Market Value of Equity} / \text{Total Liabilities}$ (Leverage)
+* $X_5 = \text{Sales} / \text{Total Assets}$ (Asset Turnover)
+
+**Zone Classification:**
+* $Z > 2.99$: **Safe Zone** (Low probability of insolvency).
+* $1.81 \le Z \le 2.99$: **Grey Zone** (Moderate distress risk).
+* $Z < 1.81$: **Distress Zone** (High probability of financial distress).
 
 ---
 
@@ -213,71 +164,81 @@ Where $F_t$ represents the Net Foreign Flow (in IDR) on trading session $t$.
 
 | Condition $V_z$ | Condition $|R_t|$ | Condition $|D_t|$ | Classification | Engine Action |
 |:---:|:---:|:---:|:---|:---|
-| $\ge 2.5$ | $\ge 5.0\%$ | $\ge 4.0\%$ | `IDIOSYNCRATIC_CATALYST` | Triggers high-priority `event_causality_audit` news investigation. |
-| $\ge 2.5$ | $< 5.0\%$ | Any | `VOLUME_ACCUMULATION` | Activates `insider_bandarmology_forensic` for foreign/domestic flow tracking. |
-| $< 2.5$ | $\ge 5.0\%$ | $< 4.0\%$ | `SECTOR_BETA_RALLY` | Attributes movement to broader sector macro trends; suppresses false-alarm company alarms. |
-| $< 2.5$ | $< 5.0\%$ | Any | `NORMAL_VARIANCE` | Routes to fundamental health and valuation baseline screening. |
+| $\ge 2.5\sigma$ | $\ge 5.0\%$ | $\ge 4.0\%$ | `IDIOSYNCRATIC_CATALYST` | Triggers high-priority `event_causality_audit` news investigation. |
+| $\ge 2.5\sigma$ | $< 5.0\%$ | Any | `VOLUME_ACCUMULATION` | Activates `insider_bandarmology_forensic` for foreign/domestic flow tracking. |
+| $< 2.5\sigma$ | $\ge 5.0\%$ | $< 4.0\%$ | `SECTOR_BETA_RALLY` | Attributes movement to broader sector macro trends; suppresses false-alarm company alarms. |
+| $< 2.5\sigma$ | $< 5.0\%$ | Any | `NORMAL_VARIANCE` | Routes to fundamental health and valuation baseline screening. |
 
 ---
 
-## 5. Local Associative Graph Memory Engine
+## 4. The 7-Stage Investigation Pipeline Protocol
 
-Niskava maintains multi-turn contextual memory locally using an associative knowledge graph backed by SQLite:
+Whenever a ticker investigation is executed (`niskava investigate <TICKER> --days 30`), Niskava runs a sequential 7-stage protocol:
 
-- **Data Model:**
-  - `memory_nodes`: Represents unique market entities (e.g., `TICKER:ANTM`, `PERSON:CEO`, `EVENT:DIVIDEND`, `SECTOR:BASIC_MATERIALS`).
-  - `memory_edges`: Represents typed directional relationships between entities (e.g., `ACCUMULATED_BY`, `SUBSIDIARY_OF`, `DIVERTED_FROM`) with metadata, confidence score, and observation timestamps.
-  - `chat_messages`: Full multi-turn conversation logs linked to session IDs.
+```
+[1. INITIATION] ──> [2. SECTORS_BASELINE] ──> [3. QUANT_ANOMALY]
+                                                        │
+                      ┌─────────────────────────────────┴─────────────────────────────────┐
+                      ▼                                                                   ▼
+             (Anomaly Detected)                                                   (No Anomaly)
+                      │                                                                   │
+              [4. GAP_DETECTION]                                                 [4b. FUNDAMENTAL]
+                      │                                                                   │
+             [5. NEWS_HARVEST]                                                   [6b. PEER_VALUATION]
+                      │                                                                   │
+          [6. EVIDENCE_CORRELATION]                                                       │
+                      │                                                                   │
+                      └───────────────────────────────┬───────────────────────────────────┘
+                                                      ▼
+                                         [7. SYNTHESIS_AND_STREAMING]
+```
 
-- **Ego-Graph Traversal:**
-  When a query is received, the memory engine identifies focal seed entities and extracts an ego-subgraph of radius $k \le 2$ hops.
-
-- **Exponential Recency Decay:**
-  Edge weights decay dynamically based on the elapsed time since the relationship was last corroborated:
-
-  $$w(t) = w_0 \cdot \exp(-\lambda \Delta t)$$
-
-  Where $\Delta t$ is elapsed days and $\lambda = 0.05$ (half-life of approximately 14 days), ensuring recent market events carry higher relevance while preserving long-term structural links.
+1. **Stage 1: INITIATION:** Creates investigation session in SQLite (`status = 'PENDING'`), initializes IPC stream.
+2. **Stage 2: SECTORS_BASELINE:** Checks `sectors_cache`, pulls 30–90 days daily OHLCV, company profile, foreign flow, corporate actions, and suspensions.
+3. **Stage 3: QUANT_ANOMALY:** Deterministic NumPy math calculates $V_z$, $R_t$, $D_t$, and $F_z$.
+4. **Stage 4: GAP_DETECTION:** Formulates targeted temporal investigation hypotheses centered on $T_{\text{anomaly}} \pm 2\text{ days}$.
+5. **Stage 5: NEWS_HARVEST:** Retrieves curated news and IDXnet disclosures from Sectors API v2, sanitizes text via `trafilatura`, and isolates content in `<evidence_context>` delimiters to neutralize prompt injection.
+6. **Stage 6: EVIDENCE_CORRELATION:** Assesses temporal precedence:
+   - News before volume surge $\to$ `LIKELY_CATALYST`
+   - Volume surge before news release $\to$ `PRECEDED_ANNOUNCEMENT` (possible information leakage)
+   - No explanatory news $\to$ `UNEXPLAINED_BY_NEWS`
+7. **Stage 7: SYNTHESIS_AND_STREAMING:** Compiles findings and timeline into local SQLite, streams progress via SSE, and produces optional PDF reports.
 
 ---
 
-## 6. Discrete Verification Taxonomy & Confidence Rubric
+## 5. The 6 Modular Domain Skills
 
-To prevent subjective continuous probability scores (e.g. 0.50), Niskava enforces a standardized discrete verification rubric:
+Niskava organizes specialized equity analysis into reusable domain modules:
 
-| Score | Verification Level | Source Validation Criteria |
-|:---:|:---|:---|
-| **`1.00`** | **EXTRACTED** | Directly backed by official Sectors API quantitative records or formal IDXnet regulatory disclosures. |
-| **`0.95`** | **Direct Structural Evidence** | Explicit timestamp correlation with official company press releases or exchange disclosure announcements. |
-| **`0.85`** | **Strong Inference** | High temporal correlation with major national business media reporting (Kontan, Bisnis Indonesia, CNBC Indonesia). |
-| **`0.75`** | **Reasonable Inference** | Plausible catalyst from industry-wide trends corroborated by matching sector divergence metrics. |
-| **`0.65`** | **Weak Inference** | Unverified market commentary, social media sentiment, or unconfirmed financial forum discussions. |
-| **`0.55`** | **Speculative** | Distant co-occurrence without temporal causality or formal corroboration. |
+| Skill Identifier | Category | Input Signals | Primary Analysis & Output |
+|---|---|---|---|
+| **`market_anomaly_recon`** | Technical & Momentum | 30–90d OHLCV, Sector Index | MA20, Z-Scores ($V_z$), Abnormal Returns ($R_t$), Sector Divergence ($D_t$). |
+| **`event_causality_audit`** | Catalysts & Filings | Anomaly date, Sectors News, Disclosures | Chronological sequence audit, 3-tier evidence classification (`SUPPORTED`). |
+| **`insider_bandarmology_forensic`** | Flow & Ownership | Top Broker summary, Foreign flow, Insider filings | Broker accumulation concentration, top buyer/seller delta, insider trades. |
+| **`financial_health_stress`** | Solvency & Balance Sheet | Balance Sheet, Income, Cash Flow | Altman Z-Score, Debt-to-Equity (DER), Current Ratio, Interest Coverage. |
+| **`mining_commodity_divergence`** | Commodities & Macro | Subsector data, Global commodity prices | Correlation between commodity price swings (Nickel, Coal, Gold, CPO) and stock return. |
+| **`peer_valuation_benchmark`** | Relative Valuation | Subsector peers, P/E, P/B, EV/EBITDA | Peer percentile ranking, discount/premium vs subsector median. |
 
 ---
 
-## 7. Adaptive Inference Timeout Architecture
+## 6. Unified Model Context Protocol (MCP) Server
 
-To eliminate socket disconnects and premature timeout failures during complex multi-tool research turns without sacrificing responsiveness on simple prompts, Niskava employs an observation-aware **Adaptive Inference Timeout Engine**:
+Niskava provides a native **Model Context Protocol (MCP)** server (`niskava mcp` or `python -m engine.mcp.server`), allowing external IDEs and agents (Claude Desktop, Cursor, Antigravity) to call Niskava tools natively:
 
-### Mathematical Formula:
-$$\text{Timeout}_{\text{call}} = \min\Big(\text{Base Timeout} + \max(0, N_{\text{obs}}) \times 10.0\text{s},\; 4 \times \text{Base Timeout},\; 300.0\text{s}\Big)$$
+### Exposed MCP Tools:
+* **`get_daily_candles`**: Retrieve 30–90 days OHLCV candlestick records for any IDX ticker.
+* **`compute_quant_anomalies`**: Execute deterministic NumPy volume and price anomaly screening.
+* **`harvest_market_news`**: Fetch accredited financial news and regulatory filings with temporal filtering.
+* **`query_sectors`**: Unified gateway for Sectors Financial API v2 (company reports, foreign flow, broker summaries, corporate actions).
+* **`execute_skill`**: Execute any of the 6 institutional domain skills on demand.
+* **`recall_graph_memory`**: Query local associative memory for historical investigation findings.
 
-Where:
-- $\text{Base Timeout}$: Configured baseline (default `60.0s`, customizable via `NISKAVA_LLM_TIMEOUT`).
-- $N_{\text{obs}}$: Cumulative count of deterministic tool observations ingested during the current chat cycle.
-- **Soft Cap ($4 \times \text{Base}$)**: Prevents runaway execution during massive batch observations.
-- **Hard Cap ($300.0\text{s}$)**: Absolute upper limit guaranteeing system liveness.
+---
 
-### Prompt Complexity Classification:
-Before tool execution begins, the agent classifies query intent deterministically:
-1. **Simple** ($\le 5$ iterations, timeout capped at $15\text{s}$): Identity queries, greetings, help commands.
-2. **General** ($\le 10$ iterations, timeout capped at $20\text{s}$): Macro reviews, sector overviews.
-3. **Deep** ($\le 30$ iterations, full adaptive timeout): Ticker investigations, forensic causality audits, peer stress tests.
+## 7. Institutional PDF Dossier Generation
 
-### Tri-Surface Synchronization:
-User preferences are synchronized bidirectionally across three interfaces:
-1. **Interactive Terminal Wizard (`niskava setup`)**: Configures predefined profiles (`Fast 25s`, `Balanced 60s`, `Deep 120s`, `Local LLM 180s`, or `Custom`).
-2. **Terminal REPL (`/timeout [val]`)**: Modifies session timeout and immediately persists to `~/.niskava/config.yaml`.
-3. **Web Workspace Canvas**: Interactive UI slider reading from `GET /api/settings` and updating via `PATCH /api/settings`.
-
+When requested (`niskava investigate <TICKER> --pdf` or in the Web Workspace), Niskava compiles an institutional-grade PDF research dossier directly to `~/.niskava/reports/<TICKER>_investigation_<SESSION>.pdf`:
+* Structured executive summary with anomaly alert headers.
+* Complete quantitative indicators table ($V_z$, $R_t$, $D_t$, $F_z$).
+* Corroborated evidence matrix with source URLs and publication timestamps.
+* Formal Capital Market non-advisory disclaimer.

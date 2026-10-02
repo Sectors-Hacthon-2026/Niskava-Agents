@@ -46,7 +46,7 @@ Sebagian besar produk "AI Finansial" di pasar saat ini hanyalah **wrapper tipis 
 
 ## 3. Tesis & Pendekatan Niskava: Evidence-First Autonomous Orchestration
 
-Niskava Agent membalik paradigma dari *"Generative-First"* menjadi **"Evidence-First Autonomous Investigation"** bergaya Hermes / OpenCode yang dispesialisasi untuk pasar modal:
+Niskava Agent membalik paradigma dari *"Generative-First"* menjadi **"Evidence-First Autonomous Investigation"** berbasis Autonomous ReAct yang dispesialisasi untuk pasar modal:
 
 ```
 Pendekatan AI Wrapper Biasa:
@@ -79,7 +79,7 @@ Evidence Layer: Cross-Verification ──▶ Audit Trail [SUPPORTED | UNCERTAIN 
 
 ## 4. Matriks Komparasi: AI Wrapper Tipis vs Niskava Agent
 
-| Dimensi Evaluasi | AI Wrapper Finansial Biasa | Niskava Agent (Hermes/OpenCode Paradigm) |
+| Dimensi Evaluasi | AI Wrapper Finansial Biasa | Niskava Agent (Autonomous Investigation) |
 |---|---|---|
 | **Paradigma Kerja** | Chatbot responsif pasif (*Prompt-in, Text-out*) | Agen investigasi otonom (*Autonomous ReAct Loop*) |
 | **Arsitektur Tooling** | Fungsi Python monolitik di-hardcode ke prompt | **Layering 4 Tingkat:** MCP Primitives $\to$ Compute Gate $\to$ Skills $\to$ ReAct |

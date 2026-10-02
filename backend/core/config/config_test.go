@@ -277,7 +277,7 @@ func TestSaveDotEnv_SSoT(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Auth.AIProvider = "openai"
 	cfg.Auth.OpenAIBaseURL = "http://localhost:20128/v1"
-	cfg.Auth.OpenAIModel = "hermes"
+	cfg.Auth.OpenAIModel = "gpt-4o-mini"
 	cfg.Auth.OpenAIAPIKey = "sk-custom-test-123"
 
 	if err := SaveDotEnv(cfg, envPath); err != nil {
@@ -293,7 +293,7 @@ func TestSaveDotEnv_SSoT(t *testing.T) {
 	if !strings.Contains(strContent, "OPENAI_BASE_URL=http://localhost:20128/v1") {
 		t.Errorf("expected OPENAI_BASE_URL in .env, got:\n%s", strContent)
 	}
-	if !strings.Contains(strContent, "OPENAI_MODEL=hermes") {
+	if !strings.Contains(strContent, "OPENAI_MODEL=gpt-4o-mini") {
 		t.Errorf("expected OPENAI_MODEL in .env, got:\n%s", strContent)
 	}
 	if !strings.Contains(strContent, "OPENAI_API_KEY=sk-custom-test-123") {
@@ -407,5 +407,72 @@ func TestBuildSubprocessEnv_OfflineAndTimeout(t *testing.T) {
 	}
 	if envOffline["MOCK_SECTORS"] != "1" {
 		t.Errorf("expected MOCK_SECTORS=1 when OfflineMode=true, got %q", envOffline["MOCK_SECTORS"])
+	}
+}
+
+func TestDynamicProviderAndModelResolution(t *testing.T) {
+	// Case 1: Gemini Provider with custom model
+	cfg := DefaultConfig()
+	cfg.Auth.AIProvider = "gemini"
+	cfg.Auth.GeminiAPIKey = "AIzaSyTestKey123"
+	cfg.Auth.GeminiModel = "gemini-2.5-flash"
+	cfg.Auth.OpenAIModel = "gpt-4o-mini"
+
+	if cfg.GetActiveProvider() != "gemini" {
+		t.Errorf("expected provider gemini, got %s", cfg.GetActiveProvider())
+	}
+	if cfg.GetActiveModel() != "gemini-2.5-flash" {
+		t.Errorf("expected model gemini-2.5-flash, got %s", cfg.GetActiveModel())
+	}
+
+	env := cfg.BuildSubprocessEnv()
+	if env["AI_PROVIDER"] != "gemini" {
+		t.Errorf("expected env AI_PROVIDER=gemini, got %s", env["AI_PROVIDER"])
+	}
+	if env["NISKAVA_MODEL"] != "gemini-2.5-flash" {
+		t.Errorf("expected env NISKAVA_MODEL=gemini-2.5-flash, got %s", env["NISKAVA_MODEL"])
+	}
+	if env["OPENAI_MODEL"] != "gemini-2.5-flash" {
+		t.Errorf("expected normalized OPENAI_MODEL=gemini-2.5-flash for Gemini adapter, got %s", env["OPENAI_MODEL"])
+	}
+	if env["OPENAI_BASE_URL"] != "https://generativelanguage.googleapis.com/v1beta/openai" {
+		t.Errorf("expected Google AI Studio base url, got %s", env["OPENAI_BASE_URL"])
+	}
+
+	// Case 2: OpenAI Provider with custom model
+	cfg2 := DefaultConfig()
+	cfg2.Auth.AIProvider = "openai"
+	cfg2.Auth.OpenAIModel = "deepseek-chat"
+	cfg2.Auth.OpenAIBaseURL = "https://api.deepseek.com/v1"
+
+	if cfg2.GetActiveProvider() != "openai" {
+		t.Errorf("expected provider openai, got %s", cfg2.GetActiveProvider())
+	}
+	if cfg2.GetActiveModel() != "deepseek-chat" {
+		t.Errorf("expected model deepseek-chat, got %s", cfg2.GetActiveModel())
+	}
+	env2 := cfg2.BuildSubprocessEnv()
+	if env2["NISKAVA_MODEL"] != "deepseek-chat" {
+		t.Errorf("expected NISKAVA_MODEL=deepseek-chat, got %s", env2["NISKAVA_MODEL"])
+	}
+
+	// Case 3: Ollama Provider
+	cfg3 := DefaultConfig()
+	cfg3.Auth.AIProvider = "ollama"
+	cfg3.Auth.OllamaModel = "qwen2.5:7b"
+	cfg3.Auth.OllamaBaseURL = "http://localhost:11434"
+
+	if cfg3.GetActiveProvider() != "ollama" {
+		t.Errorf("expected provider ollama, got %s", cfg3.GetActiveProvider())
+	}
+	if cfg3.GetActiveModel() != "qwen2.5:7b" {
+		t.Errorf("expected model qwen2.5:7b, got %s", cfg3.GetActiveModel())
+	}
+	env3 := cfg3.BuildSubprocessEnv()
+	if env3["NISKAVA_MODEL"] != "qwen2.5:7b" {
+		t.Errorf("expected NISKAVA_MODEL=qwen2.5:7b, got %s", env3["NISKAVA_MODEL"])
+	}
+	if env3["OPENAI_BASE_URL"] != "http://localhost:11434/v1" {
+		t.Errorf("expected http://localhost:11434/v1, got %s", env3["OPENAI_BASE_URL"])
 	}
 }
