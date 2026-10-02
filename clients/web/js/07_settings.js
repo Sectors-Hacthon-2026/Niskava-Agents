@@ -69,7 +69,7 @@
                         card.classList.toggle('selected', target === prov);
                     });
 
-                    // Preset auto-fill helper if field is blank
+                    // Preset auto-fill helper only if field is blank (preserves custom model)
                     if (prov === 'gemini') {
                         if (inputGeminiModel && !inputGeminiModel.value.trim()) {
                             inputGeminiModel.value = 'gemini-2.0-flash';
@@ -92,6 +92,9 @@
                         if (inputAnthropicModel && !inputAnthropicModel.value.trim()) {
                             inputAnthropicModel.value = 'claude-3-5-sonnet-20241022';
                         }
+                    }
+                    if (typeof updateActivePresetChips === 'function') {
+                        updateActivePresetChips();
                     }
                 }
                 if (selectAiProvider) {
@@ -861,6 +864,61 @@
                                     }
                                 }
                             }
+                            // Update reactive provider card badges
+                            const isEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
+                            const tagGemini = document.getElementById('tagGeminiStatus');
+                            if (tagGemini) {
+                                if (data.auth && data.auth.has_gemini_key) {
+                                    tagGemini.textContent = isEn ? 'Saved' : 'Tersimpan';
+                                    tagGemini.style.color = '#10B981';
+                                    tagGemini.style.background = 'rgba(16, 185, 129, 0.12)';
+                                } else {
+                                    tagGemini.textContent = isEn ? 'Recommended' : 'Disarankan';
+                                    tagGemini.style.color = '#03A66D';
+                                    tagGemini.style.background = 'rgba(3, 166, 109, 0.12)';
+                                }
+                            }
+
+                            const tagOpenai = document.getElementById('tagOpenaiStatus');
+                            if (tagOpenai) {
+                                if (data.auth && data.auth.has_openai_key) {
+                                    tagOpenai.textContent = isEn ? 'Saved' : 'Tersimpan';
+                                    tagOpenai.style.color = '#10B981';
+                                    tagOpenai.style.background = 'rgba(16, 185, 129, 0.12)';
+                                } else {
+                                    tagOpenai.textContent = 'Gateway';
+                                    tagOpenai.style.color = '';
+                                    tagOpenai.style.background = '';
+                                }
+                            }
+
+                            const tagAnthropic = document.getElementById('tagAnthropicStatus');
+                            if (tagAnthropic) {
+                                if (data.auth && data.auth.has_anthropic_key) {
+                                    tagAnthropic.textContent = isEn ? 'Saved' : 'Tersimpan';
+                                    tagAnthropic.style.color = '#10B981';
+                                    tagAnthropic.style.background = 'rgba(16, 185, 129, 0.12)';
+                                } else {
+                                    tagAnthropic.textContent = isEn ? 'Reasoning' : 'Penalaran';
+                                    tagAnthropic.style.color = '';
+                                    tagAnthropic.style.background = '';
+                                }
+                            }
+
+                            const tagOllama = document.getElementById('tagOllamaStatus');
+                            if (tagOllama) {
+                                const ollamaUrl = (data.auth && data.auth.ollama_base_url) || (inputOllamaBaseUrl ? inputOllamaBaseUrl.value.trim() : '') || 'http://localhost:11434';
+                                if (ollamaUrl) {
+                                    tagOllama.textContent = isEn ? 'Available' : 'Tersedia';
+                                    tagOllama.style.color = '#10B981';
+                                    tagOllama.style.background = 'rgba(16, 185, 129, 0.12)';
+                                } else {
+                                    tagOllama.textContent = isEn ? 'Local' : 'Lokal';
+                                    tagOllama.style.color = '';
+                                    tagOllama.style.background = '';
+                                }
+                            }
+
                             updateProviderVisibility();
                             updateActivePresetChips();
                         }
@@ -907,7 +965,10 @@
                     try {
                         const payload = { target };
                         if (inputEl && inputEl.value.trim()) {
-                            payload.api_key = inputEl.value.trim();
+                            const val = inputEl.value.trim();
+                            if (!val.includes('****')) {
+                                payload.api_key = val;
+                            }
                         }
                         if (baseUrlEl && baseUrlEl.value.trim()) {
                             payload.base_url = baseUrlEl.value.trim();
@@ -928,6 +989,34 @@
                                 if (tab1Badge) {
                                     tab1Badge.textContent = currentLang === 'en' ? `Connected (${result.latency_ms}ms)` : `Terhubung (${result.latency_ms}ms)`;
                                     tab1Badge.style.color = '#10B981';
+                                }
+                            } else if (target === 'gemini') {
+                                const tag = document.getElementById('tagGeminiStatus');
+                                if (tag) {
+                                    tag.textContent = currentLang === 'en' ? 'Ready' : 'Siap';
+                                    tag.style.color = '#10B981';
+                                    tag.style.background = 'rgba(16, 185, 129, 0.12)';
+                                }
+                            } else if (target === 'openai') {
+                                const tag = document.getElementById('tagOpenaiStatus');
+                                if (tag) {
+                                    tag.textContent = currentLang === 'en' ? 'Ready' : 'Siap';
+                                    tag.style.color = '#10B981';
+                                    tag.style.background = 'rgba(16, 185, 129, 0.12)';
+                                }
+                            } else if (target === 'anthropic') {
+                                const tag = document.getElementById('tagAnthropicStatus');
+                                if (tag) {
+                                    tag.textContent = currentLang === 'en' ? 'Ready' : 'Siap';
+                                    tag.style.color = '#10B981';
+                                    tag.style.background = 'rgba(16, 185, 129, 0.12)';
+                                }
+                            } else if (target === 'ollama') {
+                                const tag = document.getElementById('tagOllamaStatus');
+                                if (tag) {
+                                    tag.textContent = currentLang === 'en' ? 'Available' : 'Tersedia';
+                                    tag.style.color = '#10B981';
+                                    tag.style.background = 'rgba(16, 185, 129, 0.12)';
                                 }
                             }
                             showToast(`${target.toUpperCase()}: ${result.message} (${result.latency_ms}ms)`);
@@ -996,10 +1085,35 @@
 
                 // Telegram Whitelist Chips & Bot Controls
                 let currentTeleUsers = [];
+                let isSavingTeleUsers = false;
                 const teleAllowedUsersChips = document.getElementById('teleAllowedUsersChips');
                 const inputAddTeleUser = document.getElementById('inputAddTeleUser');
                 const btnAddTeleUser = document.getElementById('btnAddTeleUser');
                 const telePollerHeartbeat = document.getElementById('telePollerHeartbeat');
+
+                async function persistTelegramAllowedUsers(users) {
+                    try {
+                        isSavingTeleUsers = true;
+                        const res = await fetch(`${API_BASE}/api/settings/telegram`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ allowed_users: users || [] })
+                        });
+                        if (res.ok) {
+                            showToast(currentLang === 'en' ? 'Telegram whitelist autosaved' : 'Whitelist Telegram tersimpan otomatis');
+                        } else {
+                            const err = await res.json().catch(() => ({}));
+                            showToast(err.error || (currentLang === 'en' ? 'Failed to save whitelist' : 'Gagal menyimpan whitelist'), true);
+                        }
+                    } catch (e) {
+                        console.warn('Failed to persist telegram allowed users:', e);
+                        showToast(currentLang === 'en' ? 'Error saving whitelist' : 'Kesalahan menyimpan whitelist', true);
+                    } finally {
+                        setTimeout(() => {
+                            isSavingTeleUsers = false;
+                        }, 500);
+                    }
+                }
 
                 function renderTeleUserChips() {
                     if (!teleAllowedUsersChips) return;
@@ -1017,6 +1131,7 @@
                             chip.querySelector('.tele-chip-remove').addEventListener('click', () => {
                                 currentTeleUsers.splice(idx, 1);
                                 renderTeleUserChips();
+                                persistTelegramAllowedUsers(currentTeleUsers);
                             });
                             teleAllowedUsersChips.appendChild(chip);
                         });
@@ -1033,6 +1148,7 @@
                     if (!currentTeleUsers.includes(val)) {
                         currentTeleUsers.push(val);
                         renderTeleUserChips();
+                        persistTelegramAllowedUsers(currentTeleUsers);
                     }
                     inputAddTeleUser.value = '';
                 }
@@ -1133,12 +1249,25 @@
                             }
                         }
 
-                        if (data.allowed_users && Array.isArray(data.allowed_users)) {
-                            currentTeleUsers = [...data.allowed_users];
-                        } else if (inputTeleUsers && inputTeleUsers.value) {
-                            currentTeleUsers = inputTeleUsers.value.split(',').map(s => s.trim()).filter(Boolean);
+                        // Anti-clobbering sync: do not overwrite local state if user is typing or save is in flight
+                        const isInputFocused = (inputAddTeleUser && document.activeElement === inputAddTeleUser);
+                        if (!isSavingTeleUsers && !isInputFocused) {
+                            let serverUsers = [];
+                            if (data.allowed_users && Array.isArray(data.allowed_users)) {
+                                serverUsers = data.allowed_users.map(s => String(s).trim()).filter(Boolean);
+                            } else if (inputTeleUsers && inputTeleUsers.value) {
+                                serverUsers = inputTeleUsers.value.split(',').map(s => s.trim()).filter(Boolean);
+                            }
+
+                            // Avoid redundant DOM replacement if server array matches current local state
+                            const isDifferent = (serverUsers.length !== currentTeleUsers.length) ||
+                                serverUsers.some((u, idx) => u !== currentTeleUsers[idx]);
+
+                            if (isDifferent) {
+                                currentTeleUsers = serverUsers;
+                                renderTeleUserChips();
+                            }
                         }
-                        renderTeleUserChips();
                     } catch (e) {
                         console.warn('Gagal memuat status telegram:', e);
                     }
@@ -1396,19 +1525,28 @@
                         const payload = { auth: {}, preferences: {}, telegram: {} };
 
                         if (inputSectorsKey) {
-                            payload.auth.sectors_api_key = inputSectorsKey.value.trim();
+                            const val = inputSectorsKey.value.trim();
+                            if (!val.includes('****')) {
+                                payload.auth.sectors_api_key = val;
+                            }
                         }
                         if (selectAiProvider && selectAiProvider.value) {
                             payload.auth.ai_provider = selectAiProvider.value;
                         }
                         if (inputGeminiKey) {
-                            payload.auth.gemini_api_key = inputGeminiKey.value.trim();
+                            const val = inputGeminiKey.value.trim();
+                            if (!val.includes('****')) {
+                                payload.auth.gemini_api_key = val;
+                            }
                         }
                         if (inputGeminiModel && inputGeminiModel.value.trim()) {
                             payload.auth.gemini_model = inputGeminiModel.value.trim();
                         }
                         if (inputOpenaiKey) {
-                            payload.auth.openai_api_key = inputOpenaiKey.value.trim();
+                            const val = inputOpenaiKey.value.trim();
+                            if (!val.includes('****')) {
+                                payload.auth.openai_api_key = val;
+                            }
                         }
                         if (inputOpenaiBaseUrl && inputOpenaiBaseUrl.value.trim()) {
                             payload.auth.openai_base_url = inputOpenaiBaseUrl.value.trim();
@@ -1423,13 +1561,19 @@
                             payload.auth.ollama_model = inputOllamaModel.value.trim();
                         }
                         if (inputAnthropicKey) {
-                            payload.auth.anthropic_api_key = inputAnthropicKey.value.trim();
+                            const val = inputAnthropicKey.value.trim();
+                            if (!val.includes('****')) {
+                                payload.auth.anthropic_api_key = val;
+                            }
                         }
                         if (inputAnthropicModel && inputAnthropicModel.value.trim()) {
                             payload.auth.anthropic_model = inputAnthropicModel.value.trim();
                         }
                         if (inputTeleToken) {
-                            payload.telegram.bot_token = inputTeleToken.value.trim();
+                            const val = inputTeleToken.value.trim();
+                            if (!val.includes('****')) {
+                                payload.telegram.bot_token = val;
+                            }
                         }
                         payload.telegram.allowed_users = currentTeleUsers;
 

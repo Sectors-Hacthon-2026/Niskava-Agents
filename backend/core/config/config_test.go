@@ -101,6 +101,21 @@ func TestTelegramConfigParsing(t *testing.T) {
 	}
 }
 
+func TestTelegramAllowedUsersEmptyReset(t *testing.T) {
+	os.Setenv("NISKAVA_TELEGRAM_ALLOWED_USERS", "")
+	defer os.Unsetenv("NISKAVA_TELEGRAM_ALLOWED_USERS")
+	tempDir := t.TempDir()
+	cfgPath := filepath.Join(tempDir, "config.yaml")
+
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+	if len(cfg.Telegram.AllowedUsers) != 0 {
+		t.Errorf("expected empty allowed users, got %v", cfg.Telegram.AllowedUsers)
+	}
+}
+
 func TestExpandHome_CrossPlatform(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {
