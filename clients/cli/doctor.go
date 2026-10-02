@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -233,7 +234,46 @@ func EvaluateSystemDiagnostics() DiagnosticReport {
 		})
 	}
 
+	// 7. Telegram Bot Integration (Optional)
+	report.Checks = append(report.Checks, evaluateTelegramDiagnostic(cfg, nil))
+
 	return report
+}
+
+func evaluateTelegramDiagnostic(c *config.Config, client *http.Client) DiagnosticCheck {
+	if c == nil || strings.TrimSpace(c.Telegram.BotToken) == "" {
+		return DiagnosticCheck{
+			Name:    "Telegram Bot Integration",
+			Status:  StatusOk,
+			Details: "Not configured (Optional — enables mobile chat & alerts via Telegram)",
+		}
+	}
+	info, err := FetchTelegramBotInfo(c.Telegram.BotToken, client)
+	return evaluateTelegramDiagnosticWithBotInfo(c, info, err)
+}
+
+func evaluateTelegramDiagnosticWithBotInfo(c *config.Config, info *TelegramBotInfo, err error) DiagnosticCheck {
+	if err != nil {
+		return DiagnosticCheck{
+			Name:           "Telegram Bot Integration",
+			Status:         StatusWarn,
+			Details:        fmt.Sprintf("Token configured but verification failed: %v", err),
+			Recommendation: "Check your bot token from @BotFather or run 'niskava telegram status'",
+		}
+	}
+	userCount := 0
+	if c != nil {
+		userCount = len(c.Telegram.AllowedUsers)
+	}
+	accessStr := "Open access (all users allowed)"
+	if userCount > 0 {
+		accessStr = fmt.Sprintf("%d whitelisted user(s)", userCount)
+	}
+	return DiagnosticCheck{
+		Name:    "Telegram Bot Integration",
+		Status:  StatusOk,
+		Details: fmt.Sprintf("@%s (%s)", info.Username, accessStr),
+	}
 }
 
 // RenderDoctorReport outputs a beautifully formatted diagnostic HUD card to terminal.

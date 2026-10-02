@@ -264,3 +264,118 @@ func TestRenderConfigurationDashboard(t *testing.T) {
 		t.Errorf("expected dashboard to contain masked Gemini key, got:\n%s", dashboard)
 	}
 }
+
+func TestRenderConfigurationDashboard_Telegram(t *testing.T) {
+	testCfg := config.DefaultConfig()
+	testCfg.Telegram.BotToken = "123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+	testCfg.Telegram.Enabled = true
+	testCfg.Telegram.AllowedUsers = []string{"11223344", "analyst_idx"}
+
+	dashboard := RenderConfigurationDashboard(testCfg)
+	if !strings.Contains(dashboard, "Telegram Bot") {
+		t.Errorf("expected dashboard to mention Telegram Bot, got:\n%s", dashboard)
+	}
+	if !strings.Contains(dashboard, "2 users") {
+		t.Errorf("expected dashboard to report 2 users whitelisted, got:\n%s", dashboard)
+	}
+
+	// Test unconfigured
+	emptyCfg := config.DefaultConfig()
+	emptyDashboard := RenderConfigurationDashboard(emptyCfg)
+	if !strings.Contains(emptyDashboard, "Telegram Bot") {
+		t.Errorf("expected dashboard to mention Telegram Bot for unconfigured, got:\n%s", emptyDashboard)
+	}
+	if !strings.Contains(emptyDashboard, "Not configured (Optional)") {
+		t.Errorf("expected dashboard to show 'Not configured (Optional)', got:\n%s", emptyDashboard)
+	}
+}
+
+func TestConfigureTelegramWizard_Disable(t *testing.T) {
+	testCfg := config.DefaultConfig()
+	testCfg.Telegram.Enabled = true
+	testCfg.Telegram.BotToken = "old-token"
+
+	reader := bufio.NewReader(strings.NewReader("n\n"))
+	err := configureTelegramWizard(reader, testCfg)
+	if err != nil {
+		t.Fatalf("configureTelegramWizard returned error: %v", err)
+	}
+	if testCfg.Telegram.Enabled {
+		t.Errorf("expected Telegram to be disabled, got enabled=true")
+	}
+}
+
+func TestConfigureTelegramWizard_EnableAndConfigure(t *testing.T) {
+	testCfg := config.DefaultConfig()
+	testCfg.Telegram.Enabled = false
+
+	input := "y\n123456789:TestTokenMock\nidx_trader, @market_watcher\n"
+	reader := bufio.NewReader(strings.NewReader(input))
+	err := configureTelegramWizard(reader, testCfg)
+	if err != nil {
+		t.Fatalf("configureTelegramWizard returned error: %v", err)
+	}
+	if !testCfg.Telegram.Enabled {
+		t.Errorf("expected Telegram.Enabled = true")
+	}
+	if testCfg.Telegram.BotToken != "123456789:TestTokenMock" {
+		t.Errorf("expected BotToken '123456789:TestTokenMock', got %q", testCfg.Telegram.BotToken)
+	}
+	if len(testCfg.Telegram.AllowedUsers) != 2 {
+		t.Fatalf("expected 2 allowed users, got %d", len(testCfg.Telegram.AllowedUsers))
+	}
+	if testCfg.Telegram.AllowedUsers[0] != "idx_trader" || testCfg.Telegram.AllowedUsers[1] != "market_watcher" {
+		t.Errorf("unexpected allowed users: %v", testCfg.Telegram.AllowedUsers)
+	}
+}
+
+func TestIsCancelInput(t *testing.T) {
+	cancels := []string{
+		"q\n", "Q\n", "exit\n", "EXIT\n", "quit\n", "cancel\n", "esc\n", ":q\n",
+		"\x1b", "\x1b\n", "\x03", "\x03\n",
+	}
+	for _, c := range cancels {
+		if !IsCancelInput(c) {
+			t.Errorf("expected IsCancelInput(%q) to be true", c)
+		}
+	}
+
+	nonCancels := []string{
+		"1\n", "y\n", "n\n", "sk-ant-api-key\n", "gemini-2.5-flash\n", "\n", "   \n",
+	}
+	for _, nc := range nonCancels {
+		if IsCancelInput(nc) {
+			t.Errorf("expected IsCancelInput(%q) to be false", nc)
+		}
+	}
+}
+
+func TestIsBackInput(t *testing.T) {
+	backs := []string{"0", "0\n", "b", "B\n", "back", "BACK\n"}
+	for _, b := range backs {
+		if !IsBackInput(b) {
+			t.Errorf("expected IsBackInput(%q) to be true", b)
+		}
+	}
+
+	nonBacks := []string{"1", "2", "3", "4", "5", "gemini"}
+	for _, nb := range nonBacks {
+		if IsBackInput(nb) {
+			t.Errorf("expected IsBackInput(%q) to be false", nb)
+		}
+	}
+}
+
+func TestPromptWithDefault_Cancel(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader("q\n"))
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatalf("expected PromptWithDefault to panic with setupCancelSignal on 'q'")
+		}
+		if _, ok := r.(setupCancelSignal); !ok {
+			t.Fatalf("expected setupCancelSignal, got %T: %v", r, r)
+		}
+	}()
+	_ = PromptWithDefault(reader, "API Key", "current-key", true)
+}

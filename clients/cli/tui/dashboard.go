@@ -76,5 +76,21 @@ func RenderConfigurationDashboard(c *config.Config) string {
 	sb.WriteString(fmt.Sprintf("  • %-16s: %.0fs\n", "LLM Timeout", c.Preferences.LLMTimeoutSecs))
 	sb.WriteString(fmt.Sprintf("  • %-16s: %s\n", "Python Engine", c.Engine.PythonBin))
 
+	var telegramStatus string
+	if strings.TrimSpace(c.Telegram.BotToken) != "" {
+		statusBadge := "Disabled"
+		if c.Telegram.Enabled {
+			statusBadge = "Enabled"
+		}
+		userCountStr := "Open access"
+		if len(c.Telegram.AllowedUsers) > 0 {
+			userCountStr = fmt.Sprintf("%d users", len(c.Telegram.AllowedUsers))
+		}
+		telegramStatus = fmt.Sprintf("%s (%s, %s)", MaskAPIKey(c.Telegram.BotToken), statusBadge, userCountStr)
+	} else {
+		telegramStatus = "Not configured (Optional)"
+	}
+	sb.WriteString(fmt.Sprintf("  • %-16s: %s\n", "Telegram Bot", telegramStatus))
+
 	return dashboardCardStyle.Render(sb.String())
 }
