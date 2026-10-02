@@ -1476,7 +1476,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 			DBPath:       cfg.Storage.DBPath,
 			Prompt:       prompt,
 			SessionID:    sessionID,
-			Offline:      cfg.Preferences.OfflineMode,
+			Offline:      cfg.Preferences.OfflineMode && config.IsTestingMode(),
 			Language:     cfg.Preferences.Language,
 			EnvOverrides: cfg.BuildSubprocessEnv(),
 		}

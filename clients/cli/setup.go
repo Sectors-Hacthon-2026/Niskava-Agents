@@ -1212,10 +1212,10 @@ func RunInteractiveSetup() (err error) {
 		completeBox.WriteString(fmt.Sprintf("  • Provider : %s (%s)\n", aiProvider, openAIModel))
 		completeBox.WriteString(fmt.Sprintf("  • Endpoint : %s\n", openAIBaseURL))
 		completeBox.WriteString(fmt.Sprintf("  • Timeout  : %.0fs per LLM step (Adaptive scaling)\n", chosenTimeoutSecs))
-		if sectorsKey == "" {
-			completeBox.WriteString("  • Sectors  : Offline Mock Mode (100% Free / Cached)\n")
-		} else {
+		if sectorsKey != "" {
 			completeBox.WriteString(fmt.Sprintf("  • Sectors  : Live Key Configured (%s)\n", config.MaskSecret(sectorsKey)))
+		} else {
+			completeBox.WriteString("  • Sectors  : Not Configured\n")
 		}
 		if currCfg != nil && currCfg.Telegram.BotToken != "" {
 			teleStatus := "Disabled"

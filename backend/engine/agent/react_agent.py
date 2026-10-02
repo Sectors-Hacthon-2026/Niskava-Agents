@@ -844,7 +844,7 @@ class NiskavaReActAgent:
                 f"**Solusi Pemecahan Masalah:**\n"
                 f"1. Masukkan API key valid ke `~/.niskava/.env` (`GEMINI_API_KEY=AIza...`).\n"
                 f"2. Atau jalankan `niskava setup` untuk mengisi API key secara interaktif.\n"
-                f"3. Atau gunakan mode offline (`--offline`) jika ingin menjalankan analisis deterministik tanpa LLM."
+                f"3. Atau jalankan `niskava doctor` untuk memeriksa status sistem dan konfigurasi."
             )
             self._emit({
                 "event": "agent_thought",
@@ -1609,7 +1609,7 @@ class NiskavaReActAgent:
                     f"**Troubleshooting Steps:**\n"
                     f"1. Ensure the LLM gateway/server (Ollama / vLLM / 9router / OpenRouter) is running and model `{model}` is online with available credits.\n"
                     f"2. Check the configuration in `~/.niskava/.env` or run `niskava setup`.\n"
-                    f"3. Use offline mode (`--offline`) to run deterministic analysis without an LLM."
+                    f"3. Run `niskava doctor` to verify environment health and connectivity."
                 )
                 session_error_msg = f"AI provider connection error ({model} @ {url}): {err_detail}"
             else:
@@ -1621,28 +1621,28 @@ class NiskavaReActAgent:
                         suggestion_block = (
                             "1. Verify model provider status in `~/.niskava/.env`.\n"
                             "2. Try another AI model or gateway endpoint.\n"
-                            "3. Use offline mode (`--offline`) to run without an LLM."
+                            "3. Run `niskava doctor` to verify environment health and connectivity."
                         )
                         desc_text = "The AI model did not finalize a response for this message."
                     else:
                         suggestion_block = (
                             "1. Periksa status penyedia model AI di `~/.niskava/.env`.\n"
                             "2. Coba ganti model atau endpoint AI gateway lainnya.\n"
-                            "3. Gunakan mode offline (`--offline`) untuk analisis tanpa LLM."
+                            "3. Jalankan `niskava doctor` untuk memeriksa kesehatan sistem dan konektivitas."
                         )
                         desc_text = "Layanan model AI tidak menyelesaikan respon untuk pesan ini."
                 elif self.language == "en":
                     suggestion_block = (
                         f"1. Refine query with a specific IDX ticker (e.g. `investigate {detected_ticker or 'ANTM'}`).\n"
                         f"2. Ask a focused question on specific market data.\n"
-                        f"3. Use offline mode (`--offline`) to run deterministic analysis without an LLM."
+                        f"3. Run `niskava doctor` to inspect connectivity and system status."
                     )
                     desc_text = "The agent reached its maximum reasoning depth before finalizing synthesis."
                 else:
                     suggestion_block = (
                         f"1. Coba persepit pertanyaan untuk saham `{detected_ticker or 'ANTM'}` (misalnya: `cek net foreign flow {detected_ticker or 'ANTM'}`).\n"
                         f"2. Ajukan pertanyaan terfokus pada bagian spesifik data pasar.\n"
-                        f"3. Gunakan mode offline (`--offline`) untuk analisis deterministik murni tanpa LLM."
+                        f"3. Jalankan `niskava doctor` untuk memeriksa status sistem dan konektivitas."
                     )
                     desc_text = "Agen membutuhkan lebih banyak langkah analisis dari batas yang tersedia untuk menyusun sintesis lengkap."
 

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/db"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
 	"gopkg.in/telebot.v3"
@@ -454,7 +455,7 @@ func (s *BotService) handleTextMessage(c telebot.Context) error {
 		if s.cfg.Preferences.Language != "" {
 			lang = s.cfg.Preferences.Language
 		}
-		offline = s.cfg.Preferences.OfflineMode
+		offline = s.cfg.Preferences.OfflineMode && config.IsTestingMode()
 		pythonBin = s.cfg.Engine.PythonBin
 		enginePath = s.cfg.Engine.EnginePath
 		envOverrides = s.cfg.BuildSubprocessEnv()

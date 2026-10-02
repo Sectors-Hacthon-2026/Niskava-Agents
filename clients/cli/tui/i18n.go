@@ -338,8 +338,8 @@ var TUIStrings = map[string]map[string]string{
 		"id": "Terpasang (Live Ready)",
 	},
 	"health_not_installed": {
-		"en": "Not Configured (Offline Mode Active)",
-		"id": "Belum Terpasang (Mode Offline Aktif)",
+		"en": "Not Configured (Required)",
+		"id": "Belum Dikonfigurasi (Wajib)",
 	},
 	"sessions_header": {
 		"en": "\nSAVED INVESTIGATION SESSION HISTORY (SQLITE):",
@@ -546,7 +546,7 @@ var TUIStrings = map[string]map[string]string{
 		"id": "Terpasang",
 	},
 	"launcher_status_api_missing": {
-		"en": "Missing/Offline",
+		"en": "Missing",
 		"id": "Belum Terpasang",
 	},
 	"launcher_status_bar": {

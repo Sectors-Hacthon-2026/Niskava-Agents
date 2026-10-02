@@ -272,7 +272,7 @@ func exportInvestigationAsPDF(ticker, sessionID string, database *db.DB, appCfg 
 	chatLang := "id"
 	var envOverrides map[string]string
 	if appCfg != nil {
-		isOffline = appCfg.Preferences.OfflineMode
+		isOffline = appCfg.Preferences.OfflineMode && config.IsTestingMode()
 		chatLang = appCfg.Preferences.Language
 		envOverrides = appCfg.BuildSubprocessEnv()
 	}

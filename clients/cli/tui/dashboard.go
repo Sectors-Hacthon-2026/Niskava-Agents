@@ -63,8 +63,8 @@ func RenderConfigurationDashboard(c *config.Config) string {
 	}
 
 	sectorsStatus := "Live IDX API (" + MaskAPIKey(c.Auth.SectorsAPIKey) + ")"
-	if c.Preferences.OfflineMode || strings.TrimSpace(c.Auth.SectorsAPIKey) == "" {
-		sectorsStatus = "Offline Mock Mode (Law 5 Credit Conservation)"
+	if strings.TrimSpace(c.Auth.SectorsAPIKey) == "" {
+		sectorsStatus = "Not Configured (Required)"
 	}
 
 	sb.WriteString(fmt.Sprintf("  • %-16s: %s\n", "AI Provider", lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(provider)))

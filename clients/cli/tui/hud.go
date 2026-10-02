@@ -292,11 +292,7 @@ func PrintHealthDiagnostics(cfg *config.Config, serverURL string) {
 
 	secKeyText := AtomicBadge(T("health_installed"), statusAliveStyle)
 	if cfg.Auth.SectorsAPIKey == "" {
-		if cfg.Preferences.OfflineMode {
-			secKeyText = AtomicBadge("[MOCK MODE]", statusAliveStyle)
-		} else {
-			secKeyText = AtomicBadge(T("health_not_installed"), statusErrStyle)
-		}
+		secKeyText = AtomicBadge(T("health_not_installed"), statusErrStyle)
 	}
 	fmt.Printf("• %s: %s\n",
 		lblStyle.Render(T("health_lbl_sectors_key")),
@@ -453,11 +449,7 @@ func (m HealthViewerModel) View() string {
 
 	secKeyText := AtomicBadge(T("health_installed"), statusAliveStyle)
 	if m.CFG.Auth.SectorsAPIKey == "" {
-		if m.CFG.Preferences.OfflineMode {
-			secKeyText = AtomicBadge("[MOCK MODE]", statusAliveStyle)
-		} else {
-			secKeyText = AtomicBadge(T("health_not_installed"), statusErrStyle)
-		}
+		secKeyText = AtomicBadge(T("health_not_installed"), statusErrStyle)
 	}
 	b.WriteString(fmt.Sprintf("• %s: %s\n",
 		lblStyle.Render(T("health_lbl_sectors_key")),
