@@ -67,7 +67,10 @@ and qualitative market disclosures/news.`,
 
 		// If explicit --session flag provided, bypass launcher and jump directly into REPL
 		if sessionFlag != "" {
-			tui.RunLiveREPL(cfg, appDB, srv.URL, sessionFlag)
+			res := tui.RunLiveREPL(cfg, appDB, srv.URL, sessionFlag)
+			if res == tui.ReplSetupSentinel {
+				_ = RunInteractiveSetup()
+			}
 			return nil
 		}
 
@@ -92,13 +95,29 @@ and qualitative market disclosures/news.`,
 
 			case "terminal":
 				// RunLiveREPL returns control to launcher menu when user exits or types /back or /exit
-				_ = tui.RunLiveREPL(cfg, appDB, srv.URL)
+				res := tui.RunLiveREPL(cfg, appDB, srv.URL)
+				if res == tui.ReplSetupSentinel {
+					_ = RunInteractiveSetup()
+					if newCfg, err := config.Load(cfgFile); err == nil {
+						cfg = newCfg
+						srv.Config = newCfg
+						hasAPIKey = cfg.Auth.SectorsAPIKey != "" || cfg.Auth.GeminiAPIKey != "" || cfg.Auth.OpenAIAPIKey != ""
+					}
+				}
 
 			case "sessions":
 				// Show saved sessions with interactive resume option
 				selectedSessionID := runSessionsInteractive(cmd, appDB)
 				if selectedSessionID != "" {
-					_ = tui.RunLiveREPL(cfg, appDB, srv.URL, selectedSessionID)
+					res := tui.RunLiveREPL(cfg, appDB, srv.URL, selectedSessionID)
+					if res == tui.ReplSetupSentinel {
+						_ = RunInteractiveSetup()
+						if newCfg, err := config.Load(cfgFile); err == nil {
+							cfg = newCfg
+							srv.Config = newCfg
+							hasAPIKey = cfg.Auth.SectorsAPIKey != "" || cfg.Auth.GeminiAPIKey != "" || cfg.Auth.OpenAIAPIKey != ""
+						}
+					}
 				}
 
 			case "help":

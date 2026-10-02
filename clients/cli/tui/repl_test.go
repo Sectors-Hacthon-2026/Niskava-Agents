@@ -367,6 +367,41 @@ func TestReplBackSentinel(t *testing.T) {
 	}
 }
 
+func TestReplSetupSentinel(t *testing.T) {
+	if ReplSetupSentinel != "__setup__" {
+		t.Errorf("expected ReplSetupSentinel to be '__setup__', got '%s'", ReplSetupSentinel)
+	}
+}
+
+func TestReplInputModelSetupAndConfigInSlashPopup(t *testing.T) {
+	commands := GetLocalizedSlashCommands()
+	hasConfig := false
+	hasSetup := false
+	hasModel := false
+
+	for _, cmd := range commands {
+		if cmd.Command == "/config" {
+			hasConfig = true
+		}
+		if cmd.Command == "/setup" {
+			hasSetup = true
+		}
+		if cmd.Command == "/model" {
+			hasModel = true
+		}
+	}
+
+	if !hasConfig {
+		t.Error("expected '/config' in GetLocalizedSlashCommands()")
+	}
+	if !hasSetup {
+		t.Error("expected '/setup' in GetLocalizedSlashCommands()")
+	}
+	if !hasModel {
+		t.Error("expected '/model' in GetLocalizedSlashCommands()")
+	}
+}
+
 func TestI18nRepl_ChatsSavedNoticeKey(t *testing.T) {
 	SetLanguage("en")
 	en := T("repl_chats_saved_notice")

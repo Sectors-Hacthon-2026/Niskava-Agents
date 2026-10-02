@@ -27,6 +27,10 @@ import (
 const ReplBackSentinel = "__back__"
 const replBackSentinel = ReplBackSentinel
 
+// ReplSetupSentinel is the sentinel return value from RunLiveREPL when the user requests launching setup wizard.
+const ReplSetupSentinel = "__setup__"
+const replSetupSentinel = ReplSetupSentinel
+
 var (
 	// Terminal Color Styles (Binance Dark Financial Intelligence Aesthetic)
 	promptBoxStyle = lipgloss.NewStyle().
@@ -760,14 +764,23 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 
 // RunLiveREPLWithInitialPrompt starts an interactive REPL pre-seeded with an initial prompt.
 func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL string, initialSessionID string, initialPrompt string) string {
-	// Determine active model display
-	modelLabel := cfg.Auth.OpenAIModel
-	if modelLabel == "" {
-		if cfg.Auth.GeminiModel != "" {
+	// Determine active model and provider display
+	providerLabel := "openai"
+	if cfg != nil && cfg.Auth.AIProvider != "" {
+		providerLabel = cfg.Auth.AIProvider
+	}
+	modelLabel := ""
+	if cfg != nil {
+		if strings.EqualFold(providerLabel, "gemini") && cfg.Auth.GeminiModel != "" {
 			modelLabel = cfg.Auth.GeminiModel
-		} else {
-			modelLabel = "hermes"
+		} else if cfg.Auth.OpenAIModel != "" {
+			modelLabel = cfg.Auth.OpenAIModel
+		} else if cfg.Auth.GeminiModel != "" {
+			modelLabel = cfg.Auth.GeminiModel
 		}
+	}
+	if modelLabel == "" {
+		modelLabel = "hermes"
 	}
 
 	sessionID := fmt.Sprintf("CHAT-%s-%04d", time.Now().Format("20060102"), time.Now().Unix()%10000)
@@ -793,7 +806,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 		}
 	}
 
-	promptPrefix := fmt.Sprintf("niskava [%s] >", modelLabel)
+	promptPrefix := fmt.Sprintf("niskava [%s:%s] >", providerLabel, modelLabel)
 
 	if strings.TrimSpace(initialPrompt) != "" {
 		promptHistory = append(promptHistory, initialPrompt)
@@ -845,6 +858,38 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 		if lower == "/clear" || lower == "clear" {
 			fmt.Print("\033[H\033[2J")
 			renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
+			continue
+		}
+
+		if lower == "/config" || lower == "/settings" {
+			fmt.Println()
+			fmt.Println(RenderConfigurationDashboard(cfg))
+			fmt.Println()
+			continue
+		}
+
+		if lower == "/setup" {
+			return ReplSetupSentinel
+		}
+
+		if strings.HasPrefix(lower, "/model") {
+			parts := strings.Fields(input)
+			if len(parts) < 2 {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_model_usage")))
+				continue
+			}
+			newModel := strings.TrimSpace(parts[1])
+			if cfg != nil {
+				if strings.EqualFold(cfg.Auth.AIProvider, "gemini") {
+					cfg.Auth.GeminiModel = newModel
+				} else {
+					cfg.Auth.OpenAIModel = newModel
+				}
+				_ = config.SaveConfig(cfg)
+			}
+			modelLabel = newModel
+			promptPrefix = fmt.Sprintf("niskava [%s:%s] >", providerLabel, modelLabel)
+			fmt.Println(RenderToastPill(TF("slash_model_switched", newModel)))
 			continue
 		}
 

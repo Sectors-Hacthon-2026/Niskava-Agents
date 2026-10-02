@@ -221,6 +221,26 @@ var TUIStrings = map[string]map[string]string{
 		"en": "Set LLM timeout: /timeout [fast|balanced|deep|local|<seconds>]",
 		"id": "Atur timeout LLM: /timeout [fast|balanced|deep|local|<detik>]",
 	},
+	"slash_config_desc": {
+		"en": "Inspect active AI provider, model, and API credentials status",
+		"id": "Lihat status aktif AI provider, model, dan kredensial API",
+	},
+	"slash_model_desc": {
+		"en": "Switch active AI model on-the-fly (/model <model_name>)",
+		"id": "Ganti model AI aktif secara langsung (/model <nama_model>)",
+	},
+	"slash_setup_desc": {
+		"en": "Launch interactive setup wizard directly from REPL",
+		"id": "Buka wizard setup interaktif langsung dari REPL",
+	},
+	"slash_model_usage": {
+		"en": "Usage: /model <model_name> (e.g. /model gemini-2.0-flash, /model deepseek/deepseek-chat)",
+		"id": "Penggunaan: /model <nama_model> (contoh: /model gemini-2.0-flash, /model deepseek/deepseek-chat)",
+	},
+	"slash_model_switched": {
+		"en": "Active model switched to %s",
+		"id": "Model aktif dialihkan ke %s",
+	},
 	"slash_export_desc": {
 		"en": "Export active session transcript to Markdown or JSON report file",
 		"id": "Ekspor transkrip sesi aktif ke berkas laporan Markdown atau JSON",
@@ -1115,6 +1135,9 @@ func GetLocalizedSlashCommands() []SlashCommand {
 		{Command: "/web", Category: "NAV", Description: T("slash_web_desc"), FormatHint: "└─ Format: /web"},
 		{Command: "/sessions", Category: "INTEL", Description: T("slash_sessions_desc"), FormatHint: "└─ Format: /sessions"},
 		{Command: "/health", Category: "SYSTEM", Description: T("slash_health_desc"), FormatHint: "└─ Format: /health"},
+		{Command: "/config", Category: "SYSTEM", Description: T("slash_config_desc"), FormatHint: "└─ Format: /config [view active settings]"},
+		{Command: "/model", Category: "SYSTEM", Description: T("slash_model_desc"), FormatHint: "└─ Format: /model <model_name>"},
+		{Command: "/setup", Category: "SYSTEM", Description: T("slash_setup_desc"), FormatHint: "└─ Format: /setup [launch wizard]"},
 		{Command: "/lang", Category: "SYSTEM", Description: T("slash_lang_desc"), FormatHint: "└─ Format: /lang [en|id]"},
 		{Command: "/timeout", Category: "SYSTEM", Description: T("slash_timeout_desc"), FormatHint: "└─ Format: /timeout [fast|balanced|deep|local|<secs>]"},
 		{Command: "/exit", Category: "SYSTEM", Description: T("slash_exit_desc"), FormatHint: "└─ Format: /exit"},
