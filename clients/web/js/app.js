@@ -140,7 +140,6 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 inv_horizon_30: "30 Hari Perdagangan",
                 inv_horizon_60: "60 Hari Perdagangan",
                 inv_horizon_90: "90 Hari Perdagangan",
-                inv_mock_label: "Mode Uji Coba Offline (Data Mock)",
                 btn_run_investigation: "Mulai Audit Otonom",
                 inv_history_title: "Riwayat Investigasi",
                 inv_empty_title: "Dossier Investigasi Belum Dipilih",
@@ -175,8 +174,6 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 gemini_key_placeholder: "AIzaSy... (Kosongkan jika tidak diubah)",
                 label_openai_key: "OpenAI API Key (Opsional)",
                 openai_key_placeholder: "sk-... (Kosongkan jika tidak diubah)",
-                label_offline_mode: "Mode Offline / Mock (Law 5)",
-                desc_offline_mode: "Gunakan data sintetis lokal tanpa memotong kuota kredit Sectors API v2 (offline_mode).",
                 label_timeout: "Inference Timeout",
                 label_bot_status: "Status Bot:",
                 label_tele_token: "Telegram Bot Token",
@@ -332,7 +329,6 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 inv_horizon_30: "30 Trading Days",
                 inv_horizon_60: "60 Trading Days",
                 inv_horizon_90: "90 Trading Days",
-                inv_mock_label: "Offline Test Mode (Mock Data)",
                 btn_run_investigation: "Start Autonomous Audit",
                 inv_history_title: "Investigation History",
                 inv_empty_title: "No Investigation Dossier Selected",
@@ -367,8 +363,6 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 gemini_key_placeholder: "AIzaSy... (Leave blank if unchanged)",
                 label_openai_key: "OpenAI API Key (Optional)",
                 openai_key_placeholder: "sk-... (Leave blank if unchanged)",
-                label_offline_mode: "Offline / Mock Mode (Law 5)",
-                desc_offline_mode: "Use local synthetic data without deducting Sectors API v2 credit quota (offline_mode).",
                 label_timeout: "Inference Timeout",
                 label_bot_status: "Bot Status:",
                 label_tele_token: "Telegram Bot Token",
@@ -2862,18 +2856,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 });
 
                 // Preferences Elements
-                const toggleOfflineMode = document.getElementById('toggleOfflineMode');
                 const timeoutSlider = document.getElementById('timeout-slider');
-                const offlineModeWarningBanner = document.getElementById('offlineModeWarningBanner');
-
-                function updateOfflineWarning() {
-                    if (offlineModeWarningBanner && toggleOfflineMode) {
-                        offlineModeWarningBanner.style.display = toggleOfflineMode.checked ? 'block' : 'none';
-                    }
-                }
-                if (toggleOfflineMode) {
-                    toggleOfflineMode.addEventListener('change', updateOfflineWarning);
-                }
 
                 // Telegram Elements
                 const teleBotStatusBadge = document.getElementById('teleBotStatusBadge');
@@ -3018,26 +3001,6 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     });
                 }
 
-                // Clean Test Data in Memory Graph
-                const btnPruneMockData = document.getElementById('btnPruneMockData');
-                if (btnPruneMockData) {
-                    btnPruneMockData.addEventListener('click', async () => {
-                        try {
-                            btnPruneMockData.disabled = true;
-                            btnPruneMockData.textContent = currentLang === 'en' ? 'Cleaning...' : 'Membersihkan...';
-                            const res = await fetch(`${API_BASE}/api/system/cache/clean`, { method: 'POST' });
-                            const data = await res.json();
-                            showToast(currentLang === 'en' ? `Test data & cache cleaned (${data.cleaned_entries ?? 0} entries removed)` : `Data uji & cache dibersihkan (${data.cleaned_entries ?? 0} entri dihapus)`);
-                            loadGraphPageData();
-                        } catch (err) {
-                            showToast(currentLang === 'en' ? `Failed to clean cache: ${err.message}` : `Gagal membersihkan cache: ${err.message}`, true);
-                        } finally {
-                            btnPruneMockData.disabled = false;
-                            btnPruneMockData.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> <span>${currentLang === 'en' ? 'Clean Test Data' : 'Bersihkan Data Uji'}</span>`;
-                        }
-                    });
-                }
-
                 // Interactive Top Hub Node Click -> Filter
                 if (statTopHub) {
                     statTopHub.style.cursor = 'pointer';
@@ -3079,7 +3042,6 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 const btnRunFormalInvestigation = document.getElementById('btnRunFormalInvestigation');
                 const inputInvTicker = document.getElementById('inputInvTicker');
                 const selectInvDays = document.getElementById('selectInvDays');
-                const checkInvOffline = document.getElementById('checkInvOffline');
 
                 if (btnRunFormalInvestigation) {
                     btnRunFormalInvestigation.addEventListener('click', async () => {
@@ -3090,12 +3052,11 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                             return;
                         }
                         const days = selectInvDays ? selectInvDays.value : '30';
-                        const offlineMode = checkInvOffline ? checkInvOffline.checked : false;
 
                         // Switch to chat view and initiate formal audit stream
                         switchMainView('chat');
                         if (chatInput) {
-                            chatInput.value = `Jalankan investigasi formal 7-tahap otonom pada emiten ${ticker} untuk observasi ${days} hari terakhir.${offlineMode ? ' (Mode Uji Offline)' : ''}`;
+                            chatInput.value = `Jalankan investigasi formal 7-tahap otonom pada emiten ${ticker} untuk observasi ${days} hari terakhir.`;
                             handleSendMessage();
                         }
                         showToast(currentLang === 'en' ? `Starting 7-stage investigation for ${ticker}...` : `Memulai investigasi 7-tahap untuk ${ticker}...`);
@@ -3574,11 +3535,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                             updateActivePresetChips();
                         }
                         if (data.preferences) {
-                            if (toggleOfflineMode && typeof data.preferences.offline_mode === 'boolean') {
-                                toggleOfflineMode.checked = data.preferences.offline_mode;
-                                updateOfflineWarning();
-                            }
-                            if (data.preferences && data.preferences.llm_timeout_secs) {
+                            if (data.preferences.llm_timeout_secs) {
                                 populateTimeoutSlider(data.preferences.llm_timeout_secs);
                             }
                         }
@@ -3587,11 +3544,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                         const badge = document.getElementById('dataFreshnessBadge');
                         const label = document.getElementById('labelFreshnessStatus');
                         if (badge && label) {
-                            if (data.preferences && data.preferences.offline_mode) {
-                                badge.className = 'data-freshness-badge offline';
-                                label.textContent = currentLang === 'en' ? 'Offline (Mock Data)' : 'Mode Offline (Mock Data)';
-                                badge.title = currentLang === 'en' ? 'Running in offline simulation mode' : 'Berjalan dalam mode simulasi offline';
-                            } else if (data.auth && data.auth.has_sectors_key) {
+                            if (data.auth && data.auth.has_sectors_key) {
                                 badge.className = 'data-freshness-badge';
                                 label.textContent = 'IDX Live (EOD)';
                                 badge.title = currentLang === 'en' ? 'Sectors Financial API v2 Active (Click to Flush Cache)' : 'Sectors Financial API v2 Aktif (Klik untuk Flush Cache)';
@@ -4113,8 +4066,8 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                                 </div>
                                 <div class="kpi-stat-card">
                                     <span class="kpi-stat-label">MODE OPERASI</span>
-                                    <span class="kpi-stat-num" style="color:${data.offline_mode ? '#F59E0B' : '#10B981'}; font-size:14px;">${data.offline_mode ? 'OFFLINE (MOCK)' : 'SECTORS v2 LIVE'}</span>
-                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${data.offline_mode ? 'Fixture Simulation' : 'Law 5 Active Credit Sync'}</span>
+                                    <span class="kpi-stat-num" style="color:#10B981; font-size:14px;">SECTORS v2 LIVE</span>
+                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">Law 5 Active Credit Sync</span>
                                 </div>
                             </div>
                             <div class="settings-card" style="margin-top:2px;">
@@ -4230,9 +4183,6 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
 
                         if (document.getElementById('timeout-slider')) {
                             payload.preferences.llm_timeout_secs = parseFloat(document.getElementById('timeout-slider').value);
-                        }
-                        if (toggleOfflineMode) {
-                            payload.preferences.offline_mode = toggleOfflineMode.checked;
                         }
 
                         try {

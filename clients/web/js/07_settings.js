@@ -211,18 +211,7 @@
                 });
 
                 // Preferences Elements
-                const toggleOfflineMode = document.getElementById('toggleOfflineMode');
                 const timeoutSlider = document.getElementById('timeout-slider');
-                const offlineModeWarningBanner = document.getElementById('offlineModeWarningBanner');
-
-                function updateOfflineWarning() {
-                    if (offlineModeWarningBanner && toggleOfflineMode) {
-                        offlineModeWarningBanner.style.display = toggleOfflineMode.checked ? 'block' : 'none';
-                    }
-                }
-                if (toggleOfflineMode) {
-                    toggleOfflineMode.addEventListener('change', updateOfflineWarning);
-                }
 
                 // Telegram Elements
                 const teleBotStatusBadge = document.getElementById('teleBotStatusBadge');
@@ -367,26 +356,6 @@
                     });
                 }
 
-                // Clean Test Data in Memory Graph
-                const btnPruneMockData = document.getElementById('btnPruneMockData');
-                if (btnPruneMockData) {
-                    btnPruneMockData.addEventListener('click', async () => {
-                        try {
-                            btnPruneMockData.disabled = true;
-                            btnPruneMockData.textContent = currentLang === 'en' ? 'Cleaning...' : 'Membersihkan...';
-                            const res = await fetch(`${API_BASE}/api/system/cache/clean`, { method: 'POST' });
-                            const data = await res.json();
-                            showToast(currentLang === 'en' ? `Test data & cache cleaned (${data.cleaned_entries ?? 0} entries removed)` : `Data uji & cache dibersihkan (${data.cleaned_entries ?? 0} entri dihapus)`);
-                            loadGraphPageData();
-                        } catch (err) {
-                            showToast(currentLang === 'en' ? `Failed to clean cache: ${err.message}` : `Gagal membersihkan cache: ${err.message}`, true);
-                        } finally {
-                            btnPruneMockData.disabled = false;
-                            btnPruneMockData.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> <span>${currentLang === 'en' ? 'Clean Test Data' : 'Bersihkan Data Uji'}</span>`;
-                        }
-                    });
-                }
-
                 // Interactive Top Hub Node Click -> Filter
                 if (statTopHub) {
                     statTopHub.style.cursor = 'pointer';
@@ -428,7 +397,6 @@
                 const btnRunFormalInvestigation = document.getElementById('btnRunFormalInvestigation');
                 const inputInvTicker = document.getElementById('inputInvTicker');
                 const selectInvDays = document.getElementById('selectInvDays');
-                const checkInvOffline = document.getElementById('checkInvOffline');
 
                 if (btnRunFormalInvestigation) {
                     btnRunFormalInvestigation.addEventListener('click', async () => {
@@ -439,12 +407,11 @@
                             return;
                         }
                         const days = selectInvDays ? selectInvDays.value : '30';
-                        const offlineMode = checkInvOffline ? checkInvOffline.checked : false;
 
                         // Switch to chat view and initiate formal audit stream
                         switchMainView('chat');
                         if (chatInput) {
-                            chatInput.value = `Jalankan investigasi formal 7-tahap otonom pada emiten ${ticker} untuk observasi ${days} hari terakhir.${offlineMode ? ' (Mode Uji Offline)' : ''}`;
+                            chatInput.value = `Jalankan investigasi formal 7-tahap otonom pada emiten ${ticker} untuk observasi ${days} hari terakhir.`;
                             handleSendMessage();
                         }
                         showToast(currentLang === 'en' ? `Starting 7-stage investigation for ${ticker}...` : `Memulai investigasi 7-tahap untuk ${ticker}...`);
@@ -923,11 +890,7 @@
                             updateActivePresetChips();
                         }
                         if (data.preferences) {
-                            if (toggleOfflineMode && typeof data.preferences.offline_mode === 'boolean') {
-                                toggleOfflineMode.checked = data.preferences.offline_mode;
-                                updateOfflineWarning();
-                            }
-                            if (data.preferences && data.preferences.llm_timeout_secs) {
+                            if (data.preferences.llm_timeout_secs) {
                                 populateTimeoutSlider(data.preferences.llm_timeout_secs);
                             }
                         }
@@ -936,11 +899,7 @@
                         const badge = document.getElementById('dataFreshnessBadge');
                         const label = document.getElementById('labelFreshnessStatus');
                         if (badge && label) {
-                            if (data.preferences && data.preferences.offline_mode) {
-                                badge.className = 'data-freshness-badge offline';
-                                label.textContent = currentLang === 'en' ? 'Offline (Mock Data)' : 'Mode Offline (Mock Data)';
-                                badge.title = currentLang === 'en' ? 'Running in offline simulation mode' : 'Berjalan dalam mode simulasi offline';
-                            } else if (data.auth && data.auth.has_sectors_key) {
+                            if (data.auth && data.auth.has_sectors_key) {
                                 badge.className = 'data-freshness-badge';
                                 label.textContent = 'IDX Live (EOD)';
                                 badge.title = currentLang === 'en' ? 'Sectors Financial API v2 Active (Click to Flush Cache)' : 'Sectors Financial API v2 Aktif (Klik untuk Flush Cache)';
@@ -1462,8 +1421,8 @@
                                 </div>
                                 <div class="kpi-stat-card">
                                     <span class="kpi-stat-label">MODE OPERASI</span>
-                                    <span class="kpi-stat-num" style="color:${data.offline_mode ? '#F59E0B' : '#10B981'}; font-size:14px;">${data.offline_mode ? 'OFFLINE (MOCK)' : 'SECTORS v2 LIVE'}</span>
-                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${data.offline_mode ? 'Fixture Simulation' : 'Law 5 Active Credit Sync'}</span>
+                                    <span class="kpi-stat-num" style="color:#10B981; font-size:14px;">SECTORS v2 LIVE</span>
+                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">Law 5 Active Credit Sync</span>
                                 </div>
                             </div>
                             <div class="settings-card" style="margin-top:2px;">
@@ -1579,9 +1538,6 @@
 
                         if (document.getElementById('timeout-slider')) {
                             payload.preferences.llm_timeout_secs = parseFloat(document.getElementById('timeout-slider').value);
-                        }
-                        if (toggleOfflineMode) {
-                            payload.preferences.offline_mode = toggleOfflineMode.checked;
                         }
 
                         try {

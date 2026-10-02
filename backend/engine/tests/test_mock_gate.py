@@ -10,7 +10,7 @@ def test_sectors_client_blocks_mock_without_testing_gate(tmp_path, monkeypatch):
     monkeypatch.setenv("MOCK_SECTORS", "1")
     monkeypatch.setenv("SECTORS_API_KEY", "")
 
-    import backend.engine.sectors.client as client_mod
+    import engine.sectors.client as client_mod
     importlib.reload(client_mod)
 
     with pytest.raises(RuntimeError, match="SECTORS_API_KEY is required"):
@@ -23,7 +23,7 @@ def test_sectors_client_allows_mock_with_testing_gate(tmp_path, monkeypatch):
     monkeypatch.setenv("MOCK_SECTORS", "1")
     monkeypatch.setenv("SECTORS_API_KEY", "test-fixture-key-not-real")
 
-    import backend.engine.sectors.client as client_mod
+    import engine.sectors.client as client_mod
     importlib.reload(client_mod)
 
     client = client_mod.SectorsAPIClient(db_path=str(tmp_path / "test.db"), mock_mode=True)
@@ -36,7 +36,7 @@ def test_sectors_client_live_mode_with_real_key(tmp_path, monkeypatch):
     monkeypatch.setenv("SECTORS_API_KEY", "abc123realkey")
     monkeypatch.setenv("MOCK_SECTORS", "0")
 
-    import backend.engine.sectors.client as client_mod
+    import engine.sectors.client as client_mod
     importlib.reload(client_mod)
 
     client = client_mod.SectorsAPIClient(db_path=str(tmp_path / "test.db"))
