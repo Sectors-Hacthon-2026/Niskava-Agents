@@ -1764,26 +1764,116 @@ class NiskavaReActAgent:
         tool_call_history: List[Dict[str, Any]] = []
         tickers = extract_valid_tickers(user_prompt)
 
-        if not tickers and history:
-            # Multi-turn context recall: look for ticker in previous turns to prevent amnesia
+        STOCK_INQUIRY_KEYWORDS = {
+            "analisis", "cek", "volume", "harga", "anomali", "prospek", "laporan",
+            "keuangan", "dividen", "target", "kenapa", "rekomendasi", "bandar",
+            "grafik", "chart", "trend", "bagaimana", "gimana", "berita", "news",
+            "audit", "foreign", "inflow", "flow", "fundamental", "transaksi",
+        }
+        prompt_lower_initial = user_prompt.lower().strip()
+        is_stock_inquiry = any(k in prompt_lower_initial for k in STOCK_INQUIRY_KEYWORDS)
+
+        if not tickers and history and is_stock_inquiry:
+            # Multi-turn context recall: look for ticker ONLY in previous USER turns to prevent context poisoning
             for h in reversed(history):
-                prev_tickers = extract_valid_tickers(h.get("content", ""))
-                if prev_tickers:
-                    tickers = prev_tickers
-                    self._emit({
-                        "event": "agent_thought",
-                        "session_id": session_id,
-                        "thought": f"Emiten target tidak disebutkan di prompt terbaru, namun terdeteksi dari riwayat percakapan sebelumnya: {tickers[0]}",
-                    })
-                    break
+                if h.get("role") == "user":
+                    prev_tickers = extract_valid_tickers(h.get("content", ""))
+                    if prev_tickers:
+                        tickers = prev_tickers
+                        self._emit({
+                            "event": "agent_thought",
+                            "session_id": session_id,
+                            "thought": f"Emiten target tidak disebutkan di prompt terbaru, namun terdeteksi dari riwayat percakapan sebelumnya: {tickers[0]}",
+                        })
+                        break
 
         if not tickers:
-            prompt_lower = user_prompt.lower()
+            prompt_lower = user_prompt.lower().strip()
+            prompt_clean = prompt_lower.rstrip("?!.,")
             detected_lang = detect_prompt_language(user_prompt, fallback=self.language or "en")
 
-            # 1. Intent: General Market News / Macro Overview
-            if any(w in prompt_lower for w in [
-                "berita", "news", "kabar", "sentimen", "headline", "ihsg", "bursa",
+            # Common conversational interjections / fillers
+            interjections = {
+                "hah", "apa", "kenapa", "maksudnya", "bingung", "wkwk", "wkwkwk", "lol",
+                "ok", "oke", "siap", "makasih", "terima kasih", "thanks", "thank you", "kepo",
+            }
+            is_interjection = prompt_clean in interjections or any(
+                prompt_clean.startswith(prefix) for prefix in ("hah ", "apa ", "kenapa ", "wkwk ", "makasih ", "terima kasih ")
+            ) and len(prompt_clean.split()) <= 3
+
+            # 1. Intent: Interjections / Conversational Clarification
+            if is_interjection and not any(k in prompt_lower for k in ("berita", "news", "saham", "emiten", "ihsg", "bursa")):
+                if any(w in prompt_clean for w in ("makasih", "terima kasih", "thanks", "thank you")):
+                    if detected_lang == "en":
+                        response_text = "You're welcome! Let me know if you would like to analyze any IDX stocks or check market updates."
+                        thought_text = "Received gratitude expression. Responded with courteous assistance offer in English."
+                    else:
+                        response_text = "Sama-sama! Beritahu saya jika ada saham IDX yang ingin Anda investigasi atau butuh update pasar modal."
+                        thought_text = "Menerima ucapan terima kasih. Merespons dengan santun."
+                elif any(w in prompt_clean for w in ("ok", "oke", "siap")):
+                    if detected_lang == "en":
+                        response_text = "Ready when you are. Enter an IDX ticker (e.g. **BBCA**, **ANTM**) to start an investigation."
+                        thought_text = "Acknowledged user readiness in English."
+                    else:
+                        response_text = "Siap! Masukkan kode saham IDX (contoh: **BBCA**, **ANTM**) untuk memulai investigasi kuantitatif atau keterbukaan informasi."
+                        thought_text = "Merespons konfirmasi kesiapan pengguna."
+                else:
+                    if detected_lang == "en":
+                        response_text = (
+                            "Is there anything confusing or something you'd like me to clarify about the IDX market?\n\n"
+                            "You can ask me to **analyze a specific stock** (e.g. *\"Check ANTM anomaly\"*) or **review general market headlines** (type *\"market news\"*)."
+                        )
+                        thought_text = "User expressed confusion or casual interjection. Providing helpful clarification in English."
+                    else:
+                        response_text = (
+                            "Ada yang membingungkan atau ingin saya jelaskan lebih lanjut terkait pasar modal IDX?\n\n"
+                            "Anda bisa meminta saya **menginvestigasi emiten tertentu** (contoh: *\"Cek anomali ANTM\"*) atau **memantau rangkuman berita bursa** (*\"cek berita hari ini\"*)."
+                        )
+                        thought_text = "Pengguna mengirim interjeksi kasual/kebingungan. Menawarkan bantuan dan panduan klarifikasi."
+
+                self._emit({
+                    "event": "agent_thought",
+                    "session_id": session_id,
+                    "thought": thought_text,
+                })
+
+            # 2. Intent: Greeting / Sapaan (Must precede Market News so 'apa kabar' is not misclassified)
+            elif any(
+                w in prompt_lower
+                for w in [
+                    "apa kabar", "halo", "hai", "pagi", "siang", "sore", "malam",
+                    "assalamualaikum", "tes", "test", "hi", "hello", "hey",
+                    "who are you", "what are you", "introduce yourself", "help",
+                ]
+            ):
+                if detected_lang == "en":
+                    response_text = (
+                        "Hello! I am **Niskava Agent**, your autonomous financial market intelligence assistant for the Indonesia Stock Exchange (IDX).\n\n"
+                        "How can I assist your investigation today? You can:\n"
+                        "- Inquire about **market news and sentiment** (e.g., *\"Check today's market news\"*)\n"
+                        "- Analyze **volume spikes and order flow anomalies** (e.g., *\"Check ANTM volume anomaly\"*, *\"Audit BBCA accumulation\"*)\n"
+                        "- Discuss **financial concepts or exchange regulations** (e.g., *\"What is DER ratio?\"*, *\"Explain IDX suspension rules\"*)"
+                    )
+                    thought_text = "Received user greeting in English. Returning guidance and capabilities in English."
+                else:
+                    response_text = (
+                        "Halo! Saya **Niskava Agent**, asisten riset dan intelijen pasar modal Indonesia (IDX).\n\n"
+                        "Ada yang bisa saya bantu hari ini? Anda dapat:\n"
+                        "- Menanyakan **berita dan sentimen pasar** (contoh: *\"Cek berita pasar hari ini\"*)\n"
+                        "- Menganalisis **anomali volume & transaksi saham** (contoh: *\"Cek anomali ANTM\"*, *\"Audit volume BBCA\"*)\n"
+                        "- Berdiskusi seputar **konsep finansial atau regulasi bursa** (contoh: *\"Apa itu rasio DER?\"*, *\"Bagaimana kriteria suspensi BEI?\"*)"
+                    )
+                    thought_text = "Menerima sapaan pengguna. Menyapa kembali dan memberikan panduan interaksi."
+
+                self._emit({
+                    "event": "agent_thought",
+                    "session_id": session_id,
+                    "thought": thought_text,
+                })
+
+            # 3. Intent: General Market News / Macro Overview
+            elif any(w in prompt_lower for w in [
+                "berita", "news", "kabar pasar", "kabar bursa", "sentimen", "headline", "ihsg", "bursa",
                 "market", "open market", "pre-open", "pasar", "potensial", "potential",
             ]):
                 self._emit({
@@ -1816,40 +1906,6 @@ class NiskavaReActAgent:
 
                 lines.append("> [!NOTE]\n> Anda dapat meminta investigasi mendalam untuk emiten tertentu, contoh: *\"Cek anomali volume ANTM\"* atau *\"Analisis laporan keuangan BBRI\"*.")
                 response_text = "\n".join(lines)
-
-            # 2. Intent: Greeting / Sapaan
-            elif any(
-                w in prompt_lower
-                for w in [
-                    "halo", "hai", "pagi", "siang", "sore", "malam", "apa kabar",
-                    "assalamualaikum", "tes", "test", "hi", "hello", "hey",
-                    "who are you", "what are you", "introduce yourself", "help",
-                ]
-            ):
-                if detected_lang == "en":
-                    response_text = (
-                        "Hello! I am **Niskava Agent**, your autonomous financial market intelligence assistant for the Indonesia Stock Exchange (IDX).\n\n"
-                        "How can I assist your investigation today? You can:\n"
-                        "- Inquire about **market news and sentiment** (e.g., *\"Check today's market news\"*)\n"
-                        "- Analyze **volume spikes and order flow anomalies** (e.g., *\"Check ANTM volume anomaly\"*, *\"Audit BBCA accumulation\"*)\n"
-                        "- Discuss **financial concepts or exchange regulations** (e.g., *\"What is DER ratio?\"*, *\"Explain IDX suspension rules\"*)"
-                    )
-                    thought_text = "Received user greeting in English. Returning guidance and capabilities in English."
-                else:
-                    response_text = (
-                        "Halo! Saya **Niskava Agent**, asisten riset dan intelijen pasar modal Indonesia (IDX).\n\n"
-                        "Ada yang bisa saya bantu hari ini? Anda dapat:\n"
-                        "- Menanyakan **berita dan sentimen pasar** (contoh: *\"Cek berita pasar hari ini\"*)\n"
-                        "- Menganalisis **anomali volume & transaksi saham** (contoh: *\"Cek anomali ANTM\"*, *\"Audit volume BBCA\"*)\n"
-                        "- Berdiskusi seputar **konsep finansial atau regulasi bursa** (contoh: *\"Apa itu rasio DER?\"*, *\"Bagaimana kriteria suspensi BEI?\"*)"
-                    )
-                    thought_text = "Menerima sapaan pengguna. Menyapa kembali dan memberikan panduan interaksi."
-
-                self._emit({
-                    "event": "agent_thought",
-                    "session_id": session_id,
-                    "thought": thought_text,
-                })
 
             # 3. Intent: General questions without ticker
             else:

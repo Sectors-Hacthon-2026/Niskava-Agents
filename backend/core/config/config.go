@@ -163,7 +163,7 @@ func loadDotEnv(paths ...string) {
 				key := strings.TrimSpace(parts[0])
 				val := strings.TrimSpace(parts[1])
 				val = strings.Trim(val, `"'`)
-				if os.Getenv(key) == "" {
+				if _, exists := os.LookupEnv(key); !exists {
 					_ = os.Setenv(key, val)
 				}
 			}
@@ -186,8 +186,10 @@ func LoadFile(path string) (*Config, error) {
 
 // Load reads and merges configuration from defaults, ~/.niskava/config.yaml, and environment variables.
 func Load(customConfigPath string) (*Config, error) {
-	// 0. Auto-load .env files (project root and ~/.niskava/.env)
-	loadDotEnv(".env", "~/.niskava/.env")
+	// 0. Auto-load .env files (project root and ~/.niskava/.env), skipped during testing
+	if flag.Lookup("test.v") == nil {
+		loadDotEnv(".env", "~/.niskava/.env")
+	}
 
 	cfg := DefaultConfig()
 
@@ -266,10 +268,12 @@ func Load(customConfigPath string) (*Config, error) {
 	if val := os.Getenv("NISKAVA_DEFAULT_MARKET"); val != "" {
 		cfg.Preferences.DefaultMarket = strings.ToUpper(val)
 	}
-	if val := os.Getenv("MOCK_SECTORS"); val == "1" || strings.ToLower(val) == "true" {
-		cfg.Preferences.OfflineMode = true
-	}
-	if val := os.Getenv("NISKAVA_OFFLINE"); val == "1" || strings.ToLower(val) == "true" {
+	hasSectorsKey := strings.TrimSpace(cfg.Auth.SectorsAPIKey) != ""
+	explicitOffline := os.Getenv("NISKAVA_OFFLINE") == "1" || strings.ToLower(os.Getenv("NISKAVA_OFFLINE")) == "true"
+	if hasSectorsKey && !explicitOffline {
+		// Auto-toggle to live mode if user configured a valid Sectors key in env or config
+		cfg.Preferences.OfflineMode = false
+	} else if explicitOffline || os.Getenv("MOCK_SECTORS") == "1" || strings.ToLower(os.Getenv("MOCK_SECTORS")) == "true" {
 		cfg.Preferences.OfflineMode = true
 	}
 	if val := os.Getenv("NISKAVA_LANG"); val != "" {
@@ -467,7 +471,7 @@ func writeDotEnvFile(dest string, envMap map[string]string) error {
 	keyOrder := []string{
 		"AI_PROVIDER", "OPENAI_BASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL",
 		"GEMINI_API_KEY", "GEMINI_MODEL",
-		"SECTORS_API_KEY", "SECTORS_BASE_URL",
+		"SECTORS_API_KEY", "SECTORS_BASE_URL", "MOCK_SECTORS",
 		"ANTHROPIC_API_KEY", "OLLAMA_BASE_URL", "OLLAMA_MODEL",
 		"NISKAVA_DB_PATH", "NISKAVA_PYTHON_BIN", "NISKAVA_ENGINE_PATH",
 		"NISKAVA_PORT", "NISKAVA_DEFAULT_MARKET", "NISKAVA_LANG", "NISKAVA_OFFLINE",
@@ -538,8 +542,10 @@ func SaveDotEnv(cfg *Config, targetPath ...string) error {
 	envMap["NISKAVA_LLM_TIMEOUT"] = fmt.Sprintf("%.2f", timeoutVal)
 	if cfg.Preferences.OfflineMode {
 		envMap["NISKAVA_OFFLINE"] = "1"
+		envMap["MOCK_SECTORS"] = "1"
 	} else {
 		envMap["NISKAVA_OFFLINE"] = "0"
+		envMap["MOCK_SECTORS"] = "0"
 	}
 	envMap["NISKAVA_TELEGRAM_TOKEN"] = cfg.Telegram.BotToken
 	if cfg.Telegram.Enabled {

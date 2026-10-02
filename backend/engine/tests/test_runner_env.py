@@ -2,7 +2,7 @@
 
 import os
 from unittest.mock import patch
-from engine.runner import load_dotenv_fallback, load_config_yaml_fallback
+from engine.runner import load_dotenv_fallback, load_config_yaml_fallback, resolve_mock_mode
 
 _real_open = open
 
@@ -76,5 +76,55 @@ preferences:
                 assert os.environ.get("AI_PROVIDER") == "gemini"
                 assert os.environ.get("NISKAVA_LANG") == "id"
                 assert os.environ.get("NISKAVA_OFFLINE") == "0"
+
+
+def test_resolve_mock_mode_auto_toggles_live_with_valid_key():
+    """Valid SECTORS_API_KEY must auto-toggle mock_mode to False even if MOCK_SECTORS=1 was set."""
+    env = {
+        "SECTORS_API_KEY": "valid_live_token_12345",
+        "MOCK_SECTORS": "1",
+        "NISKAVA_OFFLINE": "0",
+    }
+    assert resolve_mock_mode(args_offline=False, env=env) is False
+
+
+def test_resolve_mock_mode_explicit_offline_env_overrides_key():
+    """Explicit NISKAVA_OFFLINE=1 forces mock_mode to True even if SECTORS_API_KEY is present."""
+    env = {
+        "SECTORS_API_KEY": "valid_live_token_12345",
+        "MOCK_SECTORS": "0",
+        "NISKAVA_OFFLINE": "1",
+    }
+    assert resolve_mock_mode(args_offline=False, env=env) is True
+
+
+def test_resolve_mock_mode_explicit_offline_arg_overrides_key():
+    """Explicit --offline CLI flag forces mock_mode to True even if SECTORS_API_KEY is present."""
+    env = {
+        "SECTORS_API_KEY": "valid_live_token_12345",
+        "MOCK_SECTORS": "0",
+        "NISKAVA_OFFLINE": "0",
+    }
+    assert resolve_mock_mode(args_offline=True, env=env) is True
+
+
+def test_resolve_mock_mode_empty_sectors_key_defaults_to_mock():
+    """Missing or empty SECTORS_API_KEY runs in mock_mode if MOCK_SECTORS=1."""
+    env = {
+        "SECTORS_API_KEY": "   ",
+        "MOCK_SECTORS": "1",
+        "NISKAVA_OFFLINE": "0",
+    }
+    assert resolve_mock_mode(args_offline=False, env=env) is True
+
+
+def test_resolve_mock_mode_empty_sectors_key_no_flags():
+    """Missing SECTORS_API_KEY with no flags defaults to False unless MOCK_SECTORS or NISKAVA_OFFLINE is set."""
+    env = {
+        "SECTORS_API_KEY": "",
+        "MOCK_SECTORS": "0",
+        "NISKAVA_OFFLINE": "0",
+    }
+    assert resolve_mock_mode(args_offline=False, env=env) is False
 
 

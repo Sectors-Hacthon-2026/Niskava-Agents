@@ -15,7 +15,7 @@ import (
 )
 
 func TestBuildEnvContent_MockMode(t *testing.T) {
-	// Case 1: Empty Sectors Key -> Must activate Mock Mode
+	// Case 1: Empty Sectors Key with LLM configured -> MOCK_SECTORS=1 but NISKAVA_OFFLINE=0 so LLM can converse
 	envOffline := BuildEnvContent(SetupParams{
 		AIProvider:    "openai",
 		OpenAIBaseURL: "https://openrouter.ai/api/v1",
@@ -27,8 +27,8 @@ func TestBuildEnvContent_MockMode(t *testing.T) {
 	if !strings.Contains(envOffline, "MOCK_SECTORS=1") {
 		t.Errorf("expected MOCK_SECTORS=1 when SectorsKey is empty, got:\n%s", envOffline)
 	}
-	if !strings.Contains(envOffline, "NISKAVA_OFFLINE=1") {
-		t.Errorf("expected NISKAVA_OFFLINE=1 when SectorsKey is empty, got:\n%s", envOffline)
+	if !strings.Contains(envOffline, "NISKAVA_OFFLINE=0") {
+		t.Errorf("expected NISKAVA_OFFLINE=0 when SectorsKey is empty and AIProvider is openai, got:\n%s", envOffline)
 	}
 
 	// Case 2: Provided Sectors Key -> Must disable Mock Mode
@@ -37,6 +37,51 @@ func TestBuildEnvContent_MockMode(t *testing.T) {
 		GeminiKey:   "dummy-gemini-key",
 		GeminiModel: "gemini-2.0-flash",
 		SectorsKey:  "sec-live-token-123",
+		PythonBin:   "python3",
+	})
+	if !strings.Contains(envLive, "MOCK_SECTORS=0") {
+		t.Errorf("expected MOCK_SECTORS=0 when SectorsKey is provided, got:\n%s", envLive)
+	}
+	if !strings.Contains(envLive, "NISKAVA_OFFLINE=0") {
+		t.Errorf("expected NISKAVA_OFFLINE=0 when SectorsKey is provided, got:\n%s", envLive)
+	}
+
+	// Case 3: Explicit offline provider -> NISKAVA_OFFLINE=1
+	envExplicitOffline := BuildEnvContent(SetupParams{
+		AIProvider: "offline",
+		SectorsKey: "",
+		PythonBin:  "python3",
+	})
+	if !strings.Contains(envExplicitOffline, "MOCK_SECTORS=1") {
+		t.Errorf("expected MOCK_SECTORS=1, got:\n%s", envExplicitOffline)
+	}
+	if !strings.Contains(envExplicitOffline, "NISKAVA_OFFLINE=1") {
+		t.Errorf("expected NISKAVA_OFFLINE=1 when AIProvider is offline, got:\n%s", envExplicitOffline)
+	}
+}
+
+func TestBuildEnvContent_DecouplesMockFromLLM(t *testing.T) {
+	// Missing SectorsKey with valid Gemini key produces MOCK_SECTORS=1 but NISKAVA_OFFLINE=0
+	envGeminiMock := BuildEnvContent(SetupParams{
+		AIProvider:  "gemini",
+		GeminiKey:   "AIzaSyValidGeminiKey",
+		GeminiModel: "gemini-2.0-flash",
+		SectorsKey:  "",
+		PythonBin:   "python3",
+	})
+	if !strings.Contains(envGeminiMock, "MOCK_SECTORS=1") {
+		t.Errorf("expected MOCK_SECTORS=1 when SectorsKey is missing, got:\n%s", envGeminiMock)
+	}
+	if !strings.Contains(envGeminiMock, "NISKAVA_OFFLINE=0") {
+		t.Errorf("expected NISKAVA_OFFLINE=0 when Gemini key is valid, got:\n%s", envGeminiMock)
+	}
+
+	// Providing SectorsKey produces MOCK_SECTORS=0 and NISKAVA_OFFLINE=0
+	envLive := BuildEnvContent(SetupParams{
+		AIProvider:  "gemini",
+		GeminiKey:   "AIzaSyValidGeminiKey",
+		GeminiModel: "gemini-2.0-flash",
+		SectorsKey:  "sec-live-token-456",
 		PythonBin:   "python3",
 	})
 	if !strings.Contains(envLive, "MOCK_SECTORS=0") {

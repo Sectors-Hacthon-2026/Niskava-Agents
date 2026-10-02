@@ -20,11 +20,11 @@ func TestConfigDefaults(t *testing.T) {
 func TestConfigEnvOverrides(t *testing.T) {
 	os.Setenv("SECTORS_API_KEY", "test_sectors_key_123")
 	os.Setenv("NISKAVA_PORT", "9090")
-	os.Setenv("MOCK_SECTORS", "1")
+	os.Setenv("NISKAVA_OFFLINE", "1")
 	defer func() {
 		os.Unsetenv("SECTORS_API_KEY")
 		os.Unsetenv("NISKAVA_PORT")
-		os.Unsetenv("MOCK_SECTORS")
+		os.Unsetenv("NISKAVA_OFFLINE")
 	}()
 
 	tempDir := t.TempDir()
@@ -42,8 +42,97 @@ func TestConfigEnvOverrides(t *testing.T) {
 		t.Errorf("expected port 9090, got %d", cfg.Server.Port)
 	}
 	if !cfg.Preferences.OfflineMode {
-		t.Errorf("expected offline mode true from MOCK_SECTORS=1")
+		t.Errorf("expected offline mode true from NISKAVA_OFFLINE=1")
 	}
+}
+
+func TestPreferencesOfflineMode_DynamicLiveToggle(t *testing.T) {
+	// Subtest 1: SECTORS_API_KEY present + stale MOCK_SECTORS=1 -> OfflineMode should auto-toggle to false
+	t.Run("auto-toggle live when sectors key present", func(t *testing.T) {
+		os.Setenv("SECTORS_API_KEY", "sec_live_key_999")
+		os.Setenv("MOCK_SECTORS", "1")
+		os.Unsetenv("NISKAVA_OFFLINE")
+		defer func() {
+			os.Unsetenv("SECTORS_API_KEY")
+			os.Unsetenv("MOCK_SECTORS")
+		}()
+
+		tempDir := t.TempDir()
+		cfg, err := Load(filepath.Join(tempDir, "config.yaml"))
+		if err != nil {
+			t.Fatalf("Load failed: %v", err)
+		}
+		if cfg.Preferences.OfflineMode {
+			t.Errorf("expected OfflineMode=false when valid SECTORS_API_KEY is present even with MOCK_SECTORS=1")
+		}
+	})
+
+	// Subtest 2: SECTORS_API_KEY present + explicit NISKAVA_OFFLINE=1 -> OfflineMode should be true
+	t.Run("explicit offline takes precedence", func(t *testing.T) {
+		os.Setenv("SECTORS_API_KEY", "sec_live_key_999")
+		os.Setenv("NISKAVA_OFFLINE", "1")
+		defer func() {
+			os.Unsetenv("SECTORS_API_KEY")
+			os.Unsetenv("NISKAVA_OFFLINE")
+		}()
+
+		tempDir := t.TempDir()
+		cfg, err := Load(filepath.Join(tempDir, "config.yaml"))
+		if err != nil {
+			t.Fatalf("Load failed: %v", err)
+		}
+		if !cfg.Preferences.OfflineMode {
+			t.Errorf("expected OfflineMode=true when NISKAVA_OFFLINE=1 is explicitly set")
+		}
+	})
+
+	// Subtest 3: SECTORS_API_KEY from YAML + stale MOCK_SECTORS=1 -> OfflineMode should auto-toggle to false
+	t.Run("yaml sectors key auto-toggles live", func(t *testing.T) {
+		os.Unsetenv("SECTORS_API_KEY")
+		os.Setenv("MOCK_SECTORS", "1")
+		os.Unsetenv("NISKAVA_OFFLINE")
+		defer func() {
+			os.Unsetenv("MOCK_SECTORS")
+		}()
+
+		tempDir := t.TempDir()
+		cfgFile := filepath.Join(tempDir, "config.yaml")
+		yamlContent := `auth:
+  sectors_api_key: "sec_yaml_live_key"
+preferences:
+  offline_mode: true
+`
+		if err := os.WriteFile(cfgFile, []byte(yamlContent), 0600); err != nil {
+			t.Fatalf("failed to write config.yaml: %v", err)
+		}
+
+		cfg, err := Load(cfgFile)
+		if err != nil {
+			t.Fatalf("Load failed: %v", err)
+		}
+		if cfg.Preferences.OfflineMode {
+			t.Errorf("expected OfflineMode=false when Sectors key is in config.yaml")
+		}
+	})
+
+	// Subtest 4: Empty SECTORS_API_KEY + MOCK_SECTORS=1 -> OfflineMode should be true
+	t.Run("empty sectors key with mock sectors", func(t *testing.T) {
+		os.Unsetenv("SECTORS_API_KEY")
+		os.Setenv("MOCK_SECTORS", "1")
+		os.Unsetenv("NISKAVA_OFFLINE")
+		defer func() {
+			os.Unsetenv("MOCK_SECTORS")
+		}()
+
+		tempDir := t.TempDir()
+		cfg, err := Load(filepath.Join(tempDir, "config.yaml"))
+		if err != nil {
+			t.Fatalf("Load failed: %v", err)
+		}
+		if !cfg.Preferences.OfflineMode {
+			t.Errorf("expected OfflineMode=true when SECTORS_API_KEY is empty and MOCK_SECTORS=1")
+		}
+	})
 }
 
 func TestLoadDotEnv(t *testing.T) {

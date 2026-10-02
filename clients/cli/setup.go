@@ -163,9 +163,19 @@ func GetProviderPresets() map[string]ProviderPreset {
 
 // BuildEnvContent formats complete .env file content honoring Law 5 (offline mock mode).
 func BuildEnvContent(p SetupParams) string {
-	mockVal := "0"
-	if strings.TrimSpace(p.SectorsKey) == "" {
-		mockVal = "1"
+	mockSectorsVal := "0"
+	niskavaOfflineVal := "0"
+
+	if strings.TrimSpace(p.SectorsKey) != "" {
+		mockSectorsVal = "0"
+		niskavaOfflineVal = "0"
+	} else {
+		mockSectorsVal = "1"
+		if strings.EqualFold(strings.TrimSpace(p.AIProvider), "offline") || strings.EqualFold(strings.TrimSpace(p.AIProvider), "mock") {
+			niskavaOfflineVal = "1"
+		} else {
+			niskavaOfflineVal = "0"
+		}
 	}
 
 	pyBin := p.PythonBin
@@ -228,7 +238,7 @@ NISKAVA_LLM_TIMEOUT=%.2f
 		p.AIProvider, p.OpenAIBaseURL, p.OpenAIKey, p.OpenAIModel,
 		p.GeminiKey, p.GeminiModel,
 		p.SectorsKey,
-		mockVal, mockVal,
+		mockSectorsVal, niskavaOfflineVal,
 		pyBin,
 		timeoutSecs,
 	)
@@ -925,6 +935,7 @@ func RunInteractiveSetup() error {
 
 	if strings.EqualFold(sectorsKey, "mock") || strings.EqualFold(sectorsKey, "offline") || sectorsKey == "" {
 		sectorsKey = ""
+		fmt.Printf("  %s WARNING: No Sectors API Key entered. Niskava will run in Mock Simulation mode (synthetic fixtures). For live IDX market data, obtain a key at https://sectors.app\n", wizardWarnBadgeStyle.Render("⚠️"))
 		fmt.Printf("  %s %s\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Offline Mock Mode enabled (Law 5: Credit Conservation). All financial data fixtures active."))
 	} else {
 		fmt.Printf("  %s %s\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Sectors Live API Mode configured."))
@@ -1102,3 +1113,14 @@ func getLaunchCommandHint(dir string) string {
 	}
 	return "niskava"
 }
+
+// RunSetupWizard launches the interactive setup wizard (convenience alias for RunInteractiveSetup).
+func RunSetupWizard() error {
+	return RunInteractiveSetup()
+}
+
+// RunSetup launches the interactive setup wizard (convenience alias for RunInteractiveSetup).
+func RunSetup() error {
+	return RunInteractiveSetup()
+}
+

@@ -125,6 +125,27 @@ def load_config_yaml_fallback() -> None:
         pass
 
 
+def resolve_mock_mode(args_offline: bool = False, env: dict = None) -> bool:
+    """Resolve whether engine runs in mock_mode based on Sectors API key and offline flags.
+
+    If SECTORS_API_KEY is present and non-empty, auto-toggle to live mode (False),
+    unless explicit offline mode is requested (args.offline or NISKAVA_OFFLINE=1).
+    """
+    if env is None:
+        env = os.environ
+    has_sectors_key = bool(env.get("SECTORS_API_KEY", "").strip())
+    explicit_offline = (
+        args_offline
+        or env.get("NISKAVA_OFFLINE", "0") in ("1", "true", "True")
+    )
+    if has_sectors_key and not explicit_offline:
+        return False
+    return (
+        explicit_offline
+        or env.get("MOCK_SECTORS", "0") in ("1", "true", "True")
+    )
+
+
 def main() -> None:
     load_dotenv_fallback()
     load_config_yaml_fallback()
@@ -144,11 +165,19 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    mock_mode = (
+    has_sectors_key = bool(os.environ.get("SECTORS_API_KEY", "").strip())
+    explicit_offline = (
         args.offline
-        or os.environ.get("MOCK_SECTORS", "0") in ("1", "true", "True")
         or os.environ.get("NISKAVA_OFFLINE", "0") in ("1", "true", "True")
     )
+    if has_sectors_key and not explicit_offline:
+        # Auto-toggle to live mode if user configured a valid Sectors key
+        mock_mode = False
+    else:
+        mock_mode = (
+            explicit_offline
+            or os.environ.get("MOCK_SECTORS", "0") in ("1", "true", "True")
+        )
     language = (args.language or "id").lower()
     os.environ["NISKAVA_LANG"] = language
 
