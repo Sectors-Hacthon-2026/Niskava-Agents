@@ -14,6 +14,10 @@ import (
 )
 
 func TestRunSubprocessMock(t *testing.T) {
+	t.Setenv("NISKAVA_TESTING", "1")
+	t.Setenv("MOCK_SECTORS", "1")
+	t.Setenv("SECTORS_API_KEY", "test-fixture-key-not-real")
+
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("failed to get working dir: %v", err)
@@ -135,6 +139,10 @@ func TestResolvePythonBin(t *testing.T) {
 }
 
 func TestRunSubprocessEnvOverrides(t *testing.T) {
+	t.Setenv("NISKAVA_TESTING", "1")
+	t.Setenv("MOCK_SECTORS", "1")
+	t.Setenv("SECTORS_API_KEY", "test-fixture-key-not-real")
+
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("failed to get working dir: %v", err)

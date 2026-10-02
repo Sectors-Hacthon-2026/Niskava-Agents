@@ -45,6 +45,10 @@ jobs:
           .venv/bin/pip install -r backend/engine/requirements.txt
 
       - name: Execute Go Test Suite
+        env:
+          NISKAVA_TESTING: '1'
+          MOCK_SECTORS: '1'
+          NISKAVA_OFFLINE: '1'
         run: go test -v -race ./backend/core/... ./clients/cli/...
 
       - name: Build Niskava CLI Binaries (Multi-Platform Matrix)
