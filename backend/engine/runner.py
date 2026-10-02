@@ -126,24 +126,40 @@ def load_config_yaml_fallback() -> None:
 
 
 def resolve_mock_mode(args_offline: bool = False, env: dict = None) -> bool:
-    """Resolve whether engine runs in mock_mode based on Sectors API key and offline flags.
+    """Resolve whether engine runs in mock_mode.
 
-    If SECTORS_API_KEY is present and non-empty, auto-toggle to live mode (False),
-    unless explicit offline mode is requested (args.offline or NISKAVA_OFFLINE=1).
+    Mock mode is ONLY allowed when NISKAVA_TESTING=1 (CI/CD and unit tests).
+    In all other cases, a valid SECTORS_API_KEY is mandatory.
+    Exits the process with a clear error message if the key is missing.
     """
     if env is None:
         env = os.environ
+
+    is_testing = env.get("NISKAVA_TESTING", "0") in ("1", "true", "True")
     has_sectors_key = bool(env.get("SECTORS_API_KEY", "").strip())
-    explicit_offline = (
-        args_offline
-        or env.get("NISKAVA_OFFLINE", "0") in ("1", "true", "True")
-    )
-    if has_sectors_key and not explicit_offline:
-        return False
-    return (
-        explicit_offline
-        or env.get("MOCK_SECTORS", "0") in ("1", "true", "True")
-    )
+
+    if is_testing:
+        return (
+            args_offline
+            or env.get("NISKAVA_OFFLINE", "0") in ("1", "true", "True")
+            or env.get("MOCK_SECTORS", "0") in ("1", "true", "True")
+            or not has_sectors_key
+        )
+
+    if not has_sectors_key:
+        emit_jsonl({
+            "type": "error",
+            "stage": "INITIATION",
+            "message": (
+                "SECTORS_API_KEY is not configured. Niskava requires a valid Sectors "
+                "Financial API key to analyze IDX market data. "
+                "Run 'niskava setup' to configure your key, or obtain a free key at "
+                "https://sectors.app"
+            ),
+        })
+        sys.exit(1)
+
+    return False
 
 
 def main() -> None:

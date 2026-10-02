@@ -52,6 +52,27 @@ and qualitative market disclosures/news.`,
 			return fmt.Errorf("failed to open database at %s: %w", cfg.Storage.DBPath, err)
 		}
 
+		// Commands that do not require a Sectors key:
+		// - setup: configures the key interactively
+		// - version, help, completion: informational only, no data access
+		// - sessions: inspects/exports local SQLite history only, no remote calls
+		exemptCommands := map[string]bool{
+			"setup":      true,
+			"version":    true,
+			"help":       true,
+			"completion": true,
+			"sessions":   true,
+		}
+		topCmd := cmd
+		for topCmd.HasParent() && topCmd.Parent().HasParent() {
+			topCmd = topCmd.Parent()
+		}
+		if !exemptCommands[cmd.Name()] && !exemptCommands[topCmd.Name()] {
+			if keyErr := config.RequireSectorsKey(cfg); keyErr != nil {
+				return keyErr
+			}
+		}
+
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {

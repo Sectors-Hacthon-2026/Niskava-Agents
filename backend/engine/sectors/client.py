@@ -42,10 +42,24 @@ class SectorsAPIClient:
         self.base_url = base_url or os.environ.get("SECTORS_BASE_URL", self.BASE_URL)
         self.db_path = os.path.expanduser(db_path)
         
+        _is_testing = os.environ.get("NISKAVA_TESTING", "0") in ("1", "true", "True")
+
         if mock_mode is not None:
+            if mock_mode and not _is_testing:
+                raise RuntimeError(
+                    "SECTORS_API_KEY is required. Mock mode is only available in test environments "
+                    "(NISKAVA_TESTING=1). Obtain a free key at https://sectors.app"
+                )
             self.mock_mode = mock_mode
         else:
-            self.mock_mode = (
+            if not _is_testing and not self.api_key:
+                raise RuntimeError(
+                    "SECTORS_API_KEY is not configured. Niskava requires a valid Sectors "
+                    "Financial API key to fetch real IDX market data. "
+                    "Run 'niskava setup' or set SECTORS_API_KEY in your environment. "
+                    "Obtain a free key at https://sectors.app"
+                )
+            self.mock_mode = _is_testing and (
                 os.environ.get("MOCK_SECTORS", "0") in ("1", "true", "True")
                 or os.environ.get("NISKAVA_OFFLINE", "0") in ("1", "true", "True")
                 or not self.api_key

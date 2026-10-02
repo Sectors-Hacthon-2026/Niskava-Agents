@@ -191,11 +191,12 @@ func EvaluateSystemDiagnostics() DiagnosticReport {
 	if cfg != nil {
 		sectorsKey = cfg.Auth.SectorsAPIKey
 	}
-	if sectorsKey == "" || (cfg != nil && cfg.Preferences.OfflineMode) {
+	if sectorsKey == "" {
 		report.Checks = append(report.Checks, DiagnosticCheck{
-			Name:    "Sectors Financial API (IDX)",
-			Status:  StatusOk,
-			Details: "Offline Mock Mode Active (Law 5: 100% Credit Conservation / Static Fixtures)",
+			Name:           "Sectors Financial API (IDX)",
+			Status:         StatusFail,
+			Details:        "SECTORS_API_KEY is not configured",
+			Recommendation: "Run 'niskava setup' to configure your key, or obtain a free key at https://sectors.app",
 		})
 	} else {
 		secOK, secMsg, _ := TestLiveConnection(ctx, "sectors", "", sectorsKey)
@@ -210,7 +211,7 @@ func EvaluateSystemDiagnostics() DiagnosticReport {
 				Name:           "Sectors Financial API (IDX)",
 				Status:         StatusWarn,
 				Details:        fmt.Sprintf("Connection issue (%s)", secMsg),
-				Recommendation: "Check internet connection or run in offline mode via 'niskava investigate --offline'",
+				Recommendation: "Check internet connection. Verify your key is valid at https://sectors.app",
 			})
 		}
 	}

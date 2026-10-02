@@ -21,10 +21,12 @@ func TestConfigEnvOverrides(t *testing.T) {
 	os.Setenv("SECTORS_API_KEY", "test_sectors_key_123")
 	os.Setenv("NISKAVA_PORT", "9090")
 	os.Setenv("NISKAVA_OFFLINE", "1")
+	os.Setenv("NISKAVA_TESTING", "1")
 	defer func() {
 		os.Unsetenv("SECTORS_API_KEY")
 		os.Unsetenv("NISKAVA_PORT")
 		os.Unsetenv("NISKAVA_OFFLINE")
+		os.Unsetenv("NISKAVA_TESTING")
 	}()
 
 	tempDir := t.TempDir()
@@ -67,13 +69,15 @@ func TestPreferencesOfflineMode_DynamicLiveToggle(t *testing.T) {
 		}
 	})
 
-	// Subtest 2: SECTORS_API_KEY present + explicit NISKAVA_OFFLINE=1 -> OfflineMode should be true
+	// Subtest 2: SECTORS_API_KEY present + explicit NISKAVA_OFFLINE=1 -> OfflineMode should be true in testing mode
 	t.Run("explicit offline takes precedence", func(t *testing.T) {
 		os.Setenv("SECTORS_API_KEY", "sec_live_key_999")
 		os.Setenv("NISKAVA_OFFLINE", "1")
+		os.Setenv("NISKAVA_TESTING", "1")
 		defer func() {
 			os.Unsetenv("SECTORS_API_KEY")
 			os.Unsetenv("NISKAVA_OFFLINE")
+			os.Unsetenv("NISKAVA_TESTING")
 		}()
 
 		tempDir := t.TempDir()
@@ -115,13 +119,15 @@ preferences:
 		}
 	})
 
-	// Subtest 4: Empty SECTORS_API_KEY + MOCK_SECTORS=1 -> OfflineMode should be true
+	// Subtest 4: Empty SECTORS_API_KEY + MOCK_SECTORS=1 -> OfflineMode should be true in testing mode
 	t.Run("empty sectors key with mock sectors", func(t *testing.T) {
 		os.Unsetenv("SECTORS_API_KEY")
 		os.Setenv("MOCK_SECTORS", "1")
 		os.Unsetenv("NISKAVA_OFFLINE")
+		os.Setenv("NISKAVA_TESTING", "1")
 		defer func() {
 			os.Unsetenv("MOCK_SECTORS")
+			os.Unsetenv("NISKAVA_TESTING")
 		}()
 
 		tempDir := t.TempDir()
@@ -400,6 +406,9 @@ func TestBuildSubprocessEnv_OfflineAndTimeout(t *testing.T) {
 		t.Errorf("expected NISKAVA_LLM_TIMEOUT=120.00, got %q", env["NISKAVA_LLM_TIMEOUT"])
 	}
 
+	os.Setenv("NISKAVA_TESTING", "1")
+	defer os.Unsetenv("NISKAVA_TESTING")
+
 	cfg.Preferences.OfflineMode = true
 	envOffline := cfg.BuildSubprocessEnv()
 	if envOffline["NISKAVA_OFFLINE"] != "1" {
@@ -474,5 +483,68 @@ func TestDynamicProviderAndModelResolution(t *testing.T) {
 	}
 	if env3["OPENAI_BASE_URL"] != "http://localhost:11434/v1" {
 		t.Errorf("expected http://localhost:11434/v1, got %s", env3["OPENAI_BASE_URL"])
+	}
+}
+
+func TestRequireSectorsKey(t *testing.T) {
+	origTesting := os.Getenv("NISKAVA_TESTING")
+	origKey := os.Getenv("SECTORS_API_KEY")
+	defer func() {
+		os.Setenv("NISKAVA_TESTING", origTesting)
+		os.Setenv("SECTORS_API_KEY", origKey)
+	}()
+
+	t.Run("returns_error_when_key_missing_and_not_testing", func(t *testing.T) {
+		os.Unsetenv("NISKAVA_TESTING")
+		cfg := DefaultConfig()
+		cfg.Auth.SectorsAPIKey = ""
+		err := RequireSectorsKey(cfg)
+		if err == nil {
+			t.Fatal("expected error when Sectors key is missing, got nil")
+		}
+		if !strings.Contains(err.Error(), "SECTORS_API_KEY") {
+			t.Errorf("error message should mention SECTORS_API_KEY, got: %s", err.Error())
+		}
+	})
+
+	t.Run("returns_nil_when_key_present", func(t *testing.T) {
+		os.Unsetenv("NISKAVA_TESTING")
+		cfg := DefaultConfig()
+		cfg.Auth.SectorsAPIKey = "real-key-abc123"
+		err := RequireSectorsKey(cfg)
+		if err != nil {
+			t.Fatalf("expected nil error with valid key, got: %v", err)
+		}
+	})
+
+	t.Run("returns_nil_in_testing_mode_even_without_key", func(t *testing.T) {
+		os.Setenv("NISKAVA_TESTING", "1")
+		cfg := DefaultConfig()
+		cfg.Auth.SectorsAPIKey = ""
+		err := RequireSectorsKey(cfg)
+		if err != nil {
+			t.Fatalf("expected nil error in testing mode, got: %v", err)
+		}
+	})
+}
+
+func TestIsTestingMode(t *testing.T) {
+	orig := os.Getenv("NISKAVA_TESTING")
+	defer func() {
+		if orig == "" {
+			os.Unsetenv("NISKAVA_TESTING")
+		} else {
+			os.Setenv("NISKAVA_TESTING", orig)
+		}
+	}()
+
+	os.Setenv("NISKAVA_TESTING", "1")
+	if !IsTestingMode() {
+		t.Error("IsTestingMode() should return true when NISKAVA_TESTING=1")
+	}
+
+	os.Unsetenv("NISKAVA_TESTING")
+	if IsTestingMode() {
+		t.Error("IsTestingMode() should return false when NISKAVA_TESTING is unset")
 	}
 }

@@ -215,7 +215,7 @@ func TestTestConnectionEndpoint(t *testing.T) {
 		t.Fatalf("expected 400 for unknown target, got %d", resp.StatusCode)
 	}
 
-	// 2. Sectors target in offline mode
+	// 2. Sectors target without API key: should fail and report key required
 	resp2, err := http.Post(srv.URL+"/api/settings/test-connection", "application/json", strings.NewReader(`{"target":"sectors"}`))
 	if err != nil {
 		t.Fatalf("POST test-connection failed: %v", err)
@@ -227,15 +227,17 @@ func TestTestConnectionEndpoint(t *testing.T) {
 
 	var data map[string]interface{}
 	_ = json.NewDecoder(resp2.Body).Decode(&data)
-	if data["success"] != true {
-		t.Errorf("expected success true in offline mode, got %+v", data)
+	if data["success"] != false {
+		t.Errorf("expected success false when key is empty, got %+v", data)
 	}
 	msg, _ := data["message"].(string)
-	if !strings.Contains(msg, "[MOCK MODE]") {
-		t.Errorf("expected [MOCK MODE] in message, got %s", msg)
+	if !strings.Contains(msg, "not configured") {
+		t.Errorf("expected 'not configured' in message, got %s", msg)
 	}
 
-	// 3. Anthropic target in offline mode
+	// 3. Anthropic target in offline testing mode (requires NISKAVA_TESTING=1)
+	os.Setenv("NISKAVA_TESTING", "1")
+	defer os.Unsetenv("NISKAVA_TESTING")
 	resp3, err := http.Post(srv.URL+"/api/settings/test-connection", "application/json", strings.NewReader(`{"target":"anthropic","api_key":"sk-ant-test"}`))
 	if err != nil {
 		t.Fatalf("POST test-connection anthropic failed: %v", err)
@@ -244,11 +246,11 @@ func TestTestConnectionEndpoint(t *testing.T) {
 	var data3 map[string]interface{}
 	_ = json.NewDecoder(resp3.Body).Decode(&data3)
 	if data3["success"] != true {
-		t.Errorf("expected success true in offline mode for anthropic, got %+v", data3)
+		t.Errorf("expected success true in offline testing mode for anthropic, got %+v", data3)
 	}
 	msg3, _ := data3["message"].(string)
-	if !strings.Contains(msg3, "[MOCK MODE]") {
-		t.Errorf("expected [MOCK MODE] in anthropic message, got %s", msg3)
+	if !strings.Contains(msg3, "[TEST MODE]") {
+		t.Errorf("expected [TEST MODE] in anthropic message, got %s", msg3)
 	}
 }
 
@@ -1059,7 +1061,10 @@ func TestDynamicSettingsAndSubprocessEnv(t *testing.T) {
 		t.Errorf("expected initial_sectors_key, got %s", env["SECTORS_API_KEY"])
 	}
 
-	// 2. PATCH /api/settings with new keys
+	// 2. PATCH /api/settings with new keys (in testing mode)
+	os.Setenv("NISKAVA_TESTING", "1")
+	defer os.Unsetenv("NISKAVA_TESTING")
+
 	patchBody := `{"auth":{"sectors_api_key":"new_sectors_key_777","gemini_api_key":"new_gemini_key_888","ai_provider":"gemini"},"preferences":{"language":"id","offline_mode":true}}`
 	req, _ := http.NewRequest(http.MethodPatch, srv.URL+"/api/settings", strings.NewReader(patchBody))
 	req.Header.Set("Content-Type", "application/json")

@@ -102,8 +102,9 @@ jobs:
 
       - name: Execute Pytest Suite (Unit & MCP Tests)
         env:
-          MOCK_SECTORS: '1'
-          NISKAVA_OFFLINE: '1'
+          # conftest.py sets NISKAVA_TESTING=1, MOCK_SECTORS=1, NISKAVA_OFFLINE=1 automatically.
+          SECTORS_API_KEY: 'ci-fixture-key-not-real'
+          NISKAVA_TESTING: '1'
         run: |
           PYTHONPATH=backend pytest backend/engine/tests/ -v --durations=10
 
@@ -152,7 +153,9 @@ jobs:
 
       - name: Test MCP Deterministic Quant Tool Execution
         env:
+          NISKAVA_TESTING: '1'
           MOCK_SECTORS: '1'
+          SECTORS_API_KEY: 'ci-fixture-key-not-real'
         run: |
           QUANT_RESP=$(echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"quant_compute_anomalies","arguments":{"ticker":"ANTM"}}}' | ./bin/niskava mcp)
           echo "Quant Output: $QUANT_RESP"

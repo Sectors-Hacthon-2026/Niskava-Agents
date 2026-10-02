@@ -282,11 +282,20 @@ func Load(customConfigPath string) (*Config, error) {
 	}
 	hasSectorsKey := strings.TrimSpace(cfg.Auth.SectorsAPIKey) != ""
 	explicitOffline := os.Getenv("NISKAVA_OFFLINE") == "1" || strings.ToLower(os.Getenv("NISKAVA_OFFLINE")) == "true"
-	if hasSectorsKey && !explicitOffline {
-		// Auto-toggle to live mode if user configured a valid Sectors key in env or config
+	mockSectors := os.Getenv("MOCK_SECTORS") == "1" || strings.ToLower(os.Getenv("MOCK_SECTORS")) == "true"
+
+	if IsTestingMode() {
+		if explicitOffline {
+			cfg.Preferences.OfflineMode = true
+		} else if hasSectorsKey {
+			cfg.Preferences.OfflineMode = false
+		} else {
+			cfg.Preferences.OfflineMode = mockSectors
+		}
+	} else {
+		// Non-testing (production / user mode): OfflineMode is always false.
+		// A valid SECTORS_API_KEY is required by RequireSectorsKey().
 		cfg.Preferences.OfflineMode = false
-	} else if explicitOffline || os.Getenv("MOCK_SECTORS") == "1" || strings.ToLower(os.Getenv("MOCK_SECTORS")) == "true" {
-		cfg.Preferences.OfflineMode = true
 	}
 	if val := os.Getenv("NISKAVA_LANG"); val != "" {
 		cfg.Preferences.Language = strings.ToLower(val)
@@ -553,13 +562,8 @@ func SaveDotEnv(cfg *Config, targetPath ...string) error {
 		timeoutVal = 300.0
 	}
 	envMap["NISKAVA_LLM_TIMEOUT"] = fmt.Sprintf("%.2f", timeoutVal)
-	if cfg.Preferences.OfflineMode {
-		envMap["NISKAVA_OFFLINE"] = "1"
-		envMap["MOCK_SECTORS"] = "1"
-	} else {
-		envMap["NISKAVA_OFFLINE"] = "0"
-		envMap["MOCK_SECTORS"] = "0"
-	}
+	envMap["NISKAVA_OFFLINE"] = "0"
+	envMap["MOCK_SECTORS"] = "0"
 	envMap["NISKAVA_TELEGRAM_TOKEN"] = cfg.Telegram.BotToken
 	if cfg.Telegram.Enabled {
 		envMap["NISKAVA_TELEGRAM_ENABLED"] = "1"
@@ -733,7 +737,7 @@ func (c *Config) BuildSubprocessEnv() map[string]string {
 	if c.Preferences.Language != "" {
 		env["NISKAVA_LANG"] = c.Preferences.Language
 	}
-	if c.Preferences.OfflineMode {
+	if c.Preferences.OfflineMode && IsTestingMode() {
 		env["NISKAVA_OFFLINE"] = "1"
 		env["MOCK_SECTORS"] = "1"
 	} else {
@@ -758,4 +762,31 @@ func (c *Config) BuildSubprocessEnv() map[string]string {
 	env["NISKAVA_LLM_TIMEOUT"] = fmt.Sprintf("%.2f", timeoutSecs)
 
 	return env
+}
+
+// IsTestingMode returns true when the NISKAVA_TESTING environment variable is "1".
+// This flag is exclusively activated by pytest conftest.py and CI/CD pipelines.
+// End-user facing code must never set this flag.
+func IsTestingMode() bool {
+	v := os.Getenv("NISKAVA_TESTING")
+	return v == "1" || strings.EqualFold(v, "true")
+}
+
+// RequireSectorsKey validates that a Sectors Financial API key is configured.
+// Returns a descriptive error if the key is missing and the process is not in
+// testing mode (NISKAVA_TESTING=1). Call this at every user-facing CLI entrypoint.
+func RequireSectorsKey(cfg *Config) error {
+	if IsTestingMode() {
+		return nil
+	}
+	if cfg != nil && strings.TrimSpace(cfg.Auth.SectorsAPIKey) != "" {
+		return nil
+	}
+	return fmt.Errorf(
+		"SECTORS_API_KEY is not configured.\n\n" +
+			"  Niskava requires a valid Sectors Financial API key to fetch\n" +
+			"  real-time IDX market data from Bursa Efek Indonesia.\n\n" +
+			"  ► Run 'niskava setup' to configure your API key interactively.\n" +
+			"  ► Or obtain a free key at: https://sectors.app\n",
+	)
 }

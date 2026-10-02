@@ -1,6 +1,7 @@
 """Tests for load_dotenv_fallback ensuring empty keys do not shadow valid keys."""
 
 import os
+import pytest
 from unittest.mock import patch
 from engine.runner import load_dotenv_fallback, load_config_yaml_fallback, resolve_mock_mode
 
@@ -89,8 +90,9 @@ def test_resolve_mock_mode_auto_toggles_live_with_valid_key():
 
 
 def test_resolve_mock_mode_explicit_offline_env_overrides_key():
-    """Explicit NISKAVA_OFFLINE=1 forces mock_mode to True even if SECTORS_API_KEY is present."""
+    """Explicit NISKAVA_OFFLINE=1 forces mock_mode to True when testing gate is active."""
     env = {
+        "NISKAVA_TESTING": "1",
         "SECTORS_API_KEY": "valid_live_token_12345",
         "MOCK_SECTORS": "0",
         "NISKAVA_OFFLINE": "1",
@@ -99,8 +101,9 @@ def test_resolve_mock_mode_explicit_offline_env_overrides_key():
 
 
 def test_resolve_mock_mode_explicit_offline_arg_overrides_key():
-    """Explicit --offline CLI flag forces mock_mode to True even if SECTORS_API_KEY is present."""
+    """Explicit args_offline flag forces mock_mode to True when testing gate is active."""
     env = {
+        "NISKAVA_TESTING": "1",
         "SECTORS_API_KEY": "valid_live_token_12345",
         "MOCK_SECTORS": "0",
         "NISKAVA_OFFLINE": "0",
@@ -108,9 +111,10 @@ def test_resolve_mock_mode_explicit_offline_arg_overrides_key():
     assert resolve_mock_mode(args_offline=True, env=env) is True
 
 
-def test_resolve_mock_mode_empty_sectors_key_defaults_to_mock():
-    """Missing or empty SECTORS_API_KEY runs in mock_mode if MOCK_SECTORS=1."""
+def test_resolve_mock_mode_empty_sectors_key_defaults_to_mock_in_test():
+    """Missing or empty SECTORS_API_KEY runs in mock_mode if NISKAVA_TESTING=1 and MOCK_SECTORS=1."""
     env = {
+        "NISKAVA_TESTING": "1",
         "SECTORS_API_KEY": "   ",
         "MOCK_SECTORS": "1",
         "NISKAVA_OFFLINE": "0",
@@ -118,14 +122,16 @@ def test_resolve_mock_mode_empty_sectors_key_defaults_to_mock():
     assert resolve_mock_mode(args_offline=False, env=env) is True
 
 
-def test_resolve_mock_mode_empty_sectors_key_no_flags():
-    """Missing SECTORS_API_KEY with no flags defaults to False unless MOCK_SECTORS or NISKAVA_OFFLINE is set."""
+def test_resolve_mock_mode_empty_sectors_key_exits_in_production():
+    """Missing SECTORS_API_KEY with no testing gate exits process with error."""
     env = {
+        "NISKAVA_TESTING": "0",
         "SECTORS_API_KEY": "",
         "MOCK_SECTORS": "0",
         "NISKAVA_OFFLINE": "0",
     }
-    assert resolve_mock_mode(args_offline=False, env=env) is False
+    with pytest.raises(SystemExit):
+        resolve_mock_mode(args_offline=False, env=env)
 
 
 def test_react_agent_dynamic_provider_and_model_resolution():

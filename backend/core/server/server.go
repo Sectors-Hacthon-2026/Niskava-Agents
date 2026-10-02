@@ -365,7 +365,8 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				if req.Preferences.DefaultMarket != nil && *req.Preferences.DefaultMarket != "" {
 					s.Config.Preferences.DefaultMarket = strings.ToUpper(*req.Preferences.DefaultMarket)
 				}
-				if req.Preferences.OfflineMode != nil {
+				if req.Preferences.OfflineMode != nil && config.IsTestingMode() {
+					// OfflineMode toggle restricted to test/CI environments only.
 					s.Config.Preferences.OfflineMode = *req.Preferences.OfflineMode
 				}
 				if req.Preferences.Language != nil && *req.Preferences.Language != "" {
@@ -497,14 +498,9 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			if key == "" || strings.Contains(key, "****") {
 				key = cfg.Auth.SectorsAPIKey
 			}
-			if key == "" && !cfg.Preferences.OfflineMode && os.Getenv("MOCK_SECTORS") != "1" {
+			if key == "" {
 				resp.Success = false
-				resp.Message = "Sectors API key is not configured"
-				break
-			}
-			if cfg.Preferences.OfflineMode || os.Getenv("MOCK_SECTORS") == "1" {
-				resp.Success = true
-				resp.Message = "[MOCK MODE] Sectors mock mode aktif (simulasi data lokal)"
+				resp.Message = "Sectors API key is not configured. Run 'niskava setup' or obtain a key at https://sectors.app"
 				break
 			}
 
@@ -570,9 +566,9 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				resp.Message = "Gemini API key is not configured"
 				break
 			}
-			if cfg.Preferences.OfflineMode {
+			if cfg.Preferences.OfflineMode && config.IsTestingMode() {
 				resp.Success = true
-				resp.Message = "[MOCK MODE] Offline mode active (mock verification)"
+				resp.Message = "[TEST MODE] Mock verification active (CI/CD environment)"
 				break
 			}
 			client := &http.Client{Timeout: 5 * time.Second}
@@ -605,9 +601,9 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				baseURL = "https://api.openai.com/v1"
 			}
 			baseURL = strings.TrimRight(baseURL, "/")
-			if cfg.Preferences.OfflineMode {
+			if cfg.Preferences.OfflineMode && config.IsTestingMode() {
 				resp.Success = true
-				resp.Message = "[MOCK MODE] Offline mode active (mock verification)"
+				resp.Message = "[TEST MODE] Mock verification active (CI/CD environment)"
 				break
 			}
 			client := &http.Client{Timeout: 5 * time.Second}
@@ -645,9 +641,9 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				resp.Message = "Anthropic API key is not configured"
 				break
 			}
-			if cfg.Preferences.OfflineMode {
+			if cfg.Preferences.OfflineMode && config.IsTestingMode() {
 				resp.Success = true
-				resp.Message = "[MOCK MODE] Offline mode active (mock verification)"
+				resp.Message = "[TEST MODE] Mock verification active (CI/CD environment)"
 				break
 			}
 			client := &http.Client{Timeout: 5 * time.Second}
@@ -1046,7 +1042,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			if activeCfg.Auth.AIProvider != "" {
 				aiProv = activeCfg.Auth.AIProvider
 			}
-			isOffline = activeCfg.Preferences.OfflineMode || os.Getenv("MOCK_SECTORS") == "1"
+			isOffline = activeCfg.Preferences.OfflineMode && config.IsTestingMode()
 		}
 
 		username := os.Getenv("USER")
@@ -1840,7 +1836,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			chatLang = "id"
 		}
 
-		isOffline := activeCfg.Preferences.OfflineMode || os.Getenv("NISKAVA_OFFLINE") == "1" || os.Getenv("MOCK_SECTORS") == "1"
+		isOffline := (activeCfg.Preferences.OfflineMode || os.Getenv("NISKAVA_OFFLINE") == "1") && config.IsTestingMode()
 
 		runnerParams := ipc.RunnerParams{
 			PythonBin:    pythonBin,

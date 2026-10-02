@@ -163,22 +163,14 @@ func GetProviderPresets() map[string]ProviderPreset {
 	}
 }
 
-// BuildEnvContent formats complete .env file content honoring Law 5 (offline mock mode).
+// BuildEnvContent formats complete .env file content.
+// Note: MOCK_SECTORS and NISKAVA_OFFLINE are always set to "0" in user configs.
+// Mock/offline flags are exclusively managed by CI/CD via NISKAVA_TESTING=1.
 func BuildEnvContent(p SetupParams) string {
+	// Mock/offline flags are never written to user configuration files.
+	// These are exclusively managed by CI/CD via NISKAVA_TESTING=1.
 	mockSectorsVal := "0"
 	niskavaOfflineVal := "0"
-
-	if strings.TrimSpace(p.SectorsKey) != "" {
-		mockSectorsVal = "0"
-		niskavaOfflineVal = "0"
-	} else {
-		mockSectorsVal = "1"
-		if strings.EqualFold(strings.TrimSpace(p.AIProvider), "offline") || strings.EqualFold(strings.TrimSpace(p.AIProvider), "mock") {
-			niskavaOfflineVal = "1"
-		} else {
-			niskavaOfflineVal = "0"
-		}
-	}
 
 	pyBin := p.PythonBin
 	if pyBin == "" {
@@ -337,13 +329,13 @@ func SaveSetupConfiguration(p SetupParams) error {
 	if strings.EqualFold(strings.TrimSpace(p.SectorsKey), "mock") || strings.EqualFold(strings.TrimSpace(p.SectorsKey), "offline") {
 		cfg.Auth.SectorsAPIKey = ""
 		p.SectorsKey = ""
-		cfg.Preferences.OfflineMode = true
+		cfg.Preferences.OfflineMode = false
 	} else if p.SectorsKey != "" {
 		cfg.Auth.SectorsAPIKey = p.SectorsKey
 		cfg.Preferences.OfflineMode = false
 	} else {
 		p.SectorsKey = cfg.Auth.SectorsAPIKey
-		cfg.Preferences.OfflineMode = (strings.TrimSpace(cfg.Auth.SectorsAPIKey) == "")
+		cfg.Preferences.OfflineMode = false
 	}
 
 	if p.AIProvider != "" {
@@ -403,7 +395,7 @@ func TestLiveConnection(ctx context.Context, target, baseURL, apiKey string) (bo
 	target = strings.ToLower(strings.TrimSpace(target))
 	if target == "sectors" {
 		if apiKey == "" {
-			return true, "Offline mock mode active (no network ping needed)", 0
+			return false, "SECTORS_API_KEY is not configured", 0
 		}
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.sectors.app/v2/daily/BBCA/", nil)
 		if err != nil {
@@ -700,7 +692,7 @@ func RunInteractiveSetup() (err error) {
 		fmt.Println(wizardStepStyle.Render("Choose Action:"))
 		fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[1]"), "Change AI Inference Provider / Model (OpenRouter, Gemini, OpenAI, Ollama, etc.)")
 		fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[2]"), "Update API Credentials (Gemini Key, OpenAI/Router Key, Sectors Key)")
-		fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[3]"), "Toggle Sectors Live / Offline Mock Mode")
+		fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[3]"), "Update Sectors API Key")
 		fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[4]"), "Run Complete Setup Wizard")
 		fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[5]"), "Configure Telegram Bot (Token, Allowed Users, Auto-start)")
 		fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[6]"), "Exit / Keep Current Settings (or 'q' / Esc)")
@@ -732,26 +724,24 @@ func RunInteractiveSetup() (err error) {
 		}
 
 		if mainChoice == "3" {
-			// Quick Toggle Sectors mode
-			if currCfg.Preferences.OfflineMode || currCfg.Auth.SectorsAPIKey == "" {
-				fmt.Printf("\n  %s Enter Sectors API Key to enable Live Mode [ENTER to cancel]: ", wizardStepStyle.Render("►"))
-				rawSecKey, err := reader.ReadString('\n')
-				if err != nil || IsCancelInput(rawSecKey) {
-					continue
-				}
-				secKey := strings.TrimSpace(rawSecKey)
-				if secKey != "" {
-					currCfg.Auth.SectorsAPIKey = secKey
-					currCfg.Preferences.OfflineMode = false
-					_ = config.SaveConfig(currCfg)
-					fmt.Printf("  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Sectors Live API Mode enabled!"))
-				} else {
-					fmt.Printf("  %s %s\n\n", wizardWarnBadgeStyle.Render("⚠️"), wizardMutedStyle.Render("No key provided. Remaining in Offline Mock Mode."))
-				}
+			// Update Sectors API Key
+			fmt.Printf("\n  %s Enter new Sectors API Key (https://sectors.app) [ENTER to keep current, 'q'/Esc to cancel]: ",
+				wizardStepStyle.Render("►"))
+			rawSecKey, err := reader.ReadString('\n')
+			if err != nil || IsCancelInput(rawSecKey) {
+				continue
+			}
+			secKey := strings.TrimSpace(rawSecKey)
+			if secKey == "" {
+				fmt.Printf("  %s %s\n\n", wizardMutedStyle.Render("ℹ"), wizardMutedStyle.Render("Key unchanged."))
+			} else if strings.EqualFold(secKey, "mock") || strings.EqualFold(secKey, "offline") {
+				fmt.Printf("  %s %s\n\n", wizardWarnBadgeStyle.Render("⚠️"),
+					wizardMutedStyle.Render("'mock'/'offline' is not a valid key. Enter a real key from https://sectors.app"))
 			} else {
-				currCfg.Preferences.OfflineMode = true
+				currCfg.Auth.SectorsAPIKey = secKey
+				currCfg.Preferences.OfflineMode = false
 				_ = config.SaveConfig(currCfg)
-				fmt.Printf("  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Sectors Offline Mock Mode enabled (Law 5 Credit Conservation)."))
+				fmt.Printf("  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Sectors API Key updated. Live Mode active."))
 			}
 			continue
 		}
@@ -771,8 +761,8 @@ func RunInteractiveSetup() (err error) {
 				currCfg.Auth.OpenAIAPIKey = newOpenAI
 			}
 			if strings.EqualFold(newSectors, "mock") || strings.EqualFold(newSectors, "offline") {
-				currCfg.Auth.SectorsAPIKey = ""
-				currCfg.Preferences.OfflineMode = true
+				fmt.Printf("  %s %s\n\n", wizardWarnBadgeStyle.Render("⚠️"),
+					wizardMutedStyle.Render("'mock'/'offline' is not a valid key. Enter a real key from https://sectors.app"))
 			} else if newSectors != "" {
 				currCfg.Auth.SectorsAPIKey = newSectors
 				currCfg.Preferences.OfflineMode = false
@@ -1033,18 +1023,35 @@ func RunInteractiveSetup() (err error) {
 			return nil
 		}
 
-		// Step 2: Sectors Financial API Key (IDX)
+		// Step 2: Sectors Financial API Key (IDX) — REQUIRED
 		fmt.Println()
 		fmt.Println(wizardStepStyle.Render("Step 2: Sectors Financial API v2 (Indonesia Stock Exchange):"))
-		fmt.Println(wizardMutedStyle.Render("  (Get free key at https://sectors.app. Press ENTER to keep current or type 'mock' for Offline Mode)."))
-		sectorsKey = PromptWithDefault(reader, wizardStepStyle.Render("►")+" Sectors API Key [optional]", sectorsKey, true)
+		fmt.Println(wizardMutedStyle.Render("  Sectors API Key is REQUIRED to fetch real-time IDX market data."))
+		fmt.Println(wizardMutedStyle.Render("  ► Get your free key at: https://sectors.app"))
+		fmt.Println()
 
-		if strings.EqualFold(sectorsKey, "mock") || strings.EqualFold(sectorsKey, "offline") || sectorsKey == "" {
-			sectorsKey = ""
-			fmt.Printf("  %s WARNING: No Sectors API Key entered. Niskava will run in Mock Simulation mode (synthetic fixtures). For live IDX market data, obtain a key at https://sectors.app\n", wizardWarnBadgeStyle.Render("⚠️"))
-			fmt.Printf("  %s %s\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Offline Mock Mode enabled (Law 5: Credit Conservation). All financial data fixtures active."))
-		} else {
-			fmt.Printf("  %s %s\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Sectors Live API Mode configured."))
+		for {
+			sectorsKey = PromptWithDefault(reader, wizardStepStyle.Render("►")+" Sectors API Key [required, 'q'/Esc to cancel]", sectorsKey, true)
+
+			if IsCancelInput(sectorsKey) {
+				cancelWizard()
+			}
+
+			trimmed := strings.TrimSpace(sectorsKey)
+			if strings.EqualFold(trimmed, "mock") || strings.EqualFold(trimmed, "offline") {
+				fmt.Printf("  %s 'mock'/'offline' is not a valid key. Enter a real Sectors API key from https://sectors.app\n",
+					wizardWarnBadgeStyle.Render("⚠️"))
+				sectorsKey = ""
+				continue
+			}
+			if trimmed == "" {
+				fmt.Printf("  %s Sectors API Key cannot be empty. A valid key is required to access real IDX data.\n",
+					wizardWarnBadgeStyle.Render("⚠️"))
+				continue
+			}
+			sectorsKey = trimmed
+			fmt.Printf("  %s %s\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Sectors API Key configured."))
+			break
 		}
 
 		// Step 3: Live Verification Ping
@@ -1075,7 +1082,7 @@ func RunInteractiveSetup() (err error) {
 			} else {
 				fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("⚠️  NOTICE"), wizardMutedStyle.Render(secMsg))
 				if strings.Contains(secMsg, "401") {
-					fmt.Println(wizardMutedStyle.Render("    Note: Sectors API key returned HTTP 401 Unauthorized. Niskava will use Offline/Mock data until a valid key is provided."))
+					fmt.Println(wizardMutedStyle.Render("    Note: Sectors API key returned HTTP 401 Unauthorized. Please verify your API key at https://sectors.app"))
 				}
 			}
 		}
