@@ -17,7 +17,16 @@ import requests
 from engine.utils.resilience import RetryConfig, execute_with_retry
 
 
+class SectorsAPIError(Exception):
+    """Raised when Sectors Financial API request fails in online mode."""
+
+    def __init__(self, message: str, status_code: Optional[int] = None):
+        super().__init__(message)
+        self.status_code = status_code
+
+
 class SectorsAPIClient:
+
     """Client for Sectors Financial API v2 with transparent local SQLite caching."""
 
     BASE_URL = "https://api.sectors.app/v2"
@@ -132,23 +141,32 @@ class SectorsAPIClient:
         endpoint: str,
         params: Optional[Dict[str, Any]] = None,
         ttl_seconds: Optional[int] = None,
+        force_refresh: bool = False,
     ) -> Any:
         cache_key = self._generate_cache_key(endpoint, params)
-        cached = self._get_cache(cache_key)
-        if cached is not None:
-            return cached
+        if not force_refresh:
+            cached = self._get_cache(cache_key)
+            if cached is not None:
+                return cached
 
-        if self.mock_mode or not self.api_key:
+        # Mode mock HANYA aktif jika eksplisit diset mock_mode=True atau MOCK_SECTORS=1/NISKAVA_OFFLINE=1
+        if self.mock_mode:
             mock_data = self._generate_mock_data(endpoint, params)
             self._set_cache(cache_key, endpoint, mock_data, ttl_seconds)
             return mock_data
 
+        if not self.api_key:
+            raise SectorsAPIError(
+                "SECTORS_API_KEY belum dikonfigurasi. Silakan periksa file .env atau buka menu Pengaturan.",
+                status_code=401,
+            )
+
         try:
             url = f"{self.base_url}{endpoint}"
             cfg = RetryConfig(
-                max_retries=3,
-                initial_delay=1.0,
-                max_delay=8.0,
+                max_retries=2,
+                initial_delay=0.5,
+                max_delay=4.0,
                 backoff_factor=2.0,
                 jitter=True,
                 retryable_statuses={429, 500, 502, 503, 504},
@@ -161,10 +179,13 @@ class SectorsAPIClient:
             data = resp.json()
             self._set_cache(cache_key, endpoint, data, ttl_seconds)
             return data
-        except Exception:
-            mock_data = self._generate_mock_data(endpoint, params)
-            self._set_cache(cache_key, endpoint, mock_data, ttl_seconds)
-            return mock_data
+        except requests.exceptions.HTTPError as e:
+            status = e.response.status_code if e.response is not None else None
+            raise SectorsAPIError(f"Sectors API HTTP {status}: {e}", status_code=status) from e
+        except requests.exceptions.RequestException as e:
+            raise SectorsAPIError(f"Gagal terhubung ke Sectors API: {e}") from e
+        except Exception as e:
+            raise SectorsAPIError(f"Terjadi kesalahan saat memproses data Sectors API: {e}") from e
 
     @staticmethod
     def _normalize_list_response(raw: Any) -> List[Dict[str, Any]]:
@@ -180,7 +201,11 @@ class SectorsAPIClient:
         return []
 
     def get_daily_candles(
-        self, symbol: str, start: Optional[str] = None, end: Optional[str] = None
+        self,
+        symbol: str,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        force_refresh: bool = False,
     ) -> List[Dict[str, Any]]:
         """Retrieve daily OHLCV candlestick data."""
         endpoint = f"/daily/{symbol.upper()}/"
@@ -189,72 +214,76 @@ class SectorsAPIClient:
             params["start"] = start
         if end:
             params["end"] = end
-        # Historical candlestick data is permanently cached (ttl=None)
-        raw = self._request(endpoint, params, ttl_seconds=None)
+        # Historical candlestick data is cached; force_refresh bypasses cache
+        raw = self._request(endpoint, params, ttl_seconds=None, force_refresh=force_refresh)
         return self._normalize_list_response(raw)
 
     def get_company_report(
-        self, symbol: str, sections: str = "valuation,financials,peers"
+        self, symbol: str, sections: str = "valuation,financials,peers", force_refresh: bool = False
     ) -> Dict[str, Any]:
         """Fetch company fundamental report (cached for 24 hours)."""
         endpoint = f"/company/report/{symbol.upper()}/"
         params = {"sections": sections}
-        res = self._request(endpoint, params, ttl_seconds=86400)
+        res = self._request(endpoint, params, ttl_seconds=86400, force_refresh=force_refresh)
         return res if isinstance(res, dict) else {}
 
-    def get_foreign_flow(self, symbol: str) -> List[Dict[str, Any]]:
+    def get_foreign_flow(self, symbol: str, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Retrieve Foreign Flow Net Inflow data."""
         endpoint = f"/foreign-flow/{symbol.upper()}/"
-        raw = self._request(endpoint, ttl_seconds=86400)
+        raw = self._request(endpoint, ttl_seconds=86400, force_refresh=force_refresh)
         return self._normalize_list_response(raw)
 
-    def get_news(self, symbol: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_news(self, symbol: Optional[str] = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Fetch curated financial news."""
         endpoint = "/news/"
         params: Dict[str, Any] = {}
         if symbol:
             clean = symbol.upper()
             params = {"symbol": clean, "ticker": clean}
-        raw = self._request(endpoint, params, ttl_seconds=3600)
+        raw = self._request(endpoint, params, ttl_seconds=3600, force_refresh=force_refresh)
         return self._normalize_list_response(raw)
 
-    def get_suspensions(self, symbol: str) -> List[Dict[str, Any]]:
+    def get_suspensions(self, symbol: str, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Fetch exchange suspension and UMA notices with official PDF links."""
         endpoint = "/suspensions/"
         params = {"symbol": symbol.upper()}
-        raw = self._request(endpoint, params, ttl_seconds=86400)
+        raw = self._request(endpoint, params, ttl_seconds=86400, force_refresh=force_refresh)
         return self._normalize_list_response(raw)
 
-    def get_corporate_actions(self, symbol: str) -> List[Dict[str, Any]]:
+    def get_corporate_actions(self, symbol: str, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Fetch scheduled corporate actions (dividends, splits, rights issue)."""
         endpoint = f"/corporate-actions/{symbol.upper()}/"
-        raw = self._request(endpoint, ttl_seconds=86400)
+        raw = self._request(endpoint, ttl_seconds=86400, force_refresh=force_refresh)
         return self._normalize_list_response(raw)
 
-    def get_filings(self, symbol: str) -> List[Dict[str, Any]]:
+    def get_filings(self, symbol: str, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Fetch insider trading and substantial shareholder filings."""
         endpoint = "/filings/"
         params = {"symbol": symbol.upper()}
-        raw = self._request(endpoint, params, ttl_seconds=86400)
+        raw = self._request(endpoint, params, ttl_seconds=86400, force_refresh=force_refresh)
         return self._normalize_list_response(raw)
 
-    def get_broker_summary(self, symbol: str) -> Dict[str, Any]:
+    def get_broker_summary(self, symbol: str, force_refresh: bool = False) -> Dict[str, Any]:
         """Fetch top broker accumulation and distribution summary."""
         endpoint = f"/broker-summary-top/{symbol.upper()}/"
-        return self._request(endpoint, ttl_seconds=86400)
+        return self._request(endpoint, ttl_seconds=86400, force_refresh=force_refresh)
 
-    def get_subsector_peers(self, subsector: str) -> Dict[str, Any]:
+    def get_subsector_peers(self, subsector: str, force_refresh: bool = False) -> Dict[str, Any]:
         """Fetch industrial subsector peers and valuation benchmarks."""
         endpoint = f"/subsector/{subsector.lower()}/"
-        return self._request(endpoint, ttl_seconds=604800)
+        return self._request(endpoint, ttl_seconds=604800, force_refresh=force_refresh)
 
-    def get_mining_detail(self, slug: str) -> Dict[str, Any]:
+    def get_mining_detail(self, slug: str, force_refresh: bool = False) -> Dict[str, Any]:
         """Fetch operational mining concession and smelter details."""
         endpoint = f"/mining-company-detail/{slug.lower()}/"
-        return self._request(endpoint, ttl_seconds=2592000)
+        return self._request(endpoint, ttl_seconds=2592000, force_refresh=force_refresh)
 
     def get_commodity_price(
-        self, commodity: str, start_year: Optional[int] = None, end_year: Optional[int] = None
+        self,
+        commodity: str,
+        start_year: Optional[int] = None,
+        end_year: Optional[int] = None,
+        force_refresh: bool = False,
     ) -> List[Dict[str, Any]]:
         """Fetch historical commodity spot benchmark prices (e.g. nickel, coal, gold)."""
         endpoint = f"/commodity-price/{commodity.lower()}/"
@@ -263,25 +292,107 @@ class SectorsAPIClient:
             params["start_year"] = start_year
         if end_year:
             params["end_year"] = end_year
-        return self._request(endpoint, params, ttl_seconds=604800)
+        return self._request(endpoint, params, ttl_seconds=604800, force_refresh=force_refresh)
 
     def get_quarterly_financials(
-        self, symbol: str, report_date: Optional[str] = None
+        self, symbol: str, report_date: Optional[str] = None, force_refresh: bool = False
     ) -> List[Dict[str, Any]]:
         """Fetch quarterly financial reports and balance sheet line items."""
         endpoint = f"/quarterly-financials/{symbol.upper()}/"
         params = {"report_date": report_date} if report_date else {}
-        return self._request(endpoint, params, ttl_seconds=2592000)
+        return self._request(endpoint, params, ttl_seconds=2592000, force_refresh=force_refresh)
 
-    def get_broker_registry(self) -> List[Dict[str, Any]]:
+    def get_broker_registry(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Fetch IDX broker directory with domicile (foreign/domestic) and cohort (retail/institution)."""
         endpoint = "/broker-registry/"
-        return self._request(endpoint, ttl_seconds=2592000)
+        return self._request(endpoint, ttl_seconds=2592000, force_refresh=force_refresh)
 
-    def get_subsectors(self) -> List[Dict[str, Any]]:
+    def get_subsectors(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Fetch complete list of official IDX sectors and subsectors."""
         endpoint = "/subsectors/"
-        return self._request(endpoint, ttl_seconds=2592000)
+        return self._request(endpoint, ttl_seconds=2592000, force_refresh=force_refresh)
+
+    def get_top_changes(
+        self,
+        classification: str = "top_gainers",
+        period: str = "1d",
+        n_stock: int = 5,
+        force_refresh: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """Fetch extreme market changes (top gainers or top losers) over specified period.
+
+        Sectors API v2 official endpoint: /v2/companies/top-changes/
+        Query params: classifications (top_gainers|top_losers), periods (1d|7d|14d|30d|365d), n_stock (1-10)
+
+        Args:
+            classification: 'top_gainers' or 'top_losers'.
+            period: Duration window ('1d', '7d', '14d', '30d', '365d').
+            n_stock: Number of stocks (default 5, max 10).
+            force_refresh: Bypass SQLite cache if True.
+        """
+        endpoint = "/companies/top-changes/"
+        clean_cls = "top_losers" if "loser" in classification.lower() else "top_gainers"
+        valid_periods = {"1d", "7d", "14d", "30d", "365d"}
+        clean_period = period.lower() if period.lower() in valid_periods else "1d"
+        clean_n = max(1, min(10, int(n_stock)))
+
+        params = {
+            "classifications": clean_cls,
+            "periods": clean_period,
+            "n_stock": clean_n,
+        }
+        # 15 minutes TTL for real-time market action
+        raw = self._request(endpoint, params, ttl_seconds=900, force_refresh=force_refresh)
+
+        # Unpack nested dict response: {"top_gainers": {"1d": [...]}}
+        if isinstance(raw, dict):
+            if clean_cls in raw and isinstance(raw[clean_cls], dict):
+                items = raw[clean_cls].get(clean_period, [])
+                if isinstance(items, list):
+                    return self._normalize_list_response(items)
+            # Fallback if raw is already a list or directly contains results
+            for k in ("results", "data"):
+                if k in raw and isinstance(raw[k], list):
+                    return self._normalize_list_response(raw[k])
+
+        return self._normalize_list_response(raw)
+
+    def get_most_traded(
+        self,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        n_stock: int = 5,
+        force_refresh: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """Fetch the most actively traded stocks by volume/turnover on the exchange.
+
+        Sectors API v2 official endpoint: /v2/most-traded/
+        Returns either a list of stock objects or a dict keyed by date (e.g. {"2026-09-30": [...]}).
+
+        Args:
+            start: Start date YYYY-MM-DD (optional).
+            end: End date YYYY-MM-DD (optional).
+            n_stock: Number of top stocks to return (default 5).
+            force_refresh: Bypass SQLite cache if True.
+        """
+        endpoint = "/most-traded/"
+        clean_n = max(1, int(n_stock))
+        params: Dict[str, Any] = {"n_stock": clean_n}
+        if start:
+            params["start"] = start
+        if end:
+            params["end"] = end
+        # 1 hour TTL
+        raw = self._request(endpoint, params, ttl_seconds=3600, force_refresh=force_refresh)
+
+        # If response is a dict keyed by date (e.g. {"2026-09-30": [...]}), extract the latest date list
+        if isinstance(raw, dict):
+            dates = sorted(raw.keys(), reverse=True)
+            for d in dates:
+                if isinstance(raw[d], list) and raw[d]:
+                    return self._normalize_list_response(raw[d])
+
+        return self._normalize_list_response(raw)
 
     def _generate_mock_data(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Any:
         """Generate realistic mock data fixtures for offline development and CI tests."""
@@ -539,6 +650,41 @@ class SectorsAPIClient:
                 {"sector": "Infrastructure", "subsector": "telecommunications"},
                 {"sector": "Infrastructure", "subsector": "transportation-infrastructure"},
                 {"sector": "Transportation & Logistics", "subsector": "logistics-and-deliveries"},
+            ]
+
+        if "/top-changes/" in endpoint or "/companies/top-changes/" in endpoint:
+            cls_param = (params or {}).get("classifications") or (params or {}).get("classification") or "top_gainers"
+            clean_cls = "top_losers" if "loser" in str(cls_param).lower() else "top_gainers"
+            period_param = (params or {}).get("periods") or (params or {}).get("period") or "1d"
+            clean_period = str(period_param).lower()
+
+            losers_1d = [
+                {"name": "Fortune Indonesia Tbk", "symbol": "FORU.JK", "price_change": -0.145, "last_close_price": 224, "latest_close_date": "2026-09-30"},
+                {"name": "PT GoTo Gojek Tokopedia Tbk", "symbol": "GOTO.JK", "price_change": -0.135, "last_close_price": 32, "latest_close_date": "2026-09-30"},
+                {"name": "PT Transcoal Pacific Tbk", "symbol": "TCPI.JK", "price_change": -0.101, "last_close_price": 1550, "latest_close_date": "2026-09-30"},
+                {"name": "PT MNC Digital Entertainment Tbk", "symbol": "MSIN.JK", "price_change": -0.097, "last_close_price": 186, "latest_close_date": "2026-09-30"},
+                {"name": "PT Bank KB Indonesia Tbk", "symbol": "BBKP.JK", "price_change": -0.071, "last_close_price": 39, "latest_close_date": "2026-09-30"},
+            ]
+            gainers_1d = [
+                {"name": "Bank of India Indonesia Tbk", "symbol": "BSWD.JK", "price_change": 0.246, "last_close_price": 2880, "latest_close_date": "2026-09-30"},
+                {"name": "PT Sinar Mas Agro Resources and Technology Tbk", "symbol": "SMAR.JK", "price_change": 0.12, "last_close_price": 7700, "latest_close_date": "2026-09-30"},
+                {"name": "Metropolitan Land Tbk", "symbol": "MTLA.JK", "price_change": 0.104, "last_close_price": 740, "latest_close_date": "2026-09-30"},
+                {"name": "United Tractors Tbk", "symbol": "UNTR.JK", "price_change": 0.075, "last_close_price": 27075, "latest_close_date": "2026-09-30"},
+                {"name": "PT Jhonlin Agro Raya Tbk", "symbol": "JARR.JK", "price_change": 0.068, "last_close_price": 3580, "latest_close_date": "2026-09-30"},
+            ]
+
+            return {
+                "top_gainers": {clean_period: gainers_1d},
+                "top_losers": {clean_period: losers_1d},
+            }
+
+        if "/most-traded/" in endpoint:
+            return [
+                {"symbol": "BBRI", "company_name": "Bank Rakyat Indonesia Tbk", "volume": 1_450_000_000, "turnover": 725_000_000_000, "price": 5000},
+                {"symbol": "BBCA", "company_name": "Bank Central Asia Tbk", "volume": 890_000_000, "turnover": 910_000_000_000, "price": 10225},
+                {"symbol": "BMRI", "company_name": "Bank Mandiri Tbk", "volume": 680_000_000, "turnover": 490_000_000_000, "price": 7200},
+                {"symbol": "ANTM", "company_name": "Aneka Tambang Tbk", "volume": 450_000_000, "turnover": 724_500_000_000, "price": 1610},
+                {"symbol": "ASII", "company_name": "Astra International Tbk", "volume": 310_000_000, "turnover": 155_000_000_000, "price": 5000},
             ]
 
         return {"status": "ok", "mock": True}

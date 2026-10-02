@@ -27,7 +27,6 @@ Niskava Agent combines the low-latency systems capabilities of Go, the scientifi
 │  - Autonomous ReAct Agent Loop (Reasoning + Action)             │
 │  - Local Associative Graph Memory (NetworkX + SQLite)           │
 │  - Temporal Precedence & Causality Inference Engine             │
-│                                                                 │
 │  [Layer 3: Modular Skills Registry (Domain SOP Modules)]        │
 │  - Market Anomaly Reconnaissance (`market_anomaly_recon`)       │
 │  - Event Causality Audit (`event_causality_audit`)              │
@@ -35,15 +34,16 @@ Niskava Agent combines the low-latency systems capabilities of Go, the scientifi
 │  - Financial Health Stress Testing (`financial_health_stress`)  │
 │  - Commodity Divergence (`mining_commodity_divergence`)         │
 │  - Peer Valuation Benchmark (`peer_valuation_benchmark`)       │
+│  - PDF Audit Trail Exporter (`investigation_report_pdf`)        │
 │                                                                 │
 │  [Layer 2: Deterministic Compute Gate (NumPy Firewall)]         │
 │  - Volume Z-Scores, Abnormal Returns, Sector Divergence         │
 │  - Foreign Inflow Z-Scores, Altman Z-Score Ratios               │
 │                                                                 │
-│  [Layer 1: MCP & News Data Primitives]                         │
+│  [Layer 1: Sectors MCP & News Engine Primitives]                │
 │  - Sectors Financial API v2 MCP Server Adapter                  │
-│  - Dual-Engine Targeted News Harvest (Sectors News + Google RSS Dorks) │
-│  - Content Extraction & HTML Sanitization via Trafilatura       │
+│  - Curated Sectors News & Corporate Filings Engine              │
+│  - Content Sanitization via Trafilatura (<evidence_context>)    │
 └────────────────────────────────┬────────────────────────────────┘
                                  │
                                  ▼
@@ -143,11 +143,10 @@ Whenever a ticker investigation is initiated (e.g., `niskava investigate ANTM --
    - Generates structured search dork queries combining the company name, ticker, and exchange-specific disclosure terminology.
 
 5. **Stage 5: NEWS_HARVEST**
-   - Executes parallel Dual-Engine intelligence harvesting:
-     - **Curated News:** Fetches categorized market news from Sectors v2 Unified News API (`/v2/news/`).
-     - **Targeted Media Dorking:** Queries Google News RSS with boolean operators for major Indonesian financial media (Kontan, Bisnis Indonesia, CNBC Indonesia, Investor Daily, IDXnet disclosures).
+   - Retrieves curated news, corporate actions, and regulatory filings directly from Sectors Financial API v2 (`/v2/news/` and `/v2/corporate-actions/`).
+   - Filters contemporaneous intelligence strictly within the anomaly observation window ($T_{\text{anomaly}} \pm 2\text{ days}$).
    - Sanitizes and extracts article text using `trafilatura`.
-   - Wraps content in strict boundary delimiters (`<evidence_context>`) to neutralize prompt injection attacks from untrusted external web pages.
+   - Wraps content in strict boundary delimiters (`<evidence_context>`) to neutralize prompt injection attacks from untrusted external text.
 
 6. **Stage 6: EVIDENCE_CORRELATION**
    - Performs temporal sequence verification:
@@ -160,6 +159,7 @@ Whenever a ticker investigation is initiated (e.g., `niskava investigate ANTM --
    - Synthesizes findings, event timelines, and narrative conclusions.
    - Persists all results to local SQLite database tables (`investigations`, `findings`, `timeline_events`, `evidence_sources`).
    - Streams progress and structured findings via JSON-Lines over IPC to Go Core for real-time SSE delivery.
+   - **Optional On-Demand PDF Report Export**: When requested by the user, triggers `investigation_report_pdf` to compile an institutional-grade PDF research dossier directly to `~/.niskava/reports/` with immediate download links served on Web and CLI.
 
 ---
 

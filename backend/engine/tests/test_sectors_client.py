@@ -153,3 +153,50 @@ def test_sqlite_caching_law_5(client, tmp_path):
     # Second call: served directly from cache
     cached_candles = client.get_daily_candles("ANTM")
     assert len(cached_candles) == 30
+
+
+def test_sectors_api_error_raised_in_online_mode(tmp_path):
+    """Verify that in online mode (mock_mode=False), HTTP errors raise SectorsAPIError instead of returning mock data."""
+    db_file = str(tmp_path / "test_sectors_live.db")
+    live_client = SectorsAPIClient(
+        db_path=db_file,
+        api_key="invalid-test-key",
+        mock_mode=False,
+        base_url="https://127.0.0.1:9999",  # unreachable endpoint
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        live_client.get_company_report("ANTM")
+
+    # In online mode, it must raise SectorsAPIError and NOT return mock data silently
+    assert "SectorsAPIError" in type(exc_info.value).__name__
+
+
+def test_force_refresh_bypasses_cache(client, monkeypatch):
+    """Verify that force_refresh=True forces a fresh request and updates cache."""
+    # First call: populates cache
+    initial = client.get_daily_candles("ANTM")
+    assert len(initial) == 30
+
+    # Spy or count _request calls
+    call_count = 0
+    original_generate = client._generate_mock_data
+
+    def counting_generate(endpoint, params=None):
+        nonlocal call_count
+        call_count += 1
+        return original_generate(endpoint, params)
+
+    monkeypatch.setattr(client, "_generate_mock_data", counting_generate)
+
+    # Calling without force_refresh uses cache (no new mock_data generation)
+    cached = client.get_daily_candles("ANTM", force_refresh=False)
+    assert len(cached) == 30
+    assert call_count == 0
+
+    # Calling with force_refresh=True bypasses cache
+    refreshed = client.get_daily_candles("ANTM", force_refresh=True)
+    assert len(refreshed) == 30
+    assert call_count == 1
+
+

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -228,6 +229,26 @@ func TestTestConnectionEndpoint(t *testing.T) {
 	_ = json.NewDecoder(resp2.Body).Decode(&data)
 	if data["success"] != true {
 		t.Errorf("expected success true in offline mode, got %+v", data)
+	}
+	msg, _ := data["message"].(string)
+	if !strings.Contains(msg, "[MOCK MODE]") {
+		t.Errorf("expected [MOCK MODE] in message, got %s", msg)
+	}
+
+	// 3. Anthropic target in offline mode
+	resp3, err := http.Post(srv.URL+"/api/settings/test-connection", "application/json", strings.NewReader(`{"target":"anthropic","api_key":"sk-ant-test"}`))
+	if err != nil {
+		t.Fatalf("POST test-connection anthropic failed: %v", err)
+	}
+	defer resp3.Body.Close()
+	var data3 map[string]interface{}
+	_ = json.NewDecoder(resp3.Body).Decode(&data3)
+	if data3["success"] != true {
+		t.Errorf("expected success true in offline mode for anthropic, got %+v", data3)
+	}
+	msg3, _ := data3["message"].(string)
+	if !strings.Contains(msg3, "[MOCK MODE]") {
+		t.Errorf("expected [MOCK MODE] in anthropic message, got %s", msg3)
 	}
 }
 
@@ -989,6 +1010,23 @@ func TestSystemEndpoints(t *testing.T) {
 	if clean["status"] != "ok" {
 		t.Errorf("expected clean status 'ok', got %v", clean["status"])
 	}
+
+	// 4. POST /api/system/cache/clean?all=1 (Flush all cache)
+	resp4, err := http.Post(srv.URL+"/api/system/cache/clean?all=1", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST /api/system/cache/clean?all=1 failed: %v", err)
+	}
+	defer resp4.Body.Close()
+	if resp4.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp4.StatusCode)
+	}
+	var cleanAll map[string]interface{}
+	if err := json.NewDecoder(resp4.Body).Decode(&cleanAll); err != nil {
+		t.Fatalf("failed to decode clean all response: %v", err)
+	}
+	if cleanAll["flushed_all"] != true {
+		t.Errorf("expected flushed_all true, got %v", cleanAll["flushed_all"])
+	}
 }
 
 func TestDynamicSettingsAndSubprocessEnv(t *testing.T) {
@@ -1107,5 +1145,125 @@ func TestSettingsLLMTimeoutPatch(t *testing.T) {
 	srv.cfgMu.RUnlock()
 	if got != 90.0 {
 		t.Errorf("expected Config.Preferences.LLMTimeoutSecs=90.0, got %v", got)
+	}
+}
+
+func TestReportDownloadEndpoint(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	srv, err := Start(ctx, 0, nil, config.DefaultConfig())
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	// Create a temporary dummy report file in ~/.niskava/reports/
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("failed to get user home dir: %v", err)
+	}
+	reportsDir := filepath.Join(homeDir, ".niskava", "reports")
+	_ = os.MkdirAll(reportsDir, 0755)
+
+	testFilename := "NISKAVA_TEST_REPORT_DOWNLOAD.pdf"
+	testFilePath := filepath.Join(reportsDir, testFilename)
+	dummyContent := []byte("%PDF-1.4 dummy test content")
+	if err := os.WriteFile(testFilePath, dummyContent, 0644); err != nil {
+		t.Fatalf("failed to write dummy PDF: %v", err)
+	}
+	defer os.Remove(testFilePath)
+
+	// 1. Success case: download valid NISKAVA_*.pdf
+	resp, err := http.Get(srv.URL + "/api/reports/" + testFilename)
+	if err != nil {
+		t.Fatalf("GET /api/reports failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "application/pdf" {
+		t.Errorf("expected Content-Type application/pdf, got %s", ct)
+	}
+	if cd := resp.Header.Get("Content-Disposition"); !strings.Contains(cd, "attachment") {
+		t.Errorf("expected Content-Disposition attachment, got %s", cd)
+	}
+
+	// 2. Reject non-NISKAVA prefix
+	respBad, err := http.Get(srv.URL + "/api/reports/other_file.pdf")
+	if err == nil {
+		defer respBad.Body.Close()
+		if respBad.StatusCode != http.StatusBadRequest {
+			t.Errorf("expected 400 Bad Request for non-NISKAVA file, got %d", respBad.StatusCode)
+		}
+	}
+
+	// 3. Reject non-pdf extension
+	respExt, err := http.Get(srv.URL + "/api/reports/NISKAVA_file.txt")
+	if err == nil {
+		defer respExt.Body.Close()
+		if respExt.StatusCode != http.StatusBadRequest {
+			t.Errorf("expected 400 Bad Request for non-PDF file, got %d", respExt.StatusCode)
+		}
+	}
+
+	// 4. Return 404 for non-existent file
+	resp404, err := http.Get(srv.URL + "/api/reports/NISKAVA_NONEXISTENT_99999.pdf")
+	if err == nil {
+		defer resp404.Body.Close()
+		if resp404.StatusCode != http.StatusNotFound {
+			t.Errorf("expected 404 Not Found, got %d", resp404.StatusCode)
+		}
+	}
+}
+
+func TestChatBackgroundExecutionSurvivesClientDisconnect(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_disconnect.db")
+	database, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open test db: %v", err)
+	}
+	defer database.Close()
+
+	srv := NewServer(0, &config.Config{
+		Preferences: config.PreferencesConfig{OfflineMode: true},
+	}, database)
+
+	sessionID := "TEST-DISCONNECT-001"
+	_ = database.CreateChatSession(&db.ChatSession{
+		ID:     sessionID,
+		Title:  "Test Disconnect",
+		Model:  "hermes",
+		Status: "IDLE",
+	})
+
+	// Register with an independent execution context
+	execCtx, cancelExec := context.WithCancel(context.Background())
+	defer cancelExec()
+	registered := srv.SessionManager.Register(sessionID, cancelExec)
+	if !registered {
+		t.Fatalf("expected session to register successfully")
+	}
+
+	// Verify session is active
+	if !srv.SessionManager.IsBusy(sessionID) {
+		t.Fatalf("expected session to be busy")
+	}
+
+	// Simulate client aborting explicitly
+	aborted := srv.SessionManager.Abort(sessionID)
+	if !aborted {
+		t.Fatalf("expected session to be aborted on explicit command")
+	}
+
+	select {
+	case <-execCtx.Done():
+		// Success: explicit abort canceled the execution context
+	default:
+		t.Fatalf("expected execution context to be canceled on abort")
 	}
 }

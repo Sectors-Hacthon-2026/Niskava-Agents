@@ -719,10 +719,18 @@ func (d *DB) ListChatSessions(limit, offset int, search string) ([]ChatSession, 
 		args        []interface{}
 	)
 	trimmed := strings.TrimSpace(search)
+	// Always filter out ghost sessions that have no messages and no preview.
+	// These are created by /new or /reset commands before any user interaction.
+	nonEmptyFilter := "(message_count > 0 OR (last_message_preview IS NOT NULL AND last_message_preview != ''))"
 	if trimmed != "" {
-		whereClause = "WHERE title LIKE ? OR last_message_preview LIKE ? OR id LIKE ?"
+		whereClause = fmt.Sprintf(
+			"WHERE %s AND (title LIKE ? OR last_message_preview LIKE ? OR id LIKE ?)",
+			nonEmptyFilter,
+		)
 		pattern := "%" + trimmed + "%"
 		args = append(args, pattern, pattern, pattern)
+	} else {
+		whereClause = "WHERE " + nonEmptyFilter
 	}
 
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM chat_sessions %s", whereClause)
@@ -873,6 +881,38 @@ func (d *DB) DeleteChatSession(id string) error {
 	rowsAffected, _ := res.RowsAffected()
 	if rowsAffected == 0 {
 		return fmt.Errorf("chat session %s not found", id)
+	}
+
+	return tx.Commit()
+}
+
+// DeleteInvestigation permanently removes an investigation session and its anomalies/findings.
+func (d *DB) DeleteInvestigation(id string) error {
+	tx, err := d.conn.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("DELETE FROM anomalies WHERE investigation_id = ?", id); err != nil {
+		return fmt.Errorf("failed to delete anomalies for investigation %s: %w", id, err)
+	}
+	if _, err := tx.Exec("DELETE FROM evidence_items WHERE finding_id IN (SELECT id FROM findings WHERE investigation_id = ?)", id); err != nil {
+		return fmt.Errorf("failed to delete evidence items for investigation %s: %w", id, err)
+	}
+	if _, err := tx.Exec("DELETE FROM findings WHERE investigation_id = ?", id); err != nil {
+		return fmt.Errorf("failed to delete findings for investigation %s: %w", id, err)
+	}
+	if _, err := tx.Exec("DELETE FROM timeline_events WHERE investigation_id = ?", id); err != nil {
+		return fmt.Errorf("failed to delete timeline events for investigation %s: %w", id, err)
+	}
+	res, err := tx.Exec("DELETE FROM investigations WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("failed to delete investigation %s: %w", id, err)
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("investigation %s not found", id)
 	}
 
 	return tx.Commit()
@@ -1521,9 +1561,10 @@ func (d *DB) ResetTelegramChatSession(chatID int64, userID int64, username strin
 	now := time.Now().UTC().Format(time.RFC3339)
 	newSessionID := fmt.Sprintf("TELE-%s-%04d", time.Now().Format("20060102"), time.Now().UnixNano()%10000)
 
-	sessionTitle := "Sesi Telegram"
+	timestamp := time.Now().Format("02 Jan 15:04:05")
+	sessionTitle := fmt.Sprintf("Telegram · %s", timestamp)
 	if username != "" {
-		sessionTitle = fmt.Sprintf("Telegram (@%s)", username)
+		sessionTitle = fmt.Sprintf("Telegram (@%s) · %s", username, timestamp)
 	}
 
 	sess := &ChatSession{
@@ -1626,6 +1667,15 @@ func (d *DB) CleanExpiredCache() (int64, error) {
 	res, err := d.conn.Exec(`DELETE FROM sectors_cache WHERE expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP`)
 	if err != nil {
 		return 0, fmt.Errorf("failed to clean expired cache: %w", err)
+	}
+	return res.RowsAffected()
+}
+
+// FlushAllSectorsCache clears all entries from sectors_cache to guarantee 100% fresh real-time data.
+func (d *DB) FlushAllSectorsCache() (int64, error) {
+	res, err := d.conn.Exec(`DELETE FROM sectors_cache`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to flush sectors cache: %w", err)
 	}
 	return res.RowsAffected()
 }

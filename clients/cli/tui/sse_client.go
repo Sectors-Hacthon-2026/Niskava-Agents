@@ -157,5 +157,8 @@ func parseSSEReader(r io.Reader) []ipc.Event {
 			}
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		_ = err // Ignore or log scanner error
+	}
 	return events
 }

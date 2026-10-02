@@ -163,7 +163,7 @@ Re-install Python 3.11+ from [python.org](https://www.python.org/downloads/) and
 
 ---
 
-### Issue 4: Sectors API Rate Limits or Credit Depletion (`429 Too Many Requests`)
+### Issue 6: Sectors API Rate Limits or Credit Depletion (`429 Too Many Requests`)
 **Symptoms:**
 Requests to the Sectors Financial API fail with HTTP status code 429.
 
@@ -183,7 +183,7 @@ Under **Law 5 (Credit Budget Discipline)**, Niskava actively protects your Secto
 
 ---
 
-### Issue 5: Port Binding Conflict on Web Workspace Server
+### Issue 7: Port Binding Conflict on Web Workspace Server
 **Symptoms:**
 Starting the web workspace yields:
 ```text
@@ -206,6 +206,62 @@ Error: listen tcp 127.0.0.1:20128: bind: address already in use
      netstat -ano | findstr :20128
      Stop-Process -Id <PID> -Force
      ```
+
+---
+
+### Issue 8: NPX / NPM Launcher Issues & Binary Download Failures
+**Symptoms:**
+When running `npx @zyrexnns/niskava-agent` or `niskava`, one of the following occurs:
+1. `HTTP Download failed with status 404 / 403` or network timeout during binary download.
+2. `Downloaded binary is incomplete or truncated`.
+3. `Error: Niskava native executable could not be acquired`.
+4. `permission denied` or `EACCES` when attempting to install globally via `npm install -g`.
+
+**Diagnostic Steps & Resolutions:**
+
+1. **GitHub Releases Network Connectivity:**
+   The NPM wrapper downloads platform-specific Go binaries from:
+   `https://github.com/Sectors-Hacthon-2026/Niskava-Agents/releases`.
+   If you are behind a corporate proxy or restricted network:
+   - Check if you can download the release asset directly in your browser or via curl:
+     ```bash
+     curl -I -L https://github.com/Sectors-Hacthon-2026/Niskava-Agents/releases
+     ```
+   - Alternatively, install Go 1.22+ on your machine. The NPM launcher will automatically detect `go` on your host and compile the native binary on-the-fly into `~/.niskava/bin/`!
+
+2. **Resolving `EACCES` Permission Denied on Global Install:**
+   Avoid running `sudo npm install -g` if your system Node directory is owned by root.
+   Instead, use `npx` directly (no global install needed):
+   ```bash
+   npx @zyrexnns/niskava-agent setup
+   npx @zyrexnns/niskava-agent
+   ```
+   Or configure npm to use a user-space directory:
+   ```bash
+   mkdir -p ~/.npm-global
+   npm config set prefix '~/.npm-global'
+   export PATH=~/.npm-global/bin:$PATH
+   npm install -g @zyrexnns/niskava-agent
+   ```
+
+3. **Clearing Corrupted Binary Cache:**
+   If a download was interrupted (causing `truncated binary` error):
+   - **Linux / macOS:**
+     ```bash
+     rm -rf ~/.niskava/bin
+     ```
+   - **Windows (PowerShell):**
+     ```powershell
+     Remove-Item -Recurse -Force "$HOME\.niskava\bin"
+     ```
+   Then re-run `npx @zyrexnns/niskava-agent doctor` to trigger a fresh download.
+
+4. **Python Detection via NPX Launcher:**
+   If the launcher warns that `Python 3.11+ was not detected on PATH`:
+   - On Linux (Ubuntu/Debian): `sudo apt install python3 python3-venv python3-pip`
+   - On macOS: `brew install python@3.12`
+   - On Windows: `winget install Python.Python.3.12` (ensure "Add to PATH" is checked)
+   - You can also explicitly set `export NISKAVA_PYTHON_BIN="/path/to/python3"` in your shell.
 
 ---
 

@@ -182,14 +182,23 @@ niskava investigate <TICKER> [flags]
 
 #### Flags Khusus:
 * `-i, --interactive`: Menjalankan audit lalu **langsung membuka Live REPL** yang terfokus pada emiten target.
-* `--days <n>`: Rentang hari analisis historis ke belakang (default: `30`).
+* `-d, --days <n>`: Rentang hari analisis historis ke belakang (`30`, `60`, atau `90`, default: `30`).
+* `-f, --export-format <md|json|pdf>`: Format ekspor dossier audit hasil investigasi (`md`, `json`, atau `pdf`).
+* `-o, --export-out <path>`: Path tujuan berkas laporan ekspor (contoh: `./ANTM_Report.pdf` atau `./laporan.md`).
 * `--offline`: Menjalankan investigasi menggunakan data lokal *cached* tanpa mengurangi kuota API (Law 5).
-* `--py-bin <path>`: Menentukan biner Python khusus untuk proses runner.
+* `--python-bin <path>`: Menentukan path biner Python khusus untuk proses engine.
+* `--engine-path <path>`: Menentukan direktori Python engine khusus.
 
 #### Contoh Penggunaan:
 ```bash
 # Investigasi default 30 hari untuk saham ANTM
 niskava investigate ANTM
+
+# Investigasi saham ANTM dan langsung mengekspor laporan resmi ke format PDF
+niskava investigate ANTM --days 30 --export-format pdf
+
+# Ekspor PDF dengan path dan nama berkas khusus
+niskava investigate BBRI --export-format pdf --export-out ~/Documents/Audit_BBRI.pdf
 
 # Investigasi saham ANTM dan langsung membuka Live REPL interaktif
 niskava investigate ANTM -i

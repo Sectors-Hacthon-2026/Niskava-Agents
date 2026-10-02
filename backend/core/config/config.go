@@ -116,7 +116,7 @@ func DefaultConfig() *Config {
 		Preferences: PreferencesConfig{
 			DefaultMarket:  "IDX",
 			OfflineMode:    false,
-			Language:       "en",
+			Language:       "id",
 			LLMTimeoutSecs: 60.0,
 		},
 		Memory: MemoryConfig{
@@ -295,7 +295,7 @@ func Load(customConfigPath string) (*Config, error) {
 	if val := os.Getenv("NISKAVA_TELEGRAM_ENABLED"); val == "1" || strings.ToLower(val) == "true" {
 		cfg.Telegram.Enabled = true
 	}
-	if val := os.Getenv("NISKAVA_TELEGRAM_ALLOWED_USERS"); val != "" {
+	if val, ok := os.LookupEnv("NISKAVA_TELEGRAM_ALLOWED_USERS"); ok {
 		parts := strings.Split(val, ",")
 		var cleaned []string
 		for _, p := range parts {
@@ -303,9 +303,7 @@ func Load(customConfigPath string) (*Config, error) {
 				cleaned = append(cleaned, trimmed)
 			}
 		}
-		if len(cleaned) > 0 {
-			cfg.Telegram.AllowedUsers = cleaned
-		}
+		cfg.Telegram.AllowedUsers = cleaned
 	}
 
 	return cfg, nil
@@ -393,77 +391,47 @@ func (c *Config) MaskedView() ConfigView {
 	}
 }
 
-// SaveDotEnv persists the configuration as .env key-value pairs to the destination path (default ~/.niskava/.env).
-// This serves as the primary Single Source of Truth (SSoT) across CLI, Web, and Python Engine.
-func SaveDotEnv(cfg *Config, targetPath ...string) error {
-	dest := ""
-	if len(targetPath) > 0 && targetPath[0] != "" {
-		dest = targetPath[0]
-	} else {
-		if flag.Lookup("test.v") != nil {
-			return nil
-		}
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("failed to get user home dir: %w", err)
-		}
-		dest = filepath.Join(homeDir, ".niskava", ".env")
+// FullView returns the full configuration view with unmasked secrets for local client UI.
+func (c *Config) FullView() ConfigView {
+	return ConfigView{
+		Auth: AuthView{
+			AIProvider:      c.Auth.AIProvider,
+			SectorsAPIKey:   c.Auth.SectorsAPIKey,
+			HasSectorsKey:   c.Auth.SectorsAPIKey != "",
+			SectorsBaseURL:  c.Auth.SectorsBaseURL,
+			GeminiAPIKey:    c.Auth.GeminiAPIKey,
+			HasGeminiKey:    c.Auth.GeminiAPIKey != "",
+			GeminiModel:     c.Auth.GeminiModel,
+			OpenAIAPIKey:    c.Auth.OpenAIAPIKey,
+			HasOpenAIKey:    c.Auth.OpenAIAPIKey != "",
+			OpenAIBaseURL:   c.Auth.OpenAIBaseURL,
+			OpenAIModel:     c.Auth.OpenAIModel,
+			AnthropicAPIKey: c.Auth.AnthropicAPIKey,
+			HasAnthropicKey: c.Auth.AnthropicAPIKey != "",
+			OllamaBaseURL:   c.Auth.OllamaBaseURL,
+			OllamaModel:     c.Auth.OllamaModel,
+		},
+		Storage:     c.Storage,
+		Engine:      c.Engine,
+		Server:      c.Server,
+		Preferences: c.Preferences,
+		Memory:      c.Memory,
+		Telegram: TelegramView{
+			BotToken:     c.Telegram.BotToken,
+			HasToken:     c.Telegram.BotToken != "",
+			Enabled:      c.Telegram.Enabled,
+			AllowedUsers: c.Telegram.AllowedUsers,
+		},
 	}
+}
 
+// writeDotEnvFile persists key-value pairs into a specific .env file preserving comments and structure.
+func writeDotEnvFile(dest string, envMap map[string]string) error {
 	dest = ExpandHome(dest)
 	if err := os.MkdirAll(filepath.Dir(dest), 0700); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	// Prepare mapping of all environment variables from cfg
-	envMap := make(map[string]string)
-	envMap["AI_PROVIDER"] = cfg.Auth.AIProvider
-	envMap["OPENAI_BASE_URL"] = cfg.Auth.OpenAIBaseURL
-	envMap["OPENAI_API_KEY"] = cfg.Auth.OpenAIAPIKey
-	envMap["OPENAI_MODEL"] = cfg.Auth.OpenAIModel
-	envMap["GEMINI_API_KEY"] = cfg.Auth.GeminiAPIKey
-	envMap["GEMINI_MODEL"] = cfg.Auth.GeminiModel
-	envMap["SECTORS_API_KEY"] = cfg.Auth.SectorsAPIKey
-	envMap["SECTORS_BASE_URL"] = cfg.Auth.SectorsBaseURL
-	envMap["ANTHROPIC_API_KEY"] = cfg.Auth.AnthropicAPIKey
-	envMap["OLLAMA_BASE_URL"] = cfg.Auth.OllamaBaseURL
-	envMap["OLLAMA_MODEL"] = cfg.Auth.OllamaModel
-	envMap["NISKAVA_DB_PATH"] = cfg.Storage.DBPath
-	envMap["NISKAVA_PYTHON_BIN"] = cfg.Engine.PythonBin
-	envMap["NISKAVA_ENGINE_PATH"] = cfg.Engine.EnginePath
-	envMap["NISKAVA_DEFAULT_MARKET"] = cfg.Preferences.DefaultMarket
-	envMap["NISKAVA_PORT"] = strconv.Itoa(cfg.Server.Port)
-	envMap["NISKAVA_LANG"] = cfg.Preferences.Language
-	timeoutVal := cfg.Preferences.LLMTimeoutSecs
-	if timeoutVal <= 0 {
-		timeoutVal = 60.0
-	}
-	if timeoutVal < 10.0 {
-		timeoutVal = 10.0
-	}
-	if timeoutVal > 300.0 {
-		timeoutVal = 300.0
-	}
-	envMap["NISKAVA_LLM_TIMEOUT"] = fmt.Sprintf("%.2f", timeoutVal)
-	if cfg.Preferences.OfflineMode {
-		envMap["NISKAVA_OFFLINE"] = "1"
-	} else {
-		envMap["NISKAVA_OFFLINE"] = "0"
-	}
-	envMap["NISKAVA_TELEGRAM_TOKEN"] = cfg.Telegram.BotToken
-	if cfg.Telegram.Enabled {
-		envMap["NISKAVA_TELEGRAM_ENABLED"] = "1"
-	} else {
-		envMap["NISKAVA_TELEGRAM_ENABLED"] = "0"
-	}
-	envMap["NISKAVA_TELEGRAM_ALLOWED_USERS"] = strings.Join(cfg.Telegram.AllowedUsers, ",")
-
-	// Also update current process environment so in-memory state is synchronized
-	for k, v := range envMap {
-		_ = os.Setenv(k, v)
-	}
-
-	// Read existing file if present to preserve structure/comments
 	existingContent, err := os.ReadFile(dest)
 	var outputLines []string
 	updatedKeys := make(map[string]bool)
@@ -519,6 +487,91 @@ func SaveDotEnv(cfg *Config, targetPath ...string) error {
 	}
 
 	return os.WriteFile(dest, []byte(content), 0600)
+}
+
+// SaveDotEnv persists the configuration as .env key-value pairs to the destination path (default ~/.niskava/.env).
+// It also performs dual-synchronization to local ./.env if present in the current working directory.
+func SaveDotEnv(cfg *Config, targetPath ...string) error {
+	dest := ""
+	if len(targetPath) > 0 && targetPath[0] != "" {
+		dest = targetPath[0]
+	} else {
+		if flag.Lookup("test.v") != nil {
+			return nil
+		}
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get user home dir: %w", err)
+		}
+		dest = filepath.Join(homeDir, ".niskava", ".env")
+	}
+
+	// Prepare mapping of all environment variables from cfg
+	envMap := make(map[string]string)
+	envMap["AI_PROVIDER"] = cfg.Auth.AIProvider
+	envMap["OPENAI_BASE_URL"] = cfg.Auth.OpenAIBaseURL
+	envMap["OPENAI_API_KEY"] = cfg.Auth.OpenAIAPIKey
+	envMap["OPENAI_MODEL"] = cfg.Auth.OpenAIModel
+	envMap["GEMINI_API_KEY"] = cfg.Auth.GeminiAPIKey
+	envMap["GEMINI_MODEL"] = cfg.Auth.GeminiModel
+	envMap["SECTORS_API_KEY"] = cfg.Auth.SectorsAPIKey
+	envMap["SECTORS_BASE_URL"] = cfg.Auth.SectorsBaseURL
+	envMap["ANTHROPIC_API_KEY"] = cfg.Auth.AnthropicAPIKey
+	envMap["OLLAMA_BASE_URL"] = cfg.Auth.OllamaBaseURL
+	envMap["OLLAMA_MODEL"] = cfg.Auth.OllamaModel
+	envMap["NISKAVA_DB_PATH"] = cfg.Storage.DBPath
+	envMap["NISKAVA_PYTHON_BIN"] = cfg.Engine.PythonBin
+	envMap["NISKAVA_ENGINE_PATH"] = cfg.Engine.EnginePath
+	envMap["NISKAVA_DEFAULT_MARKET"] = cfg.Preferences.DefaultMarket
+	envMap["NISKAVA_PORT"] = strconv.Itoa(cfg.Server.Port)
+	envMap["NISKAVA_LANG"] = cfg.Preferences.Language
+	timeoutVal := cfg.Preferences.LLMTimeoutSecs
+	if timeoutVal <= 0 {
+		timeoutVal = 60.0
+	}
+	if timeoutVal < 10.0 {
+		timeoutVal = 10.0
+	}
+	if timeoutVal > 300.0 {
+		timeoutVal = 300.0
+	}
+	envMap["NISKAVA_LLM_TIMEOUT"] = fmt.Sprintf("%.2f", timeoutVal)
+	if cfg.Preferences.OfflineMode {
+		envMap["NISKAVA_OFFLINE"] = "1"
+	} else {
+		envMap["NISKAVA_OFFLINE"] = "0"
+	}
+	envMap["NISKAVA_TELEGRAM_TOKEN"] = cfg.Telegram.BotToken
+	if cfg.Telegram.Enabled {
+		envMap["NISKAVA_TELEGRAM_ENABLED"] = "1"
+	} else {
+		envMap["NISKAVA_TELEGRAM_ENABLED"] = "0"
+	}
+	envMap["NISKAVA_TELEGRAM_ALLOWED_USERS"] = strings.Join(cfg.Telegram.AllowedUsers, ",")
+
+	// Also update current process environment so in-memory state is synchronized
+	for k, v := range envMap {
+		_ = os.Setenv(k, v)
+	}
+
+	// 1. Primary write to dest
+	if err := writeDotEnvFile(dest, envMap); err != nil {
+		return err
+	}
+
+	// 2. Dual-sync to local ./.env if present in current working directory and different from dest
+	if wd, err := os.Getwd(); err == nil {
+		localEnv := filepath.Join(wd, ".env")
+		cleanDest := filepath.Clean(ExpandHome(dest))
+		cleanLocal := filepath.Clean(localEnv)
+		if cleanLocal != cleanDest {
+			if _, statErr := os.Stat(localEnv); statErr == nil {
+				_ = writeDotEnvFile(localEnv, envMap)
+			}
+		}
+	}
+
+	return nil
 }
 
 // SaveConfig persists configuration to the specified destination.
@@ -588,6 +641,10 @@ func (c *Config) BuildSubprocessEnv() map[string]string {
 	}
 	if c.Preferences.OfflineMode {
 		env["NISKAVA_OFFLINE"] = "1"
+		env["MOCK_SECTORS"] = "1"
+	} else {
+		env["NISKAVA_OFFLINE"] = "0"
+		env["MOCK_SECTORS"] = "0"
 	}
 	if c.Preferences.DefaultMarket != "" {
 		env["DEFAULT_MARKET"] = c.Preferences.DefaultMarket

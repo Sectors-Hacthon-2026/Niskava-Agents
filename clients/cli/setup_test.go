@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
 )
 
 func TestBuildEnvContent_MockMode(t *testing.T) {
@@ -167,5 +170,52 @@ func TestGetLaunchCommandHint(t *testing.T) {
 	hintInRepo := getLaunchCommandHint(wd)
 	if !strings.Contains(hintInRepo, "cmd/niskava") && !strings.Contains(hintInRepo, "bin/niskava") {
 		t.Errorf("expected repo-specific command in repo, got '%s'", hintInRepo)
+	}
+}
+
+func TestMaskAPIKey(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"", "(not configured)"},
+		{"short", "••••"},
+		{"sk-1234567890abcdef", "sk-12••••cdef"},
+		{"AIzaSyBx1234567890987654321", "AIzaSy••••4321"},
+	}
+
+	for _, tt := range tests {
+		got := MaskAPIKey(tt.input)
+		if got != tt.expected {
+			t.Errorf("MaskAPIKey(%q) = %q, want %q", tt.input, got, tt.expected)
+		}
+	}
+}
+
+func TestPromptWithDefaultPreservesExistingOnEnter(t *testing.T) {
+	input := "\n" // User simply pressed ENTER
+	reader := bufio.NewReader(strings.NewReader(input))
+	result := PromptWithDefault(reader, "Enter Key", "existing-secret-key", true)
+	if result != "existing-secret-key" {
+		t.Errorf("expected existing key preserved, got %q", result)
+	}
+}
+
+func TestRenderConfigurationDashboard(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Auth.AIProvider = "gemini"
+	cfg.Auth.GeminiModel = "gemini-2.5-flash"
+	cfg.Auth.GeminiAPIKey = "AIzaSyTest1234567890"
+	cfg.Auth.SectorsAPIKey = "sec_test_1234567890"
+
+	dashboard := RenderConfigurationDashboard(cfg)
+	if !strings.Contains(dashboard, "gemini") {
+		t.Errorf("expected dashboard to contain provider 'gemini', got:\n%s", dashboard)
+	}
+	if !strings.Contains(dashboard, "gemini-2.5-flash") {
+		t.Errorf("expected dashboard to contain model 'gemini-2.5-flash', got:\n%s", dashboard)
+	}
+	if !strings.Contains(dashboard, "AIzaSy••••7890") {
+		t.Errorf("expected dashboard to contain masked Gemini key, got:\n%s", dashboard)
 	}
 }

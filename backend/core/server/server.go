@@ -208,21 +208,27 @@ type UpdateSettingsRequest struct {
 	} `json:"telegram"`
 }
 
-// Start launches the background HTTP server on the specified port (or auto-finds free port).
-func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.Config) (*Server, error) {
-	mux := http.NewServeMux()
-
+// NewServer constructs a new Server instance with initialized SessionManager.
+func NewServer(requestedPort int, cfg *config.Config, database *db.DB) *Server {
 	activeCfg := cfg
 	if activeCfg == nil {
 		activeCfg = config.DefaultConfig()
 	}
 
-	s := &Server{
+	return &Server{
 		Port:           requestedPort,
 		DB:             database,
 		SessionManager: NewSessionManager(),
 		Config:         activeCfg,
 	}
+}
+
+// Start launches the background HTTP server on the specified port (or auto-finds free port).
+func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.Config) (*Server, error) {
+	mux := http.NewServeMux()
+
+	s := NewServer(requestedPort, cfg, database)
+	activeCfg := s.Config
 
 	if activeCfg.Telegram.Enabled && strings.TrimSpace(activeCfg.Telegram.BotToken) != "" {
 		if botSvc, err := telegram.NewBotService(s.Config, s.DB, s.SessionManager); err == nil {
@@ -279,6 +285,10 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 		}
 
 		if r.Method == http.MethodGet {
+			if r.URL.Query().Get("reveal") == "true" || r.URL.Query().Get("reveal") == "1" {
+				sendJSON(w, http.StatusOK, activeCfg.FullView())
+				return
+			}
 			sendJSON(w, http.StatusOK, activeCfg.MaskedView())
 			return
 		}
@@ -413,7 +423,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			}
 
 			_ = config.SaveConfig(s.Config, s.ConfigPath)
+			_ = config.SaveDotEnv(s.Config)
 			view := s.Config.MaskedView()
+			if r.URL.Query().Get("reveal") == "true" || r.URL.Query().Get("reveal") == "1" {
+				view = s.Config.FullView()
+			}
 			s.cfgMu.Unlock()
 
 			if telegramUpdated {
@@ -486,12 +500,12 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			}
 			if cfg.Preferences.OfflineMode || os.Getenv("MOCK_SECTORS") == "1" {
 				resp.Success = true
-				resp.Message = "Sectors mock mode active (offline testing)"
+				resp.Message = "[MOCK MODE] Sectors mock mode aktif (simulasi data lokal)"
 				break
 			}
 
 			client := &http.Client{Timeout: 5 * time.Second}
-			httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://api.sectors.app/v2/daily/BBCA/?format=json", nil)
+			httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://api.sectors.app/v2/daily/BBCA/", nil)
 			if err != nil {
 				resp.Success = false
 				resp.Message = fmt.Sprintf("Failed to build request: %v", err)
@@ -554,7 +568,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			}
 			if cfg.Preferences.OfflineMode {
 				resp.Success = true
-				resp.Message = "Offline mode active (mock verification)"
+				resp.Message = "[MOCK MODE] Offline mode active (mock verification)"
 				break
 			}
 			client := &http.Client{Timeout: 5 * time.Second}
@@ -589,7 +603,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			baseURL = strings.TrimRight(baseURL, "/")
 			if cfg.Preferences.OfflineMode {
 				resp.Success = true
-				resp.Message = "Offline mode active (mock verification)"
+				resp.Message = "[MOCK MODE] Offline mode active (mock verification)"
 				break
 			}
 			client := &http.Client{Timeout: 5 * time.Second}
@@ -627,8 +641,37 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				resp.Message = "Anthropic API key is not configured"
 				break
 			}
-			resp.Success = true
-			resp.Message = "Anthropic key format verified"
+			if cfg.Preferences.OfflineMode {
+				resp.Success = true
+				resp.Message = "[MOCK MODE] Offline mode active (mock verification)"
+				break
+			}
+			client := &http.Client{Timeout: 5 * time.Second}
+			httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://api.anthropic.com/v1/models", nil)
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Failed to build request: %v", err)
+				break
+			}
+			httpReq.Header.Set("x-api-key", key)
+			httpReq.Header.Set("anthropic-version", "2023-06-01")
+			httpResp, err := client.Do(httpReq)
+			if err != nil {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Connection failed: %v", err)
+				break
+			}
+			defer httpResp.Body.Close()
+			if httpResp.StatusCode == http.StatusOK {
+				resp.Success = true
+				resp.Message = "Anthropic API key verified successfully"
+			} else if httpResp.StatusCode == http.StatusUnauthorized || httpResp.StatusCode == http.StatusForbidden {
+				resp.Success = false
+				resp.Message = "Invalid Anthropic API key (Unauthorized)"
+			} else {
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Anthropic API returned HTTP %d", httpResp.StatusCode)
+			}
 		}
 
 		resp.LatencyMs = time.Since(start).Milliseconds()
@@ -647,9 +690,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			var enabled bool
 			var hasToken bool
 			var allowedUsers []string
+			var botToken string
 			if cfg != nil {
 				enabled = cfg.Telegram.Enabled
 				hasToken = strings.TrimSpace(cfg.Telegram.BotToken) != ""
+				botToken = cfg.Telegram.BotToken
 				allowedUsers = cfg.Telegram.AllowedUsers
 			}
 			s.cfgMu.RUnlock()
@@ -679,6 +724,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				"enabled":       enabled,
 				"allowed_users": allowedUsers,
 				"has_token":     hasToken,
+				"bot_token":     botToken,
 			})
 			return
 		}
@@ -983,9 +1029,34 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			}
 		}
 
+		homeDir, _ := os.UserHomeDir()
+		dotEnvPath := filepath.Join(homeDir, ".niskava", ".env")
+
+		s.cfgMu.RLock()
+		activeCfg := s.Config
+		s.cfgMu.RUnlock()
+
+		aiProv := "gemini"
+		isOffline := false
+		if activeCfg != nil {
+			if activeCfg.Auth.AIProvider != "" {
+				aiProv = activeCfg.Auth.AIProvider
+			}
+			isOffline = activeCfg.Preferences.OfflineMode || os.Getenv("MOCK_SECTORS") == "1"
+		}
+
+		username := os.Getenv("USER")
+		if username == "" {
+			username = os.Getenv("USERNAME")
+		}
+		if username == "" {
+			username = "Analyst"
+		}
+
 		sendJSON(w, http.StatusOK, map[string]interface{}{
 			"status":              "OK",
 			"app":                 "Niskava Agent",
+			"username":            username,
 			"go_version":          runtime.Version(),
 			"os":                  runtime.GOOS,
 			"arch":                runtime.GOARCH,
@@ -993,6 +1064,10 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			"database_path":       dbPath,
 			"database_size_bytes": dbSizeBytes,
 			"total_sessions":      totalSessions,
+			"config_path":         s.ConfigPath,
+			"dotenv_path":         dotEnvPath,
+			"ai_provider":         aiProv,
+			"offline_mode":        isOffline,
 			"timestamp":           time.Now().UTC().Format(time.RFC3339),
 		})
 	})
@@ -1011,15 +1086,25 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			return
 		}
 
-		cleaned, err := database.CleanExpiredCache()
+		flushAll := r.URL.Query().Get("all") == "1" || r.URL.Query().Get("all") == "true"
+		var cleaned int64
+		var err error
+
+		if flushAll {
+			cleaned, err = database.FlushAllSectorsCache()
+		} else {
+			cleaned, err = database.CleanExpiredCache()
+		}
+
 		if err != nil {
-			http.Error(w, fmt.Sprintf(`{"error": "failed to clean expired cache: %v"}`, err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf(`{"error": "failed to clean cache: %v"}`, err), http.StatusInternalServerError)
 			return
 		}
 
 		sendJSON(w, http.StatusOK, map[string]interface{}{
 			"status":          "ok",
 			"cleaned_entries": cleaned,
+			"flushed_all":     flushAll,
 			"timestamp":       time.Now().UTC().Format(time.RFC3339),
 		})
 	})
@@ -1334,7 +1419,8 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				if len(timeStr) > 19 {
 					timeStr = strings.Replace(timeStr[:19], "T", " ", 1)
 				}
-				if msg.Role == "user" {
+				role := strings.ToLower(strings.TrimSpace(msg.Role))
+				if role == "user" || role == "human" {
 					md.WriteString(fmt.Sprintf("### 👤 Pengguna (Turn %d) — *%s*\n\n", (idx/2)+1, timeStr))
 					md.WriteString(fmt.Sprintf("%s\n\n", msg.Content))
 				} else {
@@ -1486,6 +1572,51 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			"total": len(sessions),
 			"data":  sessions,
 		})
+	})
+
+	// PDF Report Download endpoint — serves locally-generated audit PDFs to browser
+	mux.HandleFunc("/api/reports/", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Extract filename from URL path: /api/reports/{filename}
+		filename := strings.TrimPrefix(r.URL.Path, "/api/reports/")
+		filename = filepath.Base(filename) // sanitize: prevent path traversal
+
+		// Validate filename: must be a Niskava PDF report
+		if !strings.HasPrefix(filename, "NISKAVA_") || !strings.HasSuffix(filename, ".pdf") {
+			http.Error(w, `{"error": "invalid report filename"}`, http.StatusBadRequest)
+			return
+		}
+
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			http.Error(w, `{"error": "cannot resolve home directory"}`, http.StatusInternalServerError)
+			return
+		}
+		reportsDir := filepath.Join(homeDir, ".niskava", "reports")
+		filePath := filepath.Join(reportsDir, filename)
+
+		// Security: ensure resolved path is still inside reportsDir (path traversal guard)
+		resolvedPath, err := filepath.Abs(filePath)
+		if err != nil || !strings.HasPrefix(resolvedPath, reportsDir) {
+			http.Error(w, `{"error": "access denied"}`, http.StatusForbidden)
+			return
+		}
+
+		if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
+			http.Error(w, `{"error": "report not found"}`, http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/pdf")
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+		http.ServeFile(w, r, resolvedPath)
 	})
 
 	// 5. Chat History endpoint (backward compatible)
@@ -1640,15 +1771,19 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 		_ = rc.SetWriteDeadline(time.Time{})
 		_ = rc.SetReadDeadline(time.Time{})
 
-		// Create cancellable context for this chat execution
-		chatCtx, cancelChat := context.WithCancel(r.Context())
-		defer cancelChat()
+		// Execution context is decoupled from client HTTP connection (r.Context()).
+		// This ensures that browser refresh (TCP pipe drop) does NOT kill the Python subprocess,
+		// allowing research to finish and persist to SQLite (Zero Wasted Tokens & Law 5 compliance).
+		execCtx, cancelExec := context.WithCancel(context.Background())
+		defer cancelExec()
 
-		if !s.SessionManager.Register(sessionID, cancelChat) {
+		if !s.SessionManager.Register(sessionID, cancelExec) {
 			http.Error(w, `{"error": "session is currently busy"}`, http.StatusConflict)
 			return
 		}
 		defer s.SessionManager.Unregister(sessionID)
+
+		clientDone := r.Context().Done()
 
 		defer func() {
 			if database != nil {
@@ -1706,26 +1841,36 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			EnvOverrides: s.buildSubprocessEnv(),
 		}
 
-		eventsChan, errChan := ipc.RunSubprocess(chatCtx, runnerParams)
+		eventsChan, errChan := ipc.RunSubprocess(execCtx, runnerParams)
 
 		// Periodic keep-alive comment to prevent proxy/socket timeouts during long multi-tool LLM turns
 		keepAliveTicker := time.NewTicker(15 * time.Second)
 		defer keepAliveTicker.Stop()
 
 		var assistantResponse strings.Builder
-		wasAborted := false
+		clientDisconnected := false
 
 		for {
 			select {
 			case <-keepAliveTicker.C:
 				// SSE comment line: keep-alive (ignored by event parsers, prevents socket idle death)
-				fmt.Fprintf(w, ": keep-alive\n\n")
-				flusher.Flush()
+				if !clientDisconnected {
+					fmt.Fprintf(w, ": keep-alive\n\n")
+					flusher.Flush()
+				}
 
-			case <-chatCtx.Done():
-				wasAborted = true
-				fmt.Fprintf(w, "event: session_error\ndata: {\"error\": \"execution aborted by user or context cancelled\"}\n\n")
-				flusher.Flush()
+			case <-clientDone:
+				if !clientDisconnected {
+					clientDisconnected = true
+					clientDone = nil // Disables this case in select to prevent busy spin
+				}
+
+			case <-execCtx.Done():
+				// Explicit abort triggered via /api/chat/sessions/{id}/abort or shutdown
+				if !clientDisconnected {
+					fmt.Fprintf(w, "event: session_error\ndata: {\"error\": \"execution aborted by user\"}\n\n")
+					flusher.Flush()
+				}
 				if database != nil && assistantResponse.Len() > 0 {
 					_ = database.SaveChatMessage(&db.ChatMessage{
 						ID:        fmt.Sprintf("MSG-%d", time.Now().UnixNano()),
@@ -1743,14 +1888,16 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 					errChan = nil
 					continue
 				}
-				if err != nil && !wasAborted {
-					errPayload, _ := json.Marshal(map[string]interface{}{
-						"event":      "session_error",
-						"session_id": sessionID,
-						"error":      err.Error(),
-					})
-					fmt.Fprintf(w, "event: session_error\ndata: %s\n\n", errPayload)
-					flusher.Flush()
+				if err != nil {
+					if !clientDisconnected {
+						errPayload, _ := json.Marshal(map[string]interface{}{
+							"event":      "session_error",
+							"session_id": sessionID,
+							"error":      err.Error(),
+						})
+						fmt.Fprintf(w, "event: session_error\ndata: %s\n\n", errPayload)
+						flusher.Flush()
+					}
 
 					if database != nil && assistantResponse.Len() > 0 {
 						_ = database.SaveChatMessage(&db.ChatMessage{
@@ -1767,9 +1914,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 
 			case ev, ok := <-eventsChan:
 				if !ok {
-					// Complete
-					fmt.Fprintf(w, "event: done\ndata: {\"session_id\": \"%s\"}\n\n", sessionID)
-					flusher.Flush()
+					// Subprocess finished completely
+					if !clientDisconnected {
+						fmt.Fprintf(w, "event: done\ndata: {\"session_id\": \"%s\"}\n\n", sessionID)
+						flusher.Flush()
+					}
 
 					// Save assistant response
 					if database != nil && assistantResponse.Len() > 0 {
@@ -1790,9 +1939,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 					assistantResponse.WriteString(ev.Chunk)
 				}
 
-				dataBytes, _ := json.Marshal(ev)
-				fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.Event, string(dataBytes))
-				flusher.Flush()
+				if !clientDisconnected {
+					dataBytes, _ := json.Marshal(ev)
+					fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.Event, string(dataBytes))
+					flusher.Flush()
+				}
 			}
 		}
 	})

@@ -20,11 +20,16 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/term"
 )
 
 // ReplBackSentinel is the sentinel return value from RunLiveREPL when the user requests returning to launcher.
 const ReplBackSentinel = "__back__"
 const replBackSentinel = ReplBackSentinel
+
+// ReplSetupSentinel is the sentinel return value from RunLiveREPL when the user requests launching setup wizard.
+const ReplSetupSentinel = "__setup__"
+const replSetupSentinel = ReplSetupSentinel
 
 var (
 	// Terminal Color Styles (Binance Dark Financial Intelligence Aesthetic)
@@ -81,6 +86,109 @@ type SlashCommand struct {
 	Command     string
 	Category    string
 	Description string
+	FormatHint  string
+}
+
+var isCompactMode = false
+
+// RenderSOPBadge renders a styled visual pill badge for SOP execution tools.
+func RenderSOPBadge(toolName string) string {
+	sopMap := map[string]string{
+		"market_anomaly_recon":        "SOP-01",
+		"event_causality_audit":       "SOP-02",
+		"insider_bandarmology":        "SOP-03",
+		"financial_health_stress":     "SOP-04",
+		"mining_commodity_divergence": "SOP-05",
+		"peer_valuation_benchmark":    "SOP-06",
+	}
+
+	sopID, isSOP := sopMap[toolName]
+	if isSOP {
+		badgeText := fmt.Sprintf("🛠️ %s: %s", sopID, toolName)
+		return lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#00F0FF")).
+			Background(lipgloss.Color("#0B192C")).
+			Padding(0, 1).
+			Render(badgeText)
+	}
+
+	if toolName == "quant_gate" || toolName == "compute_quant_anomalies" {
+		return lipgloss.NewStyle().
+			Bold(true).
+			Foreground(ColorSuccess).
+			Render(fmt.Sprintf("📊 NUMPY: %s", toolName))
+	}
+
+	if strings.Contains(toolName, "news") || strings.Contains(toolName, "disclosure") {
+		return lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#E066FF")).
+			Render(fmt.Sprintf("📰 NEWS: %s", toolName))
+	}
+
+	if strings.Contains(toolName, "memory") || strings.Contains(toolName, "graph") {
+		return lipgloss.NewStyle().
+			Bold(true).
+			Foreground(ColorWarning).
+			Render(fmt.Sprintf("🔍 MEMORY: %s", toolName))
+	}
+
+	return toolCallStyle.Render(fmt.Sprintf("⚡ TOOL: %s", toolName))
+}
+
+// RenderConfidenceBar renders a visual progress mini-bar representing discrete confidence scores.
+func RenderConfidenceBar(verificationStat string, score float64) string {
+	if score < 0 {
+		score = 0
+	} else if score > 1.0 {
+		score = 1.0
+	}
+	totalBlocks := 10
+	filled := int(score*float64(totalBlocks) + 0.5)
+	if filled > totalBlocks {
+		filled = totalBlocks
+	}
+	empty := totalBlocks - filled
+
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", empty)
+	pct := int(score * 100)
+
+	badge := supportedBadgeStyle.Render("[SUPPORTED]")
+	barStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess)
+
+	switch verificationStat {
+	case "UNCERTAIN":
+		badge = uncertainBadgeStyle.Render("[UNCERTAIN]")
+		barStyle = lipgloss.NewStyle().Bold(true).Foreground(ColorWarning)
+	case "CONTRADICTED":
+		badge = contradictedBadgeStyle.Render("[CONTRADICTED]")
+		barStyle = lipgloss.NewStyle().Bold(true).Foreground(ColorDanger)
+	}
+
+	return fmt.Sprintf("%s %s %d%%", badge, barStyle.Render(bar), pct)
+}
+
+func replaceIgnoreCase(src, target, replacement string) string {
+	if target == "" {
+		return src
+	}
+	srcLower := strings.ToLower(src)
+	targetLower := strings.ToLower(target)
+	var sb strings.Builder
+	start := 0
+	for {
+		idx := strings.Index(srcLower[start:], targetLower)
+		if idx == -1 {
+			sb.WriteString(src[start:])
+			break
+		}
+		matchPos := start + idx
+		sb.WriteString(src[start:matchPos])
+		sb.WriteString(replacement)
+		start = matchPos + len(target)
+	}
+	return sb.String()
 }
 
 // ParseTimeoutCommand parses "/timeout <arg>" and returns the resolved timeout in seconds.
@@ -113,26 +221,67 @@ func ParseTimeoutCommand(input string) (float64, bool) {
 	return secs, true
 }
 
-func getDefaultSlashCommands() []SlashCommand {
-	return GetLocalizedSlashCommands()
-}
-
 // ReplInputModel is the Bubbletea interactive text input model with OpenCode-style slash popup and prompt history navigation.
 type ReplInputModel struct {
-	TextInput        textinput.Model
-	PromptPrefix     string
-	SlashCommands    []SlashCommand
-	FilteredCommands []SlashCommand
-	SlashCursor      int
-	SlashActive      bool
-	SubmittedValue   string
-	Quitting         bool
-	LastExitTime     time.Time
-	ExitWarning      bool
-	History          []string
-	HistoryIndex     int
-	DraftValue       string
-	NavigatingHist   bool
+	TextInput         textinput.Model
+	PromptPrefix      string
+	SlashCommands     []SlashCommand
+	FilteredCommands  []SlashCommand
+	SlashCursor       int
+	SlashScrollOffset int
+	SlashActive       bool
+	SubmittedValue    string
+	Quitting          bool
+	LastExitTime      time.Time
+	ExitWarning       bool
+	History           []string
+	HistoryIndex      int
+	DraftValue        string
+	NavigatingHist    bool
+	ActiveToast       string
+	ToastTime         time.Time
+	ModelLabel        string
+	ServerURL         string
+	SessionID         string
+	DBPath            string
+	Width             int
+	Height            int
+}
+
+// RenderToastPill renders a non-blocking styled floating notification toast badge bounded by width.
+func RenderToastPill(message string, overrideWidth ...int) string {
+	if strings.TrimSpace(message) == "" {
+		return ""
+	}
+	w := GetTermWidth()
+	if len(overrideWidth) > 0 && overrideWidth[0] > 0 {
+		w = overrideWidth[0]
+	}
+	boxW := w - 4
+	if boxW > w-2 {
+		boxW = w - 2
+	}
+	if boxW < 16 {
+		boxW = max(10, w-2)
+	}
+
+	contentW := boxW - 4
+	if contentW < 10 {
+		contentW = 10
+	}
+
+	msgTruncated := Truncate(message, contentW)
+
+	toastStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ColorBg).
+		Background(ColorAccent).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(ColorAccent).
+		Width(boxW).
+		Padding(0, 1)
+
+	return toastStyle.Render(msgTruncated)
 }
 
 // NewReplInputModel initializes the interactive REPL prompt input.
@@ -142,10 +291,28 @@ func NewReplInputModel(promptPrefix string) ReplInputModel {
 
 // NewReplInputModelWithHistory initializes prompt input with existing prompt history.
 func NewReplInputModelWithHistory(promptPrefix string, history []string) ReplInputModel {
+	return NewReplInputModelWithParams(promptPrefix, history, "", "", "", "")
+}
+
+// NewReplInputModelWithParams initializes prompt input with session context for dynamic resize re-rendering.
+func NewReplInputModelWithParams(promptPrefix string, history []string, modelLabel, serverURL, sessionID, dbPath string) ReplInputModel {
+	w := GetTermWidth()
+	h := GetTermHeight()
+
+	if w < 50 {
+		promptPrefix = "niskava >"
+	}
+
 	ti := textinput.New()
 	ti.Prompt = promptBoxStyle.Render(promptPrefix + " ")
 	ti.Placeholder = T("prompt_placeholder")
 	ti.Focus()
+
+	inputW := w - len(promptPrefix) - 3
+	if inputW < 15 {
+		inputW = 15
+	}
+	ti.Width = inputW
 
 	cmds := GetLocalizedSlashCommands()
 	return ReplInputModel{
@@ -155,6 +322,12 @@ func NewReplInputModelWithHistory(promptPrefix string, history []string) ReplInp
 		FilteredCommands: cmds,
 		History:          history,
 		HistoryIndex:     len(history),
+		ModelLabel:       modelLabel,
+		ServerURL:        serverURL,
+		SessionID:        sessionID,
+		DBPath:           dbPath,
+		Width:            w,
+		Height:           h,
 	}
 }
 
@@ -166,6 +339,29 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		widthChanged := m.Width > 0 && m.Width != msg.Width
+		m.Width = msg.Width
+		m.Height = msg.Height
+		if msg.Width < 50 {
+			m.PromptPrefix = "niskava >"
+		} else if m.ModelLabel != "" {
+			m.PromptPrefix = fmt.Sprintf("niskava [%s] >", m.ModelLabel)
+		}
+		m.TextInput.Prompt = promptBoxStyle.Render(m.PromptPrefix + " ")
+
+		inputW := msg.Width - len(m.PromptPrefix) - 3
+		if inputW < 15 {
+			inputW = 15
+		}
+		m.TextInput.Width = inputW
+
+		if widthChanged && m.ModelLabel != "" {
+			fmt.Print("\033[H\033[2J")
+			renderBanner(m.ModelLabel, m.ServerURL, m.SessionID, m.DBPath)
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
@@ -199,10 +395,20 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyUp:
 			if m.SlashActive && len(m.FilteredCommands) > 0 {
+				maxVisible := 5
 				if m.SlashCursor > 0 {
 					m.SlashCursor--
 				} else {
 					m.SlashCursor = len(m.FilteredCommands) - 1
+					if len(m.FilteredCommands) > maxVisible {
+						m.SlashScrollOffset = len(m.FilteredCommands) - maxVisible
+					} else {
+						m.SlashScrollOffset = 0
+					}
+					return m, nil
+				}
+				if m.SlashCursor < m.SlashScrollOffset {
+					m.SlashScrollOffset = m.SlashCursor
 				}
 				return m, nil
 			}
@@ -223,10 +429,16 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyDown:
 			if m.SlashActive && len(m.FilteredCommands) > 0 {
+				maxVisible := 5
 				if m.SlashCursor < len(m.FilteredCommands)-1 {
 					m.SlashCursor++
 				} else {
 					m.SlashCursor = 0
+					m.SlashScrollOffset = 0
+					return m, nil
+				}
+				if m.SlashCursor >= m.SlashScrollOffset+maxVisible {
+					m.SlashScrollOffset = m.SlashCursor - maxVisible + 1
 				}
 				return m, nil
 			}
@@ -245,9 +457,60 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
+		case tea.KeyPgUp:
+			if m.SlashActive && len(m.FilteredCommands) > 0 {
+				m.SlashCursor -= 5
+				if m.SlashCursor < 0 {
+					m.SlashCursor = 0
+				}
+				m.SlashScrollOffset = m.SlashCursor
+				return m, nil
+			}
+
+		case tea.KeyPgDown:
+			if m.SlashActive && len(m.FilteredCommands) > 0 {
+				maxVisible := 5
+				m.SlashCursor += 5
+				if m.SlashCursor >= len(m.FilteredCommands) {
+					m.SlashCursor = len(m.FilteredCommands) - 1
+				}
+				if m.SlashCursor >= m.SlashScrollOffset+maxVisible {
+					m.SlashScrollOffset = m.SlashCursor - maxVisible + 1
+				}
+				return m, nil
+			}
+
+		case tea.KeyHome:
+			if m.SlashActive && len(m.FilteredCommands) > 0 {
+				m.SlashCursor = 0
+				m.SlashScrollOffset = 0
+				return m, nil
+			}
+
+		case tea.KeyEnd:
+			if m.SlashActive && len(m.FilteredCommands) > 0 {
+				maxVisible := 5
+				m.SlashCursor = len(m.FilteredCommands) - 1
+				if len(m.FilteredCommands) > maxVisible {
+					m.SlashScrollOffset = len(m.FilteredCommands) - maxVisible
+				} else {
+					m.SlashScrollOffset = 0
+				}
+				return m, nil
+			}
+
+		case tea.KeyCtrlV:
+			isCompactMode = !isCompactMode
+			m.TextInput.SetValue("/compact")
+			m.SubmittedValue = "/compact"
+			return m, tea.Quit
+
 		case tea.KeyTab:
 			if m.SlashActive && len(m.FilteredCommands) > 0 {
 				selected := m.FilteredCommands[m.SlashCursor].Command
+				if !strings.HasSuffix(selected, " ") {
+					selected += " "
+				}
 				m.TextInput.SetValue(selected)
 				m.TextInput.SetCursor(len(selected))
 				m.SlashActive = false
@@ -281,10 +544,12 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.SlashCursor >= len(m.FilteredCommands) {
 			m.SlashCursor = 0
+			m.SlashScrollOffset = 0
 		}
 	} else {
 		m.SlashActive = false
 		m.SlashCursor = 0
+		m.SlashScrollOffset = 0
 		m.FilteredCommands = m.SlashCommands
 	}
 
@@ -294,8 +559,28 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m ReplInputModel) View() string {
 	var b strings.Builder
 
+	termW := m.Width
+	if termW <= 0 {
+		termW = GetTermWidth()
+	}
+	boxW := termW - 4
+	if boxW > termW-2 {
+		boxW = termW - 2
+	}
+	if boxW < 16 {
+		boxW = max(10, termW-2)
+	}
+
+	// Render Active Toast Notification if present & fresh (< 3 seconds)
+	if m.ActiveToast != "" && !m.ToastTime.IsZero() && time.Since(m.ToastTime) <= 3*time.Second {
+		b.WriteString(RenderToastPill(m.ActiveToast, termW))
+		b.WriteString("\n")
+	}
+
 	// Render input prompt box
-	b.WriteString("\n" + m.TextInput.View() + "\n")
+	b.WriteString("\n")
+	b.WriteString(m.TextInput.View())
+	b.WriteString("\n")
 
 	// Render long prompt drafting character counter indicator if input is long (>50 chars)
 	val := strings.TrimSpace(m.TextInput.Value())
@@ -304,33 +589,54 @@ func (m ReplInputModel) View() string {
 			Foreground(ColorMuted).
 			Italic(true).
 			Render(fmt.Sprintf("  ✍️  Long Prompt Active (%d chars) • [Enter to execute, Esc to clear]", len(val)))
-		b.WriteString(countPill + "\n")
+		b.WriteString(countPill)
+		b.WriteString("\n")
 	}
 
 	// Render double-press exit warning hint if active
 	if m.ExitWarning && !m.LastExitTime.IsZero() && time.Since(m.LastExitTime) <= 2*time.Second {
 		warningStr := lipgloss.NewStyle().Bold(true).Foreground(ColorWarning).Render(T("repl_exit_confirm"))
-		b.WriteString(warningStr + "\n")
+		b.WriteString(warningStr)
+		b.WriteString("\n")
 	}
 
-	// Render OpenCode-style Slash Autocomplete Popup Box when slash active
+	// Render OpenCode-style Slash Autocomplete Popup Box when slash active (Compact Max 5 Viewport)
 	if m.SlashActive && len(m.FilteredCommands) > 0 {
+		maxVisible := 5
+		if m.SlashCursor < m.SlashScrollOffset {
+			m.SlashScrollOffset = m.SlashCursor
+		} else if m.SlashCursor >= m.SlashScrollOffset+maxVisible {
+			m.SlashScrollOffset = m.SlashCursor - maxVisible + 1
+		}
+
+		endIdx := m.SlashScrollOffset + maxVisible
+		if endIdx > len(m.FilteredCommands) {
+			endIdx = len(m.FilteredCommands)
+		}
+
 		popupHeader := lipgloss.NewStyle().
 			Bold(true).
 			Foreground(ColorBg).
 			Background(ColorAccent).
 			Padding(0, 1).
-			Render(T("slash_popup_header"))
+			Render(TF("slash_popup_header", m.SlashCursor+1, len(m.FilteredCommands)))
 
 		boxStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(ColorAccent).
+			Width(boxW).
 			Padding(0, 1)
 
 		var popupLines []string
 		popupLines = append(popupLines, popupHeader)
 
-		for i, sc := range m.FilteredCommands {
+		descAvail := boxW - 25
+		if descAvail < 10 {
+			descAvail = 10
+		}
+
+		for i := m.SlashScrollOffset; i < endIdx; i++ {
+			sc := m.FilteredCommands[i]
 			cursor := "  "
 			if i == m.SlashCursor {
 				cursor = "> "
@@ -343,12 +649,16 @@ func (m ReplInputModel) View() string {
 					Foreground(ColorMuted).
 					Render(fmt.Sprintf("[%s] ", sc.Category))
 			}
-			descStr := sc.Description
+			descStr := Truncate(sc.Description, descAvail)
 
 			if i == m.SlashCursor {
 				cmdR := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(cmdStr)
 				descR := lipgloss.NewStyle().Foreground(ColorFg).Render(descStr)
 				popupLines = append(popupLines, fmt.Sprintf("%s%s%s%s", lipgloss.NewStyle().Foreground(ColorAccent).Render(cursor), cmdR, catBadge, descR))
+				if sc.FormatHint != "" {
+					hintR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("    " + Truncate(sc.FormatHint, boxW-8))
+					popupLines = append(popupLines, hintR)
+				}
 			} else {
 				cmdR := lipgloss.NewStyle().Foreground(ColorAccent).Render(cmdStr)
 				descR := lipgloss.NewStyle().Foreground(ColorMuted).Render(descStr)
@@ -356,10 +666,18 @@ func (m ReplInputModel) View() string {
 			}
 		}
 
-		b.WriteString(boxStyle.Render(strings.Join(popupLines, "\n")) + "\n")
+		hiddenRemaining := len(m.FilteredCommands) - endIdx
+		if hiddenRemaining > 0 {
+			footerText := TF("slash_popup_more", hiddenRemaining)
+			footerR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(footerText)
+			popupLines = append(popupLines, footerR)
+		}
+
+		b.WriteString(boxStyle.Render(strings.Join(popupLines, "\n")))
+		b.WriteString("\n")
 	}
 
-	return b.String()
+	return b.String() + "\033[J"
 }
 
 // renderResumedHistory displays past user and assistant turns when resuming an earlier session.
@@ -369,6 +687,43 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 	}
 	history, err := appDB.GetChatHistory(sessionID, 50)
 	if err != nil || len(history) == 0 {
+		// If this is an investigation session (or has no chat messages), attempt to render investigation findings
+		if strings.HasPrefix(strings.ToUpper(sessionID), "INV-") {
+			inv, errInv := appDB.GetInvestigation(sessionID)
+			if errInv == nil && inv != nil {
+				fmt.Println()
+				divider := lipgloss.NewStyle().Foreground(ColorMuted).Render(fmt.Sprintf("━━━ Investigation Audit Trail (%s) ━━━", sessionID))
+				fmt.Println(divider)
+				if inv.SummaryText != nil && *inv.SummaryText != "" {
+					fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(T("repl_agent_label")))
+					renderFinalMarkdown(*inv.SummaryText)
+				}
+				anomalies, _ := appDB.GetAnomaliesByInvestigation(sessionID)
+				findings, _ := appDB.ListFindingsByInvestigation(sessionID)
+				if len(anomalies) > 0 || len(findings) > 0 {
+					var sb strings.Builder
+					if len(anomalies) > 0 {
+						sb.WriteString(fmt.Sprintf("\n**Quantitative Anomalies (%d Detected):**\n", len(anomalies)))
+						for _, a := range anomalies {
+							sb.WriteString(fmt.Sprintf("- `%s` %s: %.2f (baseline: %.2f, Z: %.2fσ)\n", a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore))
+						}
+					}
+					if len(findings) > 0 {
+						sb.WriteString(fmt.Sprintf("\n**Intelligence Findings (%d Emitted):**\n", len(findings)))
+						for idx, f := range findings {
+							sb.WriteString(fmt.Sprintf("%d. **[%s]** %s (Conf: %.0f%%)\n   *%s*\n", idx+1, f.VerificationStatus, f.Title, f.ConfidenceScore*100, f.ClaimText))
+						}
+					}
+					renderFinalMarkdown(sb.String())
+				}
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorMuted).Render("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━") + "\n")
+				return
+			}
+		}
+		if strings.TrimSpace(sessionID) != "" {
+			emptyNotice := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(fmt.Sprintf("  ℹ️  [Session %s: No prior messages recorded]", sessionID))
+			fmt.Println("\n" + emptyNotice + "\n")
+		}
 		return
 	}
 
@@ -377,12 +732,19 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 	fmt.Println(divider)
 
 	for _, msg := range history {
-		if msg.Role == "user" {
+		role := strings.ToLower(strings.TrimSpace(msg.Role))
+		switch role {
+		case "user", "human":
 			userBox := userBubbleStyle.Render(TF("repl_user_label", msg.Content))
 			fmt.Println(userBox)
-		} else if msg.Role == "assistant" {
+		case "assistant", "model":
 			fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(T("repl_agent_label")))
 			renderFinalMarkdown(msg.Content)
+		default:
+			if strings.TrimSpace(msg.Content) != "" {
+				fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(T("repl_agent_label")))
+				renderFinalMarkdown(msg.Content)
+			}
 		}
 	}
 
@@ -402,14 +764,23 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 
 // RunLiveREPLWithInitialPrompt starts an interactive REPL pre-seeded with an initial prompt.
 func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL string, initialSessionID string, initialPrompt string) string {
-	// Determine active model display
-	modelLabel := cfg.Auth.OpenAIModel
-	if modelLabel == "" {
-		if cfg.Auth.GeminiModel != "" {
+	// Determine active model and provider display
+	providerLabel := "openai"
+	if cfg != nil && cfg.Auth.AIProvider != "" {
+		providerLabel = cfg.Auth.AIProvider
+	}
+	modelLabel := ""
+	if cfg != nil {
+		if strings.EqualFold(providerLabel, "gemini") && cfg.Auth.GeminiModel != "" {
 			modelLabel = cfg.Auth.GeminiModel
-		} else {
-			modelLabel = "hermes"
+		} else if cfg.Auth.OpenAIModel != "" {
+			modelLabel = cfg.Auth.OpenAIModel
+		} else if cfg.Auth.GeminiModel != "" {
+			modelLabel = cfg.Auth.GeminiModel
 		}
+	}
+	if modelLabel == "" {
+		modelLabel = "hermes"
 	}
 
 	sessionID := fmt.Sprintf("CHAT-%s-%04d", time.Now().Format("20060102"), time.Now().Unix()%10000)
@@ -417,15 +788,25 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 		sessionID = strings.TrimSpace(initialSessionID)
 	}
 
+	fmt.Print("\033[H\033[2J")
 	renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
 
+	var promptHistory []string
 	if strings.TrimSpace(initialSessionID) != "" {
 		renderResumedHistory(appDB, sessionID)
+		if appDB != nil {
+			if hist, err := appDB.GetChatHistory(sessionID, 50); err == nil {
+				for _, m := range hist {
+					r := strings.ToLower(strings.TrimSpace(m.Role))
+					if (r == "user" || r == "human") && strings.TrimSpace(m.Content) != "" {
+						promptHistory = append(promptHistory, m.Content)
+					}
+				}
+			}
+		}
 	}
 
-	promptPrefix := fmt.Sprintf("niskava [%s] >", modelLabel)
-
-	var promptHistory []string
+	promptPrefix := fmt.Sprintf("niskava [%s:%s] >", providerLabel, modelLabel)
 
 	if strings.TrimSpace(initialPrompt) != "" {
 		promptHistory = append(promptHistory, initialPrompt)
@@ -433,8 +814,11 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 	}
 
 	for {
-		// Run interactive Bubbletea prompt input with live OpenCode slash popup and prompt history
-		inputModel := NewReplInputModelWithHistory(promptPrefix, promptHistory)
+		dbP := ""
+		if cfg != nil {
+			dbP = cfg.Storage.DBPath
+		}
+		inputModel := NewReplInputModelWithParams(promptPrefix, promptHistory, modelLabel, serverURL, sessionID, dbP)
 		p := tea.NewProgram(inputModel)
 		m, err := p.Run()
 		if err != nil {
@@ -477,6 +861,38 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			continue
 		}
 
+		if lower == "/config" || lower == "/settings" {
+			fmt.Println()
+			fmt.Println(RenderConfigurationDashboard(cfg))
+			fmt.Println()
+			continue
+		}
+
+		if lower == "/setup" {
+			return ReplSetupSentinel
+		}
+
+		if strings.HasPrefix(lower, "/model") {
+			parts := strings.Fields(input)
+			if len(parts) < 2 {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_model_usage")))
+				continue
+			}
+			newModel := strings.TrimSpace(parts[1])
+			if cfg != nil {
+				if strings.EqualFold(cfg.Auth.AIProvider, "gemini") {
+					cfg.Auth.GeminiModel = newModel
+				} else {
+					cfg.Auth.OpenAIModel = newModel
+				}
+				_ = config.SaveConfig(cfg)
+			}
+			modelLabel = newModel
+			promptPrefix = fmt.Sprintf("niskava [%s:%s] >", providerLabel, modelLabel)
+			fmt.Println(RenderToastPill(TF("slash_model_switched", newModel)))
+			continue
+		}
+
 		if lower == "/reset" {
 			if appDB != nil {
 				_ = appDB.ClearMemoryGraph()
@@ -506,6 +922,88 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 
 		if lower == "/doctor" {
 			printHealth(cfg)
+			continue
+		}
+
+		if lower == "/compact" {
+			isCompactMode = !isCompactMode
+			status := "OFF"
+			if isCompactMode {
+				status = "ON (Intermediate monologue collapsed)"
+			}
+			fmt.Println(RenderToastPill(TF("slash_compact_toggled", status)))
+			continue
+		}
+
+		if strings.HasPrefix(lower, "/find") {
+			parts := strings.SplitN(input, " ", 2)
+			if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_find_usage")))
+				continue
+			}
+			kw := strings.TrimSpace(parts[1])
+			if appDB == nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(T("repl_db_unavailable")))
+				continue
+			}
+			history, errH := appDB.GetChatHistory(sessionID, 100)
+			if errH != nil || len(history) == 0 {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(TF("slash_find_empty", sessionID)))
+				continue
+			}
+			var matches []db.ChatMessage
+			kwLower := strings.ToLower(kw)
+			for _, msg := range history {
+				if strings.Contains(strings.ToLower(msg.Content), kwLower) {
+					matches = append(matches, msg)
+				}
+			}
+			if len(matches) == 0 {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(TF("slash_find_no_match", kw)))
+				continue
+			}
+			fmt.Println("\n" + lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(TF("slash_find_results_header", len(matches), kw)))
+			highlightStyle := lipgloss.NewStyle().Background(ColorWarning).Foreground(ColorBg).Bold(true)
+			for idx, m := range matches {
+				roleLabel := "👤 USER"
+				r := strings.ToLower(strings.TrimSpace(m.Role))
+				if r == "assistant" || r == "model" {
+					roleLabel = "⚡ NISKAVA"
+				}
+				highlightedContent := replaceIgnoreCase(m.Content, kw, highlightStyle.Render(kw))
+				fmt.Printf("  %d. [%s] [%s]\n%s\n\n", idx+1, roleLabel, m.CreatedAt, highlightedContent)
+			}
+			continue
+		}
+
+		if lower == "/copy" {
+			if appDB == nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(T("repl_db_unavailable")))
+				continue
+			}
+			history, errH := appDB.GetChatHistory(sessionID, 20)
+			if errH != nil || len(history) == 0 {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(TF("slash_copy_empty", sessionID)))
+				continue
+			}
+			var lastAssistantMsg string
+			for i := len(history) - 1; i >= 0; i-- {
+				r := strings.ToLower(strings.TrimSpace(history[i].Role))
+				if r == "assistant" || r == "model" {
+					lastAssistantMsg = history[i].Content
+					break
+				}
+			}
+			if lastAssistantMsg == "" {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_copy_no_assistant")))
+				continue
+			}
+			errCopy := CopyToClipboard(lastAssistantMsg)
+			if errCopy != nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("slash_copy_err", errCopy)))
+			} else {
+				fmt.Println(RenderToastPill(T("slash_copy_success")))
+			}
 			continue
 		}
 
@@ -548,9 +1046,10 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 				sb.WriteString(fmt.Sprintf("- **Date:** `%s`\n", time.Now().Format("2006-01-02 15:04:05 MST")))
 				sb.WriteString(fmt.Sprintf("- **Model:** `%s`\n\n---\n\n", modelLabel))
 				for _, m := range history {
-					if m.Role == "user" {
+					switch m.Role {
+					case "user":
 						sb.WriteString(fmt.Sprintf("%s\n> %s\n\n", T("slash_export_user_prompt"), m.Content))
-					} else if m.Role == "assistant" {
+					case "assistant":
 						sb.WriteString(fmt.Sprintf("%s\n%s\n\n---\n\n", T("slash_export_findings"), m.Content))
 					}
 				}
@@ -560,7 +1059,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			if errW := os.WriteFile(filename, []byte(content), 0644); errW != nil {
 				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("slash_export_write_err", errW)))
 			} else {
-				fmt.Println(lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true).Render(TF("sessions_export_success", filename)))
+				fmt.Println(RenderToastPill(TF("sessions_export_success", filename)))
 			}
 			continue
 		}
@@ -767,7 +1266,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 				continue
 			}
 			selector := NewSessionSelectorModel(chatList)
-			pSel := tea.NewProgram(selector)
+			pSel := tea.NewProgram(selector, tea.WithAltScreen())
 			mSel, errRun := pSel.Run()
 			if errRun == nil {
 				res := mSel.(SessionSelectorModel)
@@ -780,8 +1279,19 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 					if title == "" {
 						title = res.SelectedSession.ID
 					}
-					fmt.Print(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
+					fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
 					renderResumedHistory(appDB, sessionID)
+
+					// Refresh prompt history for the resumed session
+					promptHistory = nil
+					if hist, errH := appDB.GetChatHistory(sessionID, 50); errH == nil {
+						for _, m := range hist {
+							r := strings.ToLower(strings.TrimSpace(m.Role))
+							if (r == "user" || r == "human") && strings.TrimSpace(m.Content) != "" {
+								promptHistory = append(promptHistory, m.Content)
+							}
+						}
+					}
 				}
 			}
 			continue
@@ -795,7 +1305,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			}
 			targetID := strings.TrimSpace(parts[1])
 			if appDB != nil {
-				sess, errGet := appDB.GetChatSession(targetID)
+				sess, hist, errGet := resolveSessionOrSearch(appDB, targetID)
 				if errGet != nil || sess == nil {
 					fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("repl_resume_not_found", targetID)))
 					continue
@@ -808,8 +1318,17 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 				if title == "" {
 					title = sess.ID
 				}
-				fmt.Print(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
+				fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
 				renderResumedHistory(appDB, sessionID)
+
+				// Refresh prompt history for the resumed session
+				promptHistory = nil
+				for _, m := range hist {
+					r := strings.ToLower(strings.TrimSpace(m.Role))
+					if (r == "user" || r == "human") && strings.TrimSpace(m.Content) != "" {
+						promptHistory = append(promptHistory, m.Content)
+					}
+				}
 			}
 			continue
 		}
@@ -821,7 +1340,12 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 
 func renderBanner(modelLabel, serverURL, sessionID, dbPath string) {
 	fmt.Print(RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID))
-	helpHint := lipgloss.NewStyle().Foreground(ColorMuted).Render(T("banner_hint"))
+	w := GetTermWidth()
+	hintText := T("banner_hint")
+	if w < 75 {
+		hintText = "[/help guide • /chats resume • /back menu • /exit quit]"
+	}
+	helpHint := lipgloss.NewStyle().Foreground(ColorMuted).Render(hintText)
 	fmt.Printf("\n%s\n", helpHint)
 }
 
@@ -1018,8 +1542,9 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				stopSpinner()
 				// Process finished: clear spinner and render output
 				fmt.Print("\r\033[K")
+				w := GetTermWidth()
 				if sessionError != "" {
-					fmt.Print(renderSessionErrorCard(sessionError))
+					fmt.Print(renderSessionErrorCard(sessionError, w))
 				} else {
 					renderFinalMarkdown(assistantResponse.String())
 				}
@@ -1039,7 +1564,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				}
 
 				// Render official completion badge with timing & statistics
-				fmt.Print(renderCompletionBadge(time.Since(turnStart), sessionID, modelLabel, totalAnomalies, totalFindings))
+				fmt.Print(renderCompletionBadge(time.Since(turnStart), sessionID, modelLabel, totalAnomalies, totalFindings, w))
 				return
 			}
 
@@ -1047,7 +1572,9 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 			case ipc.EventAgentThought:
 				lastThought = ev.Thought
 				fmt.Print("\r\033[K")
-				fmt.Printf("💭 %s\n", thoughtStyle.Render(ev.Thought))
+				if !isCompactMode {
+					fmt.Printf("💭 %s\n", thoughtStyle.Render(ev.Thought))
+				}
 				vMsg := strings.TrimPrefix(TF("thinking_synthesize", modelLabel), "  ⠋ ")
 				statusText.Store(vMsg)
 
@@ -1061,13 +1588,15 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				if toolName == "search_osint" {
 					toolName = "search_news"
 				}
-				fmt.Printf("⚡ %s%s\n", toolCallStyle.Render("[TOOL CALL: "+toolName+"]"), argsJSON)
+				fmt.Printf("%s%s\n", RenderSOPBadge(toolName), lipgloss.NewStyle().Foreground(ColorMuted).Render(argsJSON))
 				tMsg := strings.TrimPrefix(TF("tool_executing", toolName), "  ⠋ ")
 				statusText.Store(tMsg)
 
 			case ipc.EventAgentObservation:
 				fmt.Print("\r\033[K")
-				fmt.Printf("🔎 %s\n", observationStyle.Render(ev.Summary))
+				if !isCompactMode {
+					fmt.Printf("🔎 %s\n", observationStyle.Render(ev.Summary))
+				}
 				sMsg := strings.TrimPrefix(TF("thinking_synthesize", modelLabel), "  ⠋ ")
 				statusText.Store(sMsg)
 
@@ -1078,19 +1607,14 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 					"repl_anomaly_alert",
 					ev.MetricType, ev.Ticker, ev.ZScore, ev.MetricValue, ev.BaselineValue,
 				)
-				fmt.Println(replAnomalyBoxStyle.Render(anomalyText))
+				w := GetTermWidth()
+				anomalyBoxStyle := replAnomalyBoxStyle.Width(max(16, w-4))
+				fmt.Println(anomalyBoxStyle.Render(wrapText(anomalyText, max(12, w-6))))
 
 			case ipc.EventFindingEmitted:
 				fmt.Print("\r\033[K")
-				totalFindings++
-				badge := supportedBadgeStyle.Render("[SUPPORTED]")
-				if ev.VerificationStat == "UNCERTAIN" {
-					badge = uncertainBadgeStyle.Render("[UNCERTAIN]")
-				} else if ev.VerificationStat == "CONTRADICTED" {
-					badge = contradictedBadgeStyle.Render("[CONTRADICTED]")
-				}
-				fmt.Printf("\n%s %s (Confidence: %.0f%%)\n", badge, lipgloss.NewStyle().Bold(true).Render(ev.Title), ev.ConfidenceScore*100)
-				fmt.Printf("   %s\n", ev.ClaimText)
+				confBar := RenderConfidenceBar(ev.VerificationStat, ev.ConfidenceScore)
+				fmt.Printf("\n%s %s\n   %s\n", confBar, lipgloss.NewStyle().Bold(true).Render(ev.Title), ev.ClaimText)
 
 			case ipc.EventAgentMessageChunk:
 				assistantResponse.WriteString(ev.Chunk)
@@ -1118,18 +1642,46 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 	}
 }
 
-func renderSessionErrorCard(errMessage string) string {
+func renderSessionErrorCard(errMessage string, overrideWidth ...int) string {
+	w := GetTermWidth()
+	if len(overrideWidth) > 0 && overrideWidth[0] > 0 {
+		w = overrideWidth[0]
+	}
+	boxW := w - 4
+	if boxW > w-2 {
+		boxW = w - 2
+	}
+	if boxW < 16 {
+		boxW = max(10, w-2)
+	}
+
+	contentW := boxW - 4
+	if contentW < 15 {
+		contentW = 15
+	}
+
+	wrappedErr := wrapText("❌ [SESSION ERROR]: "+errMessage, contentW)
+
 	errBox := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(ColorDanger).
+		Width(boxW).
 		Padding(0, 1).
 		Foreground(ColorFg).
-		Render(fmt.Sprintf("❌ [SESSION ERROR]: %s", errMessage))
+		Render(wrappedErr)
 	return "\n" + errBox + "\n"
 }
 
-func renderCompletionBadge(duration time.Duration, sessionID, model string, anomalies, findings int) string {
-	sep := lipgloss.NewStyle().Foreground(ColorMuted).Render("─────────────────────────────────────────────────────────────────────────────")
+func renderCompletionBadge(duration time.Duration, sessionID, model string, anomalies, findings int, overrideWidth ...int) string {
+	w := GetTermWidth()
+	if len(overrideWidth) > 0 && overrideWidth[0] > 0 {
+		w = overrideWidth[0]
+	}
+	sepW := w - 2
+	if sepW < 15 {
+		sepW = 15
+	}
+	sep := RenderConstellationLine(sepW)
 	badge := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(T("badge_completed"))
 	detail := TF("badge_completed_detail", duration.Seconds(), model, sessionID)
 	if anomalies > 0 || findings > 0 {
@@ -1138,15 +1690,29 @@ func renderCompletionBadge(duration time.Duration, sessionID, model string, anom
 	return fmt.Sprintf("\n%s\n%s %s\n%s\n", sep, badge, detail, sep)
 }
 
-func renderFinalMarkdown(markdownContent string) {
+func renderFinalMarkdown(markdownContent string, terminalWidth ...int) {
 	if strings.TrimSpace(markdownContent) == "" {
 		return
+	}
+
+	w := GetTermWidth()
+	if len(terminalWidth) > 0 && terminalWidth[0] > 20 {
+		w = terminalWidth[0]
+	}
+
+	// Cap max-width for optimal readability on ultra-wide monitors (max 120)
+	wrapWidth := w - 4
+	if wrapWidth > 120 {
+		wrapWidth = 120
+	}
+	if wrapWidth < 30 {
+		wrapWidth = 30
 	}
 
 	fmt.Println()
 	renderer, err := glamour.NewTermRenderer(
 		glamour.WithAutoStyle(),
-		glamour.WithWordWrap(95),
+		glamour.WithWordWrap(wrapWidth),
 	)
 	if err == nil {
 		out, renderErr := renderer.Render(markdownContent)
@@ -1164,17 +1730,24 @@ func printHelp() {
 	fmt.Println(T("help_header"))
 	fmt.Println(T("help_prompt_desc"))
 	fmt.Println(T("help_ticker_desc"))
-	fmt.Println(T("help_graph_desc"))
-	fmt.Println(T("help_reset_desc"))
 	fmt.Println("  • /chats        : " + T("slash_chats_desc"))
+	fmt.Println("  • /compact      : " + T("slash_compact_desc"))
+	fmt.Println("  • /find <kw>    : " + T("slash_find_desc"))
+	fmt.Println("  • /copy         : " + T("slash_copy_desc"))
 	fmt.Println("  • /resume <id>  : " + T("slash_resume_desc"))
+	fmt.Println("  • /export [fmt] : " + T("slash_export_desc"))
+	fmt.Println("  • /fork [title] : " + T("slash_fork_desc"))
+	fmt.Println("  • /search <kw>  : " + T("slash_search_desc"))
+	fmt.Println("  • /anomalies    : " + T("slash_anomalies_desc"))
+	fmt.Println("  • /skills       : " + T("slash_skills_desc"))
+	fmt.Println("  • /doctor       : " + T("slash_doctor_desc"))
+	fmt.Println("  • /cache        : " + T("slash_cache_desc"))
 	fmt.Println("  • /timeout [arg]: " + T("slash_timeout_desc"))
-	fmt.Println(T("help_sessions_desc"))
-	fmt.Println(T("help_web_desc"))
-	fmt.Println(T("help_health_desc"))
-	fmt.Println(T("help_lang_desc"))
-	fmt.Println(T("help_clear_desc"))
-	fmt.Println(T("help_exit_desc"))
+	fmt.Println("  • /lang [en|id] : " + T("slash_lang_desc"))
+	fmt.Println("  • /graph        : " + T("help_graph_desc"))
+	fmt.Println("  • /reset        : " + T("help_reset_desc"))
+	fmt.Println("  • /clear        : " + T("help_clear_desc"))
+	fmt.Println("  • /exit, quit   : " + T("help_exit_desc"))
 }
 
 func printHealth(cfg *config.Config) {
@@ -1193,26 +1766,83 @@ func printSessions(appDB *db.DB) {
 		return
 	}
 
+	termW := GetTermWidth()
+	tier := GetBreakpointTier(termW)
+
 	fmt.Println(T("sessions_header"))
-	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
-	fmt.Printf("%-22s %-8s %-12s %-20s %s\n", "SESSION ID", "TICKER", "STATUS", "STARTED AT", "SUMMARY")
-	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
+	fmt.Println(Sep(2, termW))
 
-	for _, inv := range investigations {
-		summary := "-"
-		if inv.SummaryText != nil && *inv.SummaryText != "" {
-			summary = *inv.SummaryText
-			if len(summary) > 35 {
-				summary = summary[:32] + "..."
+	if tier == TierCompact {
+		for _, inv := range investigations {
+			summary := "-"
+			if inv.SummaryText != nil && *inv.SummaryText != "" {
+				summary = Truncate(*inv.SummaryText, termW-6)
 			}
+			fmt.Printf("• %s | %s [%s]\n  %s\n", inv.ID, inv.Ticker, inv.Status, summary)
+		}
+	} else {
+		idW := 22
+		tickerW := 8
+		statusW := 12
+		dateW := 19
+		summaryW := termW - (idW + tickerW + statusW + dateW + 8)
+		if summaryW < 10 {
+			summaryW = 10
 		}
 
-		dateStr := inv.StartedAt
-		if len(dateStr) > 19 {
-			dateStr = strings.Replace(dateStr[:19], "T", " ", 1)
-		}
+		headerFmt := fmt.Sprintf("%%-%ds %%-%ds %%-%ds %%-%ds %%s\n", idW, tickerW, statusW, dateW)
+		fmt.Printf(headerFmt, "SESSION ID", "TICKER", "STATUS", "STARTED AT", "SUMMARY")
+		fmt.Println(Sep(2, termW))
 
-		fmt.Printf("%-22s %-8s %-12s %-20s %s\n", inv.ID, inv.Ticker, inv.Status, dateStr, summary)
+		for _, inv := range investigations {
+			summary := "-"
+			if inv.SummaryText != nil && *inv.SummaryText != "" {
+				summary = Truncate(*inv.SummaryText, summaryW)
+			}
+
+			dateStr := inv.StartedAt
+			if len(dateStr) > 19 {
+				dateStr = strings.Replace(dateStr[:19], "T", " ", 1)
+			}
+
+			rowFmt := fmt.Sprintf("%%-%ds %%-%ds %%-%ds %%-%ds %%s\n", idW, tickerW, statusW, dateW)
+			fmt.Printf(rowFmt, inv.ID, inv.Ticker, inv.Status, dateStr, summary)
+		}
 	}
-	fmt.Println("─────────────────────────────────────────────────────────────────────────────")
+}
+
+func resolveSessionOrSearch(appDB *db.DB, idOrQuery string) (*db.ChatSession, []db.ChatMessage, error) {
+	if appDB == nil {
+		return nil, nil, fmt.Errorf("database unavailable")
+	}
+
+	// 1. Direct lookup
+	sess, err := appDB.GetChatSession(idOrQuery)
+	if err == nil && sess != nil {
+		history, _ := appDB.GetChatHistory(sess.ID, 50)
+		return sess, history, nil
+	}
+
+	// 2. Search list by query/ticker
+	list, _, errList := appDB.ListChatSessions(10, 0, idOrQuery)
+	if errList == nil && len(list) > 0 {
+		target := list[0]
+		history, _ := appDB.GetChatHistory(target.ID, 50)
+		return &target, history, nil
+	}
+
+	return nil, nil, fmt.Errorf("session or ticker '%s' not found", idOrQuery)
+}
+
+func getTerminalWidth() int {
+	if w, _, err := term.GetSize(uintptr(os.Stdout.Fd())); err == nil && w > 20 {
+		return w
+	}
+	if w, _, err := term.GetSize(uintptr(os.Stdin.Fd())); err == nil && w > 20 {
+		return w
+	}
+	if w, _, err := term.GetSize(uintptr(os.Stderr.Fd())); err == nil && w > 20 {
+		return w
+	}
+	return 80
 }

@@ -252,6 +252,40 @@ verification_mapping: dict       # Pemetaan ke Three-Tier Verification Taxonomy
 
 ---
 
+### Skill 7: `investigation-report-pdf` (Generasi & Ekspor Laporan Riset PDF)
+
+* **Skill ID**: `investigation-report-pdf` (alias: `investigation_report_pdf`)
+* **Kategori**: *Optional On-Demand Document Exporter*
+* **Trigger**: Pengguna secara eksplisit meminta ekspor laporan PDF, pencetakan berkas, atau penyimpanan audit trail ke format dokumen (`"buatkan laporan PDF"`, `"export PDF"`, `"simpan ke PDF"`, `"download report"`).
+* **Prerequisites**: Data metrik dan temuan bukti dari investigasi aktif atau yang tersimpan di SQLite.
+* **Tiga Mode Pelaporan Dinamis (Section-Driven)**:
+  * `TICKER_INVESTIGATION`: Audit kuantitatif emiten tunggal lengkap dengan tabel Z-score MA20 dan matriks bukti kausalitas berita.
+  * `MARKET_NEWS_BRIEF`: Ikhtisar berita makro/pasar harian (default ticker `"MARKET"` atau `"IHSG"`) dengan tabel *Market News Digest & Disclosures* tanpa mencetak tabel kuantitatif kosong.
+  * `CUSTOM_RESEARCH`: Analisis tematik fleksibel dengan bagian naratif modular (`sections`) sesuai instruksi riset pengguna.
+* **Karakteristik & Kepatuhan Hukum**:
+  * **Law 1 (Deterministic Before Generative):** Mengambil metrik kuantitatif ($V_z$, $F_z$, abnormal return) yang telah dihitung sebelumnya. Tanpa kalkulasi matematika oleh LLM saat rendering.
+  * **Law 2 (Strict Non-Advisory Boundary):** Setiap halaman dokumen PDF memuat banner penafian resmi (*Non-Advisory Disclaimer*) di bagian footer.
+  * **Law 4 (Local-First Data Sovereignty):** File PDF disimpan 100% lokal di `~/.niskava/reports/` tanpa upload ke layanan cloud pihak ketiga.
+  * **Law 5 (Credit Budget Discipline):** 0 credit spend ke Sectors API. Seluruh data disuplai dari argumen dan database SQLite lokal.
+* **Output Payload (`SkillResult`)**:
+  ```json
+  {
+    "skill_id": "investigation-report-pdf",
+    "verification_status": "SUPPORTED",
+    "confidence_score": 1.00,
+    "metrics": {
+      "pdf_path": "/home/user/.niskava/reports/NISKAVA_ANTM_20260929_INV001_audit.pdf",
+      "filename": "NISKAVA_ANTM_20260929_INV001_audit.pdf",
+      "ticker": "ANTM"
+    },
+    "summary": "Investigation audit trail PDF generated successfully for ANTM. File saved to: /home/user/.niskava/reports/NISKAVA_ANTM_20260929_INV001_audit.pdf"
+  }
+  ```
+* **Event IPC Emitted**:
+  Mengirimkan event real-time `pdf_report_ready` ke Go Core daemon untuk memunculkan tombol download interaktif secara instan di Web Workspace.
+
+---
+
 ## 3. Dynamic Skill Loading & ReAct Orchestration
 
 Agen ReAct [`engine/agent/react_agent.py`](../../engine/agent/react_agent.py) tidak memanggil raw endpoint bursa secara acak. Agen bekerja dengan alur:

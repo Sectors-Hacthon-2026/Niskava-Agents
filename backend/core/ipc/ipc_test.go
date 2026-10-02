@@ -273,3 +273,35 @@ func TestResolvePythonBinFromUserHomeVenv(t *testing.T) {
 		t.Fatalf("expected resolved python to be %s from ~/.niskava/venv, got %s", venvPy, resolved)
 	}
 }
+
+func TestResolveRepoRootUserSpaceFallback(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+	t.Setenv("NISKAVA_ROOT", "")
+
+	// Simulate user-space cached engine in ~/.niskava/engine/runner.py
+	engineDir := filepath.Join(tempHome, ".niskava", "engine")
+	if err := os.MkdirAll(engineDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	runnerFile := filepath.Join(engineDir, "runner.py")
+	if err := os.WriteFile(runnerFile, []byte("# runner"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	origWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(tempHome); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(origWd) }()
+
+	root := ResolveRepoRoot("")
+	expected := filepath.Join(tempHome, ".niskava")
+	if root != expected && !strings.Contains(root, ".niskava") {
+		t.Errorf("ResolveRepoRoot did not find ~/.niskava fallback, got: %s, want: %s", root, expected)
+	}
+}

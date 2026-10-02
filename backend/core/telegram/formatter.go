@@ -2,12 +2,13 @@
 package telegram
 
 import (
+	"regexp"
 	"strings"
 )
 
 const (
 	// StandardDisclaimer is the mandatory non-advisory disclaimer for Niskava Agent.
-	StandardDisclaimer = "*Disclaimer: Niskava Agent adalah platform intelijen dan riset pasar modal otonom IDX, BUKAN penasihat investasi atau broker. Analisis disajikan untuk riset dan verifikasi fakta.*"
+	StandardDisclaimer = "*Disclaimer: Niskava Agent is an autonomous IDX capital market research intelligence platform, NOT an investment advisor or registered broker. Analysis is presented solely for research and fact-verification.*"
 
 	// DisclaimerSuffix is appended to responses that don't already contain the disclaimer.
 	DisclaimerSuffix = "\n\n---\n" + StandardDisclaimer
@@ -15,6 +16,24 @@ const (
 	// DefaultMaxMessageLength is the default maximum character count for a Telegram message chunk.
 	DefaultMaxMessageLength = 4000
 )
+
+// headingRegex matches Markdown ATX headings: # H1 / ## H2 / ### H3 etc.
+var headingRegex = regexp.MustCompile(`(?m)^#{1,6}\s+(.+)$`)
+
+// blockquoteLineRegex matches Markdown blockquote lines: > content
+var blockquoteLineRegex = regexp.MustCompile(`(?m)^>\s?(.*)$`)
+
+// hrRegex matches standalone horizontal rules: --- or *** or ___
+var hrRegex = regexp.MustCompile(`^(\*{3,}|-{3,}|_{3,})\s*$`)
+
+// boldDoubleAsterisk converts **bold** to *bold* for Telegram MarkdownV1.
+var boldDoubleAsterisk = regexp.MustCompile(`\*\*(.+?)\*\*`)
+
+// multiBlankLines collapses 3+ consecutive newlines to exactly 2.
+var multiBlankLines = regexp.MustCompile(`\n{3,}`)
+
+// separatorCellRegex matches a table separator cell like ---, :---, ---:
+var separatorCellRegex = regexp.MustCompile(`^:?-+:?$`)
 
 // SplitMessage safely breaks a long message into chunks under maxLen characters.
 // It prioritizes splitting at double-newlines (paragraphs), then single-newlines,
@@ -69,83 +88,179 @@ func SplitMessage(text string, maxLen int) []string {
 	return chunks
 }
 
-// FormatFinalResponse formats the final response string and appends the standard
-// non-advisory disclaimer if not already present.
+// FormatFinalResponse formats the final response string.
+// Conversational chat bubbles omit repeated disclaimers for cleaner UX,
+// while formal export documents and generated PDFs retain strict compliance disclaimers.
 func FormatFinalResponse(content string, thought string) string {
-	text := content
-	if text == "" && thought != "" {
-		text = thought
+	text := strings.TrimSpace(content)
+	if text == "" && strings.TrimSpace(thought) != "" {
+		text = strings.TrimSpace(thought)
 	}
-
-	if strings.Contains(text, StandardDisclaimer) {
-		return text
-	}
-
-	return text + DisclaimerSuffix
+	return text
 }
 
-// WrapMarkdownTables detects Markdown tables and wraps them inside preformatted blocks (```)
-// so that table columns don't break or collapse irregularly on mobile devices.
-func WrapMarkdownTables(text string) string {
-	lines := strings.Split(text, "\n")
-	var result []string
-	inTable := false
+// isTableLine returns true if the line is a Markdown pipe-table row.
+func isTableLine(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	return strings.HasPrefix(trimmed, "|") && strings.HasSuffix(trimmed, "|")
+}
 
-	isTableLine := func(line string) bool {
-		trimmed := strings.TrimSpace(line)
-		return strings.HasPrefix(trimmed, "|") && strings.HasSuffix(trimmed, "|")
-	}
-
-	for _, line := range lines {
-		if isTableLine(line) {
-			if !inTable {
-				inTable = true
-				result = append(result, "```")
-			}
-			result = append(result, line)
-		} else {
-			if inTable {
-				inTable = false
-				result = append(result, "```")
-			}
-			result = append(result, line)
+// isSeparatorRow returns true if every cell in the row is a Markdown table separator (--- / :---: etc.).
+func isSeparatorRow(row string) bool {
+	trimmed := strings.TrimSpace(row)
+	trimmed = strings.TrimPrefix(trimmed, "|")
+	trimmed = strings.TrimSuffix(trimmed, "|")
+	cells := strings.Split(trimmed, "|")
+	for _, cell := range cells {
+		if !separatorCellRegex.MatchString(strings.TrimSpace(cell)) {
+			return false
 		}
 	}
-
-	if inTable {
-		result = append(result, "```")
-	}
-
-	return strings.Join(result, "\n")
+	return true
 }
 
-// SanitizeTelegramMarkdown balances unclosed markdown tags (like unclosed * or _)
-// to avoid Telegram parse entity errors.
-func SanitizeTelegramMarkdown(text string) string {
-	// First wrap tables to protect tabular pipes
-	sanitized := WrapMarkdownTables(text)
+// splitTableRow splits a pipe-table row into trimmed cell strings.
+func splitTableRow(row string) []string {
+	trimmed := strings.TrimSpace(row)
+	trimmed = strings.TrimPrefix(trimmed, "|")
+	trimmed = strings.TrimSuffix(trimmed, "|")
+	parts := strings.Split(trimmed, "|")
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	return parts
+}
 
-	// Balance backticks
-	backtickCount := strings.Count(sanitized, "`")
-	if backtickCount%2 != 0 {
+// transpileTable converts a slice of Markdown pipe-table lines into a
+// bullet-point key-value list readable in Telegram Markdown V1.
+// Header row cells become bold labels; data cells follow each label.
+func transpileTable(tableLines []string) string {
+	if len(tableLines) < 1 {
+		return ""
+	}
+
+	headerCells := splitTableRow(tableLines[0])
+
+	var sb strings.Builder
+	for _, row := range tableLines[1:] {
+		if isSeparatorRow(row) {
+			continue
+		}
+		cells := splitTableRow(row)
+		sb.WriteString("• ")
+		for i, cell := range cells {
+			cell = strings.TrimSpace(cell)
+			if cell == "" {
+				continue
+			}
+			if i < len(headerCells) {
+				header := strings.TrimSpace(headerCells[i])
+				if header != "" {
+					sb.WriteString("*")
+					sb.WriteString(header)
+					sb.WriteString(":* ")
+				}
+			}
+			sb.WriteString(cell)
+			if i < len(cells)-1 {
+				sb.WriteString(" — ")
+			}
+		}
+		sb.WriteString("\n")
+	}
+	return strings.TrimRight(sb.String(), "\n")
+}
+
+// TranspileMarkdownForTelegram converts standard Markdown syntax unsupported by
+// Telegram Markdown V1 into Telegram-compatible equivalents:
+//
+//   - ## Heading / ### Heading  →  *Heading*  (bold line)
+//   - > blockquote              →  _blockquote content_  (italic, > removed)
+//   - --- horizontal rule       →  (empty line)
+//   - **bold**                  →  *bold*  (Telegram V1 bold syntax)
+//   - Pipe tables               →  bullet-point key-value list
+func TranspileMarkdownForTelegram(text string) string {
+	lines := strings.Split(text, "\n")
+	result := make([]string, 0, len(lines))
+	i := 0
+
+	for i < len(lines) {
+		line := lines[i]
+
+		// Collect and convert contiguous table blocks into bullet lists.
+		if isTableLine(line) {
+			var tableLines []string
+			for i < len(lines) && isTableLine(lines[i]) {
+				tableLines = append(tableLines, lines[i])
+				i++
+			}
+			converted := transpileTable(tableLines)
+			if converted != "" {
+				result = append(result, converted)
+			}
+			continue
+		}
+
+		// ATX Headings: ## Title → *Title*
+		if match := headingRegex.FindStringSubmatch(line); match != nil {
+			title := strings.TrimSpace(match[1])
+			result = append(result, "*"+title+"*")
+			i++
+			continue
+		}
+
+		// Blockquotes: > content → _content_
+		if blockquoteLineRegex.MatchString(line) {
+			content := blockquoteLineRegex.ReplaceAllString(line, "$1")
+			content = strings.TrimSpace(content)
+			if content != "" {
+				result = append(result, "_"+content+"_")
+			} else {
+				result = append(result, "")
+			}
+			i++
+			continue
+		}
+
+		// Horizontal rules: --- / *** / ___ → blank line
+		if hrRegex.MatchString(strings.TrimSpace(line)) {
+			result = append(result, "")
+			i++
+			continue
+		}
+
+		result = append(result, line)
+		i++
+	}
+
+	// Convert **bold** → *bold*
+	output := strings.Join(result, "\n")
+	output = boldDoubleAsterisk.ReplaceAllString(output, "*$1*")
+
+	// Collapse 3+ consecutive blank lines to 2 for cleaner spacing.
+	output = multiBlankLines.ReplaceAllString(output, "\n\n")
+
+	return strings.TrimSpace(output)
+}
+
+// SanitizeTelegramMarkdown transpiles unsupported Markdown to Telegram-compatible
+// format, then balances unclosed markdown tags to avoid Telegram parse entity errors.
+func SanitizeTelegramMarkdown(text string) string {
+	// Step 1: transpile heading/blockquote/table/HR to Telegram-safe format.
+	sanitized := TranspileMarkdownForTelegram(text)
+
+	// Step 2: Balance backtick count (odd count breaks inline code rendering).
+	if strings.Count(sanitized, "`")%2 != 0 {
 		sanitized += "`"
 	}
 
-	// Balance bold asterisks
-	boldCount := strings.Count(sanitized, "**")
-	if boldCount%2 != 0 {
-		sanitized += "**"
-	}
-
-	// Balance single asterisks
-	asteriskCount := strings.Count(sanitized, "*")
-	if asteriskCount%2 != 0 {
+	// Step 3: Balance single asterisks (Telegram V1 bold/italic marker).
+	if strings.Count(sanitized, "*")%2 != 0 {
 		sanitized += "*"
 	}
 
-	// Balance underscores
-	underscoreCount := strings.Count(sanitized, "_")
-	if underscoreCount%2 != 0 {
+	// Step 4: Balance underscores (Telegram V1 italic marker).
+	if strings.Count(sanitized, "_")%2 != 0 {
 		sanitized += "_"
 	}
 

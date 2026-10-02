@@ -9,8 +9,22 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// padRight pads a string with spaces until its visual display width (measured by lipgloss.Width) reaches targetWidth.
+func padRight(s string, targetWidth int) string {
+	w := lipgloss.Width(s)
+	if w >= targetWidth {
+		return s
+	}
+	return s + strings.Repeat(" ", targetWidth-w)
+}
+
 // GetFullHelpGuideString builds and returns the formatted instruction manual string.
-func GetFullHelpGuideString() string {
+func GetFullHelpGuideString(overrideWidth ...int) string {
+	w := GetTermWidth()
+	if len(overrideWidth) > 0 && overrideWidth[0] > 0 {
+		w = overrideWidth[0]
+	}
+
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(ColorBg).
@@ -37,69 +51,263 @@ func GetFullHelpGuideString() string {
 
 	var b strings.Builder
 
-	b.WriteString(RenderConstellationLine(85) + "\n")
-	b.WriteString(fmt.Sprintf(" %s\n", headerStyle.Render(T("help_full_title"))))
-	b.WriteString(RenderConstellationLine(85) + "\n\n")
+	// Header Title Banner
+	titleText := T("help_full_title")
+	b.WriteString(RenderConstellationLine(w))
+	b.WriteString("\n")
+	if lipgloss.Width(titleText)+4 > w && w >= 30 {
+		wrappedTitleStyle := headerStyle.Width(w - 4).Align(lipgloss.Center)
+		b.WriteString(fmt.Sprintf(" %s\n", wrappedTitleStyle.Render(titleText)))
+	} else {
+		b.WriteString(fmt.Sprintf(" %s\n", headerStyle.Render(titleText)))
+	}
+	b.WriteString(RenderConstellationLine(w))
+	b.WriteString("\n\n")
 
-	b.WriteString(sectionStyle.Render(T("help_sec1_title")) + "\n")
-	b.WriteString(fmt.Sprintf("   • %s : %s\n", keyStyle.Render("[Up/Down ↑/↓] or [k/j]"), T("help_sec1_updown")))
-	b.WriteString(fmt.Sprintf("   • %s          : %s\n", keyStyle.Render("[Enter]"), T("help_sec1_enter")))
-	b.WriteString(fmt.Sprintf("   • %s        : %s\n", keyStyle.Render("Direct Hotkeys"), T("help_sec1_hotkeys")))
-	b.WriteString(fmt.Sprintf("     - %s : %s\n", keyStyle.Render("[W] / [1]"), T("help_sec1_key_w")))
-	b.WriteString(fmt.Sprintf("     - %s : %s\n", keyStyle.Render("[T] / [2]"), T("help_sec1_key_t")))
-	b.WriteString(fmt.Sprintf("     - %s : %s\n", keyStyle.Render("[S] / [3]"), T("help_sec1_key_s")))
-	b.WriteString(fmt.Sprintf("     - %s : %s\n", keyStyle.Render("[H] / [4]"), T("help_sec1_key_h")))
-	b.WriteString(fmt.Sprintf("     - %s : %s\n", keyStyle.Render("[C] / [5]"), T("help_sec1_key_c")))
-	b.WriteString(fmt.Sprintf("     - %s : %s\n", keyStyle.Render("[L] / [6]"), T("help_sec1_key_l")))
-	b.WriteString(fmt.Sprintf("     - %s : %s\n", keyStyle.Render("[Q] / [7]"), T("help_sec1_key_q")))
-	b.WriteString(fmt.Sprintf("     - %s : %s\n\n", keyStyle.Render("[E] / [8]"), T("help_sec1_key_e")))
+	// Section 1: Main Menu Navigation Guide
+	b.WriteString(sectionStyle.Render(T("help_sec1_title")))
+	b.WriteString("\n")
 
-	b.WriteString(sectionStyle.Render(T("help_sec2_title")) + "\n")
-	b.WriteString(fmt.Sprintf("   • %s:\n     %s\n", descStyle.Render("[W] Web UI Workspace"), T("help_sec2_web_desc")))
-	b.WriteString(fmt.Sprintf("   • %s:\n     %s\n", descStyle.Render("[T] Terminal UI (REPL)"), T("help_sec2_term_desc")))
-	b.WriteString(fmt.Sprintf("   • %s:\n     %s\n", descStyle.Render("[S] Session History"), T("help_sec2_sessions_desc")))
-	b.WriteString(fmt.Sprintf("   • %s:\n     %s\n", descStyle.Render("[C] Health Check"), T("help_sec2_health_desc")))
-	b.WriteString(fmt.Sprintf("   • %s:\n\n     %s\n", descStyle.Render("[Q] Quick Setup Wizard"), T("help_sec2_setup_desc")))
+	sec1Items := []struct {
+		Key  string
+		Desc string
+	}{
+		{"[Up/Down ↑/↓] or [k/j]", T("help_sec1_updown")},
+		{"[Enter]", T("help_sec1_enter")},
+		{"Direct Hotkeys", T("help_sec1_hotkeys")},
+	}
 
-	b.WriteString(sectionStyle.Render(T("help_sec3_title")) + "\n")
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/help"), T("slash_help_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/chats"), T("slash_chats_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/resume <id>"), T("slash_resume_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/export [md|json]"), T("slash_export_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/fork [title]"), T("slash_fork_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/search <query>"), T("slash_search_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/anomalies"), T("slash_anomalies_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/skills"), T("slash_skills_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/doctor"), T("slash_doctor_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/cache [stats|clean]"), T("slash_cache_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/back"), T("slash_back_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/reset"), T("slash_reset_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/graph"), T("slash_graph_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/clear"), T("slash_clear_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/web"), T("slash_web_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/sessions"), T("slash_sessions_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/health"), T("slash_health_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n", cmdStyle.Render("/lang"), T("slash_lang_desc")))
-	b.WriteString(fmt.Sprintf("   • %-20s : %s\n\n", cmdStyle.Render("/exit, quit"), T("slash_exit_desc")))
+	keyColWidth := 22
+	for _, item := range sec1Items {
+		paddedKey := padRight(item.Key, keyColWidth)
+		prefix := fmt.Sprintf("   • %s : ", keyStyle.Render(paddedKey))
+		b.WriteString(formatHelpItem(prefix, item.Desc, w-2))
+	}
 
-	b.WriteString(sectionStyle.Render(T("help_sec4_title")) + "\n")
-	b.WriteString(fmt.Sprintf("   • %s : Launch interactive REPL directly (aliases: repl, chat).\n", mutedStyle.Render("niskava terminal [flags]")))
-	b.WriteString(fmt.Sprintf("   • %s : Run audit & open live REPL pre-focused on ticker.\n", mutedStyle.Render("niskava investigate <TICKER> -i")))
-	b.WriteString(fmt.Sprintf("   • %s : Single-line headless 7-stage investigation.\n", mutedStyle.Render("niskava investigate <TICKER> --days 30")))
-	b.WriteString(fmt.Sprintf("   • %s : Launch background daemon server.\n", mutedStyle.Render("niskava serve --port 20128")))
-	b.WriteString(fmt.Sprintf("   • %s : List recent chat & investigation sessions.\n", mutedStyle.Render("niskava sessions [list]")))
-	b.WriteString(fmt.Sprintf("   • %s : Delete session permanently from SQLite.\n", mutedStyle.Render("niskava sessions delete <SESSION_ID>")))
-	b.WriteString(fmt.Sprintf("   • %s : Search past chat history across sessions.\n", mutedStyle.Render("niskava sessions search <KEYWORD>")))
-	b.WriteString(fmt.Sprintf("   • %s : Export session report to Markdown or JSON.\n", mutedStyle.Render("niskava sessions export <SESSION_ID> --format md")))
-	b.WriteString(fmt.Sprintf("   • %s : Launch interactive setup wizard directly.\n", mutedStyle.Render("niskava setup")))
-	b.WriteString(fmt.Sprintf("   • %s : Run system health & diagnostics check.\n", mutedStyle.Render("niskava doctor")))
-	b.WriteString(fmt.Sprintf("   • %s : Launch Telegram bot worker.\n", mutedStyle.Render("niskava telegram")))
-	b.WriteString(fmt.Sprintf("   • %s : Export Knowledge Graph HTML.\n", mutedStyle.Render("niskava graph --open")))
-	b.WriteString(fmt.Sprintf("   • %s : Generate shell autocompletion script.\n\n", mutedStyle.Render("niskava completion [bash|zsh|fish|powershell]")))
+	hotkeys := []struct {
+		Key  string
+		Desc string
+	}{
+		{"[W] / [1]", T("help_sec1_key_w")},
+		{"[T] / [2]", T("help_sec1_key_t")},
+		{"[S] / [3]", T("help_sec1_key_s")},
+		{"[H] / [4]", T("help_sec1_key_h")},
+		{"[C] / [5]", T("help_sec1_key_c")},
+		{"[L] / [6]", T("help_sec1_key_l")},
+		{"[Q] / [7]", T("help_sec1_key_q")},
+		{"[E] / [8]", T("help_sec1_key_e")},
+	}
 
-	b.WriteString(RenderConstellationLine(85) + "\n")
+	hkColWidth := 11
+	for _, hk := range hotkeys {
+		paddedHk := padRight(hk.Key, hkColWidth)
+		prefix := fmt.Sprintf("     - %s : ", keyStyle.Render(paddedHk))
+		b.WriteString(formatHelpItem(prefix, hk.Desc, w-2))
+	}
+	b.WriteString("\n")
+
+	// Section 2: Operational Surfaces & Feature Instructions
+	b.WriteString(sectionStyle.Render(T("help_sec2_title")))
+	b.WriteString("\n")
+
+	sec2Items := []struct {
+		Title string
+		Desc  string
+	}{
+		{"[W] Web UI Workspace", T("help_sec2_web_desc")},
+		{"[T] Terminal UI (REPL)", T("help_sec2_term_desc")},
+		{"[S] Session History", T("help_sec2_sessions_desc")},
+		{"[C] Health Check", T("help_sec2_health_desc")},
+		{"[Q] Quick Setup Wizard", T("help_sec2_setup_desc")},
+	}
+
+	descWidth := w - 7
+	if descWidth < 15 {
+		descWidth = 15
+	}
+
+	for _, item := range sec2Items {
+		b.WriteString(fmt.Sprintf("   • %s:\n", descStyle.Render(item.Title)))
+		paras := strings.Split(item.Desc, "\n")
+		for _, para := range paras {
+			trimmed := strings.TrimSpace(para)
+			if trimmed == "" {
+				continue
+			}
+			if strings.HasPrefix(trimmed, "- ") {
+				b.WriteString(formatHelpItem("     - ", strings.TrimPrefix(trimmed, "- "), w-2))
+			} else {
+				wrapped := wrapText(trimmed, descWidth)
+				for _, line := range strings.Split(wrapped, "\n") {
+					b.WriteString("     " + line + "\n")
+				}
+			}
+		}
+		b.WriteString("\n")
+	}
+
+	// Section 3: Slash Commands
+	b.WriteString(sectionStyle.Render(T("help_sec3_title")))
+	b.WriteString("\n")
+
+	slashCmds := []struct {
+		Cmd  string
+		Desc string
+	}{
+		{"/help", T("slash_help_desc")},
+		{"/chats", T("slash_chats_desc")},
+		{"/compact", T("slash_compact_desc")},
+		{"/find <kw>", T("slash_find_desc")},
+		{"/copy", T("slash_copy_desc")},
+		{"/resume <id>", T("slash_resume_desc")},
+		{"/export [md|json]", T("slash_export_desc")},
+		{"/fork [title]", T("slash_fork_desc")},
+		{"/search <query>", T("slash_search_desc")},
+		{"/anomalies", T("slash_anomalies_desc")},
+		{"/skills", T("slash_skills_desc")},
+		{"/doctor", T("slash_doctor_desc")},
+		{"/cache [stats|clean]", T("slash_cache_desc")},
+		{"/back", T("slash_back_desc")},
+		{"/reset", T("slash_reset_desc")},
+		{"/graph", T("slash_graph_desc")},
+		{"/clear", T("slash_clear_desc")},
+		{"/web", T("slash_web_desc")},
+		{"/sessions", T("slash_sessions_desc")},
+		{"/health", T("slash_health_desc")},
+		{"/lang [en|id]", T("slash_lang_desc")},
+		{"/timeout [arg]", T("slash_timeout_desc")},
+		{"/exit, quit", T("slash_exit_desc")},
+	}
+
+	if w >= 85 {
+		scColWidth := 21
+		for _, sc := range slashCmds {
+			paddedCmd := padRight(sc.Cmd, scColWidth)
+			prefix := fmt.Sprintf("   • %s : ", cmdStyle.Render(paddedCmd))
+			b.WriteString(formatHelpItem(prefix, sc.Desc, w-2))
+		}
+	} else {
+		for _, sc := range slashCmds {
+			b.WriteString(fmt.Sprintf("   • %s:\n", cmdStyle.Render(sc.Cmd)))
+			wrapped := wrapText(sc.Desc, descWidth)
+			for _, line := range strings.Split(wrapped, "\n") {
+				b.WriteString("     " + line + "\n")
+			}
+			b.WriteString("\n")
+		}
+	}
+	b.WriteString("\n")
+
+	// Section 4: Direct CLI Commands
+	b.WriteString(sectionStyle.Render(T("help_sec4_title")))
+	b.WriteString("\n")
+
+	cliCmds := []struct {
+		Cmd  string
+		Desc string
+	}{
+		{"niskava terminal [flags]", "Launch interactive REPL directly (aliases: repl, chat)."},
+		{"niskava investigate <TICKER> -i", "Run audit & open live REPL pre-focused on ticker."},
+		{"niskava investigate <TICKER> --days 30", "Single-line headless 7-stage investigation."},
+		{"niskava serve --port 20128", "Launch background daemon server."},
+		{"niskava sessions [list]", "List recent chat & investigation sessions."},
+		{"niskava sessions delete <SESSION_ID>", "Delete session permanently from SQLite."},
+		{"niskava sessions search <KEYWORD>", "Search past chat history across sessions."},
+		{"niskava sessions export <ID> --format md", "Export session report to Markdown or JSON."},
+		{"niskava setup", "Launch interactive setup wizard directly."},
+		{"niskava doctor", "Run system health & diagnostics check."},
+		{"niskava telegram", "Launch Telegram bot worker."},
+		{"niskava graph --open", "Export Knowledge Graph HTML."},
+		{"niskava completion [shell]", "Generate shell autocompletion script."},
+	}
+
+	for _, item := range cliCmds {
+		b.WriteString(fmt.Sprintf("   • %s:\n", mutedStyle.Render(item.Cmd)))
+		wrapped := wrapText(item.Desc, descWidth)
+		for _, line := range strings.Split(wrapped, "\n") {
+			b.WriteString("     " + line + "\n")
+		}
+		b.WriteString("\n")
+	}
+	b.WriteString("\n")
+
+	b.WriteString(RenderConstellationLine(w))
+	b.WriteString("\n")
 
 	return b.String()
+}
+
+// formatHelpItem formats a key-value or bullet item so that the description text
+// wraps cleanly to subsequent lines, indented under the description column.
+func formatHelpItem(prefix, desc string, totalWidth int) string {
+	if totalWidth < 30 {
+		totalWidth = 30
+	}
+
+	prefixLen := lipgloss.Width(prefix)
+	avail := totalWidth - prefixLen
+
+	if avail < 15 {
+		indent := "     "
+		descWidth := totalWidth - 5
+		if descWidth < 15 {
+			descWidth = 15
+		}
+		wrappedDesc := wrapText(desc, descWidth)
+		descLines := strings.Split(wrappedDesc, "\n")
+		var sb strings.Builder
+		sb.WriteString(prefix)
+		sb.WriteString("\n")
+		for _, line := range descLines {
+			sb.WriteString(indent)
+			sb.WriteString(line)
+			sb.WriteString("\n")
+		}
+		return sb.String()
+	}
+
+	wrappedDesc := wrapText(desc, avail)
+	descLines := strings.Split(wrappedDesc, "\n")
+	indent := strings.Repeat(" ", prefixLen)
+
+	var sb strings.Builder
+	for i, line := range descLines {
+		if i == 0 {
+			sb.WriteString(prefix)
+			sb.WriteString(line)
+			sb.WriteString("\n")
+		} else {
+			sb.WriteString(indent)
+			sb.WriteString(line)
+			sb.WriteString("\n")
+		}
+	}
+	return sb.String()
+}
+
+// wrapText breaks a string into lines that do not exceed width characters.
+func wrapText(s string, width int) string {
+	if width <= 0 || len(s) == 0 {
+		return s
+	}
+	words := strings.Fields(s)
+	if len(words) == 0 {
+		return ""
+	}
+
+	var lines []string
+	currentLine := words[0]
+
+	for _, word := range words[1:] {
+		if lipgloss.Width(currentLine+" "+word) <= width {
+			currentLine += " " + word
+		} else {
+			lines = append(lines, currentLine)
+			currentLine = word
+		}
+	}
+	lines = append(lines, currentLine)
+	return strings.Join(lines, "\n")
 }
 
 // HelpViewerModel is a Bubbletea model for interactive scrollable help viewing.
@@ -123,14 +331,16 @@ func (m HelpViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
+		w := msg.Width
+		h := msg.Height - 3
 		if !m.Ready {
-			m.Viewport = viewport.New(msg.Width, msg.Height-3)
-			m.Viewport.SetContent(GetFullHelpGuideString())
+			m.Viewport = viewport.New(w, h)
 			m.Ready = true
 		} else {
-			m.Viewport.Width = msg.Width
-			m.Viewport.Height = msg.Height - 3
+			m.Viewport.Width = w
+			m.Viewport.Height = h
 		}
+		m.Viewport.SetContent(GetFullHelpGuideString(w))
 	}
 
 	m.Viewport, cmd = m.Viewport.Update(msg)
@@ -139,10 +349,21 @@ func (m HelpViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m HelpViewerModel) View() string {
 	if !m.Ready {
-		return "\n  Initializing help viewer...\n"
+		return "\n  Initializing help viewer...\n\033[J"
 	}
-	footer := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("[↑/↓/k/j/PgUp/PgDn Scroll  •  Esc Return to Menu]")
-	return fmt.Sprintf("%s\n\n  %s", m.Viewport.View(), footer)
+	w := m.Viewport.Width
+	if w <= 0 {
+		w = GetTermWidth()
+	}
+	footerText := "[↑/↓/k/j/PgUp/PgDn Scroll  •  Esc Return to Menu]"
+	if w < 55 {
+		footerText = "[↑/↓ Scroll  •  Esc Return to Menu]"
+	}
+	if w < 40 {
+		footerText = "[↑/↓ Scroll • Esc Menu]"
+	}
+	footer := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(footerText)
+	return fmt.Sprintf("%s\n\n  %s", m.Viewport.View(), footer) + "\033[J"
 }
 
 // PrintFullHelpGuide displays the interactive scrollable help guide.

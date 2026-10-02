@@ -215,7 +215,7 @@ NISKAVA_DB_PATH=~/.niskava/niskava.db
 NISKAVA_PYTHON_BIN=%s
 NISKAVA_ENGINE_PATH=./backend/engine
 NISKAVA_DEFAULT_MARKET=IDX
-NISKAVA_PORT=8080
+NISKAVA_PORT=20128
 
 # 4. SECTORS NEWS ENGINE
 NEWS_HARVEST_MAX_ARTICLES=5
@@ -234,8 +234,96 @@ NISKAVA_LLM_TIMEOUT=%.2f
 	)
 }
 
+// MaskAPIKey delegates to tui.MaskAPIKey.
+func MaskAPIKey(key string) string {
+	return tui.MaskAPIKey(key)
+}
+
+// PromptWithDefault prompts the user on stdout, displaying current masked value if present,
+// and preserves the current value if the user presses ENTER.
+func PromptWithDefault(reader *bufio.Reader, label, currentVal string, isSecret bool) string {
+	displayVal := currentVal
+	if isSecret && currentVal != "" {
+		displayVal = MaskAPIKey(currentVal)
+	}
+
+	if currentVal != "" {
+		fmt.Printf("%s [Current: %s, press ENTER to keep]: ", label, wizardMutedStyle.Render(displayVal))
+	} else {
+		fmt.Printf("%s: ", label)
+	}
+
+	raw, _ := reader.ReadString('\n')
+	clean := strings.TrimSpace(raw)
+	if clean == "" {
+		return currentVal
+	}
+	return clean
+}
+
+// RenderConfigurationDashboard delegates to tui.RenderConfigurationDashboard.
+func RenderConfigurationDashboard(c *config.Config) string {
+	return tui.RenderConfigurationDashboard(c)
+}
+
 // SaveSetupConfiguration writes both user-space ~/.niskava/config.yaml, ~/.niskava/.env, and best-effort local .env.
 func SaveSetupConfiguration(p SetupParams) error {
+	cfg, err := config.Load("")
+	if err != nil || cfg == nil {
+		cfg = config.DefaultConfig()
+	}
+
+	// Preserve existing keys if not explicitly overwritten by newly entered non-empty values
+	if p.OpenAIKey != "" {
+		cfg.Auth.OpenAIAPIKey = p.OpenAIKey
+	} else {
+		p.OpenAIKey = cfg.Auth.OpenAIAPIKey
+	}
+
+	if p.GeminiKey != "" {
+		cfg.Auth.GeminiAPIKey = p.GeminiKey
+	} else {
+		p.GeminiKey = cfg.Auth.GeminiAPIKey
+	}
+
+	if strings.EqualFold(strings.TrimSpace(p.SectorsKey), "mock") || strings.EqualFold(strings.TrimSpace(p.SectorsKey), "offline") {
+		cfg.Auth.SectorsAPIKey = ""
+		p.SectorsKey = ""
+		cfg.Preferences.OfflineMode = true
+	} else if p.SectorsKey != "" {
+		cfg.Auth.SectorsAPIKey = p.SectorsKey
+		cfg.Preferences.OfflineMode = false
+	} else {
+		p.SectorsKey = cfg.Auth.SectorsAPIKey
+		cfg.Preferences.OfflineMode = (strings.TrimSpace(cfg.Auth.SectorsAPIKey) == "")
+	}
+
+	if p.AIProvider != "" {
+		cfg.Auth.AIProvider = p.AIProvider
+	}
+	if p.OpenAIBaseURL != "" {
+		cfg.Auth.OpenAIBaseURL = p.OpenAIBaseURL
+	}
+	if p.OpenAIModel != "" {
+		cfg.Auth.OpenAIModel = p.OpenAIModel
+	}
+	if p.GeminiModel != "" {
+		cfg.Auth.GeminiModel = p.GeminiModel
+	}
+
+	if p.LLMTimeoutSecs > 0 {
+		cfg.Preferences.LLMTimeoutSecs = p.LLMTimeoutSecs
+	} else if cfg.Preferences.LLMTimeoutSecs > 0 {
+		p.LLMTimeoutSecs = cfg.Preferences.LLMTimeoutSecs
+	} else {
+		cfg.Preferences.LLMTimeoutSecs = 60.0
+		p.LLMTimeoutSecs = 60.0
+	}
+
+	if p.PythonBin != "" {
+		cfg.Engine.PythonBin = p.PythonBin
+	}
+
 	envContent := BuildEnvContent(p)
 
 	// 1. Primary persistence: ~/.niskava/.env and ~/.niskava/config.yaml
@@ -246,27 +334,6 @@ func SaveSetupConfiguration(p SetupParams) error {
 		_ = os.WriteFile(filepath.Join(niskavaDir, ".env"), []byte(envContent), 0600)
 	}
 
-	cfg, err := config.Load("")
-	if err != nil || cfg == nil {
-		cfg = config.DefaultConfig()
-	}
-	cfg.Auth.AIProvider = p.AIProvider
-	cfg.Auth.OpenAIBaseURL = p.OpenAIBaseURL
-	cfg.Auth.OpenAIAPIKey = p.OpenAIKey
-	cfg.Auth.OpenAIModel = p.OpenAIModel
-	cfg.Auth.GeminiAPIKey = p.GeminiKey
-	cfg.Auth.GeminiModel = p.GeminiModel
-	cfg.Auth.SectorsAPIKey = p.SectorsKey
-	cfg.Preferences.OfflineMode = (strings.TrimSpace(p.SectorsKey) == "")
-	if p.LLMTimeoutSecs > 0 {
-		cfg.Preferences.LLMTimeoutSecs = p.LLMTimeoutSecs
-	} else {
-		cfg.Preferences.LLMTimeoutSecs = 60.0
-	}
-	if p.PythonBin != "" {
-		cfg.Engine.PythonBin = p.PythonBin
-	}
-
 	if err := config.SaveConfig(cfg); err != nil {
 		return fmt.Errorf("failed to save configuration file: %w", err)
 	}
@@ -274,7 +341,7 @@ func SaveSetupConfiguration(p SetupParams) error {
 	// 2. Best-effort local .env in current directory (non-fatal if current working directory is read-only)
 	if err := os.WriteFile(".env", []byte(envContent), 0600); err != nil {
 		fmt.Printf("  %s Note: Could not write local .env in current directory (%v). User configuration in ~/.niskava/config.yaml will be active.\n",
-			wizardWarnBadgeStyle.Render("[!]"), err)
+			wizardWarnBadgeStyle.Render("⚠️"), err)
 	}
 
 	return nil
@@ -290,7 +357,7 @@ func TestLiveConnection(ctx context.Context, target, baseURL, apiKey string) (bo
 		if apiKey == "" {
 			return true, "Offline mock mode active (no network ping needed)", 0
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.sectors.app/v2/daily/BBCA/?format=json", nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.sectors.app/v2/daily/BBCA/", nil)
 		if err != nil {
 			return false, fmt.Sprintf("Build request error: %v", err), time.Since(start)
 		}
@@ -537,6 +604,11 @@ func RunInteractiveSetup() error {
 	reader := bufio.NewReader(os.Stdin)
 	presets := GetProviderPresets()
 
+	currCfg, _ := config.Load("")
+	if currCfg == nil {
+		currCfg = config.DefaultConfig()
+	}
+
 	fmt.Println()
 	var headerBox strings.Builder
 	headerBox.WriteString(wizardTitleStyle.Render("NISKAVA AGENT — DYNAMIC SETUP WIZARD (MULTI-PROVIDER)") + "\n")
@@ -544,7 +616,111 @@ func RunInteractiveSetup() error {
 	fmt.Println(setupCardStyle.Render(headerBox.String()))
 	fmt.Println()
 
+	// Display Current Active Configuration Dashboard!
+	fmt.Println(RenderConfigurationDashboard(currCfg))
+	fmt.Println()
+
+	fmt.Println(wizardStepStyle.Render("Choose Action:"))
+	fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[1]"), "Change AI Inference Provider / Model (OpenRouter, Gemini, OpenAI, Ollama, etc.)")
+	fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[2]"), "Update API Credentials (Gemini Key, OpenAI/Router Key, Sectors Key)")
+	fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[3]"), "Toggle Sectors Live / Offline Mock Mode")
+	fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[4]"), "Run Complete 5-Step Setup Wizard")
+	fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[5]"), "Exit / Keep Current Settings")
+	fmt.Printf("\n%s Choice [1/2/3/4/5, default: 1]: ", wizardStepStyle.Render("►"))
+
+	mainChoice, _ := reader.ReadString('\n')
+	mainChoice = strings.TrimSpace(mainChoice)
+	if mainChoice == "" {
+		mainChoice = "1"
+	}
+
+	if mainChoice == "5" || strings.EqualFold(mainChoice, "q") || strings.EqualFold(mainChoice, "exit") {
+		fmt.Printf("\n  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Configuration unchanged. Exiting setup wizard."))
+		return nil
+	}
+
+	if mainChoice != "1" && mainChoice != "2" && mainChoice != "3" && mainChoice != "4" {
+		fmt.Printf("\n  %s Invalid selection %q. Exiting setup wizard.\n\n", wizardWarnBadgeStyle.Render("⚠️"), mainChoice)
+		return nil
+	}
+
+	if mainChoice == "3" {
+		// Quick Toggle Sectors mode
+		if currCfg.Preferences.OfflineMode || currCfg.Auth.SectorsAPIKey == "" {
+			fmt.Printf("\n  %s Enter Sectors API Key to enable Live Mode: ", wizardStepStyle.Render("►"))
+			secKey, _ := reader.ReadString('\n')
+			secKey = strings.TrimSpace(secKey)
+			if secKey != "" {
+				currCfg.Auth.SectorsAPIKey = secKey
+				currCfg.Preferences.OfflineMode = false
+				_ = config.SaveConfig(currCfg)
+				fmt.Printf("  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Sectors Live API Mode enabled!"))
+			} else {
+				fmt.Printf("  %s %s\n\n", wizardWarnBadgeStyle.Render("⚠️"), wizardMutedStyle.Render("No key provided. Remaining in Offline Mock Mode."))
+			}
+		} else {
+			currCfg.Preferences.OfflineMode = true
+			_ = config.SaveConfig(currCfg)
+			fmt.Printf("  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Sectors Offline Mock Mode enabled (Law 5 Credit Conservation)."))
+		}
+		return nil
+	}
+
+	if mainChoice == "2" {
+		// Update API Credentials directly
+		fmt.Println()
+		fmt.Println(wizardStepStyle.Render("Update API Credentials (Press ENTER to preserve current values):"))
+		newGemini := PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Google Gemini Key", currCfg.Auth.GeminiAPIKey, true)
+		newOpenAI := PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" OpenAI / Router Key", currCfg.Auth.OpenAIAPIKey, true)
+		newSectors := PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Sectors Financial Key", currCfg.Auth.SectorsAPIKey, true)
+
+		if newGemini != "" {
+			currCfg.Auth.GeminiAPIKey = newGemini
+		}
+		if newOpenAI != "" {
+			currCfg.Auth.OpenAIAPIKey = newOpenAI
+		}
+		if strings.EqualFold(newSectors, "mock") || strings.EqualFold(newSectors, "offline") {
+			currCfg.Auth.SectorsAPIKey = ""
+			currCfg.Preferences.OfflineMode = true
+		} else if newSectors != "" {
+			currCfg.Auth.SectorsAPIKey = newSectors
+			currCfg.Preferences.OfflineMode = false
+		}
+
+		if err := config.SaveConfig(currCfg); err != nil {
+			fmt.Printf("  %s Error saving config: %v\n", wizardErrBadgeStyle.Render("[FAILED]"), err)
+			return err
+		}
+		fmt.Printf("\n  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Credentials successfully updated!"))
+		return nil
+	}
+
+	var (
+		aiProvider    = currCfg.Auth.AIProvider
+		openAIBaseURL = currCfg.Auth.OpenAIBaseURL
+		openAIKey     = currCfg.Auth.OpenAIAPIKey
+		openAIModel   = currCfg.Auth.OpenAIModel
+		geminiKey     = currCfg.Auth.GeminiAPIKey
+		geminiModel   = currCfg.Auth.GeminiModel
+		sectorsKey    = currCfg.Auth.SectorsAPIKey
+		testTarget    = "openai"
+	)
+	if aiProvider == "" {
+		aiProvider = "openai"
+	}
+	if openAIBaseURL == "" {
+		openAIBaseURL = "https://openrouter.ai/api/v1"
+	}
+	if openAIModel == "" {
+		openAIModel = "deepseek/deepseek-chat"
+	}
+	if geminiModel == "" {
+		geminiModel = "gemini-2.0-flash"
+	}
+
 	// Step 1: Select AI Inference Provider Category
+	fmt.Println()
 	fmt.Println(wizardStepStyle.Render("Step 1: Select AI Model Inference Category:"))
 	fmt.Printf("  %s %s %s\n",
 		wizardItemBadgeStyle.Render("[1]"),
@@ -567,16 +743,6 @@ func RunInteractiveSetup() error {
 		catChoice = "1"
 	}
 
-	var (
-		aiProvider    = "openai"
-		openAIBaseURL = "https://openrouter.ai/api/v1"
-		openAIKey     = ""
-		openAIModel   = "deepseek/deepseek-chat"
-		geminiKey     = ""
-		geminiModel   = "gemini-2.0-flash"
-		testTarget    = "openai"
-	)
-
 	switch catChoice {
 	case "2": // Direct Cloud AI
 		fmt.Println()
@@ -595,75 +761,53 @@ func RunInteractiveSetup() error {
 			aiProvider = "gemini"
 			testTarget = "gemini"
 			openAIBaseURL = preset.BaseURL
-			openAIModel = preset.DefaultModel
-			geminiModel = preset.DefaultModel
-
-			fmt.Printf("\n  %s Enter Google Gemini API Key (https://aistudio.google.com/): ", wizardStepStyle.Render("►"))
-			k, _ := reader.ReadString('\n')
-			geminiKey = strings.TrimSpace(k)
-			openAIKey = geminiKey
-
-			fmt.Printf("  %s Model Name [default: %s]: ", wizardStepStyle.Render("►"), wizardMutedStyle.Render(preset.DefaultModel))
-			m, _ := reader.ReadString('\n')
-			m = strings.TrimSpace(m)
-			if m != "" {
-				geminiModel = m
-				openAIModel = m
+			if geminiModel == "" {
+				geminiModel = preset.DefaultModel
 			}
+
+			fmt.Println()
+			geminiKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Google Gemini API Key (https://aistudio.google.com/)", geminiKey, true)
+			geminiModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", geminiModel, false)
+			openAIModel = geminiModel
 		} else if cloudSub == "2" {
 			// DeepSeek
 			preset := presets["deepseek"]
 			aiProvider = "openai"
 			testTarget = "deepseek"
 			openAIBaseURL = preset.BaseURL
-			openAIModel = preset.DefaultModel
-
-			fmt.Printf("\n  %s Enter DeepSeek API Key (https://platform.deepseek.com/): ", wizardStepStyle.Render("►"))
-			k, _ := reader.ReadString('\n')
-			openAIKey = strings.TrimSpace(k)
-
-			fmt.Printf("  %s Model Name [default: %s]: ", wizardStepStyle.Render("►"), wizardMutedStyle.Render(preset.DefaultModel))
-			m, _ := reader.ReadString('\n')
-			m = strings.TrimSpace(m)
-			if m != "" {
-				openAIModel = m
+			if openAIModel == "" {
+				openAIModel = preset.DefaultModel
 			}
+
+			fmt.Println()
+			openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" DeepSeek API Key (https://platform.deepseek.com/)", openAIKey, true)
+			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", openAIModel, false)
 		} else if cloudSub == "3" {
 			// Groq
 			preset := presets["groq"]
 			aiProvider = "openai"
 			testTarget = "groq"
 			openAIBaseURL = preset.BaseURL
-			openAIModel = preset.DefaultModel
-
-			fmt.Printf("\n  %s Enter Groq API Key (https://console.groq.com/): ", wizardStepStyle.Render("►"))
-			k, _ := reader.ReadString('\n')
-			openAIKey = strings.TrimSpace(k)
-
-			fmt.Printf("  %s Model Name [default: %s]: ", wizardStepStyle.Render("►"), wizardMutedStyle.Render(preset.DefaultModel))
-			m, _ := reader.ReadString('\n')
-			m = strings.TrimSpace(m)
-			if m != "" {
-				openAIModel = m
+			if openAIModel == "" {
+				openAIModel = preset.DefaultModel
 			}
+
+			fmt.Println()
+			openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Groq API Key (https://console.groq.com/)", openAIKey, true)
+			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", openAIModel, false)
 		} else {
 			// OpenAI
 			preset := presets["openai"]
 			aiProvider = "openai"
 			testTarget = "openai"
 			openAIBaseURL = preset.BaseURL
-			openAIModel = preset.DefaultModel
-
-			fmt.Printf("\n  %s Enter OpenAI API Key: ", wizardStepStyle.Render("►"))
-			k, _ := reader.ReadString('\n')
-			openAIKey = strings.TrimSpace(k)
-
-			fmt.Printf("  %s Model Name [default: %s]: ", wizardStepStyle.Render("►"), wizardMutedStyle.Render(preset.DefaultModel))
-			m, _ := reader.ReadString('\n')
-			m = strings.TrimSpace(m)
-			if m != "" {
-				openAIModel = m
+			if openAIModel == "" {
+				openAIModel = preset.DefaultModel
 			}
+
+			fmt.Println()
+			openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" OpenAI API Key", openAIKey, true)
+			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", openAIModel, false)
 		}
 
 	case "3": // Local / Private Model
@@ -679,67 +823,23 @@ func RunInteractiveSetup() error {
 			preset := presets["ollama"]
 			aiProvider = "openai"
 			testTarget = "ollama"
-			openAIBaseURL = preset.BaseURL
-			openAIModel = preset.DefaultModel
+			openAIBaseURL = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Ollama Base URL", preset.BaseURL, false)
+			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Tag", preset.DefaultModel, false)
 			openAIKey = "ollama-local"
-
-			fmt.Printf("  %s Ollama Base URL [default: %s]: ", wizardStepStyle.Render("►"), wizardMutedStyle.Render(preset.BaseURL))
-			u, _ := reader.ReadString('\n')
-			u = strings.TrimSpace(u)
-			if u != "" {
-				openAIBaseURL = u
-			}
-
-			fmt.Printf("  %s Model Tag [default: %s]: ", wizardStepStyle.Render("►"), wizardMutedStyle.Render(preset.DefaultModel))
-			m, _ := reader.ReadString('\n')
-			m = strings.TrimSpace(m)
-			if m != "" {
-				openAIModel = m
-			}
 		} else {
 			aiProvider = "openai"
 			testTarget = "openai"
-			openAIBaseURL = "http://localhost:1234/v1"
-			openAIModel = "local-model"
+			openAIBaseURL = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Base URL", "http://localhost:1234/v1", false)
+			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", "local-model", false)
 			openAIKey = "not-needed"
-
-			fmt.Printf("  %s Base URL [default: %s]: ", wizardStepStyle.Render("►"), wizardMutedStyle.Render(openAIBaseURL))
-			u, _ := reader.ReadString('\n')
-			u = strings.TrimSpace(u)
-			if u != "" {
-				openAIBaseURL = u
-			}
-
-			fmt.Printf("  %s Model Name [default: %s]: ", wizardStepStyle.Render("►"), wizardMutedStyle.Render(openAIModel))
-			m, _ := reader.ReadString('\n')
-			m = strings.TrimSpace(m)
-			if m != "" {
-				openAIModel = m
-			}
 		}
 
 	case "4": // Custom Manual Endpoint
 		aiProvider = "openai"
 		testTarget = "openai"
-		fmt.Printf("\n  %s Enter Base URL [example: https://my-custom-proxy.com/v1]: ", wizardStepStyle.Render("►"))
-		u, _ := reader.ReadString('\n')
-		u = strings.TrimSpace(u)
-		if u != "" {
-			openAIBaseURL = u
-		}
-
-		fmt.Printf("  %s Enter API Key: ", wizardStepStyle.Render("►"))
-		k, _ := reader.ReadString('\n')
-		openAIKey = strings.TrimSpace(k)
-
-		fmt.Printf("  %s Enter Model Name: ", wizardStepStyle.Render("►"))
-		m, _ := reader.ReadString('\n')
-		m = strings.TrimSpace(m)
-		if m != "" {
-			openAIModel = m
-		} else {
-			openAIModel = "default-model"
-		}
+		openAIBaseURL = PromptWithDefault(reader, "\n  "+wizardStepStyle.Render("►")+" Enter Base URL", openAIBaseURL, false)
+		openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Enter API Key", openAIKey, true)
+		openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Enter Model Name", openAIModel, false)
 
 	default: // 1: External AI Router
 		fmt.Println()
@@ -761,74 +861,73 @@ func RunInteractiveSetup() error {
 			aiProvider = "openai"
 			testTarget = "openrouter"
 			openAIBaseURL = preset.BaseURL
-			openAIModel = preset.DefaultModel
-
-			fmt.Printf("\n  %s Enter OpenRouter API Key (https://openrouter.ai/keys): ", wizardStepStyle.Render("►"))
-			k, _ := reader.ReadString('\n')
-			openAIKey = strings.TrimSpace(k)
-
-			fmt.Printf("  %s Model String [default: %s]: ", wizardStepStyle.Render("►"), wizardMutedStyle.Render(preset.DefaultModel))
-			m, _ := reader.ReadString('\n')
-			m = strings.TrimSpace(m)
-			if m != "" {
-				openAIModel = m
+			if openAIModel == "" {
+				openAIModel = preset.DefaultModel
 			}
+
+			fmt.Println()
+			openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Enter OpenRouter API Key (https://openrouter.ai/keys)", openAIKey, true)
+			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model String", openAIModel, false)
 		} else if routerSub == "2" {
 			// 9router / local proxy
 			preset := presets["router_local"]
 			aiProvider = "openai"
 			testTarget = "router_local"
-			openAIBaseURL = preset.BaseURL
-			openAIModel = preset.DefaultModel
-			openAIKey = "sk-9router-local-key"
-
-			fmt.Printf("\n  %s Local Router Base URL [default: %s]: ", wizardStepStyle.Render("►"), wizardMutedStyle.Render(preset.BaseURL))
-			u, _ := reader.ReadString('\n')
-			u = strings.TrimSpace(u)
-			if u != "" {
-				openAIBaseURL = u
-			}
-
-			fmt.Printf("  %s Router API Key [default: %s]: ", wizardStepStyle.Render("►"), wizardMutedStyle.Render(openAIKey))
-			k, _ := reader.ReadString('\n')
-			k = strings.TrimSpace(k)
-			if k != "" {
-				openAIKey = k
-			}
-
-			fmt.Printf("  %s Model Name [default: %s]: ", wizardStepStyle.Render("►"), wizardMutedStyle.Render(preset.DefaultModel))
-			m, _ := reader.ReadString('\n')
-			m = strings.TrimSpace(m)
-			if m != "" {
-				openAIModel = m
-			}
+			openAIBaseURL = PromptWithDefault(reader, "\n  "+wizardStepStyle.Render("►")+" Local Router Base URL", preset.BaseURL, false)
+			openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Router API Key", "sk-9router-local-key", true)
+			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", preset.DefaultModel, false)
 		} else {
 			aiProvider = "openai"
 			testTarget = "openai"
-			fmt.Printf("\n  %s Enter Router Base URL: ", wizardStepStyle.Render("►"))
-			u, _ := reader.ReadString('\n')
-			openAIBaseURL = strings.TrimSpace(u)
-
-			fmt.Printf("  %s Enter Router API Key: ", wizardStepStyle.Render("►"))
-			k, _ := reader.ReadString('\n')
-			openAIKey = strings.TrimSpace(k)
-
-			fmt.Printf("  %s Enter Model Name: ", wizardStepStyle.Render("►"))
-			m, _ := reader.ReadString('\n')
-			openAIModel = strings.TrimSpace(m)
+			openAIBaseURL = PromptWithDefault(reader, "\n  "+wizardStepStyle.Render("►")+" Enter Router Base URL", openAIBaseURL, false)
+			openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Enter Router API Key", openAIKey, true)
+			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Enter Model Name", openAIModel, false)
 		}
+	}
+
+	if mainChoice == "1" {
+		// Quick provider switch completed! Test connection ping & save immediately
+		fmt.Println()
+		fmt.Print(wizardMutedStyle.Render("  Testing AI Provider endpoint... "))
+		activeKey := openAIKey
+		if aiProvider == "gemini" && geminiKey != "" {
+			activeKey = geminiKey
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ok, msg, _ := TestLiveConnection(ctx, testTarget, openAIBaseURL, activeKey)
+		cancel()
+		if ok {
+			fmt.Printf("%s %s\n", wizardSuccessBadgeStyle.Render("[✓ CONNECTED]"), wizardMutedStyle.Render(msg))
+		} else {
+			fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("⚠️  NOTICE"), wizardMutedStyle.Render(msg))
+		}
+
+		currCfg.Auth.AIProvider = aiProvider
+		currCfg.Auth.OpenAIBaseURL = openAIBaseURL
+		currCfg.Auth.OpenAIAPIKey = openAIKey
+		currCfg.Auth.OpenAIModel = openAIModel
+		currCfg.Auth.GeminiAPIKey = geminiKey
+		currCfg.Auth.GeminiModel = geminiModel
+
+		if err := config.SaveConfig(currCfg); err != nil {
+			fmt.Printf("  %s Error saving config: %v\n", wizardErrBadgeStyle.Render("[FAILED]"), err)
+			return err
+		}
+		fmt.Printf("\n  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("AI Provider & Model configuration updated successfully!"))
+		return nil
 	}
 
 	// Step 2: Sectors Financial API Key (IDX)
 	fmt.Println()
 	fmt.Println(wizardStepStyle.Render("Step 2: Sectors Financial API v2 (Indonesia Stock Exchange):"))
-	fmt.Println(wizardMutedStyle.Render("  (Get free key at https://sectors.app. Press ENTER for 100% Offline Mock Mode)."))
-	fmt.Printf("%s Sectors API Key [optional]: ", wizardStepStyle.Render("►"))
-	sectorsKey, _ := reader.ReadString('\n')
-	sectorsKey = strings.TrimSpace(sectorsKey)
+	fmt.Println(wizardMutedStyle.Render("  (Get free key at https://sectors.app. Press ENTER to keep current or type 'mock' for Offline Mode)."))
+	sectorsKey = PromptWithDefault(reader, wizardStepStyle.Render("►")+" Sectors API Key [optional]", sectorsKey, true)
 
-	if sectorsKey == "" {
+	if strings.EqualFold(sectorsKey, "mock") || strings.EqualFold(sectorsKey, "offline") || sectorsKey == "" {
+		sectorsKey = ""
 		fmt.Printf("  %s %s\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Offline Mock Mode enabled (Law 5: Credit Conservation). All financial data fixtures active."))
+	} else {
+		fmt.Printf("  %s %s\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Sectors Live API Mode configured."))
 	}
 
 	// Step 3: Live Verification Ping
@@ -846,7 +945,7 @@ func RunInteractiveSetup() error {
 	if ok {
 		fmt.Printf("%s %s\n", wizardSuccessBadgeStyle.Render("[✓ CONNECTED]"), wizardMutedStyle.Render(msg))
 	} else {
-		fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("[! NOTICE]"), wizardMutedStyle.Render(msg))
+		fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("⚠️  NOTICE"), wizardMutedStyle.Render(msg))
 		fmt.Println(wizardMutedStyle.Render("    Warning: The AI gateway endpoint appears offline or unreachable."))
 		fmt.Println(wizardMutedStyle.Render("    (Configuration will still be saved. Ensure your local gateway/LLM is running before querying)."))
 	}
@@ -857,7 +956,7 @@ func RunInteractiveSetup() error {
 		if secOK {
 			fmt.Printf("%s %s\n", wizardSuccessBadgeStyle.Render("[✓ CONNECTED]"), wizardMutedStyle.Render(secMsg))
 		} else {
-			fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("[! NOTICE]"), wizardMutedStyle.Render(secMsg))
+			fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("⚠️  NOTICE"), wizardMutedStyle.Render(secMsg))
 			if strings.Contains(secMsg, "401") {
 				fmt.Println(wizardMutedStyle.Render("    Note: Sectors API key returned HTTP 401 Unauthorized. Niskava will use Offline/Mock data until a valid key is provided."))
 			}
@@ -871,7 +970,7 @@ func RunInteractiveSetup() error {
 	if pyReady {
 		fmt.Printf("  %s %s (%s)\n", wizardSuccessBadgeStyle.Render("[✓ READY]"), pyBin, wizardMutedStyle.Render(pyDesc))
 	} else {
-		fmt.Printf("  %s %s (%s)\n", wizardWarnBadgeStyle.Render("[! ACTION REQUIRED]"), pyBin, wizardMutedStyle.Render(pyDesc))
+		fmt.Printf("  %s %s (%s)\n", wizardWarnBadgeStyle.Render("⚠️  ACTION REQUIRED"), pyBin, wizardMutedStyle.Render(pyDesc))
 		fmt.Printf("\n  %s Would you like Niskava to set up .venv and install requirements automatically? [Y/n, default: Y]: ", wizardStepStyle.Render("►"))
 		autoChoice, _ := reader.ReadString('\n')
 		autoChoice = strings.ToLower(strings.TrimSpace(autoChoice))
@@ -935,7 +1034,7 @@ func RunInteractiveSetup() error {
 		if _, err := fmt.Sscanf(rawSecs, "%f", &parsed); err == nil && parsed >= 10 && parsed <= 300 {
 			chosenTimeoutSecs = parsed
 		} else {
-			fmt.Printf("  %s Invalid value. Using Balanced (60s).\n", wizardWarnBadgeStyle.Render("[!]"))
+			fmt.Printf("  %s Invalid value. Using Balanced (60s).\n", wizardWarnBadgeStyle.Render("⚠️"))
 			chosenTimeoutSecs = 60.0
 		}
 	default:

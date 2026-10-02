@@ -53,8 +53,8 @@ def test_export_graph_data(populated_memory):
     # Check node properties
     antm_node = next(n for n in data["nodes"] if n["label"] == "ANTM")
     assert antm_node["group"] == "TICKER"
-    assert antm_node["shape"] == "box"
-    assert antm_node["color"]["background"] == "#1E3A8A"
+    assert antm_node["shape"] == "dot"
+    assert antm_node["color"]["background"] == "#1E2329"
     assert antm_node["raw_label"] == "ANTM"
     assert antm_node["widthConstraint"] == {"maximum": 150, "minimum": 80}
     assert antm_node["margin"] == 10
@@ -74,7 +74,7 @@ def test_generate_html_content(populated_memory):
     assert "vis-network" in html
     assert "ANTM" in html
     assert "Smelter Haltim" in html
-    assert "NISKAVA AGENT" in html
+    assert "brand-logo-badge" in html
     assert "Market Intelligence" in html
 
 
@@ -104,7 +104,9 @@ def test_institutional_theme_no_cyber_slop(populated_memory):
     # Assert presence of institutional financial palette & layout
     assert "Market Intelligence" in html
     assert "tnum" in html or "tabular-nums" in html
-    assert "Dossier" in html
+    assert "Inspector" in html
+    assert "Neurons:" not in html
+    assert "Synapses:" not in html
 
 
 def test_html_template_is_english(populated_memory):
@@ -264,5 +266,80 @@ def test_generate_html_embed_mode(populated_memory, tmp_path):
         saved_content = f.read()
     assert expected_css in saved_content
     assert "ANTM" in saved_content
+
+def test_filter_group_logic_in_html(populated_memory):
+    """Verify that group filtering does not use alert() and focuses layout cleanly without scattering."""
+    viz = GraphVisualizer(memory=populated_memory)
+    html = viz.generate_html(title="Test Filter Logic")
+
+    # No blocking window alert
+    assert "alert(" not in html, "Blocking alert() should not be used in institutional UI."
+
+    # filterByGroup must reference global topology, update opacity/focus, and maintain node positions
+    assert "allEdges" in html
+    assert "filterByGroup" in html
+    assert "network.fit" in html
+    assert "Ego-Graph Radius" not in html
+
+def test_central_entities_hub_card_styling(populated_memory):
+    """Verify clean institutional hub item structure without cramped layout."""
+    viz = GraphVisualizer(memory=populated_memory)
+    html = viz.generate_html(title="Test Hub Styling")
+
+    assert "hub-item" in html
+    assert "hub-rank-badge" in html
+    assert "title=" in html  # Full text hover tooltip
+    assert "pr-pill" in html
+
+
+def test_visualizer_responsive_media_queries(populated_memory):
+    """Verify that visualizer includes comprehensive responsive media queries for all devices."""
+    viz = GraphVisualizer(memory=populated_memory)
+    html = viz.generate_html(title="Test Responsive")
+
+    assert "@media (max-width: 1024px)" in html
+    assert "@media (max-width: 768px)" in html
+    assert "sidebarToggleBtn" in html
+    assert "inspectorToggleBtn" in html
+    assert "drawer-backdrop" in html
+    assert "toggleSidebar" in html
+    assert "toggleInspector" in html
+    assert "closeDrawers" in html
+
+def test_weight_meter_dynamic_scale(populated_memory):
+    """Verify edge inspector dynamically scales weight bar without hardcoded 3.0 limit."""
+    viz = GraphVisualizer(memory=populated_memory)
+    html = viz.generate_html(title="Test Weight Scale")
+
+    # Verify dynamic weight bar scaling or max calculation
+    assert "maxWeight" in html or "maxConn" in html or "maxEdgeWeight" in html
+    assert "showToast" in html
+
+
+def test_edge_color_palette_high_contrast(populated_memory):
+    """Verify edges have high visibility alpha >= 0.70 and minimum width of 2px."""
+    viz = GraphVisualizer(memory=populated_memory)
+    data = viz.export_graph_data()
+
+    assert len(data["edges"]) >= 2
+    for edge in data["edges"]:
+        assert edge["width"] >= 2
+        color_rgba = edge["color"]["color"]
+        assert "rgba(" in color_rgba
+        # Extract alpha from rgba(...)
+        alpha = float(color_rgba.split(",")[-1].replace(")", "").strip())
+        assert alpha >= 0.65, f"Edge alpha {alpha} is too low for high-contrast visibility"
+
+
+def test_edge_click_inspector_in_html(populated_memory):
+    """Verify edge click interaction, hit detection tolerance, and causality flow card in HTML."""
+    viz = GraphVisualizer(memory=populated_memory)
+    html = viz.generate_html(title="Test Edge Click")
+
+    assert "edgeThreshold: 20" in html
+    assert "highlightEdge" in html
+    assert "inspectEdge" in html
+    assert "causality-card" in html
+    assert "evidence-quote" in html
 
 

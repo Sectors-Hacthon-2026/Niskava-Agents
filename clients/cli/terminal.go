@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/server"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/clients/cli/tui"
 	"github.com/spf13/cobra"
@@ -36,10 +37,22 @@ to dialog with the investigation agent, evaluate quantitative anomalies, and ins
 		}
 		srv.ConfigPath = cfgFile
 
-		if sessionFlag != "" {
-			_ = tui.RunLiveREPL(cfg, appDB, srv.URL, sessionFlag)
-		} else {
-			_ = tui.RunLiveREPL(cfg, appDB, srv.URL)
+		for {
+			var res string
+			if sessionFlag != "" {
+				res = tui.RunLiveREPL(cfg, appDB, srv.URL, sessionFlag)
+			} else {
+				res = tui.RunLiveREPL(cfg, appDB, srv.URL)
+			}
+			if res == tui.ReplSetupSentinel {
+				_ = RunInteractiveSetup()
+				if newCfg, err := config.Load(cfgFile); err == nil {
+					cfg = newCfg
+					srv.Config = newCfg
+				}
+				continue
+			}
+			break
 		}
 		return nil
 	},

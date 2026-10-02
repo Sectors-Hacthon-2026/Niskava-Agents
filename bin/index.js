@@ -25,26 +25,111 @@ const GITHUB_REPO = 'Sectors-Hacthon-2026/Niskava-Agents';
 
 const isWindows = process.platform === 'win32';
 
-function checkPythonRuntime() {
+function copyDirRecursiveSync(srcDir, destDir) {
+    if (!fs.existsSync(srcDir)) return;
+    if (!fs.existsSync(destDir)) {
+        fs.mkdirSync(destDir, { recursive: true });
+    }
+    const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+    for (const entry of entries) {
+        const srcPath = path.join(srcDir, entry.name);
+        const destPath = path.join(destDir, entry.name);
+
+        if (entry.name === '__pycache__' || entry.name === '.pytest_cache' || entry.name.endsWith('.pyc')) {
+            continue;
+        }
+
+        if (entry.isDirectory()) {
+            copyDirRecursiveSync(srcPath, destPath);
+        } else if (entry.isFile()) {
+            try {
+                fs.copyFileSync(srcPath, destPath);
+            } catch (_) {}
+        }
+    }
+}
+
+function syncEngineToUserSpace(rootDir, niskavaHome = getNiskavaHome()) {
+    const srcEngine = path.join(rootDir, 'backend', 'engine');
+    if (!fs.existsSync(srcEngine)) return false;
+
+    try {
+        const targetEngine = path.join(niskavaHome, 'engine');
+        const targetBackendEngine = path.join(niskavaHome, 'backend', 'engine');
+
+        copyDirRecursiveSync(srcEngine, targetEngine);
+        copyDirRecursiveSync(srcEngine, targetBackendEngine);
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+function ensureUserVenv(pythonCmd, niskavaHome = getNiskavaHome(), rootDir = ROOT_DIR) {
+    if (!pythonCmd) return null;
+
+    const venvDir = path.join(niskavaHome, 'venv');
+    const venvPy = isWindows 
+        ? path.join(venvDir, 'Scripts', 'python.exe')
+        : path.join(venvDir, 'bin', 'python3');
+
+    if (fs.existsSync(venvPy)) {
+        return venvPy;
+    }
+
+    try {
+        if (!fs.existsSync(venvDir)) {
+            const venvRes = spawnSync(pythonCmd, ['-m', 'venv', venvDir], {
+                timeout: 30000,
+                stdio: 'ignore'
+            });
+            if (venvRes.status !== 0 || !fs.existsSync(venvPy)) {
+                return pythonCmd;
+            }
+        }
+
+        let reqPath = path.join(rootDir, 'backend', 'engine', 'requirements.txt');
+        if (!fs.existsSync(reqPath)) {
+            reqPath = path.join(niskavaHome, 'engine', 'requirements.txt');
+        }
+        if (fs.existsSync(reqPath)) {
+            spawnSync(venvPy, ['-m', 'pip', 'install', '-r', reqPath, '--quiet'], {
+                timeout: 60000,
+                stdio: 'ignore'
+            });
+        }
+        return venvPy;
+    } catch (_) {
+        return pythonCmd;
+    }
+}
+
+function checkPythonRuntime(niskavaHome = getNiskavaHome(), rootDir = ROOT_DIR) {
     // 1. Check user-space ~/.niskava/venv first before system PATH
-    const venvDir = path.join(getNiskavaHome(), 'venv');
+    const venvDir = path.join(niskavaHome, 'venv');
     const venvPy = isWindows 
         ? path.join(venvDir, 'Scripts', 'python.exe')
         : path.join(venvDir, 'bin', 'python3');
     if (fs.existsSync(venvPy)) {
-        return venvPy;
+        try {
+            const check = spawnSync(venvPy, ['-c', "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], { encoding: 'utf8', timeout: 5000 });
+            if (check.status === 0) {
+                return venvPy;
+            }
+        } catch (_) {}
     }
 
     const candidates = isWindows ? ['python', 'py'] : ['python3', 'python'];
     for (const cmd of candidates) {
         try {
-            const check = spawnSync(cmd, ['-c', "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], { encoding: 'utf8' });
+            const check = spawnSync(cmd, ['-c', "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], { encoding: 'utf8', timeout: 5000 });
             if (check.status === 0 && check.stdout) {
                 const parts = check.stdout.trim().split('.');
                 const major = parseInt(parts[0], 10);
                 const minor = parseInt(parts[1], 10);
                 if (major >= 3 && minor >= 11) {
-                    return cmd;
+                    const bootstrapped = ensureUserVenv(cmd, niskavaHome, rootDir);
+                    return bootstrapped || cmd;
                 }
             }
         } catch (_) {}
@@ -196,9 +281,13 @@ async function ensureBinary() {
 
 async function main() {
     const executable = await ensureBinary();
+    const userHome = getNiskavaHome();
 
-    // Guidance if Python 3.11+ is missing (for quantitative calculations)
-    const pythonCmd = checkPythonRuntime();
+    // 1. Sync Python quant engine to user space ~/.niskava/engine
+    syncEngineToUserSpace(ROOT_DIR, userHome);
+
+    // 2. Resolve Python runtime (prioritizing isolated user-space venv)
+    const pythonCmd = checkPythonRuntime(userHome, ROOT_DIR);
     if (!pythonCmd && !process.env.NISKAVA_PYTHON_PATH && !process.env.NISKAVA_PYTHON_BIN) {
         console.warn('\x1b[33m[!] Note: Python 3.11+ was not detected on PATH.\x1b[0m');
         console.warn('    Deep quantitative calculations and anomaly recon require Python 3.11+.\x1b[0m');
@@ -212,12 +301,14 @@ async function main() {
     }
 
     const args = process.argv.slice(2);
+    const enginePath = path.join(userHome, 'engine');
     const child = spawn(executable, args, {
         cwd: process.cwd(),
         stdio: 'inherit',
         env: {
             ...process.env,
             NISKAVA_ROOT: ROOT_DIR,
+            NISKAVA_ENGINE_PATH: enginePath,
             ...(pythonCmd ? {
                 NISKAVA_PYTHON_PATH: pythonCmd,
                 NISKAVA_PYTHON_BIN: pythonCmd,
@@ -245,7 +336,18 @@ async function main() {
     }
 }
 
-main().catch((err) => {
-    console.error(`\x1b[31mUnexpected launcher error: ${err.message}\x1b[0m`);
-    process.exit(1);
-});
+if (require.main === module) {
+    main().catch((err) => {
+        console.error(`\x1b[31mUnexpected launcher error: ${err.message}\x1b[0m`);
+        process.exit(1);
+    });
+}
+
+module.exports = {
+    syncEngineToUserSpace,
+    ensureUserVenv,
+    checkPythonRuntime,
+    copyDirRecursiveSync,
+    ensureBinary,
+    main
+};

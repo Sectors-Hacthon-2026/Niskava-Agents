@@ -35,6 +35,7 @@ const (
 	EventAgentObservation     EventType = "agent_observation"
 	EventAgentMessageChunk    EventType = "agent_message_chunk"
 	EventAgentMessageComplete EventType = "agent_message_complete"
+	EventPdfReportReady       EventType = "pdf_report_ready"
 )
 
 // Event represents a generic JSON Lines IPC payload.
@@ -73,6 +74,8 @@ type Event struct {
 	DurationMs       int                    `json:"duration_ms,omitempty"`
 	Summary          string                 `json:"summary,omitempty"`
 	Error            string                 `json:"error,omitempty"`
+	PdfPath          string                 `json:"pdf_path,omitempty"`
+	Filename         string                 `json:"filename,omitempty"`
 }
 
 // RunnerParams defines parameters to invoke the Python engine.
@@ -197,6 +200,9 @@ func ResolveRepoRoot(hintDir string) string {
 		if _, err := os.Stat(filepath.Join(envRoot, "backend", "engine", "runner.py")); err == nil {
 			return envRoot
 		}
+		if _, err := os.Stat(filepath.Join(envRoot, "engine", "runner.py")); err == nil {
+			return envRoot
+		}
 		if _, err := os.Stat(filepath.Join(envRoot, "package.json")); err == nil {
 			return envRoot
 		}
@@ -230,6 +236,31 @@ func ResolveRepoRoot(hintDir string) string {
 		}
 	}
 
+	// 2. Check user-space ~/.niskava cache (self-healing fallback)
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		userNiskava := filepath.Join(home, ".niskava")
+		if _, err := os.Stat(filepath.Join(userNiskava, "engine", "runner.py")); err == nil {
+			return userNiskava
+		}
+		if _, err := os.Stat(filepath.Join(userNiskava, "backend", "engine", "runner.py")); err == nil {
+			return userNiskava
+		}
+	}
+
+	for _, start := range startDirs {
+		curr := start
+		for i := 0; i < 15; i++ {
+			if _, err := os.Stat(filepath.Join(curr, "engine", "runner.py")); err == nil {
+				return curr
+			}
+			parent := filepath.Dir(curr)
+			if parent == curr || parent == "" {
+				break
+			}
+			curr = parent
+		}
+	}
+
 	if hintDir != "" {
 		return hintDir
 	}
@@ -253,12 +284,32 @@ func ResolveEnginePath(repoRoot, customEngine string) string {
 		if _, err := os.Stat(cand); err == nil {
 			return cand
 		}
+		cand2 := filepath.Join(envRoot, "engine")
+		if _, err := os.Stat(cand2); err == nil {
+			return cand2
+		}
 	}
-	cand := filepath.Join(repoRoot, "backend", "engine")
-	if _, err := os.Stat(cand); err == nil {
-		return cand
+	if repoRoot != "" {
+		cand := filepath.Join(repoRoot, "backend", "engine")
+		if _, err := os.Stat(cand); err == nil {
+			return cand
+		}
+		cand2 := filepath.Join(repoRoot, "engine")
+		if _, err := os.Stat(cand2); err == nil {
+			return cand2
+		}
 	}
-	return cand
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		candUser := filepath.Join(home, ".niskava", "engine")
+		if _, err := os.Stat(candUser); err == nil {
+			return candUser
+		}
+		candUser2 := filepath.Join(home, ".niskava", "backend", "engine")
+		if _, err := os.Stat(candUser2); err == nil {
+			return candUser2
+		}
+	}
+	return filepath.Join(repoRoot, "backend", "engine")
 }
 
 // RunSubprocess spawns the Python runner and returns a channel of streaming events.
@@ -337,6 +388,18 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 		// Ensure PYTHONPATH includes backend directory, WorkDir, and environment PYTHONPATH
 		backendDir := filepath.Join(workDir, "backend")
 		pythonPath := backendDir + string(filepath.ListSeparator) + workDir
+		if _, err := os.Stat(filepath.Join(workDir, "engine", "runner.py")); err == nil {
+			pythonPath = workDir + string(filepath.ListSeparator) + pythonPath
+		}
+		if envRoot := os.Getenv("NISKAVA_ROOT"); envRoot != "" {
+			pythonPath = filepath.Join(envRoot, "backend") + string(filepath.ListSeparator) + envRoot + string(filepath.ListSeparator) + pythonPath
+		}
+		if home, err := os.UserHomeDir(); err == nil && home != "" {
+			userEngine := filepath.Join(home, ".niskava")
+			if _, err := os.Stat(filepath.Join(userEngine, "engine", "runner.py")); err == nil {
+				pythonPath = userEngine + string(filepath.ListSeparator) + pythonPath
+			}
+		}
 		if params.WorkDir != "" && params.WorkDir != workDir {
 			pythonPath = pythonPath + string(filepath.ListSeparator) + params.WorkDir
 		}

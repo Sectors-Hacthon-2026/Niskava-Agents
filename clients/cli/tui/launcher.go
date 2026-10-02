@@ -28,6 +28,8 @@ type LauncherModel struct {
 	Cursor    int
 	Selected  string
 	Quitting  bool
+	Width     int
+	Height    int
 }
 
 // Styles adhering to Binance Dark Financial Intelligence Palette Specification (#FCD535 Gold / #1E2329 Dark Slate)
@@ -37,7 +39,6 @@ var (
 	colorPrdDarkGreen   = lipgloss.Color("#1E2329") // Dark Slate
 	colorPrdWhite       = lipgloss.Color("#FFFFFF") // Pure White
 	colorPrdLightGray   = lipgloss.Color("#848E9C") // Muted Slate Gray
-	colorPrdDimGray     = lipgloss.Color("#848E9C") // Dimmed Slate Gray
 	colorPrdStatusOK    = lipgloss.Color("#0ECB81") // Financial Green OK
 	colorPrdStatusErr   = lipgloss.Color("#F6465D") // Financial Red Error
 
@@ -123,6 +124,11 @@ func (m LauncherModel) Init() tea.Cmd {
 
 func (m LauncherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.Width = msg.Width
+		m.Height = msg.Height
+		return m, nil
+
 	case tea.KeyMsg:
 		k := strings.ToLower(msg.String())
 		switch k {
@@ -188,62 +194,77 @@ func (m LauncherModel) View() string {
 		return T("launcher_quitting_msg")
 	}
 
+	w := m.Width
+	if w <= 0 {
+		w = GetTermWidth()
+	}
+
 	noColor := os.Getenv("NO_COLOR") != ""
 
 	var b strings.Builder
 
-	// 1. ASCII Art Banner: NISKAVA
-	asciiLines := []string{
-		"███╗   ██╗██╗███████╗██╗  ██╗██████╗  ██╗   ██╗██████╗ ",
-		"████╗  ██║██║██╔════╝██║ ██╔╝██╔══██╗ ██║   ██║██╔══██╗",
-		"██╔██╗ ██║██║███████╗█████═╝ ███████║ ██║   ██║███████║",
-		"██║╚██╗██║██║╚════██║██╔═██╗ ██╔══██║ ╚██╗ ██╔╝██╔══██║",
-		"██║ ╚████║██║███████║██║  ██╗██║  ██║  ╚████╔╝ ██║  ██║",
-		"╚═╝  ╚═══╝╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═══╝  ╚═╝  ╚═╝",
-	}
-
-	for _, line := range asciiLines {
-		if noColor {
-			b.WriteString(line + "\n")
-		} else {
-			b.WriteString(bannerStyle.Render(line) + "\n")
-		}
-	}
+	// 1. Responsive ASCII Art Banner: NISKAVA
+	b.WriteString(RenderResponsiveASCIIHeader(w, bannerStyle))
 
 	tagline := T("launcher_tagline")
 	if noColor {
-		b.WriteString("  " + tagline + "\n")
+		b.WriteString("  ")
+		b.WriteString(tagline)
+		b.WriteString("\n")
 	} else {
-		b.WriteString("  " + taglineStyle.Render(tagline) + "\n")
+		b.WriteString("  ")
+		b.WriteString(taglineStyle.Render(tagline))
+		b.WriteString("\n")
 	}
 
 	// 2. Solid Muted Green Separator
-	sepWidth := 78
+	sepWidth := w - 4
+	if sepWidth > w-2 {
+		sepWidth = w - 2
+	}
+	if sepWidth < 10 {
+		sepWidth = max(5, w-2)
+	}
 	solidLine := strings.Repeat("─", sepWidth)
 	if noColor {
-		b.WriteString("  " + solidLine + "\n")
+		b.WriteString("  ")
+		b.WriteString(solidLine)
+		b.WriteString("\n")
 	} else {
-		b.WriteString("  " + accentBarStyle.Render("▍") + separatorLineStyle.Render(solidLine) + "\n")
+		b.WriteString("  ")
+		b.WriteString(accentBarStyle.Render("▍"))
+		b.WriteString(separatorLineStyle.Render(solidLine))
+		b.WriteString("\n")
 	}
 
 	// 3. Compact Menu Items List (Only active item displays description to fit within 24-line terminal)
+	titleW := w - 10
+	if titleW < 15 {
+		titleW = 15
+	}
+	descW := w - 8
+	if descW < 15 {
+		descW = 15
+	}
+
 	for i, item := range m.Items {
 		isActive := i == m.Cursor
 		shortcutStr := fmt.Sprintf("[%s]", item.ShortcutKey)
+		tVal := Truncate(item.Title, titleW)
 
 		if noColor {
 			if isActive {
-				b.WriteString(fmt.Sprintf("▶ %s  %-35s\n", shortcutStr, item.Title))
-				b.WriteString(fmt.Sprintf("     %s\n", item.Description))
+				b.WriteString(fmt.Sprintf("▶ %s  %s\n", shortcutStr, tVal))
+				b.WriteString(fmt.Sprintf("     %s\n", Truncate(item.Description, descW)))
 			} else {
-				b.WriteString(fmt.Sprintf("  %s  %-35s\n", shortcutStr, item.Title))
+				b.WriteString(fmt.Sprintf("  %s  %s\n", shortcutStr, tVal))
 			}
 		} else {
 			if isActive {
 				cursorR := cursorIndicatorStyle.Render("▶ ")
 				scR := shortcutKeyActiveStyle.Render(shortcutStr)
-				titleR := itemTitleActiveStyle.Render(fmt.Sprintf(" %-40s", item.Title))
-				descR := itemDescStyle.Render(fmt.Sprintf("     %s", item.Description))
+				titleR := itemTitleActiveStyle.Render(fmt.Sprintf(" %s ", tVal))
+				descR := itemDescStyle.Render(fmt.Sprintf("     %s", Truncate(item.Description, descW)))
 
 				b.WriteString(fmt.Sprintf("%s%s %s\n%s\n", cursorR, scR, titleR, descR))
 			} else {
@@ -257,9 +278,14 @@ func (m LauncherModel) View() string {
 
 	// 4. Solid Separator Line before Status Bar
 	if noColor {
-		b.WriteString("  " + solidLine + "\n")
+		b.WriteString("  ")
+		b.WriteString(solidLine)
+		b.WriteString("\n")
 	} else {
-		b.WriteString("  " + accentBarStyle.Render("▍") + separatorLineStyle.Render(solidLine) + "\n")
+		b.WriteString("  ")
+		b.WriteString(accentBarStyle.Render("▍"))
+		b.WriteString(separatorLineStyle.Render(solidLine))
+		b.WriteString("\n")
 	}
 
 	// 5. Persistent Status Bar
@@ -291,22 +317,29 @@ func (m LauncherModel) View() string {
 		apiKeyStatusStr = T("launcher_status_api_missing")
 	}
 
-	statusContent := TF(
-		"launcher_status_bar",
-		m.Version,
-		serverDot,
-		serverHost,
-		apiKeyDot,
-		apiKeyStatusStr,
-	)
-
-	if noColor {
-		b.WriteString(statusContent + "\n")
+	var statusContent string
+	if w < 55 {
+		statusContent = fmt.Sprintf("v%s • %s %s", m.Version, apiKeyDot, apiKeyStatusStr)
 	} else {
-		b.WriteString(statusBarBgStyle.Render(statusContent) + "\n")
+		statusContent = TF(
+			"launcher_status_bar",
+			m.Version,
+			serverDot,
+			serverHost,
+			apiKeyDot,
+			apiKeyStatusStr,
+		)
 	}
 
-	return b.String()
+	if noColor {
+		b.WriteString(statusContent)
+		b.WriteString("\n")
+	} else {
+		b.WriteString(statusBarBgStyle.Render(statusContent))
+		b.WriteString("\n")
+	}
+
+	return b.String() + "\033[J"
 }
 
 // PromptEscReturnModel is a Bubbletea sub-model that prompts the user to press ESC or Enter to return to main menu.
@@ -328,7 +361,7 @@ func (m PromptEscReturnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m PromptEscReturnModel) View() string {
-	return "\n" + lipgloss.NewStyle().Foreground(ColorMuted).Render(T("menu_press_enter")) + "\n"
+	return "\n" + lipgloss.NewStyle().Foreground(ColorMuted).Render(T("menu_press_enter")) + "\n\033[J"
 }
 
 // PromptPressEscToReturn renders "Press ESC to return to Menu..." and waits for keypress.

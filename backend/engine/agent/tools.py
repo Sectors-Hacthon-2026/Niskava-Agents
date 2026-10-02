@@ -12,9 +12,10 @@ from typing import Any, Callable, Dict, List, Optional
 
 from engine.memory.graph_memory import LocalGraphMemory
 from engine.quant.anomaly import AnomalyResult, detect_historical_anomalies
-from engine.sectors.client import SectorsAPIClient
+from engine.sectors.client import SectorsAPIClient, SectorsAPIError
 from engine.sectors.news_engine import NewsItem, SectorsNewsEngine
 from engine.skills.registry import SkillsRegistry
+
 
 # Backward compatibility alias
 OSINTItem = NewsItem
@@ -36,6 +37,8 @@ _SECTORS_DOMAIN_MAP: dict[str, str] = {
     "mining_detail": "get_mining_detail",
     "news": "get_news",
     "subsectors": "get_subsectors",
+    "top_changes": "get_top_changes",
+    "most_traded": "get_most_traded",
 }
 
 
@@ -77,6 +80,8 @@ class NiskavaToolRegistry:
             "db_path": self.db_path,
             "mock_mode": self.mock_mode,
         }
+        if hasattr(self, "emitter") and callable(self.emitter):
+            context["emitter"] = self.emitter
         res = self.skills_registry.execute_skill(skill_id, arguments, context)
         return res.to_dict()
 
@@ -141,21 +146,53 @@ class NiskavaToolRegistry:
             )
 
         client_method = getattr(self.sectors_client, method_name)
+        # Flatten nested params if model passes {'params': {'classification': ...}}
+        merged_params: Dict[str, Any] = {}
+        if isinstance(params, dict):
+            merged_params.update(params)
+            if "params" in params and isinstance(params["params"], dict):
+                merged_params.update(params["params"])
 
-        if domain == "subsectors":
-            return client_method()
+        force_refresh = bool(merged_params.get("force_refresh", False))
 
-        # Domains with a non-ticker primary key
-        if domain == "subsector_peers":
-            slug = params.get("subsector", clean_ticker.lower())
-            return client_method(slug)
-        if domain == "mining_detail":
-            slug = params.get("slug", clean_ticker.lower())
-            return client_method(slug)
+        try:
+            kwargs = {}
+            if force_refresh:
+                kwargs["force_refresh"] = True
 
-        return client_method(clean_ticker)
+            if domain == "subsectors":
+                return client_method(**kwargs)
+            if domain == "top_changes":
+                cls_val = (merged_params.get("classification") or merged_params.get("classifications") or "top_gainers")
+                period_val = (merged_params.get("period") or merged_params.get("periods") or "1d")
+                n_stock_val = int(merged_params.get("n_stock", 5)) if "n_stock" in merged_params else 5
+                return client_method(classification=cls_val, period=period_val, n_stock=n_stock_val, **kwargs)
+            if domain == "most_traded":
+                n_stock = int(merged_params.get("n_stock", 5)) if "n_stock" in merged_params else 5
+                start = merged_params.get("start")
+                end = merged_params.get("end")
+                return client_method(start=start, end=end, n_stock=n_stock, **kwargs)
 
-    def search_news(self, ticker: str, query: str = "") -> List[Dict[str, Any]]:
+            # Domains with a non-ticker primary key
+            if domain == "subsector_peers":
+                slug = params.get("subsector", clean_ticker.lower()) if isinstance(params, dict) else clean_ticker.lower()
+                return client_method(slug, **kwargs)
+            if domain == "mining_detail":
+                slug = params.get("slug", clean_ticker.lower()) if isinstance(params, dict) else clean_ticker.lower()
+                return client_method(slug, **kwargs)
+
+            return client_method(clean_ticker, **kwargs)
+
+        except SectorsAPIError as err:
+            return {
+                "error": True,
+                "error_type": "SECTORS_API_ERROR",
+                "status_code": err.status_code,
+                "message": f"Koneksi Sectors Financial API gagal: {str(err)}. Periksa koneksi internet atau SECTORS_API_KEY di Pengaturan.",
+            }
+
+
+    def search_news(self, ticker: str, query: str = "", force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Universal gateway to the Sectors News and Corporate Disclosure engine.
 
         Fetches curated news and corporate disclosures directly from Sectors
@@ -164,32 +201,43 @@ class NiskavaToolRegistry:
         Args:
             ticker: IDX 4-letter ticker. Pass empty string for general market news.
             query: Optional search keyword or context filter.
+            force_refresh: Whether to bypass cache and fetch latest news.
 
         Returns:
             List of dicts, each with keys: title, source_name, source_url, publication_date, snippet.
         """
         clean_ticker = ticker.upper() if ticker else ""
 
-        if not clean_ticker or clean_ticker in _INDEX_TICKERS:
-            sectors_news = self.sectors_client.get_news(None)
-            items: List[NewsItem] = self.news_harvester.harvest(
-                ticker="IHSG",
-                company_name="Pasar Modal Indonesia",
+        try:
+            if not clean_ticker or clean_ticker in _INDEX_TICKERS:
+                sectors_news = self.sectors_client.get_news(None, force_refresh=force_refresh)
+                items: List[NewsItem] = self.news_harvester.harvest(
+                    ticker="IHSG",
+                    company_name="Pasar Modal Indonesia",
+                    sectors_news_items=sectors_news,
+                    query=query,
+                )
+                return [item.model_dump() for item in items]
+
+            report = self.get_company_fundamentals(clean_ticker)
+            company_name = report.get("company_name", clean_ticker) if isinstance(report, dict) else clean_ticker
+            sectors_news = self.sectors_client.get_news(clean_ticker, force_refresh=force_refresh)
+            items = self.news_harvester.harvest(
+                ticker=clean_ticker,
+                company_name=company_name,
                 sectors_news_items=sectors_news,
                 query=query,
             )
             return [item.model_dump() for item in items]
+        except SectorsAPIError as err:
+            return [{
+                "title": f"Gagal mengambil berita terkini: {str(err)}",
+                "source_name": "Sectors API",
+                "source_url": "",
+                "publication_date": "",
+                "snippet": "Terjadi kendala saat menghubungi Sectors Financial API. Silakan periksa kunci API Anda di Settings.",
+            }]
 
-        report = self.get_company_fundamentals(clean_ticker)
-        company_name = report.get("company_name", clean_ticker)
-        sectors_news = self.sectors_client.get_news(clean_ticker)
-        items = self.news_harvester.harvest(
-            ticker=clean_ticker,
-            company_name=company_name,
-            sectors_news_items=sectors_news,
-            query=query,
-        )
-        return [item.model_dump() for item in items]
 
     # Backward-compatible alias
     search_osint = search_news
@@ -371,7 +419,8 @@ class NiskavaToolRegistry:
                     "insider_bandarmology_forensic (audit top broker accumulation C3>=65% and insider trading filings), "
                     "financial_health_stress_test (stress-test liquidity/solvency ratios and evaluate default rumors), "
                     "mining_commodity_divergence (test mining company correlation against global spot commodity benchmarks), "
-                    "peer_valuation_benchmark (benchmark PER/PBV multiples against IDX subsector median)."
+                    "peer_valuation_benchmark (benchmark PER/PBV multiples against IDX subsector median), "
+                    "investigation_report_pdf (generate institutional PDF audit trail report; ONLY when user asks to export/save/print PDF)."
                 ),
                 "parameters": {
                     "type": "object",
@@ -382,14 +431,15 @@ class NiskavaToolRegistry:
                                 "Target skill ID to execute. Choose one: "
                                 "market_anomaly_recon, event_causality_audit, "
                                 "insider_bandarmology_forensic, financial_health_stress_test, "
-                                "mining_commodity_divergence, peer_valuation_benchmark."
+                                "mining_commodity_divergence, peer_valuation_benchmark, "
+                                "investigation_report_pdf."
                             ),
                         },
                         "arguments": {
                             "type": "object",
                             "description": (
-                                "Skill parameters. Required: {'ticker': 'ANTM'}. "
-                                "Optional: 'days' (int), 'subsector' (str for peer_valuation_benchmark)."
+                                "Skill parameters. For stock analysis skills: {'ticker': 'ANTM'} is required. "
+                                "For investigation_report_pdf: requires either 'summary' or 'blocks' (array of callout/markdown/table/key_value). Optional: 'ticker' (defaults to 'MARKET'), 'title', 'custom_tables', 'metrics', 'evidence'."
                             ),
                         },
                     },
@@ -411,7 +461,9 @@ class NiskavaToolRegistry:
                     "subsector_peers (subsector peer comparison and valuation multiples), "
                     "mining_detail (operational mining concessions, IUP permits, and smelter assets), "
                     "news (curated financial news from Sectors API), "
-                    "subsectors (official list of IDX sectors and subsectors)."
+                    "subsectors (official list of IDX sectors and subsectors), "
+                    "top_changes (top gainers or top losers on IDX), "
+                    "most_traded (most active/traded stocks by volume or turnover)."
                 ),
                 "parameters": {
                     "type": "object",
@@ -422,17 +474,20 @@ class NiskavaToolRegistry:
                                 "Sectors API dataset domain. Required. Choose one: "
                                 "candles | fundamentals | foreign_flow | suspensions | "
                                 "filings | broker_summary | corporate_actions | "
-                                "subsector_peers | mining_detail | news | subsectors."
+                                "subsector_peers | mining_detail | news | subsectors | "
+                                "top_changes | most_traded."
                             ),
                         },
                         "ticker": {
                             "type": "string",
-                            "description": "4-letter IDX stock ticker symbol (e.g. ANTM, BBCA). Case-insensitive. Optional or empty string for subsectors domain or macro index overview.",
+                            "description": "4-letter IDX stock ticker symbol (e.g. ANTM, BBCA). Case-insensitive. Optional or empty string for subsectors, top_changes, most_traded, or macro index overview.",
                         },
                         "params": {
                             "type": "object",
                             "description": (
                                 "Optional extra query parameters, e.g.: "
+                                "{'classification': 'top_gainers'|'top_losers', 'period': '1d'} for top_changes, "
+                                "{'n_stock': 10} for most_traded, "
                                 "{'subsector': 'metals-mining'} for subsector_peers, "
                                 "{'slug': 'antm'} for mining_detail."
                             ),

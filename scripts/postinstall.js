@@ -6,7 +6,8 @@
  * during npm install so execution is instantaneous and avoids EACCES.
  */
 
-const { getTargetBinaryPath, getPlatformAssetName } = require('../bin/resolver');
+const { getTargetBinaryPath, getPlatformAssetName, getNiskavaHome } = require('../bin/resolver');
+const { syncEngineToUserSpace } = require('../bin/index');
 const PKG_VERSION = require('../package.json').version;
 const GITHUB_REPO = 'Sectors-Hacthon-2026/Niskava-Agents';
 const https = require('https');
@@ -16,6 +17,12 @@ const path = require('path');
 const isWindows = process.platform === 'win32';
 
 async function preDownload() {
+    // Best-effort sync of python quant engine to user space
+    try {
+        const rootDir = path.resolve(__dirname, '..');
+        syncEngineToUserSpace(rootDir, getNiskavaHome());
+    } catch (_) {}
+
     const targetBinary = getTargetBinaryPath(PKG_VERSION);
     if (fs.existsSync(targetBinary)) {
         try {

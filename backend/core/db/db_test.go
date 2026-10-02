@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -739,5 +740,95 @@ func TestPruneMockTestData(t *testing.T) {
 	}
 	if pruned < 1 {
 		t.Errorf("Expected at least 1 pruned edge, got %d", pruned)
+	}
+}
+
+func TestListChatSessionsFiltersEmptySessions(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_filter_empty.db")
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	// Create a session with messages (should appear)
+	sessWithMsg := &ChatSession{
+		ID:                 "TELE-20260930-0001",
+		Title:              "Telegram (@testuser)",
+		Model:              "hermes",
+		Status:             "IDLE",
+		MessageCount:       3,
+		LastMessagePreview: "Analisis ANTM volume anomaly...",
+	}
+	if err := database.CreateChatSession(sessWithMsg); err != nil {
+		t.Fatalf("failed to create session with messages: %v", err)
+	}
+
+	// Create a ghost session with zero messages (should be filtered out)
+	ghostSess := &ChatSession{
+		ID:                 "TELE-20260930-0002",
+		Title:              "Telegram (@testuser)",
+		Model:              "hermes",
+		Status:             "IDLE",
+		MessageCount:       0,
+		LastMessagePreview: "",
+	}
+	if err := database.CreateChatSession(ghostSess); err != nil {
+		t.Fatalf("failed to create ghost session: %v", err)
+	}
+
+	sessions, total, err := database.ListChatSessions(50, 0, "")
+	if err != nil {
+		t.Fatalf("ListChatSessions failed: %v", err)
+	}
+	if total != 1 {
+		t.Errorf("expected total=1 (ghost filtered), got %d", total)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("expected 1 session, got %d", len(sessions))
+	}
+	if sessions[0].ID != "TELE-20260930-0001" {
+		t.Errorf("expected non-ghost session, got %s", sessions[0].ID)
+	}
+}
+
+func TestResetTelegramChatSessionTitleIsUnique(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_unique_title.db")
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	chatID := int64(111222333)
+	userID := int64(55566677)
+	username := "trader_idx"
+
+	sessID1, err := database.ResetTelegramChatSession(chatID, userID, username)
+	if err != nil {
+		t.Fatalf("first reset failed: %v", err)
+	}
+	time.Sleep(1100 * time.Millisecond)
+	sessID2, err := database.ResetTelegramChatSession(chatID, userID, username)
+	if err != nil {
+		t.Fatalf("second reset failed: %v", err)
+	}
+
+	s1, err := database.GetChatSession(sessID1)
+	if err != nil || s1 == nil {
+		t.Fatalf("failed to get session 1: %v", err)
+	}
+	s2, err := database.GetChatSession(sessID2)
+	if err != nil || s2 == nil {
+		t.Fatalf("failed to get session 2: %v", err)
+	}
+
+	if s1.Title == s2.Title {
+		t.Errorf("expected unique session titles, both got: %q", s1.Title)
+	}
+	if !strings.Contains(s1.Title, "@trader_idx") {
+		t.Errorf("expected title to contain @username, got: %q", s1.Title)
 	}
 }
