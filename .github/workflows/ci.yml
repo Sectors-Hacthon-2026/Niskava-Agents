@@ -116,6 +116,10 @@ jobs:
     name: MCP Engine End-to-End Integration
     needs: [go-ci, python-ci]
     runs-on: ubuntu-latest
+    env:
+      NISKAVA_TESTING: '1'
+      MOCK_SECTORS: '1'
+      SECTORS_API_KEY: 'ci-fixture-key-not-real'
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
