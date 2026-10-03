@@ -423,17 +423,39 @@ class SectorsAPIClient:
                         break
         symbol = clean_sym or "ANTM"
         if "/daily/" in endpoint:
-            # 30 days of synthetic candles with a volume surge on day 25
+            # 30 days of synthetic candles with realistic profile per ticker
             candles = []
             base_date = datetime.now() - timedelta(days=35)
-            price = 1500.0
+            
+            ticker_profiles = {
+                "ANTM": {"price": 1500.0, "norm_vol": 20_000_000.0, "spike_vol": 125_000_000.0, "spike_day": 25},
+                "BBRI": {"price": 4980.0, "norm_vol": 85_000_000.0, "spike_vol": 245_000_000.0, "spike_day": 26},
+                "BBCA": {"price": 10150.0, "norm_vol": 60_000_000.0, "spike_vol": 180_000_000.0, "spike_day": 24},
+                "BUMI": {"price": 142.0, "norm_vol": 1_800_000_000.0, "spike_vol": 6_200_000_000.0, "spike_day": 22},
+                "GOTO": {"price": 62.0, "norm_vol": 750_000_000.0, "spike_vol": 2_400_000_000.0, "spike_day": 25},
+                "TLKM": {"price": 2950.0, "norm_vol": 45_000_000.0, "spike_vol": 140_000_000.0, "spike_day": 23},
+                "ASII": {"price": 5125.0, "norm_vol": 28_000_000.0, "spike_vol": 88_000_000.0, "spike_day": 25},
+            }
+            prof = ticker_profiles.get(symbol)
+            if not prof:
+                seed = sum(ord(c) for c in symbol)
+                price = float(500 + (seed % 35) * 100)
+                norm_vol = float(15_000_000 + (seed % 20) * 2_000_000)
+                spike_vol = norm_vol * (3.5 + (seed % 5) * 0.5)
+                spike_day = 20 + (seed % 6)
+            else:
+                price = prof["price"]
+                norm_vol = prof["norm_vol"]
+                spike_vol = prof["spike_vol"]
+                spike_day = prof["spike_day"]
+
             for day_idx in range(30):
                 curr_date = (base_date + timedelta(days=day_idx)).strftime("%Y-%m-%d")
-                if day_idx == 25:
-                    volume = 125_000_000.0  # Massive spike
-                    close = price * 1.082  # +8.2%
+                if day_idx == spike_day:
+                    volume = spike_vol
+                    close = price * 1.082
                 else:
-                    volume = 20_000_000.0 + (day_idx % 5) * 2_000_000.0
+                    volume = norm_vol + (day_idx % 5) * (norm_vol * 0.08)
                     close = price * (1.0 + ((day_idx % 3) - 1) * 0.01)
                 candles.append({
                     "date": curr_date,
@@ -447,11 +469,24 @@ class SectorsAPIClient:
             return candles
 
         if "/company/report/" in endpoint:
+            subsector_map = {
+                "ANTM": ("Basic Materials", "Metals & Minerals", "PT Aneka Tambang Tbk"),
+                "GOTO": ("Technology", "Software & IT Services", "PT GoTo Gojek Tokopedia Tbk"),
+                "BUKA": ("Technology", "Software & IT Services", "PT Bukalapak.com Tbk"),
+                "BBCA": ("Financials", "Banks", "PT Bank Central Asia Tbk"),
+                "BBRI": ("Financials", "Banks", "PT Bank Rakyat Indonesia Tbk"),
+                "BMRI": ("Financials", "Banks", "PT Bank Mandiri Tbk"),
+                "BBNI": ("Financials", "Banks", "PT Bank Negara Indonesia Tbk"),
+                "BUMI": ("Energy", "Oil, Gas & Coal", "PT Bumi Resources Tbk"),
+                "TLKM": ("Telecommunication", "Telecommunication", "PT Telkom Indonesia Tbk"),
+                "ASII": ("Industrials", "Automobiles & Components", "PT Astra International Tbk"),
+            }
+            sec, sub, name = subsector_map.get(symbol, ("Basic Materials", "Metals & Minerals", f"PT {symbol} Tbk"))
             return {
                 "symbol": symbol,
-                "company_name": "PT Aneka Tambang Tbk",
-                "sector": "Basic Materials",
-                "sub_sector": "Metals & Minerals",
+                "company_name": name,
+                "sector": sec,
+                "sub_sector": sub,
                 "market_cap": 38_500_000_000_000,
                 "pe_ratio": 12.4,
                 "pb_ratio": 1.65,
