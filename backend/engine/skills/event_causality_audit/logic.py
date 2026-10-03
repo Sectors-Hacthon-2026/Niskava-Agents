@@ -56,16 +56,33 @@ class EventCausalityAuditSkill(BaseSkill):
             harvester = SectorsNewsEngine(sectors_client=client, mock_mode=mock_mode)
 
         # 1. Fetch Suspensions & UMA notices
-        suspensions = client.get_suspensions(ticker)
+        try:
+            suspensions = client.get_suspensions(ticker)
+        except Exception:
+            suspensions = []
 
         # 2. Fetch Corporate Actions
-        corp_actions = client.get_corporate_actions(ticker)
+        try:
+            corp_actions = client.get_corporate_actions(ticker)
+        except Exception:
+            corp_actions = []
 
         # 3. Harvest News & Filings
-        report = client.get_company_report(ticker)
-        company_name = report.get("company_name", ticker) if isinstance(report, dict) else ticker
-        sectors_news = client.get_news(ticker)
-        news_items = harvester.harvest(ticker=ticker, company_name=company_name, sectors_news_items=sectors_news)
+        try:
+            report = client.get_company_report(ticker)
+            company_name = report.get("company_name", ticker) if isinstance(report, dict) else ticker
+        except Exception:
+            report, company_name = {}, ticker
+
+        try:
+            sectors_news = client.get_news(ticker)
+        except Exception:
+            sectors_news = []
+
+        try:
+            news_items = harvester.harvest(ticker=ticker, company_name=company_name, sectors_news_items=sectors_news)
+        except Exception:
+            news_items = []
 
         # 4. Temporal Precedence Evaluation
         evidence = []

@@ -16,7 +16,7 @@ The `financial-health-stress-test` skill verifies company solvency and liquidity
 
 ## 2. Analytical Procedure (SOP)
 1. **Retrieve Financial Statements**:
-   - Query `/v2/quarterly-financials/{symbol}/` to obtain balance sheet and income statement items.
+   - Query `/v2/financials/quarterly/{symbol}/` to obtain balance sheet and income statement items.
    - Query `/v2/company/report/{symbol}/?sections=valuation,financials` for fundamental ratios.
 2. **Deterministic Compute Gate (NumPy / Python Ratios)**:
    - Calculate Liquidity:

@@ -175,7 +175,19 @@ class NiskavaToolRegistry:
 
             # Domains with a non-ticker primary key
             if domain == "subsector_peers":
-                slug = params.get("subsector", clean_ticker.lower()) if isinstance(params, dict) else clean_ticker.lower()
+                raw_slug = None
+                if isinstance(params, dict):
+                    raw_slug = params.get("subsector") or params.get("sub_sector") or params.get("slug")
+                if not raw_slug and clean_ticker:
+                    try:
+                        rep = self.sectors_client.get_company_report(clean_ticker)
+                        ov = rep.get("overview", {}) if isinstance(rep.get("overview"), dict) else {}
+                        raw_sub = rep.get("sub_sector") or rep.get("subsector") or ov.get("sub_sector") or ov.get("subsector")
+                        if raw_sub:
+                            raw_slug = re.sub(r'[^a-z0-9]+', '-', raw_sub.lower()).strip('-')
+                    except Exception:
+                        pass
+                slug = raw_slug or clean_ticker.lower()
                 return client_method(slug, **kwargs)
             if domain == "mining_detail":
                 slug = params.get("slug", clean_ticker.lower()) if isinstance(params, dict) else clean_ticker.lower()

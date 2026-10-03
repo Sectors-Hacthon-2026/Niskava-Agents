@@ -17,10 +17,10 @@ The `mining-commodity-divergence` skill assesses whether an IDX mining issuer's 
 
 ## 2. Analytical Procedure (SOP)
 1. **Identify Primary Commodity**:
-   - Query `/v2/mining-company-detail/{slug}/` to determine the primary mineral or energy product (e.g. Nickel for ANTM, Coal for PTBA/ADRO, Gold for MDKA).
+   - Query `/v2/mining/companies/{slug}/` to determine the primary mineral or energy product (e.g. Nickel for ANTM, Coal for PTBA/ADRO, Gold for MDKA).
 2. **Retrieve Time Series**:
    - Pull 30 daily OHLCV candlesticks for the target equity.
-   - Pull 30 benchmark price observations for the relevant commodity from `/v2/commodity-price/{commodity}/`.
+   - Pull 30 benchmark price observations for the relevant commodity from `/v2/mining/commodities/{commodity}/price/`.
 3. **Deterministic Compute Gate (Pearson Correlation & Returns)**:
    - Compute Pearson correlation $r$ between daily equity return and commodity spot price delta.
    - Calculate cumulative returns: $\Delta_{\text{stock}}$ and $\Delta_{\text{commodity}}$.

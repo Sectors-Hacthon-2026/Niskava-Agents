@@ -39,8 +39,14 @@ class InsiderBandarmologyForensicSkill(BaseSkill):
 
         # 1. Fetch Broker Summary
         broker_summary = client.get_broker_summary(ticker)
-        top_buyers = broker_summary.get("top_buyers", [])
-        top_sellers = broker_summary.get("top_sellers", [])
+        if isinstance(broker_summary, list):
+            top_buyers = [b for b in broker_summary if float(b.get("net_buy_shares", 0) or b.get("net_volume", 0) or 0) > 0]
+            top_sellers = [b for b in broker_summary if float(b.get("net_sell_shares", 0) or b.get("net_volume", 0) or 0) < 0]
+        elif isinstance(broker_summary, dict):
+            top_buyers = broker_summary.get("top_buyers") or broker_summary.get("buyers") or []
+            top_sellers = broker_summary.get("top_sellers") or broker_summary.get("sellers") or []
+        else:
+            top_buyers, top_sellers = [], []
 
         # 2. Fetch Broker Registry
         registry = client.get_broker_registry()
@@ -80,7 +86,7 @@ class InsiderBandarmologyForensicSkill(BaseSkill):
                 "broker": f"{b['broker_code']} ({b['broker_name']})",
                 "cohort": f"{b['domicile']} {b['cohort']}",
                 "shares": b["net_buy_shares"],
-                "source": "Sectors API v2 /broker-summary-top/",
+                "source": "Sectors API v2 /broker-summary/{ticker}/top/",
             })
 
         for f in filings:

@@ -17,8 +17,8 @@ The `insider-bandarmology-forensic` skill analyzes market microstructure on the 
 
 ## 2. Analytical Procedure (SOP)
 1. **Retrieve Broker Transaction Data**:
-   - Query `/v2/broker-summary-top/{symbol}/` to obtain net buyer and seller volumes by broker code.
-   - Query `/v2/broker-registry/` to classify participating brokers by domicile (`FOREIGN` vs `DOMESTIC`) and cohort (`INSTITUTION` vs `RETAIL`).
+   - Query `/v2/broker-summary/{symbol}/top/` to obtain net buyer and seller volumes by broker code.
+   - Query `/v2/brokers/` to classify participating brokers by domicile (`FOREIGN` vs `DOMESTIC`) and cohort (`INSTITUTION` vs `RETAIL`).
 2. **Compute Top-3 Concentration Ratio ($C_3$)**:
    - Calculate: $C_3 = \frac{\sum_{j=1}^3 \text{Volume Buyer}_j}{\text{Total Market Volume}}$.
    - If $C_3 \ge 65.0\%$, classify market structure as `INSTITUTIONAL_ACCUMULATION`.
