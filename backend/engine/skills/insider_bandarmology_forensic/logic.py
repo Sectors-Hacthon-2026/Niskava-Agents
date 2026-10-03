@@ -38,7 +38,11 @@ class InsiderBandarmologyForensicSkill(BaseSkill):
             client = SectorsAPIClient(db_path=db_path, mock_mode=mock_mode)
 
         # 1. Fetch Broker Summary
-        broker_summary = client.get_broker_summary(ticker)
+        try:
+            broker_summary = client.get_broker_summary(ticker)
+        except Exception:
+            broker_summary = {}
+
         if isinstance(broker_summary, list):
             top_buyers = [b for b in broker_summary if float(b.get("net_buy_shares", 0) or b.get("net_volume", 0) or 0) > 0]
             top_sellers = [b for b in broker_summary if float(b.get("net_sell_shares", 0) or b.get("net_volume", 0) or 0) < 0]
@@ -49,7 +53,10 @@ class InsiderBandarmologyForensicSkill(BaseSkill):
             top_buyers, top_sellers = [], []
 
         # 2. Fetch Broker Registry
-        registry = client.get_broker_registry()
+        try:
+            registry = client.get_broker_registry()
+        except Exception:
+            registry = []
 
         # 3. Compute Concentration C3
         total_buyer_vol = sum(float(b.get("net_buy_shares", 0.0)) for b in top_buyers)

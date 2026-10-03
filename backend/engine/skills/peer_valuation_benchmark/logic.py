@@ -40,7 +40,12 @@ class PeerValuationBenchmarkSkill(BaseSkill):
             client = SectorsAPIClient(db_path=db_path, mock_mode=mock_mode)
 
         # 1. Fetch Company Report
-        report = client.get_company_report(ticker)
+        try:
+            report = client.get_company_report(ticker)
+        except Exception:
+            report = {}
+        if not isinstance(report, dict):
+            report = {}
         overview = report.get("overview", {}) if isinstance(report.get("overview"), dict) else {}
         company_pe = float(report.get("pe_ratio", 12.4) or 12.4)
         company_pb = float(report.get("pb_ratio", 1.65) or 1.65)

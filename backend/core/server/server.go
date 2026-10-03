@@ -1548,6 +1548,22 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 					"findings":         findings,
 				})
 				return
+			case "timeline":
+				if r.Method != http.MethodGet {
+					http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+					return
+				}
+				events, err := database.GetInvestigationTimeline(sessionID)
+				if err != nil {
+					http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+					return
+				}
+				sendJSON(w, http.StatusOK, map[string]interface{}{
+					"investigation_id": sessionID,
+					"total":            len(events),
+					"events":           events,
+				})
+				return
 			default:
 				http.Error(w, `{"error": "unknown investigation sub-resource"}`, http.StatusNotFound)
 				return
@@ -1564,6 +1580,40 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 		}
 		if database == nil {
 			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+
+		if r.Method == http.MethodPost {
+			var inv db.Investigation
+			if err := json.NewDecoder(r.Body).Decode(&inv); err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "invalid payload: %v"}`, err), http.StatusBadRequest)
+				return
+			}
+			if inv.ID == "" {
+				if inv.Ticker != "" {
+					inv.ID = "INV-" + strings.ToUpper(strings.TrimSpace(inv.Ticker))
+				} else {
+					inv.ID = fmt.Sprintf("INV-%d", time.Now().Unix())
+				}
+			}
+			if inv.Ticker == "" {
+				http.Error(w, `{"error": "ticker is required"}`, http.StatusBadRequest)
+				return
+			}
+			inv.Ticker = strings.ToUpper(strings.TrimSpace(inv.Ticker))
+			if err := database.UpsertInvestigation(&inv); err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+				return
+			}
+			sendJSON(w, http.StatusCreated, map[string]interface{}{
+				"status":        "created",
+				"investigation": inv,
+			})
+			return
+		}
+
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 

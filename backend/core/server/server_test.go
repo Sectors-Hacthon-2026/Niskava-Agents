@@ -1321,3 +1321,111 @@ func TestChatBackgroundExecutionSurvivesClientDisconnect(t *testing.T) {
 		t.Fatalf("expected execution context to be canceled on abort")
 	}
 }
+
+func TestInvestigationTimelineEndpoint(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	database, err := db.Open(filepath.Join(t.TempDir(), "test_srv_timeline.db"))
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	const invID = "INV-TIMELINE-REST-01"
+	if err := database.CreateInvestigation(&db.Investigation{
+		ID: invID, Ticker: "ANTM", Market: "IDX", TimeframeDays: 30, Status: "COMPLETED", StartedAt: "2026-09-20T10:00:00Z",
+	}); err != nil {
+		t.Fatalf("failed to seed investigation: %v", err)
+	}
+	if err := database.CreateAnomaly(&db.Anomaly{
+		ID: "ANOM-TL-REST-01", InvestigationID: invID, AnomalyDate: "2026-09-18",
+		MetricType: "VOLUME_SPIKE", MetricValue: 15000000, BaselineValue: 5000000, ZScore: 3.45,
+	}); err != nil {
+		t.Fatalf("failed to seed anomaly: %v", err)
+	}
+
+	srv, err := Start(ctx, 0, database, config.DefaultConfig())
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	resp, err := client.Get(srv.URL + "/api/investigations/" + invID + "/timeline")
+	if err != nil {
+		t.Fatalf("GET timeline failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+	var payload struct {
+		InvestigationID string             `json:"investigation_id"`
+		Total           int                `json:"total"`
+		Events          []db.TimelineEvent `json:"events"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("failed to decode timeline response: %v", err)
+	}
+	if payload.InvestigationID != invID || payload.Total != 1 || len(payload.Events) != 1 {
+		t.Fatalf("unexpected timeline payload: %+v", payload)
+	}
+	if payload.Events[0].EventType != "QUANT_ANOMALY" || payload.Events[0].EventTimestamp != "2026-09-18" {
+		t.Errorf("unexpected timeline event: %+v", payload.Events[0])
+	}
+
+	postResp, err := client.Post(srv.URL+"/api/investigations/"+invID+"/timeline", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST timeline failed: %v", err)
+	}
+	postResp.Body.Close()
+	if postResp.StatusCode != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405 for POST timeline, got %d", postResp.StatusCode)
+	}
+}
+
+func TestCreateInvestigationEndpoint(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	database, err := db.Open(filepath.Join(t.TempDir(), "test_srv_create_inv.db"))
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	srv, err := Start(ctx, 0, database, config.DefaultConfig())
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	body := bytes.NewBufferString(`{
+		"id": "INV-CHAT-BBCA-01",
+		"ticker": "BBCA",
+		"market": "IDX",
+		"timeframe_days": 30,
+		"status": "COMPLETED",
+		"summary_text": "BBCA orderly de-rating ~5.8% without volume anomaly"
+	}`)
+
+	resp, err := client.Post(srv.URL+"/api/investigations", "application/json", body)
+	if err != nil {
+		t.Fatalf("POST /api/investigations failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		t.Fatalf("expected 200/201, got %d", resp.StatusCode)
+	}
+
+	// Verify persistence in DB
+	inv, err := database.GetInvestigation("INV-CHAT-BBCA-01")
+	if err != nil || inv == nil {
+		t.Fatalf("investigation was not persisted: %v", err)
+	}
+	if inv.Ticker != "BBCA" {
+		t.Errorf("expected ticker BBCA, got %s", inv.Ticker)
+	}
+}

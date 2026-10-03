@@ -988,3 +988,106 @@ func TestListLatestRadarAnomalies(t *testing.T) {
 		t.Fatalf("unexpected item values: %+v", items[0])
 	}
 }
+
+func TestListLatestRadarAnomalies_ExcludesEvalAndTestSessions(t *testing.T) {
+	database, err := Open(filepath.Join(t.TempDir(), "test_radar_filter.db"))
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	seed := []struct {
+		invID, ticker, anomID string
+		z                     float64
+	}{
+		{"INV-REAL-01", "BBCA", "ANOM-REAL-01", 3.10},
+		{"EVAL-BBRI-1789902142", "BBRI", "ANOM-EVAL-01", 35.71},
+		{"TEST-ANTM-01", "ANTM", "ANOM-TEST-01", 35.71},
+	}
+	for _, s := range seed {
+		inv := &Investigation{ID: s.invID, Ticker: s.ticker, Market: "IDX", TimeframeDays: 30, Status: "COMPLETED"}
+		if err := database.CreateInvestigation(inv); err != nil {
+			t.Fatalf("failed to create investigation %s: %v", s.invID, err)
+		}
+		anom := &Anomaly{
+			ID:              s.anomID,
+			InvestigationID: s.invID,
+			AnomalyDate:     "2026-09-12",
+			MetricType:      "VOLUME_SPIKE",
+			MetricValue:     50000000,
+			BaselineValue:   20000000,
+			ZScore:          s.z,
+			Description:     "seeded anomaly",
+		}
+		if err := database.CreateAnomaly(anom); err != nil {
+			t.Fatalf("failed to create anomaly %s: %v", s.anomID, err)
+		}
+	}
+
+	items, err := database.ListLatestRadarAnomalies(10, 2.0)
+	if err != nil {
+		t.Fatalf("ListLatestRadarAnomalies failed: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected only the real anomaly, got %d items: %+v", len(items), items)
+	}
+	if items[0].InvestigationID != "INV-REAL-01" {
+		t.Errorf("expected INV-REAL-01, got %s", items[0].InvestigationID)
+	}
+}
+
+func TestGetInvestigationTimeline_MergesStoredAndDerivedEvents(t *testing.T) {
+	database, err := Open(filepath.Join(t.TempDir(), "test_timeline.db"))
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	const invID = "INV-TIMELINE-01"
+	if err := database.CreateInvestigation(&Investigation{ID: invID, Ticker: "ANTM", Market: "IDX", TimeframeDays: 30, Status: "COMPLETED"}); err != nil {
+		t.Fatalf("failed to create investigation: %v", err)
+	}
+	if err := database.CreateAnomaly(&Anomaly{
+		ID: "ANOM-TL-01", InvestigationID: invID, AnomalyDate: "2026-09-18",
+		MetricType: "VOLUME_SPIKE", MetricValue: 15000000, BaselineValue: 5000000, ZScore: 3.45,
+		Description: "Volume spike detected",
+	}); err != nil {
+		t.Fatalf("failed to create anomaly: %v", err)
+	}
+	if _, err := database.conn.Exec(
+		`INSERT INTO timeline_events (id, investigation_id, event_timestamp, event_type, headline, details) VALUES (?, ?, ?, ?, ?, ?)`,
+		"TL-01", invID, "2026-09-17 16:30:00", "DISCLOSURE", "Keterbukaan informasi smelter", "IDXnet filing",
+	); err != nil {
+		t.Fatalf("failed to seed timeline event: %v", err)
+	}
+
+	events, err := database.GetInvestigationTimeline(invID)
+	if err != nil {
+		t.Fatalf("GetInvestigationTimeline failed: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events (1 stored + 1 derived anomaly), got %d: %+v", len(events), events)
+	}
+	if events[0].EventType != "DISCLOSURE" || events[1].EventType != "QUANT_ANOMALY" {
+		t.Errorf("expected chronological order DISCLOSURE -> QUANT_ANOMALY, got %s -> %s", events[0].EventType, events[1].EventType)
+	}
+	if events[1].EventTimestamp != "2026-09-18" {
+		t.Errorf("derived anomaly event must use the real anomaly date, got %q", events[1].EventTimestamp)
+	}
+}
+
+func TestGetInvestigationTimeline_EmptyReturnsNonNilSlice(t *testing.T) {
+	database, err := Open(filepath.Join(t.TempDir(), "test_timeline_empty.db"))
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	events, err := database.GetInvestigationTimeline("INV-DOES-NOT-EXIST")
+	if err != nil {
+		t.Fatalf("GetInvestigationTimeline failed: %v", err)
+	}
+	if events == nil || len(events) != 0 {
+		t.Fatalf("expected empty non-nil slice, got %#v", events)
+	}
+}
