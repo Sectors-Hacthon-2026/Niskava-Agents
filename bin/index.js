@@ -17,7 +17,7 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const os = require('os');
-const { getTargetBinaryPath, getPlatformAssetName, getNiskavaHome } = require('./resolver');
+const { getTargetBinaryPath, getPlatformAssetName, getNiskavaHome, getGoBinBinaryPath } = require('./resolver');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const PKG_VERSION = require('../package.json').version;
@@ -212,8 +212,51 @@ function downloadBinary(assetName, destPath) {
 
 async function ensureBinary() {
     const targetBinary = getTargetBinaryPath(PKG_VERSION);
+    const goBinBinary = getGoBinBinaryPath();
+    const localRepoBinary = path.join(ROOT_DIR, 'bin', isWindows ? 'niskava.exe' : 'niskava');
+    const localRootBinary = path.join(ROOT_DIR, isWindows ? 'niskava.exe' : 'niskava');
 
-    // 1. Check if binary is already cached in user home (~/.niskava/bin/)
+    // 1. Check if a newly compiled binary exists from `go install ./cmd/niskava` or local `go build`
+    const localCandidates = [goBinBinary, localRepoBinary, localRootBinary];
+    let newestLocal = null;
+    let newestMtime = 0;
+
+    for (const cand of localCandidates) {
+        if (fs.existsSync(cand)) {
+            try {
+                const stat = fs.statSync(cand);
+                if (stat.size >= 1024 * 1024 && stat.mtimeMs > newestMtime) {
+                    newestMtime = stat.mtimeMs;
+                    newestLocal = cand;
+                }
+            } catch (_) {}
+        }
+    }
+
+    if (newestLocal) {
+        let useNewestLocal = true;
+        if (fs.existsSync(targetBinary)) {
+            try {
+                const targetStat = fs.statSync(targetBinary);
+                if (targetStat.mtimeMs >= newestMtime) {
+                    useNewestLocal = false;
+                }
+            } catch (_) {}
+        }
+
+        if (useNewestLocal) {
+            try {
+                const destDir = path.dirname(targetBinary);
+                if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+                fs.copyFileSync(newestLocal, targetBinary);
+                if (!isWindows) fs.chmodSync(targetBinary, 0o755);
+            } catch (_) {}
+            if (!isWindows) fs.chmodSync(newestLocal, 0o755);
+            return newestLocal;
+        }
+    }
+
+    // 2. Check if binary is already cached in user home (~/.niskava/bin/)
     if (fs.existsSync(targetBinary)) {
         try {
             const stat = fs.statSync(targetBinary);
@@ -226,18 +269,6 @@ async function ensureBinary() {
         } catch (_) {
             try { fs.unlinkSync(targetBinary); } catch (_) {}
         }
-    }
-
-    // 2. Check if a pre-compiled binary exists in local repo workspace (for dev mode)
-    const localRepoBinary = path.join(ROOT_DIR, 'bin', isWindows ? 'niskava.exe' : 'niskava');
-    if (fs.existsSync(localRepoBinary)) {
-        try {
-            const stat = fs.statSync(localRepoBinary);
-            if (stat.size >= 1024 * 1024) {
-                if (!isWindows) fs.chmodSync(localRepoBinary, 0o755);
-                return localRepoBinary;
-            }
-        } catch (_) {}
     }
 
     // 3. Attempt to download precompiled platform binary from GitHub Releases

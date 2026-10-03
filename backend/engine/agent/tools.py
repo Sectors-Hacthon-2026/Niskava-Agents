@@ -307,12 +307,26 @@ class NiskavaToolRegistry:
         return_threshold_pct: float = 5.0,
     ) -> List[Dict[str, Any]]:
         """Compute rolling volume Z-scores (MA20) and price return anomalies deterministically via NumPy."""
-        candles = self.get_daily_candles(ticker)
+        clean_ticker = ticker.upper().strip()
+        candles = self.get_daily_candles(clean_ticker)
         anomalies = detect_historical_anomalies(
             daily_candles=candles,
             volume_z_threshold=volume_z_threshold,
             return_threshold_pct=return_threshold_pct,
         )
+        if hasattr(self, "emitter") and callable(self.emitter):
+            for a in anomalies:
+                self.emitter({
+                    "event": "anomaly_detected",
+                    "ticker": clean_ticker,
+                    "anomaly_date": a.date,
+                    "metric_type": a.classification,
+                    "metric_value": a.metric_value,
+                    "baseline_value": a.baseline_value,
+                    "z_score": round(a.z_score, 2),
+                    "price_change_pct": round(a.price_change_pct, 2),
+                    "description": a.description,
+                })
         return [a.to_dict() for a in anomalies]
 
     def get_company_fundamentals(self, ticker: str) -> Dict[str, Any]:
