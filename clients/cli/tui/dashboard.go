@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -31,10 +33,35 @@ func MaskAPIKey(key string) string {
 }
 
 // RenderConfigurationDashboard builds an aesthetic Lipgloss card summarizing the current active configuration.
-func RenderConfigurationDashboard(c *config.Config) string {
+func RenderConfigurationDashboard(c *config.Config, overrideWidth ...int) string {
 	if c == nil {
 		c = config.DefaultConfig()
 	}
+
+	w := GetTermWidth()
+	if len(overrideWidth) > 0 && overrideWidth[0] > 0 {
+		w = overrideWidth[0]
+	}
+	boxW := w - 4
+	if boxW > w-2 {
+		boxW = w - 2
+	}
+	if boxW < 16 {
+		boxW = max(10, w-2)
+	}
+	if boxW > 120 {
+		boxW = 120
+	}
+
+	lblWidth := 16
+	if w < 50 {
+		lblWidth = 10
+	}
+	if w < 35 {
+		lblWidth = 8
+	}
+
+	contentW := max(4, boxW-(lblWidth+6))
 
 	dashboardTitleStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -45,12 +72,16 @@ func RenderConfigurationDashboard(c *config.Config) string {
 	dashboardCardStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(ColorAccent).
-		Width(78).
+		Width(boxW).
 		Padding(0, 1).
 		Foreground(ColorFg)
 
 	var sb strings.Builder
-	sb.WriteString(dashboardTitleStyle.Render("CURRENT ACTIVE CONFIGURATION") + "\n\n")
+	titleText := "CURRENT ACTIVE CONFIGURATION"
+	if boxW < 40 {
+		titleText = "CONFIGURATION"
+	}
+	sb.WriteString(dashboardTitleStyle.Render(titleText) + "\n\n")
 
 	provider := c.Auth.AIProvider
 	if provider == "" {
@@ -67,14 +98,16 @@ func RenderConfigurationDashboard(c *config.Config) string {
 		sectorsStatus = "Not Configured (Required)"
 	}
 
-	sb.WriteString(fmt.Sprintf("  • %-16s: %s\n", "AI Provider", lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(provider)))
-	sb.WriteString(fmt.Sprintf("  • %-16s: %s\n", "Active Model", activeModel))
-	sb.WriteString(fmt.Sprintf("  • %-16s: %s\n", "Endpoint BaseURL", c.Auth.OpenAIBaseURL))
-	sb.WriteString(fmt.Sprintf("  • %-16s: %s\n", "Gemini API Key", MaskAPIKey(c.Auth.GeminiAPIKey)))
-	sb.WriteString(fmt.Sprintf("  • %-16s: %s\n", "OpenAI/Router Key", MaskAPIKey(c.Auth.OpenAIAPIKey)))
-	sb.WriteString(fmt.Sprintf("  • %-16s: %s\n", "Sectors Financial", sectorsStatus))
-	sb.WriteString(fmt.Sprintf("  • %-16s: %.0fs\n", "LLM Timeout", c.Preferences.LLMTimeoutSecs))
-	sb.WriteString(fmt.Sprintf("  • %-16s: %s\n", "Python Engine", c.Engine.PythonBin))
+	fmtFmt := fmt.Sprintf("  • %%-%ds: %%s\n", lblWidth)
+
+	sb.WriteString(fmt.Sprintf(fmtFmt, "AI Provider", lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(Truncate(provider, contentW))))
+	sb.WriteString(fmt.Sprintf(fmtFmt, "Active Model", Truncate(activeModel, contentW)))
+	sb.WriteString(fmt.Sprintf(fmtFmt, "Endpoint BaseURL", Truncate(c.Auth.OpenAIBaseURL, contentW)))
+	sb.WriteString(fmt.Sprintf(fmtFmt, "Gemini API Key", MaskAPIKey(c.Auth.GeminiAPIKey)))
+	sb.WriteString(fmt.Sprintf(fmtFmt, "OpenAI/Router Key", MaskAPIKey(c.Auth.OpenAIAPIKey)))
+	sb.WriteString(fmt.Sprintf(fmtFmt, "Sectors Financial", Truncate(sectorsStatus, contentW)))
+	sb.WriteString(fmt.Sprintf(fmtFmt, "LLM Timeout", fmt.Sprintf("%.0fs", c.Preferences.LLMTimeoutSecs)))
+	sb.WriteString(fmt.Sprintf(fmtFmt, "Python Engine", TruncateMiddle(c.Engine.PythonBin, contentW)))
 
 	var telegramStatus string
 	if strings.TrimSpace(c.Telegram.BotToken) != "" {
@@ -90,7 +123,66 @@ func RenderConfigurationDashboard(c *config.Config) string {
 	} else {
 		telegramStatus = "Not configured (Optional)"
 	}
-	sb.WriteString(fmt.Sprintf("  • %-16s: %s\n", "Telegram Bot", telegramStatus))
+	sb.WriteString(fmt.Sprintf(fmtFmt, "Telegram Bot", Truncate(telegramStatus, contentW)))
 
 	return dashboardCardStyle.Render(sb.String())
+}
+
+// ConfigViewerModel is an interactive AltScreen Bubbletea model for configuration dashboard with mouse scroll support.
+type ConfigViewerModel struct {
+	CFG      *config.Config
+	Viewport viewport.Model
+	Ready    bool
+}
+
+func (m ConfigViewerModel) Init() tea.Cmd {
+	return nil
+}
+
+func (m ConfigViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc", "q", "enter", "ctrl+c":
+			return m, tea.Quit
+		}
+
+	case tea.WindowSizeMsg:
+		w := msg.Width
+		h := msg.Height - 3
+		if !m.Ready {
+			m.Viewport = viewport.New(w, h)
+			m.Ready = true
+		} else {
+			m.Viewport.Width = w
+			m.Viewport.Height = h
+		}
+		m.Viewport.SetContent(RenderConfigurationDashboard(m.CFG, w))
+	}
+
+	m.Viewport, cmd = m.Viewport.Update(msg)
+	return m, cmd
+}
+
+func (m ConfigViewerModel) View() string {
+	if !m.Ready {
+		return "\n  Initializing configuration...\n\033[J"
+	}
+	w := m.Viewport.Width
+	if w <= 0 {
+		w = GetTermWidth()
+	}
+	footerText := "[↑/↓/k/j/Mouse Scroll  •  Esc Return to Menu]"
+	if w < 55 {
+		footerText = "[↑/↓ Scroll  •  Esc Return]"
+	}
+	footer := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(footerText)
+	return fmt.Sprintf("%s\n\n  %s", m.Viewport.View(), footer) + "\033[J"
+}
+
+// ShowConfigurationScreen launches interactive AltScreen configuration card that scales live on window resize.
+func ShowConfigurationScreen(cfg *config.Config) {
+	p := tea.NewProgram(ConfigViewerModel{CFG: cfg}, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	_, _ = p.Run()
 }

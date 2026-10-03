@@ -340,7 +340,6 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		widthChanged := m.Width > 0 && m.Width != msg.Width
 		m.Width = msg.Width
 		m.Height = msg.Height
 		if msg.Width < 50 {
@@ -355,11 +354,6 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			inputW = 15
 		}
 		m.TextInput.Width = inputW
-
-		if widthChanged && m.ModelLabel != "" {
-			fmt.Print("\033[H\033[2J")
-			renderBanner(m.ModelLabel, m.ServerURL, m.SessionID, m.DBPath)
-		}
 		return m, nil
 
 	case tea.KeyMsg:
@@ -630,9 +624,9 @@ func (m ReplInputModel) View() string {
 		var popupLines []string
 		popupLines = append(popupLines, popupHeader)
 
-		descAvail := boxW - 25
-		if descAvail < 10 {
-			descAvail = 10
+		descAvail := boxW - 28
+		if descAvail < 8 {
+			descAvail = 8
 		}
 
 		for i := m.SlashScrollOffset; i < endIdx; i++ {
@@ -656,7 +650,7 @@ func (m ReplInputModel) View() string {
 				descR := lipgloss.NewStyle().Foreground(ColorFg).Render(descStr)
 				popupLines = append(popupLines, fmt.Sprintf("%s%s%s%s", lipgloss.NewStyle().Foreground(ColorAccent).Render(cursor), cmdR, catBadge, descR))
 				if sc.FormatHint != "" {
-					hintR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("    " + Truncate(sc.FormatHint, boxW-8))
+					hintR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("    " + Truncate(sc.FormatHint, max(10, boxW-8)))
 					popupLines = append(popupLines, hintR)
 				}
 			} else {
@@ -727,6 +721,7 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 		return
 	}
 
+	termW := GetTermWidth()
 	fmt.Println()
 	divider := lipgloss.NewStyle().Foreground(ColorMuted).Render(TF("repl_resumed_history_divider", len(history)))
 	fmt.Println(divider)
@@ -735,7 +730,10 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 		role := strings.ToLower(strings.TrimSpace(msg.Role))
 		switch role {
 		case "user", "human":
-			userBox := userBubbleStyle.Render(TF("repl_user_label", msg.Content))
+			boxW := max(24, termW-4)
+			userBoxStyle := userBubbleStyle.Width(boxW)
+			wrappedUserMsg := wrapText(TF("repl_user_label", msg.Content), max(16, boxW-4))
+			userBox := userBoxStyle.Render(wrappedUserMsg)
 			fmt.Println(userBox)
 		case "assistant", "model":
 			fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(T("repl_agent_label")))
@@ -748,7 +746,7 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 		}
 	}
 
-	fmt.Println(lipgloss.NewStyle().Foreground(ColorMuted).Render("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━") + "\n")
+	fmt.Println(Sep(2, termW) + "\n")
 }
 
 // RunLiveREPL starts an interactive, conversational research assistant session.
@@ -846,7 +844,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 		}
 
 		if lower == "/help" {
-			printHelp()
+			PrintFullHelpGuide()
 			continue
 		}
 
@@ -857,9 +855,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 		}
 
 		if lower == "/config" || lower == "/settings" {
-			fmt.Println()
-			fmt.Println(RenderConfigurationDashboard(cfg))
-			fmt.Println()
+			ShowConfigurationScreen(cfg)
 			continue
 		}
 
@@ -910,13 +906,8 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			continue
 		}
 
-		if lower == "/health" {
-			printHealth(cfg)
-			continue
-		}
-
-		if lower == "/doctor" {
-			printHealth(cfg)
+		if lower == "/health" || lower == "/doctor" {
+			ShowHealthDiagnosticsScreen(cfg, serverURL)
 			continue
 		}
 
@@ -1214,7 +1205,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 				})
 			}
 			displayTicker := strings.Join(targetTickers, ", ")
-			fmt.Println(RenderASCIIAnomalyChart(displayTicker, events, 30))
+			ShowAnomalyViewerScreen(displayTicker, events, 30)
 			continue
 		}
 
@@ -1678,8 +1669,10 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 					ev.MetricType, ev.Ticker, ev.ZScore, ev.MetricValue, ev.BaselineValue,
 				)
 				w := GetTermWidth()
-				anomalyBoxStyle := replAnomalyBoxStyle.Width(max(16, w-4))
-				fmt.Println(anomalyBoxStyle.Render(wrapText(anomalyText, max(12, w-6))))
+				boxW := max(24, w-4)
+				innerW := max(16, boxW-4)
+				anomalyBoxStyle := replAnomalyBoxStyle.Width(boxW)
+				fmt.Println(anomalyBoxStyle.Render(wrapText(anomalyText, innerW)))
 
 				if appDB != nil {
 					_ = appDB.EnsureInvestigationSession(sessionID, ev.Ticker)
@@ -1786,6 +1779,9 @@ func renderCompletionBadge(duration time.Duration, sessionID, model string, anom
 	detail := TF("badge_completed_detail", duration.Seconds(), model, sessionID)
 	if anomalies > 0 || findings > 0 {
 		detail += TF("badge_completed_counts", anomalies, findings)
+	}
+	if len(overrideWidth) > 0 && overrideWidth[0] > 0 && w > 20 && lipgloss.Width(detail)+16 > w {
+		detail = Truncate(detail, w-16)
 	}
 	return fmt.Sprintf("\n%s\n%s %s\n%s\n", sep, badge, detail, sep)
 }
