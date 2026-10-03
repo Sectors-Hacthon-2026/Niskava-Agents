@@ -62,6 +62,14 @@ def parse_single_tool_call(raw: str) -> Optional[Tuple[str, Dict[str, Any]]]:
             if isinstance(data, dict):
                 name = data.get("name") or data.get("tool")
                 args = data.get("arguments") or data.get("args") or {}
+                if not name and start_brace > 0:
+                    prefix = cleaned[:start_brace].strip()
+                    parts = prefix.split()
+                    if parts:
+                        candidate_name = parts[-1].strip("<>: ")
+                        if candidate_name and re.match(r"^[a-zA-Z0-9_-]+$", candidate_name):
+                            name = candidate_name
+                            args = data
                 if name:
                     return str(name).strip(), args if isinstance(args, dict) else {}
         except Exception:
@@ -72,6 +80,14 @@ def parse_single_tool_call(raw: str) -> Optional[Tuple[str, Dict[str, Any]]]:
                     if isinstance(data, dict):
                         name = data.get("name") or data.get("tool")
                         args = data.get("arguments") or data.get("args") or {}
+                        if not name and start_brace > 0:
+                            prefix = cleaned[:start_brace].strip()
+                            parts = prefix.split()
+                            if parts:
+                                candidate_name = parts[-1].strip("<>: ")
+                                if candidate_name and re.match(r"^[a-zA-Z0-9_-]+$", candidate_name):
+                                    name = candidate_name
+                                    args = data
                         if name:
                             return str(name).strip(), args if isinstance(args, dict) else {}
                 except Exception:
@@ -136,22 +152,28 @@ def parse_single_tool_call(raw: str) -> Optional[Tuple[str, Dict[str, Any]]]:
 
 
 def extract_tool_calls(content: str) -> List[Tuple[str, Dict[str, Any]]]:
-    """Extract tool calls from model content, matching both closed and unclosed tags."""
+    """Extract tool calls from model content, matching closed tags, unclosed tags, and raw JSON."""
     calls: List[Tuple[str, Dict[str, Any]]] = []
-    # 1. Closed tags: <tool_call>(.*?)</tool_call>
-    closed_matches = re.findall(r"<tool_call>(.*?)</tool_call>", content, re.DOTALL)
+    # 1. Closed tags: <tool_call>(.*?)</tool_call> or <dots_function_call>(.*?)</dots_function_call>
+    closed_matches = re.findall(r"<(?:tool_call|dots_function_call)>(.*?)</(?:tool_call|dots_function_call)>", content, re.DOTALL)
     for m in closed_matches:
         parsed = parse_single_tool_call(m)
         if parsed:
             calls.append(parsed)
 
-    # 2. If no closed matches, search for unclosed: <tool_call>(.*)$
+    # 2. If no closed matches, search for unclosed: <(?:tool_call|dots_function_call)>(.*)$
     if not calls:
-        unclosed_match = re.search(r"<tool_call>(.*)$", content, re.DOTALL)
+        unclosed_match = re.search(r"<(?:tool_call|dots_function_call)>(.*)$", content, re.DOTALL)
         if unclosed_match:
             parsed = parse_single_tool_call(unclosed_match.group(1))
             if parsed:
                 calls.append(parsed)
+
+    # 3. Fallback: Raw JSON tool call without XML tags (e.g. {"name": "execute_skill", ...})
+    if not calls:
+        parsed = parse_single_tool_call(content)
+        if parsed:
+            calls.append(parsed)
 
     return calls
 

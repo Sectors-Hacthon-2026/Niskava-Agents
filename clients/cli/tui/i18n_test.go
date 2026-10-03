@@ -79,3 +79,25 @@ func TestTFHelper(t *testing.T) {
 	// Reset
 	SetLanguage("en")
 }
+
+func countPlaceholders(s string) int {
+	count := 0
+	for i := 0; i < len(s)-1; i++ {
+		if s[i] == '%' && s[i+1] != '%' {
+			count++
+		}
+	}
+	return count
+}
+
+func TestI18nPlaceholderConsistency(t *testing.T) {
+	for key, translations := range TUIStrings {
+		enVal := translations["en"]
+		idVal := translations["id"]
+		cEn := countPlaceholders(enVal)
+		cId := countPlaceholders(idVal)
+		if cEn != cId {
+			t.Errorf("placeholder count mismatch for key %q: 'en' has %d, 'id' has %d", key, cEn, cId)
+		}
+	}
+}

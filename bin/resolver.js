@@ -44,9 +44,19 @@ function getTargetBinaryPath(version) {
     return path.join(getNiskavaHome(), 'bin', binName);
 }
 
+function getGoBinBinaryPath() {
+    const isWindows = process.platform === 'win32';
+    const binName = isWindows ? 'niskava.exe' : 'niskava';
+    if (process.env.GOPATH) {
+        return path.join(process.env.GOPATH, 'bin', binName);
+    }
+    return path.join(getHomeDir(), 'go', 'bin', binName);
+}
+
 module.exports = {
     getHomeDir,
     getNiskavaHome,
     getPlatformAssetName,
-    getTargetBinaryPath
+    getTargetBinaryPath,
+    getGoBinBinaryPath
 };

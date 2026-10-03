@@ -505,7 +505,7 @@ func (m HealthViewerModel) View() string {
 
 // ShowHealthDiagnosticsScreen displays interactive AltScreen health diagnostics card that live-resizes on window resize.
 func ShowHealthDiagnosticsScreen(cfg *config.Config, serverURL string) {
-	p := tea.NewProgram(HealthViewerModel{CFG: cfg, ServerURL: serverURL}, tea.WithAltScreen())
+	p := tea.NewProgram(HealthViewerModel{CFG: cfg, ServerURL: serverURL}, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	_, _ = p.Run()
 }
 
@@ -724,7 +724,7 @@ func (m WebWorkspaceViewerModel) View() string {
 
 // ShowWebWorkspaceLaunchScreen displays the interactive AltScreen Web Workspace card that live-resizes on window resize.
 func ShowWebWorkspaceLaunchScreen(serverURL string) {
-	p := tea.NewProgram(WebWorkspaceViewerModel{ServerURL: serverURL}, tea.WithAltScreen())
+	p := tea.NewProgram(WebWorkspaceViewerModel{ServerURL: serverURL}, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	_, _ = p.Run()
 }
 

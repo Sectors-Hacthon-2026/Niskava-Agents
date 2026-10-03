@@ -16,7 +16,7 @@ import (
 )
 
 // Version defines the release version of Niskava Agent.
-const Version = "0.1.4"
+const Version = "0.1.5"
 
 var (
 	cfgFile     string
