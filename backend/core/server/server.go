@@ -2430,4 +2430,3 @@ func generateRealisticCandles(ticker string, days int) []map[string]interface{} 
 	}
 	return candles
 }
-
