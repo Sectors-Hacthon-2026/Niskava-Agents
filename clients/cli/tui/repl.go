@@ -248,7 +248,7 @@ type ReplInputModel struct {
 	Height            int
 }
 
-// RenderToastPill renders a non-blocking styled floating notification toast badge bounded by width.
+// RenderToastPill renders a clean, borderless inline notification text.
 func RenderToastPill(message string, overrideWidth ...int) string {
 	if strings.TrimSpace(message) == "" {
 		return ""
@@ -257,31 +257,14 @@ func RenderToastPill(message string, overrideWidth ...int) string {
 	if len(overrideWidth) > 0 && overrideWidth[0] > 0 {
 		w = overrideWidth[0]
 	}
-	boxW := w - 4
-	if boxW > w-2 {
-		boxW = w - 2
-	}
-	if boxW < 16 {
-		boxW = max(10, w-2)
-	}
-
-	contentW := boxW - 4
-	if contentW < 10 {
-		contentW = 10
-	}
-
+	contentW := max(10, w-6)
 	msgTruncated := Truncate(message, contentW)
 
 	toastStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(ColorBg).
-		Background(ColorAccent).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(ColorAccent).
-		Width(boxW).
-		Padding(0, 1)
+		Foreground(ColorSuccess)
 
-	return toastStyle.Render(msgTruncated)
+	return fmt.Sprintf("  ✔ %s", toastStyle.Render(msgTruncated))
 }
 
 // NewReplInputModel initializes the interactive REPL prompt input.
