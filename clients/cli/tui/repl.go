@@ -577,7 +577,12 @@ func (m ReplInputModel) View() string {
 		b.WriteString("\n")
 	}
 
-	// Render OpenCode-style Slash Autocomplete Popup Box when slash active (Compact Max 5 Viewport)
+	// Do not render slash popup lines if model is quitting or value has been submitted
+	if m.Quitting || m.SubmittedValue != "" {
+		return b.String() + "\033[J"
+	}
+
+	// Render OpenCode-style Slash Autocomplete Popup when slash active (Ultra-Polished Border-Free Inline Viewport)
 	if m.SlashActive && len(m.FilteredCommands) > 0 {
 		maxVisible := 5
 		if m.SlashCursor < m.SlashScrollOffset {
@@ -591,67 +596,82 @@ func (m ReplInputModel) View() string {
 			endIdx = len(m.FilteredCommands)
 		}
 
-		popupHeader := lipgloss.NewStyle().
+		// Header Pill & Keybinding Hints
+		badgeText := TF("slash_popup_header", m.SlashCursor+1, len(m.FilteredCommands))
+		headerPill := lipgloss.NewStyle().
 			Bold(true).
 			Foreground(ColorBg).
 			Background(ColorAccent).
 			Padding(0, 1).
-			Render(TF("slash_popup_header", m.SlashCursor+1, len(m.FilteredCommands)))
+			Render(badgeText)
 
-		boxStyle := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(ColorAccent).
-			Width(boxW).
-			Padding(0, 1)
+		if termW >= 60 {
+			headerHint := lipgloss.NewStyle().
+				Foreground(ColorMuted).
+				Italic(true).
+				Render("  [Tab] fill • [↑/↓] select • [Esc] cancel")
+			b.WriteString(fmt.Sprintf("%s%s\n", headerPill, headerHint))
+		} else {
+			b.WriteString(fmt.Sprintf("%s\n", headerPill))
+		}
 
-		var popupLines []string
-		popupLines = append(popupLines, popupHeader)
-
-		descAvail := boxW - 28
+		descAvail := boxW - 30
 		if descAvail < 8 {
 			descAvail = 8
 		}
 
 		for i := m.SlashScrollOffset; i < endIdx; i++ {
 			sc := m.FilteredCommands[i]
-			cursor := "  "
-			if i == m.SlashCursor {
-				cursor = "> "
-			}
 
-			cmdStr := fmt.Sprintf("%-12s", sc.Command)
-			catBadge := ""
-			if sc.Category != "" {
-				catBadge = lipgloss.NewStyle().
-					Foreground(ColorMuted).
-					Render(fmt.Sprintf("[%s] ", sc.Category))
-			}
-			descStr := Truncate(sc.Description, descAvail)
+			cmdPadded := fmt.Sprintf("%-13s", sc.Command)
 
 			if i == m.SlashCursor {
-				cmdR := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(cmdStr)
-				descR := lipgloss.NewStyle().Foreground(ColorFg).Render(descStr)
-				popupLines = append(popupLines, fmt.Sprintf("%s%s%s%s", lipgloss.NewStyle().Foreground(ColorAccent).Render(cursor), cmdR, catBadge, descR))
+				// Selected Row with Electric Cyan Pointer and Dark Pill Category Badge
+				pointerR := lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(" ❯ ")
+				cmdR := lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(cmdPadded)
+				
+				catR := ""
+				if sc.Category != "" {
+					catR = lipgloss.NewStyle().
+						Bold(true).
+						Foreground(ColorAccent).
+						Background(lipgloss.Color("#0B192C")).
+						Padding(0, 1).
+						Render(sc.Category) + " "
+				}
+				descR := lipgloss.NewStyle().Bold(true).Foreground(ColorFg).Render(Truncate(sc.Description, descAvail))
+				
+				b.WriteString(fmt.Sprintf("%s%s%s%s\n", pointerR, cmdR, catR, descR))
+
 				if sc.FormatHint != "" {
-					hintR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("    " + Truncate(sc.FormatHint, max(10, boxW-8)))
-					popupLines = append(popupLines, hintR)
+					cleanHint := strings.TrimPrefix(sc.FormatHint, "└─ ")
+					cleanHint = strings.TrimPrefix(cleanHint, "└─")
+					hintText := Truncate(cleanHint, max(10, boxW-10))
+					hintR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("    └─ " + hintText)
+					b.WriteString(hintR)
+					b.WriteString("\n")
 				}
 			} else {
-				cmdR := lipgloss.NewStyle().Foreground(ColorAccent).Render(cmdStr)
-				descR := lipgloss.NewStyle().Foreground(ColorMuted).Render(descStr)
-				popupLines = append(popupLines, fmt.Sprintf("  %s%s%s", cmdR, catBadge, descR))
+				// Unselected Row
+				pointerR := "   "
+				cmdR := lipgloss.NewStyle().Foreground(ColorAccent).Render(cmdPadded)
+				catR := ""
+				if sc.Category != "" {
+					catR = lipgloss.NewStyle().Foreground(ColorMuted).Render(fmt.Sprintf("[%s] ", sc.Category))
+				}
+				descR := lipgloss.NewStyle().Foreground(ColorMuted).Render(Truncate(sc.Description, descAvail))
+
+				b.WriteString(fmt.Sprintf("%s%s%s%s\n", pointerR, cmdR, catR, descR))
 			}
 		}
 
 		hiddenRemaining := len(m.FilteredCommands) - endIdx
 		if hiddenRemaining > 0 {
 			footerText := TF("slash_popup_more", hiddenRemaining)
-			footerR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(footerText)
-			popupLines = append(popupLines, footerR)
+			footerR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("  ↓ " + footerText)
+			b.WriteString(footerR)
+			b.WriteString("\n")
 		}
-
-		b.WriteString(boxStyle.Render(strings.Join(popupLines, "\n")))
-		b.WriteString("\n")
 	}
 
 	return b.String() + "\033[J"
