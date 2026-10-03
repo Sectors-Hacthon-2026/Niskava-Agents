@@ -1602,10 +1602,40 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 				anomalyBoxStyle := replAnomalyBoxStyle.Width(max(16, w-4))
 				fmt.Println(anomalyBoxStyle.Render(wrapText(anomalyText, max(12, w-6))))
 
+				if appDB != nil {
+					_ = appDB.EnsureInvestigationSession(sessionID, ev.Ticker)
+					anomID := fmt.Sprintf("ANOM-%s-%s-%d", sessionID, ev.AnomalyDate, totalAnomalies)
+					_ = appDB.CreateAnomaly(&db.Anomaly{
+						ID:              anomID,
+						InvestigationID: sessionID,
+						AnomalyDate:     ev.AnomalyDate,
+						MetricType:      ev.MetricType,
+						MetricValue:     ev.MetricValue,
+						BaselineValue:   ev.BaselineValue,
+						ZScore:          ev.ZScore,
+						Description:     ev.Description,
+					})
+				}
+
 			case ipc.EventFindingEmitted:
 				fmt.Print("\r\033[K")
+				totalFindings++
 				confBar := RenderConfidenceBar(ev.VerificationStat, ev.ConfidenceScore)
 				fmt.Printf("\n%s %s\n   %s\n", confBar, lipgloss.NewStyle().Bold(true).Render(ev.Title), ev.ClaimText)
+
+				if appDB != nil {
+					_ = appDB.EnsureInvestigationSession(sessionID, ev.Ticker)
+					findingID := fmt.Sprintf("FIND-%s-%d", sessionID, totalFindings)
+					_ = appDB.CreateFinding(&db.Finding{
+						ID:                 findingID,
+						InvestigationID:    sessionID,
+						Title:              ev.Title,
+						ClaimText:          ev.ClaimText,
+						VerificationStatus: ev.VerificationStat,
+						ConfidenceScore:    ev.ConfidenceScore,
+						CausalityStatus:    ev.CausalityStatus,
+					})
+				}
 
 			case ipc.EventAgentMessageChunk:
 				assistantResponse.WriteString(ev.Chunk)

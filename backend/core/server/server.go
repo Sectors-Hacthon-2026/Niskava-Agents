@@ -1947,6 +1947,35 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 					assistantResponse.WriteString(ev.Chunk)
 				}
 
+				if ev.Event == ipc.EventAnomalyDetected && database != nil {
+					_ = database.EnsureInvestigationSession(sessionID, ev.Ticker)
+					anomID := fmt.Sprintf("ANOM-%s-%s-%d", sessionID, ev.AnomalyDate, time.Now().UnixNano()%100000)
+					_ = database.CreateAnomaly(&db.Anomaly{
+						ID:              anomID,
+						InvestigationID: sessionID,
+						AnomalyDate:     ev.AnomalyDate,
+						MetricType:      ev.MetricType,
+						MetricValue:     ev.MetricValue,
+						BaselineValue:   ev.BaselineValue,
+						ZScore:          ev.ZScore,
+						Description:     ev.Description,
+					})
+				}
+
+				if ev.Event == ipc.EventFindingEmitted && database != nil {
+					_ = database.EnsureInvestigationSession(sessionID, ev.Ticker)
+					findingID := fmt.Sprintf("FIND-%s-%d", sessionID, time.Now().UnixNano()%100000)
+					_ = database.CreateFinding(&db.Finding{
+						ID:                 findingID,
+						InvestigationID:    sessionID,
+						Title:              ev.Title,
+						ClaimText:          ev.ClaimText,
+						VerificationStatus: ev.VerificationStat,
+						ConfidenceScore:    ev.ConfidenceScore,
+						CausalityStatus:    ev.CausalityStatus,
+					})
+				}
+
 				if !clientDisconnected {
 					dataBytes, _ := json.Marshal(ev)
 					fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.Event, string(dataBytes))

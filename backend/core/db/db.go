@@ -487,10 +487,33 @@ func (d *DB) GetAnomaliesByInvestigation(invID string) ([]Anomaly, error) {
 	return results, nil
 }
 
+// EnsureInvestigationSession checks if an investigation session record exists for id, creating a lightweight record if missing.
+func (d *DB) EnsureInvestigationSession(id, ticker string) error {
+	inv, err := d.GetInvestigation(id)
+	if err != nil {
+		return err
+	}
+	if inv != nil {
+		return nil
+	}
+	if ticker == "" {
+		ticker = "IDX"
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	return d.CreateInvestigation(&Investigation{
+		ID:            id,
+		Ticker:        ticker,
+		Market:        "IDX",
+		TimeframeDays: 30,
+		Status:        "COMPLETED",
+		StartedAt:     now,
+	})
+}
+
 // CreateAnomaly records a quantitative anomaly in the database.
 func (d *DB) CreateAnomaly(a *Anomaly) error {
 	query := `
-		INSERT INTO anomalies (id, investigation_id, anomaly_date, metric_type, metric_value, baseline_value, z_score, description)
+		INSERT OR REPLACE INTO anomalies (id, investigation_id, anomaly_date, metric_type, metric_value, baseline_value, z_score, description)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := d.conn.Exec(query, a.ID, a.InvestigationID, a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore, a.Description)
@@ -503,7 +526,7 @@ func (d *DB) CreateAnomaly(a *Anomaly) error {
 // CreateFinding records an investigation finding in the database.
 func (d *DB) CreateFinding(f *Finding) error {
 	query := `
-		INSERT INTO findings (id, investigation_id, title, claim_text, verification_status, confidence_score, causality_status)
+		INSERT OR REPLACE INTO findings (id, investigation_id, title, claim_text, verification_status, confidence_score, causality_status)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := d.conn.Exec(query, f.ID, f.InvestigationID, f.Title, f.ClaimText, f.VerificationStatus, f.ConfidenceScore, f.CausalityStatus)

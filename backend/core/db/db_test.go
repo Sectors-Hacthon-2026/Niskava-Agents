@@ -832,3 +832,59 @@ func TestResetTelegramChatSessionTitleIsUnique(t *testing.T) {
 		t.Errorf("expected title to contain @username, got: %q", s1.Title)
 	}
 }
+
+func TestEnsureInvestigationSessionAndAnomalyPersistence(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_anom.db")
+
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	sessionID := "CHAT-20261003-9999"
+	err = database.EnsureInvestigationSession(sessionID, "BBRI")
+	if err != nil {
+		t.Fatalf("EnsureInvestigationSession failed: %v", err)
+	}
+
+	inv, err := database.GetInvestigation(sessionID)
+	if err != nil || inv == nil {
+		t.Fatalf("expected investigation record created, got: %v", err)
+	}
+	if inv.Ticker != "BBRI" {
+		t.Errorf("expected ticker BBRI, got %s", inv.Ticker)
+	}
+
+	anom := &Anomaly{
+		ID:              "ANOM-TEST-1",
+		InvestigationID: sessionID,
+		AnomalyDate:     "2026-09-10",
+		MetricType:      "VOLUME_Z_SCORE",
+		MetricValue:     5000000,
+		BaselineValue:   140000,
+		ZScore:          35.71,
+		Description:     "Lonjakan Volume Ekstrem BBRI",
+	}
+
+	if err := database.CreateAnomaly(anom); err != nil {
+		t.Fatalf("CreateAnomaly failed: %v", err)
+	}
+
+	// Idempotency check: CreateAnomaly with INSERT OR REPLACE
+	if err := database.CreateAnomaly(anom); err != nil {
+		t.Fatalf("CreateAnomaly repeat failed: %v", err)
+	}
+
+	anomalies, err := database.GetAnomaliesByInvestigation(sessionID)
+	if err != nil {
+		t.Fatalf("GetAnomaliesByInvestigation failed: %v", err)
+	}
+	if len(anomalies) != 1 {
+		t.Fatalf("expected 1 anomaly, got %d", len(anomalies))
+	}
+	if anomalies[0].ZScore != 35.71 {
+		t.Errorf("expected Z-score 35.71, got %f", anomalies[0].ZScore)
+	}
+}
