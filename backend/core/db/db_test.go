@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -886,5 +887,52 @@ func TestEnsureInvestigationSessionAndAnomalyPersistence(t *testing.T) {
 	}
 	if anomalies[0].ZScore != 35.71 {
 		t.Errorf("expected Z-score 35.71, got %f", anomalies[0].ZScore)
+	}
+}
+
+func TestForkChatSessionClonesAnomaliesAndFindings(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_fork_anom.db")
+
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	sourceID := "CHAT-SRC-100"
+	_ = database.CreateChatSession(&ChatSession{ID: sourceID, Title: "Source Chat", Model: "niskava"})
+	_ = database.EnsureInvestigationSession(sourceID, "BBRI")
+
+	// Insert 3 anomalies for sourceID
+	for i := 1; i <= 3; i++ {
+		_ = database.CreateAnomaly(&Anomaly{
+			ID:              fmt.Sprintf("ANOM-SRC-%d", i),
+			InvestigationID: sourceID,
+			AnomalyDate:     fmt.Sprintf("2026-09-%02d", i),
+			MetricType:      "VOLUME_SURGE",
+			MetricValue:     float64(i * 1000000),
+			BaselineValue:   200000,
+			ZScore:          float64(i) * 3.5,
+			Description:     fmt.Sprintf("Anomaly %d", i),
+		})
+	}
+
+	forkID := "CHAT-FORK-200"
+	err = database.ForkChatSession(sourceID, forkID, "Forked Session Test", "")
+	if err != nil {
+		t.Fatalf("ForkChatSession failed: %v", err)
+	}
+
+	// Verify forked session has all 3 anomalies cloned
+	anomForked, err := database.GetAnomaliesByInvestigation(forkID)
+	if err != nil {
+		t.Fatalf("GetAnomaliesByInvestigation for forked session failed: %v", err)
+	}
+	if len(anomForked) != 3 {
+		t.Fatalf("expected 3 anomalies cloned in forked session, got %d", len(anomForked))
+	}
+	if anomForked[2].ZScore != 10.5 {
+		t.Errorf("expected 3rd anomaly Z-score 10.5, got %f", anomForked[2].ZScore)
 	}
 }

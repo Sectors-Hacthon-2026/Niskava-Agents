@@ -1112,21 +1112,99 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			continue
 		}
 
-		if lower == "/anomalies" {
+		if strings.HasPrefix(lower, "/anomalies") {
 			if appDB == nil {
 				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(T("repl_db_unavailable")))
 				continue
 			}
-			anomalies, errA := appDB.GetAnomaliesByInvestigation(sessionID)
-			if errA != nil || len(anomalies) == 0 {
-				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_anomalies_empty")))
+
+			// 1. Extract explicit ticker arguments (e.g. /anomalies ANTM or /anomalies BBRI ANTM)
+			explicitTickers := extractValidTickers(input)
+
+			var targetTickers []string
+			if len(explicitTickers) > 0 {
+				targetTickers = explicitTickers
+			} else {
+				// 2. Fallback to session investigation ticker
+				if inv, _ := appDB.GetInvestigation(sessionID); inv != nil && inv.Ticker != "" {
+					targetTickers = append(targetTickers, inv.Ticker)
+				}
+				// 3. Fallback to tickers mentioned in session chat history
+				if history, errH := appDB.GetChatHistory(sessionID, 30); errH == nil && len(history) > 0 {
+					for _, msg := range history {
+						r := strings.ToLower(strings.TrimSpace(msg.Role))
+						if r == "user" || r == "human" {
+							for _, t := range extractValidTickers(msg.Content) {
+								if !containsString(targetTickers, t) {
+									targetTickers = append(targetTickers, t)
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// 4. Fetch anomalies for all resolved target tickers from DB
+			var anomalies []db.Anomaly
+			if len(targetTickers) > 0 {
+				for _, t := range targetTickers {
+					if tAnoms, errF := appDB.GetAnomaliesByTicker(t); errF == nil && len(tAnoms) > 0 {
+						for _, a := range tAnoms {
+							anomalies = append(anomalies, a)
+						}
+					}
+				}
+			}
+
+			// Fallback: If still no anomalies found via tickers, try GetAnomaliesByInvestigation
+			if len(anomalies) == 0 {
+				if invAnoms, _ := appDB.GetAnomaliesByInvestigation(sessionID); len(invAnoms) > 0 {
+					anomalies = invAnoms
+				}
+			}
+
+			// 5. If STILL no anomalies exist in DB for specified ticker(s), dynamically trigger anomaly audit on-the-fly!
+			if len(anomalies) == 0 && len(targetTickers) > 0 {
+				tickerStr := strings.Join(targetTickers, " dan ")
+				noticeMsg := fmt.Sprintf("⚡ Belum ada data anomali tersimpan di database untuk %s. Menjalankan pemindaian anomali Sectors API v2 secara otomatis...", tickerStr)
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(noticeMsg))
+
+				// Execute targeted turn to run quant anomaly detection and save to DB
+				prompt := fmt.Sprintf("analisa kuantitatif dan pemindaian anomali pasar untuk %s hari ini", tickerStr)
+				executeChatTurn(prompt, sessionID, serverURL, cfg, appDB)
+
+				// Re-query anomalies from DB after turn completes
+				for _, t := range targetTickers {
+					if tAnoms, errF := appDB.GetAnomaliesByTicker(t); errF == nil && len(tAnoms) > 0 {
+						for _, a := range tAnoms {
+							anomalies = append(anomalies, a)
+						}
+					}
+				}
+				if len(anomalies) == 0 {
+					if invAnoms, _ := appDB.GetAnomaliesByInvestigation(sessionID); len(invAnoms) > 0 {
+						anomalies = invAnoms
+					}
+				}
+			}
+
+			if len(anomalies) == 0 {
+				if len(targetTickers) == 0 {
+					fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render("💡 Gunakan: /anomalies <TICKER> (contoh: /anomalies ANTM) untuk mengaudit anomali saham secara otomatis."))
+				} else {
+					fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_anomalies_empty")))
+				}
 				continue
 			}
+
 			var events []ipc.Event
-			ticker := "IDX"
 			for _, a := range anomalies {
+				t := a.Ticker
+				if t == "" && len(targetTickers) > 0 {
+					t = targetTickers[0]
+				}
 				events = append(events, ipc.Event{
-					Ticker:        ticker,
+					Ticker:        t,
 					AnomalyDate:   a.AnomalyDate,
 					MetricType:    a.MetricType,
 					MetricValue:   a.MetricValue,
@@ -1135,7 +1213,8 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 					Description:   a.Description,
 				})
 			}
-			fmt.Println(RenderASCIIAnomalyChart(ticker, events, 30))
+			displayTicker := strings.Join(targetTickers, ", ")
+			fmt.Println(RenderASCIIAnomalyChart(displayTicker, events, 30))
 			continue
 		}
 
@@ -1866,4 +1945,45 @@ func getTerminalWidth() int {
 		return w
 	}
 	return 80
+}
+
+func extractValidTickers(text string) []string {
+	stopWords := map[string]bool{
+		"BISA": true, "DATA": true, "DANA": true, "DARI": true, "HALO": true, "SAYA": true,
+		"AKAN": true, "PADA": true, "SAMA": true, "SERTA": true, "BAGI": true, "KITA": true,
+		"KAMI": true, "MEREKA": true, "JIKA": true, "KATA": true, "LALU": true, "OLEH": true,
+		"YANG": true, "MAU": true, "HELP": true, "INFO": true, "CARI": true, "CEK": true,
+		"LIHAT": true, "SHOW": true, "VIEW": true, "PAGE": true, "CHAT": true, "POST": true,
+		"USER": true, "ROLE": true, "TEXT": true, "NOTE": true, "LIST": true, "SCAN": true,
+		"NULL": true, "TRUE": true, "FALSE": true, "READ": true, "AUTO": true, "FREE": true,
+	}
+	words := strings.Fields(strings.ToUpper(text))
+	var candidates []string
+	for _, w := range words {
+		cleaned := strings.Trim(w, ".,!?:;\"'()[]{}#*`")
+		if len(cleaned) == 4 && isUpperAlpha(cleaned) && !stopWords[cleaned] {
+			if !containsString(candidates, cleaned) {
+				candidates = append(candidates, cleaned)
+			}
+		}
+	}
+	return candidates
+}
+
+func isUpperAlpha(s string) bool {
+	for _, r := range s {
+		if r < 'A' || r > 'Z' {
+			return false
+		}
+	}
+	return true
+}
+
+func containsString(slice []string, val string) bool {
+	for _, item := range slice {
+		if item == val {
+			return true
+		}
+	}
+	return false
 }

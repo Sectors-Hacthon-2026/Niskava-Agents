@@ -1953,6 +1953,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 					_ = database.CreateAnomaly(&db.Anomaly{
 						ID:              anomID,
 						InvestigationID: sessionID,
+						Ticker:          ev.Ticker,
 						AnomalyDate:     ev.AnomalyDate,
 						MetricType:      ev.MetricType,
 						MetricValue:     ev.MetricValue,
