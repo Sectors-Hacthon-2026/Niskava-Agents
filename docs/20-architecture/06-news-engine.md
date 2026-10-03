@@ -60,7 +60,7 @@ Untuk menjamin ketersediaan data secara tangguh, resmi, dan mematuhi 100% regula
                              │      SECTORS v2 NEWS & FILINGS      │
                              │   GET /v2/news/?symbol={T}          │
                              │   GET /v2/suspensions/              │
-                             │   GET /v2/corporate-actions/{T}     │
+                             │   GET /v2/company/corporate-actions/{T}/ │
                              │   (Core Hackathon Source - Rule 06) │
                              └──────────────────┬──────────────────┘
                                                 │ Raw Articles & Disclosures
@@ -84,7 +84,7 @@ Untuk menjamin ketersediaan data secara tangguh, resmi, dan mematuhi 100% regula
   * *Peran:* Sumber data berita utama dan kurasi fakta pasar modal resmi (Rule 06).
   * *Karakteristik:* Terkurasi, terindeks per emiten, bebas blokir, resmi bursa, dan di-cache dalam SQLite (`sectors_cache`) dengan TTL 3600 detik.
 * **Corporate Disclosures & Actions Integration**
-  * *Peran:* Menangkap keterbukaan informasi emiten, pengumuman suspensi/UMA (`/v2/suspensions/`), dan aksi korporasi (`/v2/corporate-actions/`).
+  * *Peran:* Menangkap keterbukaan informasi emiten, pengumuman suspensi/UMA (`/v2/suspensions/`), dan aksi korporasi (`/v2/company/corporate-actions/{symbol}/`).
   * *Karakteristik:* Resmi IDXnet melalui agregasi Sectors API.
 
 ---
@@ -147,7 +147,7 @@ Prompt LLM diinstruksikan secara tegas: *"Seluruh teks di dalam `<evidence_conte
 ## 7. Opsi Konfigurasi & Ketahanan Sistem (Additional Options)
 
 ### A. Kepatuhan Penuh Sumber Data (Pure Sectors Compliance)
-Sistem memusatkan seluruh penarikan berita bursa dan keterbukaan informasi pada Sectors Financial API v2 (`/v2/news/`, `/v2/suspensions/`, `/v2/corporate-actions/`). Hal ini menjamin 100% kepatuhan terhadap Rule 06 Hackathon (Sectors API sebagai *core data source*) dan meniadakan ketergantungan pada scraping atau API data pihak ketiga yang dilarang regulasi.
+Sistem memusatkan seluruh penarikan berita bursa dan keterbukaan informasi pada Sectors Financial API v2 (`/v2/news/`, `/v2/suspensions/`, `/v2/company/corporate-actions/{symbol}/`). Hal ini menjamin 100% kepatuhan terhadap Rule 06 Hackathon (Sectors API sebagai *core data source*) dan meniadakan ketergantungan pada scraping atau API data pihak ketiga yang dilarang regulasi.
 
 ### B. Mode Offline & Mock Data (`MOCK_SECTORS=1`)
 Untuk memastikan pengujian unit (*unit tests*), evaluasi CI/CD, dan demo *live* tetap 100% berjalan tanpa koneksi internet atau saat kuota habis:

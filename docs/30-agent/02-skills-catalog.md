@@ -58,7 +58,7 @@ verification_mapping: dict       # Pemetaan ke Three-Tier Verification Taxonomy
 * **Prerequisites (MCP Tools)**:
   * `sectors_get_daily_candles` (`/v2/daily/{symbol}/`)
   * `sectors_get_foreign_flow` (`/v2/foreign-flow/{symbol}/`)
-  * `sectors_get_subsector_peers` (`/v2/subsector/{subsector}/`)
+  * `sectors_get_subsector_peers` (`/v2/subsector/report/{sub_sector}/`)
 * **Deterministic Compute Gate (NumPy Firewall)**:
   $$\mu_{20} = \frac{1}{20}\sum_{i=1}^{20} V_{t-i}, \quad \sigma_{20} = \sqrt{\frac{1}{20}\sum_{i=1}^{20}(V_{t-i} - \mu_{20})^2}$$
   $$V_z = \frac{V_t - \mu_{20}}{\sigma_{20}}, \quad R_t = \frac{P_t - P_{t-1}}{P_{t-1}}, \quad F_z = \frac{F_t - \mu_{F,20}}{\sigma_{F,20}}$$
@@ -95,7 +95,7 @@ verification_mapping: dict       # Pemetaan ke Three-Tier Verification Taxonomy
 * **Trigger**: Adanya $T_{\text{anomaly}}$ dari `market-anomaly-recon` atau pertanyaan mengenai katalis penggerak harga.
 * **Prerequisites (MCP Tools)**:
   * `sectors_get_suspensions` (`/v2/suspensions/`)
-  * `sectors_get_corporate_actions` (`/v2/corporate-actions/{symbol}/`)
+  * `sectors_get_corporate_actions` (`/v2/company/corporate-actions/{symbol}/`)
   * `harvest_market_news` (Sectors `/v2/news/`)
 * **Deterministic Gate**:
   * Jendela waktu pencarian wajib dibatasi ketat: $[T_{\text{anomaly}} - 2\text{ hari}, T_{\text{anomaly}} + 1\text{ hari}]$.
@@ -134,8 +134,8 @@ verification_mapping: dict       # Pemetaan ke Three-Tier Verification Taxonomy
 * **Trigger**: Lonjakan volume mendahului berita (`PRECEDED_ANNOUNCEMENT`), anomali $F_z$ asing ekstrim, atau pertanyaan mengenai siapa pelaku akumulasi.
 * **Prerequisites (MCP Tools)**:
   * `sectors_get_filings` (`/v2/filings/?symbol={symbol}`)
-  * `sectors_get_broker_summary_top` (`/v2/broker-summary-top/{symbol}/`)
-  * `sectors_get_broker_registry` (`/v2/broker-registry/`)
+  * `sectors_get_broker_summary_top` (`/v2/broker-summary/{symbol}/top/`)
+  * `sectors_get_broker_registry` (`/v2/brokers/`)
 * **Deterministic Gate**:
   * Menghitung rasio konsentrasi pembeli teratas (*Top 3 Buyer Concentration Ratio*):
     $$C_3 = \frac{\sum_{j=1}^3 \text{Volume Buyer}_j}{\text{Total Volume Market}}$$
@@ -143,7 +143,7 @@ verification_mapping: dict       # Pemetaan ke Three-Tier Verification Taxonomy
 * **Execution Protocol (SOP)**:
   1. Tarik riwayat pelaporan kepemilikan orang dalam (direksi, komisaris, PSP) dari `/v2/filings/`.
   2. Ambil 3 broker pembeli bersih (*top buyers*) dan 3 broker penjual bersih (*top sellers*).
-  3. Cocokkan kode broker dengan direktori `/v2/broker-registry/` untuk memetakan asal domisili (asing vs domestik) dan tipe kohort (institusi vs ritel).
+  3. Cocokkan kode broker dengan direktori `/v2/brokers/` untuk memetakan asal domisili (asing vs domestik) dan tipe kohort (institusi vs ritel).
   4. Jika transaksi insider atau konsentrasi $C_3 \ge 65\%$ terjadi sebelum publikasi berita publik, labeli sebagai `PRECEDED_ANNOUNCEMENT` dengan tingkat keyakinan 0.95.
 * **Output Schema**:
   ```json
@@ -169,7 +169,7 @@ verification_mapping: dict       # Pemetaan ke Three-Tier Verification Taxonomy
 * **Trigger**: Pertanyaan tentang solvabilitas emiten, penurunan tajam harga saham ($R_t \le -5\%$), atau klarifikasi isu gagal bayar / kepailitan.
 * **Prerequisites (MCP Tools)**:
   * `sectors_get_company_report` (`/v2/company/report/{symbol}/?sections=valuation,financials`)
-  * `sectors_get_quarterly_financials` (`/v2/quarterly-financials/{symbol}/`)
+  * `sectors_get_quarterly_financials` (`/v2/financials/quarterly/{symbol}/`)
 * **Deterministic Gate**:
   * Perhitungan rasio likuiditas: $\text{Current Ratio} = \frac{\text{Aset Lancar}}{\text{Liabilitas Jangka Pendek}}$, $\text{Quick Ratio} = \frac{\text{Kas} + \text{Setara Kas}}{\text{Liabilitas Jangka Pendek}}$.
   * Perhitungan solvabilitas: $\text{DER} = \frac{\text{Total Utang}}{\text{Ekuitas}}$, $\text{Interest Coverage} = \frac{\text{EBIT}}{\text{Beban Bunga}}$.
@@ -198,8 +198,8 @@ verification_mapping: dict       # Pemetaan ke Three-Tier Verification Taxonomy
 * **Skill ID**: `mining-commodity-divergence`
 * **Trigger**: Emiten sektor energi/pertambangan (ANTM, PTBA, ADRO, MEDC, TINS, MBMA) mengalami pergerakan harga signifikan.
 * **Prerequisites (MCP Tools)**:
-  * `sectors_get_mining_company_detail` (`/v2/mining-company-detail/{slug}/`)
-  * `sectors_get_commodity_price` (`/v2/commodity-price/{commodity}/`)
+  * `sectors_get_mining_company_detail` (`/v2/mining/companies/{slug}/`)
+  * `sectors_get_commodity_price` (`/v2/mining/commodities/{commodity}/price/`)
 * **Deterministic Gate**:
   * Menghitung koefisien korelasi Pearson ($r$) antara return saham harian dan delta harga komoditas acuan (London Metal Exchange / Newcastle Coal) selama 30 hari.
 * **Execution Protocol (SOP)**:
@@ -226,7 +226,7 @@ verification_mapping: dict       # Pemetaan ke Three-Tier Verification Taxonomy
 * **Skill ID**: `peer-valuation-benchmark`
 * **Trigger**: Pertanyaan mengenai kewajaran harga saham, analisis komparatif emiten sejenis, atau rotasi sektor.
 * **Prerequisites (MCP Tools)**:
-  * `sectors_get_subsector_peers` (`/v2/subsector/{subsector}/`)
+  * `sectors_get_subsector_peers` (`/v2/subsector/report/{sub_sector}/`)
   * `sectors_get_company_report` (`/v2/company/report/{symbol}/?sections=valuation,peers`)
 * **Deterministic Gate**:
   * Menghitung persentil valuasi: Posisi PER dan PBV saham terhadap median subsektor ($z_{\text{val}} = \frac{\text{PER}_{\text{stock}} - \text{Median}_{\text{subsector}}}{\text{IQR}_{\text{subsector}}}$).

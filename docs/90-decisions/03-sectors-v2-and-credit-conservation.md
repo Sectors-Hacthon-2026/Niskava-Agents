@@ -26,9 +26,9 @@ Sistem membutuhkan spesifikasi integrasi yang memanfaatkan seluruh kapabilitas m
    * **Intelijen Regulasi & Suspensi**: `GET /v2/suspensions/?symbol={symbol}` untuk melacak riwayat suspensi bursa beserta tautan dokumen PDF resmi BEI.
    * **Transaksi Orang Dalam (Insider Trading)**: `GET /v2/filings/?symbol={symbol}` untuk mendeteksi transaksi direksi/komisaris saat anomali volume terjadi.
    * **Arus Modal Asing (Foreign Flow)**: `GET /v2/foreign-flow/{symbol}/` untuk deret Net Foreign Inflow harian guna mendeteksi anomali akumulasi asing ($F_z$).
-   * **Aksi Korporasi**: `GET /v2/corporate-actions/{symbol}/` untuk konfirmasi cum-date dividen, rights issue, dan stock split.
+   * **Aksi Korporasi**: `GET /v2/company/corporate-actions/{symbol}/` untuk konfirmasi cum-date dividen, rights issue, dan stock split.
    * **Berita Pasar Modal**: `GET /v2/news/?ticker={symbol}` sebagai sumber berita primer terkurasi.
-   * **Ekstensi Komoditas**: `GET /v2/commodity-price/{commodity}/` dan `/v2/mining-company-detail/{slug}/`.
+   * **Ekstensi Komoditas**: `GET /v2/mining/commodities/{commodity}/price/` dan `/v2/mining/companies/{slug}/`.
 2. **Implementasi Local SQLite Caching Layer**:
    * Setiap respons dari Sectors di-cache di tabel `sectors_cache` (`cache_key = SHA256(endpoint + params)`).
    * Data historis harga dan transaksi masa lampau ($T < \text{hari ini}$) bersifat permanen (`expires_at = NULL`), sehingga pemanggilan berulang berbiaya **0 kredit**.

@@ -16,7 +16,7 @@ Sesuai aturan resmi Sectors Hackathon 2026 (Official Rules Section 06 & Track 1 
 
 **Niskava Agent secara fungsional lumpuh total tanpa data Sectors API:**
 1. **Deteksi Anomali Kuantitatif Deterministik (Stage 3):** Mesin matematika NumPy membutuhkan time series harga dan volume 30–90 hari dari `/v2/daily/{symbol}/` dan deret aliran modal asing `/v2/foreign-flow/{symbol}/` untuk menghitung $Z$-score volume ($V_z$), abnormal return ($R_t$), dan abnormal foreign flow ($F_z$).
-2. **Audit Keterbukaan & Aksi Korporasi (Stage 2 & 5):** Sistem memanfaatkan `/v2/suspensions/` untuk melacak riwayat suspensi bursa beserta tautan PDF resmi BEI, `/v2/filings/` untuk transaksi orang dalam (*insider trading*), dan `/v2/corporate-actions/{symbol}/` untuk konfirmasi dividen/RUPS.
+2. **Audit Keterbukaan & Aksi Korporasi (Stage 2 & 5):** Sistem memanfaatkan `/v2/suspensions/` untuk melacak riwayat suspensi bursa beserta tautan PDF resmi BEI, `/v2/filings/` untuk transaksi orang dalam (*insider trading*), dan `/v2/company/corporate-actions/{symbol}/` untuk konfirmasi dividen/RUPS.
 3. **Pilar Verifikasi Kausalitas (Stage 6):** Status bukti `SUPPORTED` mensyaratkan konfirmasi ganda antara sinyal eksternal dengan metrik fundamental dan rasio keuangan resmi dari `/v2/company/report/{symbol}/`.
 
 ---
@@ -30,10 +30,10 @@ Sistem mengintegrasikan 7 domain endpoint resmi API v2 Indonesia:
 │                   SECTORS FINANCIAL API v2 CATALOG                     │
 ├────────────────────────────────────────────────────────────────────────┤
 │ 1. Transaksi & Harga      │ /v2/daily/, /v2/daily-close/, /v2/top-chg/ │
-│ 2. Fundamental Emiten     │ /v2/company/report/, /v2/quarterly-fin/   │
-│ 3. Regulasi & Disclosures │ /v2/suspensions/, /v2/filings/, /v2/corp/  │
-│ 4. Flow & Bandarmology    │ /v2/foreign-flow/, /v2/broker-summary-top/ │
-│ 5. Ekstensi Komoditas/Mine│ /v2/mining-companies/, /v2/commodity-price/│
+│ 2. Fundamental Emiten     │ /v2/company/report/, /v2/financials/       │
+│ 3. Regulasi & Disclosures │ /v2/suspensions/, /v2/filings/, /v2/company│
+│ 4. Flow & Bandarmology    │ /v2/foreign-flow/, /v2/broker-summary/     │
+│ 5. Ekstensi Komoditas/Mine│ /v2/mining/companies/, /v2/mining/commoditi│
 │ 6. Mesin Screener         │ /v2/companies/ (SQL-where & NL-query)      │
 │ 7. Taksonomi & Helpers    │ /v2/subsectors/, /v2/industries/, /v2/tags/│
 └────────────────────────────────────────────────────────────────────────┘
@@ -55,10 +55,10 @@ Sistem mengintegrasikan 7 domain endpoint resmi API v2 Indonesia:
 | Endpoint Path | Parameter Kunci | Peran dalam Pipeline | Kebijakan Caching SQLite |
 |---|---|---|---|
 | `GET /v2/company/report/{symbol}/` | `symbol`, `sections` (`valuation`,`financials`,`peers`,`overview`) | Evaluasi fundamental, rasio profitabilitas, DER, dan PBV band. | **7 Hari** (TTL). |
-| `GET /v2/quarterly-financials/{symbol}/` | `symbol`, `report_date` | Laporan keuangan triwulanan (khusus bank mencakup NII & loan deposit). | **30 Hari** (TTL). |
+| `GET /v2/financials/quarterly/{symbol}/` | `symbol`, `report_date` | Laporan keuangan triwulanan (khusus bank mencakup NII & loan deposit). | **30 Hari** (TTL). |
 | `GET /v2/company-segments/{symbol}/` | `symbol`, `year` | Breakdown pendapatan dan beban per segmen usaha (format Sankey graph). | **90 Hari** (TTL). |
 | `GET /v2/shareholders/{symbol}/` | `symbol` | Komposisi kepemilikan saham (pengendali, institusi, publik/ritel). | **14 Hari** (TTL). |
-| `GET /v2/subsector/{subsector}/` | `subsector` (kebab-case slug) | Metrik rata-rata industri untuk mengukur *Sector Divergence* ($D_t$). | **7 Hari** (TTL). |
+| `GET /v2/subsector/report/{sub_sector}/` | `sub_sector` (kebab-case slug) | Metrik rata-rata industri untuk mengukur *Sector Divergence* ($D_t$) dan benchmark valuasi peers. | **7 Hari** (TTL). |
 
 ### Domain 3: Regulasi, Suspensi & Keterbukaan Informasi (Tier 1 Evidence)
 
@@ -66,8 +66,8 @@ Sistem mengintegrasikan 7 domain endpoint resmi API v2 Indonesia:
 |---|---|---|:---:|
 | `GET /v2/suspensions/` | `symbol`, `start`, `end` | Mengambil catatan suspensi resmi BEI, alasan suspensi, dan **tautan langsung ke surat pengumuman PDF resmi bursa**. | **Tier 1 (1.00)** |
 | `GET /v2/filings/` | `symbol`, `start`, `end`, `transaction_type` | Melacak transaksi insider trading (direksi, komisaris, pemegang saham $\ge 5\%$) saat anomali volume terjadi. | **Tier 1 (1.00)** |
-| `GET /v2/corporate-actions/{symbol}/` | `symbol`, `action_type` (`dividend`,`split`,`right`) | Memverifikasi apakah anomali volume bertepatan dengan cum-date dividen, pemecahan saham, atau rights issue. | **Tier 1 (1.00)** |
-| `GET /v2/news/?ticker={symbol}` | `ticker`, `extension` (`idx` / `mining`) | Menarik arsip berita finansial bursa terkurasi untuk memvalidasi kesenjangan informasi (*Evidence Gap*). | **Tier 2 (0.85)** |
+| `GET /v2/company/corporate-actions/{symbol}/` | `symbol` | Memverifikasi apakah anomali volume bertepatan dengan cum-date dividen, pemecahan saham, atau rights issue resmi emiten. | **Tier 1 (1.00)** |
+| `GET /v2/news/` | `symbol` / `ticker` | Menarik arsip berita finansial bursa terkurasi untuk memvalidasi kesenjangan informasi (*Evidence Gap*). | **Tier 2 (0.85)** |
 
 ### Domain 4: Arus Modal & Bandarmology (Capital Flow)
 
@@ -75,18 +75,18 @@ Sistem mengintegrasikan 7 domain endpoint resmi API v2 Indonesia:
 |---|---|---|---|
 | `GET /v2/foreign-flow/{symbol}/` | `symbol`, `start`, `end` (s.d 90 hari) | Deret harian Net Foreign Inflow (IDR) untuk menghitung anomali akumulasi asing ($F_z$). | **Permanen** untuk $T < \text{hari ini}$. |
 | `GET /v2/broker-summary/{symbol}/` | `symbol`, `start`, `end` (s.d 14 hari) | Rincian transaksi harian seluruh broker per saham (lots, frekuensi, VWAP). | **Permanen** untuk $T < \text{hari ini}$. |
-| `GET /v2/broker-summary-top/{symbol}/` | `symbol`, `start`, `end` | Peringkat broker akumulasi teratas (*top buyers*) dan distribusi (*top sellers*). | **Permanen** untuk $T < \text{hari ini}$. |
-| `GET /v2/broker-registry/` | Tanpa parameter | Direktori resmi kode broker BEI dengan asal (*foreign/domestic*) dan kohort (*retail/institutional*). | **30 Hari** (TTL). |
-| `GET /v2/top-brokers/` | `date`, `sort_by` (`gross` / `net`) | Peringkat broker paling aktif harian di seluruh bursa. | **Permanen** (data lampau). |
+| `GET /v2/broker-summary/{symbol}/top/` | `symbol` | Peringkat broker akumulasi teratas (*top buyers*) dan distribusi (*top sellers*). | **Permanen** untuk $T < \text{hari ini}$. |
+| `GET /v2/brokers/` | Tanpa parameter | Direktori resmi kode broker BEI dengan asal (*foreign/domestic*) dan kohort (*retail/institutional*). | **30 Hari** (TTL). |
+| `GET /v2/brokers/top/` | `date`, `sort_by` (`gross` / `net`) | Peringkat broker paling aktif harian di seluruh bursa. | **Permanen** (data lampau). |
 
 ### Domain 5: Ekstensi Industri Pertambangan & Komoditas (Mining Extension)
 
 | Endpoint Path | Parameter Kunci | Peran dalam Pipeline | Kebijakan Caching SQLite |
 |---|---|---|---|
-| `GET /v2/mining-companies/` | `commodity_type` (`nickel`,`gold`,`coal`) | Menemukan daftar emiten produsen komoditas terkait. | **30 Hari** (TTL). |
-| `GET /v2/mining-company-detail/{slug}/` | `slug` (e.g. `aneka-tambang`) | Data operasional tambang, izin konsesi (IUP), dan jumlah lokasi tambang. | **30 Hari** (TTL). |
-| `GET /v2/commodity-price/{commodity}/` | `commodity` (`nickel`,`gold`,`coal`), `start_year`, `end_year` | Harga historis komoditas bulanan/dwi-mingguan untuk korelasi pemicu harga. | **7 Hari** (TTL). |
-| `GET /v2/mining-sites/` | `location`, `commodity_type` | Pemetaan fasilitas smelter dan lokasi operasional pertambangan emiten. | **30 Hari** (TTL). |
+| `GET /v2/mining/companies/` | `commodity_type` (`nickel`,`gold`,`coal`) | Menemukan daftar emiten produsen komoditas terkait. | **30 Hari** (TTL). |
+| `GET /v2/mining/companies/{slug}/` | `slug` (e.g. `aneka-tambang`) | Data operasional tambang, izin konsesi (IUP), dan jumlah lokasi tambang. | **30 Hari** (TTL). |
+| `GET /v2/mining/commodities/{commodity}/price/` | `commodity` (`nickel`,`gold`,`coal`), `start_year`, `end_year` | Harga historis komoditas bulanan/dwi-mingguan untuk korelasi pemicu harga. | **7 Hari** (TTL). |
+| `GET /v2/mining/sites/` | `location`, `commodity_type` | Pemetaan fasilitas smelter dan lokasi operasional pertambangan emiten. | **30 Hari** (TTL). |
 
 ### Domain 6: Mesin Penyaring Saham (Screener)
 
@@ -266,7 +266,7 @@ class SectorsAPIClient:
 ]
 ```
 
-### D. Jadwal Aksi Korporasi: `GET /v2/corporate-actions/ANTM/`
+### D. Jadwal Aksi Korporasi: `GET /v2/company/corporate-actions/ANTM/`
 ```json
 [
   {
@@ -327,9 +327,9 @@ Untuk fleksibilitas integrasi, Niskava menyediakan adapter ganda untuk mengonsum
 | `sectors_get_company_report` | `/v2/company/report/{symbol}/` | Ambil profil fundamental, rasio valuasi, dan tinjauan perseroan. |
 | `sectors_get_foreign_flow` | `/v2/foreign-flow/{symbol}/` | Ambil deret aliran modal bersih investor asing (Net Foreign Flow). |
 | `sectors_get_suspensions` | `/v2/suspensions/` | Ambil riwayat suspensi bursa dan tautan dokumen resmi pengumuman BEI. |
-| `sectors_get_corporate_actions`| `/v2/corporate-actions/{symbol}/` | Ambil jadwal dividen, stock split, dan rights issue perseroan. |
+| `sectors_get_corporate_actions`| `/v2/company/corporate-actions/{symbol}/` | Ambil jadwal dividen, stock split, dan rights issue perseroan. |
 | `sectors_get_filings` | `/v2/filings/` | Ambil pelaporan transaksi kepemilikan orang dalam (*insider trading*). |
-| `sectors_get_broker_summary` | `/v2/broker-summary-top/{symbol}/`| Ambil daftar 3 broker akumulasi dan distribusi teratas. |
-| `sectors_get_subsector_peers` | `/v2/subsector/{subsector}/` | Ambil data komparasi emiten dan rata-rata industri subsektor. |
-| `sectors_get_mining_detail` | `/v2/mining-company-detail/{slug}/`| Ambil data operasional tambang dan cadangan komoditas. |
+| `sectors_get_broker_summary` | `/v2/broker-summary/{symbol}/top/`| Ambil daftar 3 broker akumulasi dan distribusi teratas. |
+| `sectors_get_subsector_peers` | `/v2/subsector/report/{sub_sector}/` | Ambil data komparasi emiten dan rata-rata industri subsektor. |
+| `sectors_get_mining_detail` | `/v2/mining/companies/{slug}/`| Ambil data operasional tambang dan cadangan komoditas. |
 
