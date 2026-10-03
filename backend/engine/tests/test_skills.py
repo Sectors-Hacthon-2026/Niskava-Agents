@@ -104,3 +104,9 @@ def test_skill_peer_valuation_benchmark(registry, mock_sectors_client):
     assert "target_pe" in result.metrics
     assert "valuation_posture" in result.metrics
     assert "Non-Advisory" in result.summary
+
+    # Test GOTO dynamically resolves to Software & IT Services instead of metals-and-minerals-mining
+    result_goto = registry.execute_skill("peer-valuation-benchmark", {"ticker": "GOTO"}, context)
+    assert isinstance(result_goto, SkillResult)
+    assert result_goto.metrics["subsector"] == "Software & IT Services"
+    assert "GOTO" in result_goto.summary

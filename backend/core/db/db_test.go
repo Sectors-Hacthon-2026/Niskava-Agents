@@ -667,6 +667,14 @@ func TestSectorsCacheStatsAndClean(t *testing.T) {
 		t.Fatalf("unexpected stats: %+v", stats)
 	}
 
+	cachedCandles, err := database.GetCachedDailyCandles("BBCA")
+	if err != nil {
+		t.Fatalf("GetCachedDailyCandles failed: %v", err)
+	}
+	if cachedCandles != `{"ok":true}` {
+		t.Fatalf("expected payload `{\"ok\":true}`, got %s", cachedCandles)
+	}
+
 	cleaned, err := database.CleanExpiredCache()
 	if err != nil {
 		t.Fatalf("CleanExpiredCache failed: %v", err)
@@ -934,5 +942,49 @@ func TestForkChatSessionClonesAnomaliesAndFindings(t *testing.T) {
 	}
 	if anomForked[2].ZScore != 10.5 {
 		t.Errorf("expected 3rd anomaly Z-score 10.5, got %f", anomForked[2].ZScore)
+	}
+}
+
+func TestListLatestRadarAnomalies(t *testing.T) {
+	database, err := Open(filepath.Join(t.TempDir(), "test_radar.db"))
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	inv := &Investigation{
+		ID:            "INV-RADAR-01",
+		Ticker:        "ANTM",
+		Market:        "IDX",
+		TimeframeDays: 30,
+		Status:        "COMPLETED",
+	}
+	if err := database.CreateInvestigation(inv); err != nil {
+		t.Fatalf("failed to create investigation: %v", err)
+	}
+
+	anom := &Anomaly{
+		ID:              "ANOM-RADAR-01",
+		InvestigationID: inv.ID,
+		AnomalyDate:     "2026-09-12",
+		MetricType:      "volume_z_score",
+		MetricValue:     184500000,
+		BaselineValue:   48200000,
+		ZScore:          3.84,
+		Description:     "Volume anomaly +3.84σ detected",
+	}
+	if err := database.CreateAnomaly(anom); err != nil {
+		t.Fatalf("failed to create anomaly: %v", err)
+	}
+
+	items, err := database.ListLatestRadarAnomalies(10, 2.0)
+	if err != nil {
+		t.Fatalf("ListLatestRadarAnomalies failed: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 anomaly item, got %d", len(items))
+	}
+	if items[0].Ticker != "ANTM" || items[0].ZScore != 3.84 {
+		t.Fatalf("unexpected item values: %+v", items[0])
 	}
 }

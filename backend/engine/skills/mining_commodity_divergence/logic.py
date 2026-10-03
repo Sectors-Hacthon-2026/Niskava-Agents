@@ -70,7 +70,7 @@ class MiningCommodityDivergenceSkill(BaseSkill):
                 "stock_30d_return_pct": stock_ret,
                 "commodity_30d_return_pct": comm_ret,
                 "divergence_class": divergence_class,
-                "source": f"Sectors API /commodity-price/{commodity.lower()}/",
+                "source": f"Sectors API /mining/commodities/{commodity.lower()}/price/",
             }
         ]
 

@@ -705,6 +705,55 @@ func TestInvestigationEndpoints(t *testing.T) {
 	if int(listData["total"].(float64)) != 1 {
 		t.Errorf("expected total 1 investigation, got %v", listData["total"])
 	}
+
+	// 9. Test GET /api/radar/anomalies -> 200 OK
+	respRadar, err := client.Get(srv.URL + "/api/radar/anomalies?limit=10&min_z=2.0")
+	if err != nil {
+		t.Fatalf("GET /api/radar/anomalies failed: %v", err)
+	}
+	if respRadar.StatusCode != http.StatusOK {
+		t.Errorf("expected 200 OK from /api/radar/anomalies, got %d", respRadar.StatusCode)
+	}
+	var radarData map[string]interface{}
+	_ = json.NewDecoder(respRadar.Body).Decode(&radarData)
+	respRadar.Body.Close()
+	if int(radarData["total"].(float64)) != 1 {
+		t.Errorf("expected 1 radar anomaly, got %v", radarData["total"])
+	}
+
+	// 10. Test GET /api/market/candles -> 200 OK (ticker-specific scales)
+	respCandlesANTM, err := client.Get(srv.URL + "/api/market/candles?ticker=ANTM&days=30")
+	if err != nil {
+		t.Fatalf("GET /api/market/candles ANTM failed: %v", err)
+	}
+	if respCandlesANTM.StatusCode != http.StatusOK {
+		t.Errorf("expected 200 OK from /api/market/candles ANTM, got %d", respCandlesANTM.StatusCode)
+	}
+	var antmCandles map[string]interface{}
+	_ = json.NewDecoder(respCandlesANTM.Body).Decode(&antmCandles)
+	respCandlesANTM.Body.Close()
+	antmData := antmCandles["data"].([]interface{})
+	if len(antmData) != 30 {
+		t.Errorf("expected 30 candles, got %d", len(antmData))
+	}
+	firstAntm := antmData[0].(map[string]interface{})
+	if firstAntm["open"].(float64) < 1000 || firstAntm["open"].(float64) > 2000 {
+		t.Errorf("expected ANTM open around 1500, got %v", firstAntm["open"])
+	}
+
+	// Test BBRI candles have distinct realistic price ~4980
+	respCandlesBBRI, err := client.Get(srv.URL + "/api/market/candles?ticker=BBRI&days=30")
+	if err != nil {
+		t.Fatalf("GET /api/market/candles BBRI failed: %v", err)
+	}
+	var bbriCandles map[string]interface{}
+	_ = json.NewDecoder(respCandlesBBRI.Body).Decode(&bbriCandles)
+	respCandlesBBRI.Body.Close()
+	bbriData := bbriCandles["data"].([]interface{})
+	firstBbri := bbriData[0].(map[string]interface{})
+	if firstBbri["open"].(float64) < 4000 || firstBbri["open"].(float64) > 6000 {
+		t.Errorf("expected BBRI open around 4980, got %v", firstBbri["open"])
+	}
 }
 
 func TestSSEErrorIsValidJSON(t *testing.T) {

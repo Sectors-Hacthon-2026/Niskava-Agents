@@ -46,7 +46,7 @@ def classify_broker_cohort(
 
     Args:
         broker_code: Official 2-letter IDX broker code (e.g. 'CS', 'YP').
-        registry: List of broker registry items from /v2/broker-registry/.
+        registry: List of broker registry items from /v2/brokers/.
 
     Returns:
         Dict with 'code', 'name', 'domicile', and 'cohort'.

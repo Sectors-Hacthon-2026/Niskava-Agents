@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -1578,6 +1579,128 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 		})
 	})
 
+	// Radar anomalies endpoint — provides top quantitative anomalies across all investigations
+	mux.HandleFunc("/api/radar/anomalies", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+
+		limit := 12
+		if lStr := r.URL.Query().Get("limit"); lStr != "" {
+			if l, err := strconv.Atoi(lStr); err == nil && l > 0 {
+				limit = l
+			}
+		}
+
+		minZ := 2.0
+		if zStr := r.URL.Query().Get("min_z"); zStr != "" {
+			if z, err := strconv.ParseFloat(zStr, 64); err == nil {
+				minZ = z
+			}
+		}
+
+		anomalies, err := database.ListLatestRadarAnomalies(limit, minZ)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+			return
+		}
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"total":     len(anomalies),
+			"anomalies": anomalies,
+		})
+	})
+
+	// Market Candles endpoint — provides OHLCV candlestick data from SQLite cache, Sectors API v2, or deterministic generator
+	mux.HandleFunc("/api/market/candles", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		ticker := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("ticker")))
+		if ticker == "" {
+			ticker = "ANTM"
+		}
+		days := 30
+		if dStr := r.URL.Query().Get("days"); dStr != "" {
+			if d, err := strconv.Atoi(dStr); err == nil && d > 0 {
+				days = d
+			}
+		}
+
+		// 1. Try SQLite sectors_cache first (Law 5 Credit Conservation)
+		if database != nil {
+			if cachedJSON, err := database.GetCachedDailyCandles(ticker); err == nil && len(cachedJSON) > 2 {
+				var cachedList []map[string]interface{}
+				if err := json.Unmarshal([]byte(cachedJSON), &cachedList); err == nil && len(cachedList) > 0 {
+					if len(cachedList) > days {
+						cachedList = cachedList[len(cachedList)-days:]
+					}
+					sendJSON(w, http.StatusOK, map[string]interface{}{
+						"ticker": ticker,
+						"source": "cache",
+						"data":   cachedList,
+					})
+					return
+				}
+			}
+		}
+
+		// 2. If Sectors API key is available, fetch live
+		apiKey := cfg.Auth.SectorsAPIKey
+		if apiKey != "" && !strings.Contains(apiKey, "****") {
+			client := &http.Client{Timeout: 8 * time.Second}
+			url := fmt.Sprintf("https://api.sectors.app/v2/daily/%s/", ticker)
+			httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, url, nil)
+			if err == nil {
+				httpReq.Header.Set("Authorization", apiKey)
+				if resp, err := client.Do(httpReq); err == nil && resp.StatusCode == http.StatusOK {
+					defer resp.Body.Close()
+					var liveData []map[string]interface{}
+					if err := json.NewDecoder(resp.Body).Decode(&liveData); err == nil && len(liveData) > 0 {
+						// Cache permanently in SQLite (Law 5)
+						if database != nil {
+							if payloadBytes, err := json.Marshal(liveData); err == nil {
+								cacheKey := fmt.Sprintf("daily_%s", strings.ToLower(ticker))
+								endpoint := fmt.Sprintf("/daily/%s/", ticker)
+								_ = database.SetSectorsCache(cacheKey, endpoint, string(payloadBytes), nil)
+							}
+						}
+						if len(liveData) > days {
+							liveData = liveData[len(liveData)-days:]
+						}
+						sendJSON(w, http.StatusOK, map[string]interface{}{
+							"ticker": ticker,
+							"source": "sectors_api",
+							"data":   liveData,
+						})
+						return
+					}
+				}
+			}
+		}
+
+		// 3. Deterministic realistic fallback
+		candles := generateRealisticCandles(ticker, days)
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"ticker": ticker,
+			"source": "synthetic",
+			"data":   candles,
+		})
+	})
+
 	// PDF Report Download endpoint — serves locally-generated audit PDFs to browser
 	mux.HandleFunc("/api/reports/", func(w http.ResponseWriter, r *http.Request) {
 		if enableCORS(w, r) {
@@ -2255,4 +2378,85 @@ func OpenBrowser(url string) error {
 		return fmt.Errorf("unsupported platform for auto-open browser: %s", runtime.GOOS)
 	}
 	return cmd.Start()
+}
+
+// generateRealisticCandles produces deterministic, ticker-specific OHLCV daily candlesticks matching realistic market scales.
+func generateRealisticCandles(ticker string, days int) []map[string]interface{} {
+	if days <= 0 {
+		days = 30
+	}
+	sym := strings.ToUpper(strings.TrimSpace(ticker))
+	if sym == "" {
+		sym = "ANTM"
+	}
+
+	type profile struct {
+		price    float64
+		normVol  float64
+		spikeVol float64
+		spikeDay int
+	}
+
+	profiles := map[string]profile{
+		"ANTM": {price: 1500.0, normVol: 20000000.0, spikeVol: 125000000.0, spikeDay: 25},
+		"BBRI": {price: 4980.0, normVol: 85000000.0, spikeVol: 245000000.0, spikeDay: 26},
+		"BBCA": {price: 10150.0, normVol: 60000000.0, spikeVol: 180000000.0, spikeDay: 24},
+		"BUMI": {price: 142.0, normVol: 1800000000.0, spikeVol: 6200000000.0, spikeDay: 22},
+		"GOTO": {price: 62.0, normVol: 75000000.0, spikeVol: 2400000000.0, spikeDay: 25},
+		"TLKM": {price: 2950.0, normVol: 45000000.0, spikeVol: 140000000.0, spikeDay: 23},
+		"ASII": {price: 5125.0, normVol: 28000000.0, spikeVol: 88000000.0, spikeDay: 25},
+	}
+
+	prof, ok := profiles[sym]
+	if !ok {
+		var seed int
+		for _, c := range sym {
+			seed += int(c)
+		}
+		normVol := float64(15000000 + (seed%20)*2000000)
+		prof = profile{
+			price:    float64(500 + (seed%35)*100),
+			normVol:  normVol,
+			spikeVol: normVol * (3.5 + float64(seed%5)*0.5),
+			spikeDay: 20 + (seed % 6),
+		}
+	}
+
+	candles := make([]map[string]interface{}, 0, days)
+	now := time.Now()
+	baseDate := now.AddDate(0, 0, -(days + 5))
+	price := prof.price
+
+	for dayIdx := 0; dayIdx < days; dayIdx++ {
+		currDate := baseDate.AddDate(0, 0, dayIdx).Format("2006-01-02")
+		var volume float64
+		var closePrice float64
+		if dayIdx == prof.spikeDay%days {
+			volume = prof.spikeVol
+			closePrice = price * 1.082
+		} else {
+			volume = prof.normVol + float64(dayIdx%5)*(prof.normVol*0.08)
+			closePrice = price * (1.0 + float64((dayIdx%3)-1)*0.01)
+		}
+
+		high := closePrice * 1.02
+		low := price * 0.98
+		if high < price {
+			high = price * 1.01
+		}
+		if low > closePrice {
+			low = closePrice * 0.99
+		}
+
+		candles = append(candles, map[string]interface{}{
+			"date":   currDate,
+			"open":   math.Round(price*100) / 100,
+			"high":   math.Round(high*100) / 100,
+			"low":    math.Round(low*100) / 100,
+			"close":  math.Round(closePrice*100) / 100,
+			"volume": math.Round(volume),
+		})
+		price = closePrice
+	}
+	return candles
 }

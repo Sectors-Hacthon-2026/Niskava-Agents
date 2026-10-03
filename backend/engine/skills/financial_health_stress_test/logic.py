@@ -40,7 +40,16 @@ class FinancialHealthStressTestSkill(BaseSkill):
 
         # 1. Fetch Quarterly Financials
         fin_list = client.get_quarterly_financials(ticker)
-        latest_fin = fin_list[0] if fin_list else {}
+        if isinstance(fin_list, dict):
+            latest_fin = fin_list.get("financials") or fin_list.get("data") or fin_list.get("results") or fin_list
+            if isinstance(latest_fin, list) and latest_fin:
+                latest_fin = latest_fin[0]
+            elif not isinstance(latest_fin, dict):
+                latest_fin = {}
+        elif isinstance(fin_list, list) and fin_list:
+            latest_fin = fin_list[0] if isinstance(fin_list[0], dict) else {}
+        else:
+            latest_fin = {}
 
         # 2. Extract balance sheet items
         ca = float(latest_fin.get("current_assets", 14_000_000_000_000.0))
@@ -68,7 +77,7 @@ class FinancialHealthStressTestSkill(BaseSkill):
                 "item": "Cash and Cash Equivalents",
                 "value_idr": cash,
                 "report_period": latest_fin.get("quarter", "Latest"),
-                "source": "Sectors API v2 /quarterly-financials/",
+                "source": "Sectors API v2 /financials/quarterly/{ticker}/",
             },
             {
                 "type": "RATIO_ASSESSMENT",
