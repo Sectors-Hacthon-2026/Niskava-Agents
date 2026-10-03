@@ -160,4 +160,3 @@ func TestInvestigationSelectorModel_PinPersistence(t *testing.T) {
 		t.Fatalf("EXPECTED IsPinned to be true in SQLite database for investigation after Ctrl+P")
 	}
 }
-

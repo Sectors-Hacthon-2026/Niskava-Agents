@@ -101,4 +101,3 @@ func TestI18nPlaceholderConsistency(t *testing.T) {
 		}
 	}
 }
-

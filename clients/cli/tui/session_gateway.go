@@ -110,7 +110,7 @@ func (m SessionGatewayModel) View() string {
 	b.WriteString("\n\n")
 
 	options := []struct {
-		id   string
+		id    string
 		title string
 		desc  string
 		key   string

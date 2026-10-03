@@ -629,7 +629,7 @@ func (m ReplInputModel) View() string {
 				// Selected Row with Electric Cyan Pointer and Dark Pill Category Badge
 				pointerR := lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(" ❯ ")
 				cmdR := lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(cmdPadded)
-				
+
 				catR := ""
 				if sc.Category != "" {
 					catR = lipgloss.NewStyle().
@@ -640,7 +640,7 @@ func (m ReplInputModel) View() string {
 						Render(sc.Category) + " "
 				}
 				descR := lipgloss.NewStyle().Bold(true).Foreground(ColorFg).Render(Truncate(sc.Description, descAvail))
-				
+
 				b.WriteString(fmt.Sprintf("%s%s%s%s\n", pointerR, cmdR, catR, descR))
 
 				if sc.FormatHint != "" {

@@ -341,4 +341,3 @@ func TestSessionSelectorModel_PinPersistenceWithDB(t *testing.T) {
 		t.Fatalf("EXPECTED IsPinned to be true in SQLite database after Ctrl+P, got false")
 	}
 }
-
