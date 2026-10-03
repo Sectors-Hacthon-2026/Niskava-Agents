@@ -253,7 +253,7 @@ class SectorsAPIClient:
         params: Dict[str, Any] = {}
         if symbol:
             clean = symbol.upper()
-            params = {"symbol": clean, "ticker": clean}
+            params = {"ticker": clean}
         raw = self._request(endpoint, params, ttl_seconds=3600, force_refresh=force_refresh)
         return self._normalize_list_response(raw)
 
@@ -266,7 +266,7 @@ class SectorsAPIClient:
 
     def get_corporate_actions(self, symbol: str, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Fetch scheduled corporate actions (dividends, splits, rights issue)."""
-        endpoint = f"/corporate-actions/{symbol.upper()}/"
+        endpoint = f"/company/corporate-actions/{symbol.upper()}/"
         raw = self._request(endpoint, ttl_seconds=86400, force_refresh=force_refresh)
         return self._normalize_list_response(raw)
 
@@ -279,17 +279,17 @@ class SectorsAPIClient:
 
     def get_broker_summary(self, symbol: str, force_refresh: bool = False) -> Dict[str, Any]:
         """Fetch top broker accumulation and distribution summary."""
-        endpoint = f"/broker-summary-top/{symbol.upper()}/"
+        endpoint = f"/broker-summary/{symbol.upper()}/top/"
         return self._request(endpoint, ttl_seconds=86400, force_refresh=force_refresh)
 
     def get_subsector_peers(self, subsector: str, force_refresh: bool = False) -> Dict[str, Any]:
         """Fetch industrial subsector peers and valuation benchmarks."""
-        endpoint = f"/subsector/{subsector.lower()}/"
+        endpoint = f"/subsector/report/{subsector.lower()}/"
         return self._request(endpoint, ttl_seconds=604800, force_refresh=force_refresh)
 
     def get_mining_detail(self, slug: str, force_refresh: bool = False) -> Dict[str, Any]:
         """Fetch operational mining concession and smelter details."""
-        endpoint = f"/mining-company-detail/{slug.lower()}/"
+        endpoint = f"/mining/companies/{slug.lower()}/"
         return self._request(endpoint, ttl_seconds=2592000, force_refresh=force_refresh)
 
     def get_commodity_price(
@@ -300,7 +300,7 @@ class SectorsAPIClient:
         force_refresh: bool = False,
     ) -> List[Dict[str, Any]]:
         """Fetch historical commodity spot benchmark prices (e.g. nickel, coal, gold)."""
-        endpoint = f"/commodity-price/{commodity.lower()}/"
+        endpoint = f"/mining/commodities/{commodity.lower()}/price/"
         params = {}
         if start_year:
             params["start_year"] = start_year
@@ -312,7 +312,7 @@ class SectorsAPIClient:
         self, symbol: str, report_date: Optional[str] = None, force_refresh: bool = False
     ) -> List[Dict[str, Any]]:
         """Fetch quarterly financial reports and balance sheet line items."""
-        endpoint = f"/quarterly-financials/{symbol.upper()}/"
+        endpoint = f"/financials/quarterly/{symbol.upper()}/"
         params = {"report_date": report_date} if report_date else {}
         return self._request(endpoint, params, ttl_seconds=2592000, force_refresh=force_refresh)
 
@@ -415,7 +415,16 @@ class SectorsAPIClient:
             raw_sym = params.get("ticker")
         clean_sym = str(raw_sym).upper().strip() if raw_sym else None
         if not clean_sym:
-            for prefix in ("/daily/", "/company/report/", "/foreign-flow/", "/quarterly-financials/", "/broker-summary-top/"):
+            for prefix in (
+                "/daily/",
+                "/company/report/",
+                "/foreign-flow/",
+                "/financials/quarterly/",
+                "/quarterly-financials/",
+                "/broker-summary/",
+                "/company/corporate-actions/",
+                "/corporate-actions/",
+            ):
                 if prefix in endpoint:
                     parts = endpoint.split(prefix)[-1].strip("/").split("/")
                     if parts and parts[0]:
@@ -605,7 +614,7 @@ class SectorsAPIClient:
                 }
             ]
 
-        if "/broker-summary-top/" in endpoint:
+        if "/broker-summary" in endpoint:
             return {
                 "symbol": symbol,
                 "top_buyers": [
@@ -619,7 +628,7 @@ class SectorsAPIClient:
                 ],
             }
 
-        if "/subsector/" in endpoint:
+        if "/subsector/report/" in endpoint or ("/subsector/" in endpoint and "/subsectors" not in endpoint):
             return {
                 "subsector": "metals-and-minerals-mining",
                 "peer_count": 14,
@@ -628,7 +637,7 @@ class SectorsAPIClient:
                 "peers": ["ANTM", "TINS", "INCO", "MBMA"],
             }
 
-        if "/mining-company-detail/" in endpoint:
+        if "/mining/companies/" in endpoint or "/mining-company-detail/" in endpoint:
             return {
                 "slug": "aneka-tambang",
                 "commodity": "NICKEL",
@@ -637,7 +646,7 @@ class SectorsAPIClient:
                 "operational_status": "ACTIVE",
             }
 
-        if "/commodity-price/" in endpoint:
+        if "/mining/commodities/" in endpoint or "/commodity-price/" in endpoint:
             # 30 daily/monthly benchmark spot prices
             base_date = datetime.now() - timedelta(days=35)
             prices = []
@@ -648,7 +657,7 @@ class SectorsAPIClient:
                 prices.append({"date": d_str, "price": round(curr_val, 2)})
             return prices
 
-        if "/quarterly-financials/" in endpoint:
+        if "/financials/quarterly/" in endpoint or "/quarterly-financials/" in endpoint:
             return [
                 {
                     "symbol": symbol,

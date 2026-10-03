@@ -9,6 +9,10 @@ from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional
 import numpy as np
 
+# Minimum daily turnover (close * volume, in IDR) for a candle to qualify as an anomaly.
+# Illiquid stocks with tiny absolute turnover produce huge, meaningless Z-scores.
+DEFAULT_MIN_TURNOVER_IDR: float = 1_000_000_000.0
+
 
 @dataclass(frozen=True)
 class AnomalyResult:
@@ -100,6 +104,7 @@ def detect_historical_anomalies(
     return_threshold_pct: float = 5.0,
     divergence_threshold_pct: float = 4.0,
     rolling_window: int = 20,
+    min_turnover_idr: float = 0.0,
 ) -> List[AnomalyResult]:
     """Scan historical daily candlestick data for volume spikes and abnormal returns.
 
@@ -111,6 +116,9 @@ def detect_historical_anomalies(
         return_threshold_pct: Daily price return absolute percentage threshold (default: 5.0%).
         divergence_threshold_pct: Sector divergence threshold (default: 4.0%).
         rolling_window: Number of trading days for baseline volume (default: 20).
+        min_turnover_idr: Liquidity floor; candles whose turnover (close * volume) is below
+                          this IDR value are skipped. 0.0 disables the floor (default).
+                          Use DEFAULT_MIN_TURNOVER_IDR for production screening.
 
     Returns:
         List of AnomalyResult objects for dates where anomaly conditions were met.
@@ -139,6 +147,9 @@ def detect_historical_anomalies(
 
         curr_close = _safe_float(current_day.get("close", 0.0))
         prev_close = _safe_float(prev_day.get("close", 0.0))
+
+        if min_turnover_idr > 0.0 and (curr_close * v_t) < min_turnover_idr:
+            continue
 
         if prev_close > 0:
             r_t = ((curr_close - prev_close) / prev_close) * 100.0

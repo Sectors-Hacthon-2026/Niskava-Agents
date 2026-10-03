@@ -3844,6 +3844,39 @@
             box-sizing: border-box;
         }
 
+        /* Data Provenance Badge (Live vs Cache vs Synthetic) */
+        .source-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--border-subtle);
+            white-space: nowrap;
+        }
+        .source-badge-pending { color: var(--text-muted); }
+        .source-badge-live { color: #34D399; background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.45); }
+        .source-badge-synthetic { color: #FBBF24; background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.45); }
+        .source-badge-error { color: #F87171; background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.45); }
+
+        /* Honest empty states inside the investigation dossier */
+        .dossier-empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 18px 16px;
+            border: 1px dashed var(--border-subtle);
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+        .dossier-empty-state strong { color: var(--text-primary); font-size: 13px; }
+
         /* Quick Target Bar */
         .radar-quick-bar {
             display: flex;
@@ -4522,7 +4555,10 @@
                                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
                                                 <span data-i18n="inv_chart_title">Visualisasi Candlestick & Volume Spike (TradingView)</span>
                                             </div>
-                                            <span style="font-size:11px; color:var(--text-muted);" id="invChartStatus" data-i18n="inv_chart_status">Data Pasar Harian</span>
+                                            <div style="display:flex; align-items:center; gap:8px;">
+                                                <span class="source-badge source-badge-pending" id="invChartSourceBadge" title="Sumber data candlestick">—</span>
+                                                <span style="font-size:11px; color:var(--text-muted);" id="invChartStatus" data-i18n="inv_chart_status">Data Pasar Harian</span>
+                                            </div>
                                         </div>
                                         <div class="tradingview-chart-box" id="invChartContainer"></div>
                                     </div>
@@ -5998,26 +6034,19 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 const container = document.getElementById(containerId);
                 if (!container) return;
 
-                // Generate deterministic realistic candles if none provided
-                if (!candleData || candleData.length === 0) {
-                    const basePrice = 1620;
-                    const now = new Date();
-                    candleData = [];
-                    for (let i = 29; i >= 0; i--) {
-                        const d = new Date(now);
-                        d.setDate(d.getDate() - i);
-                        const timeStr = d.toISOString().split('T')[0];
-                        const drift = Math.sin(i / 2.8) * 45 + (Math.random() - 0.48) * 30;
-                        const open = Math.round(basePrice + drift);
-                        const high = Math.round(open + Math.random() * 32 + 8);
-                        const low = Math.round(open - Math.random() * 32 - 8);
-                        const close = Math.round(open + (Math.random() - 0.48) * 30);
-                        const volume = Math.round(18000000 + (i === 1 ? 68000000 : Math.random() * 14000000));
-                        candleData.push({ time: timeStr, open, high, low, close, volume });
-                    }
-                    if (!anomalyDate && candleData.length > 2) {
-                        anomalyDate = candleData[candleData.length - 2].time;
-                    }
+                // Dispose any previous chart instance bound to this container
+                if (activeCharts[containerId]) {
+                    try { activeCharts[containerId].remove(); } catch (_) { /* already detached */ }
+                    delete activeCharts[containerId];
+                }
+
+                // Never fabricate market data: show an explicit empty state instead
+                if (!Array.isArray(candleData) || candleData.length === 0) {
+                    const msg = currentLang === 'en'
+                        ? 'No daily candlestick data available for this ticker.'
+                        : 'Data candlestick harian belum tersedia untuk emiten ini.';
+                    container.innerHTML = `<div class="dossier-empty-state">${msg}</div>`;
+                    return;
                 }
 
                 container.innerHTML = '';
@@ -6151,6 +6180,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 svg += `</svg>`;
                 container.innerHTML = svg;
             }
+
 
             // 3-Tier Evidence Matrix Renderer (Law 2 Strict Compliance)
             function renderEvidenceMatrixHTML(findings) {
@@ -7345,6 +7375,37 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 const reactSteps = [];
                 const findingsEmitted = [];
 
+                let detectedTicker = null;
+                function checkTicker(t) {
+                    if (!detectedTicker && t && typeof t === 'string') {
+                        const trimmed = t.trim().toUpperCase();
+                        if (/^[A-Z]{4}$/.test(trimmed)) {
+                            detectedTicker = trimmed;
+                        }
+                    }
+                }
+
+                function syncInvestigationToBackend() {
+                    if (!detectedTicker) return;
+                    try {
+                        fetch(`${API_BASE}/api/investigations`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                id: 'INV-' + detectedTicker,
+                                ticker: detectedTicker,
+                                status: 'COMPLETED',
+                                summary_text: (fullText || '').slice(0, 300)
+                            })
+                        }).catch(() => {});
+                    } catch (_) {}
+                }
+
+                const promptMatch = prompt.match(/\b(BBCA|BBRI|BMRI|BBNI|ANTM|BUMI|GOTO|TLKM|ASII|INCO|MEDC|PGAS|ADRO|PTBA|UNVR|ICBP|INDF|KLBF|BRIS|AMMN|MDKA|ACES|CPIN|TPIA|SMGR)\b/i);
+                if (promptMatch) {
+                    detectedTicker = promptMatch[1].toUpperCase();
+                }
+
                 try {
                     currentAbortController = new AbortController();
                     const response = await fetch(`${API_BASE}/api/chat`, {
@@ -7391,6 +7452,9 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                                     updateReactSteps(assistantMsgObj, reactSteps);
                                 }
                             } else if (eventName === 'agent_tool_call' || payload.event === 'agent_tool_call') {
+                                if (payload.args && (payload.args.symbol || payload.args.ticker)) {
+                                    checkTicker(payload.args.symbol || payload.args.ticker);
+                                }
                                 const toolName = payload.tool || 'Eksekusi Alat';
                                 let argsSummary = '';
                                 if (payload.args && Object.keys(payload.args).length > 0) {
@@ -7412,6 +7476,9 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                                     updateReactSteps(assistantMsgObj, reactSteps);
                                 }
                             } else if (eventName === 'progress_step' || payload.event === 'progress_step') {
+                                if (payload.ticker) {
+                                    checkTicker(payload.ticker);
+                                }
                                 const stepMsg = payload.message || payload.stage || '';
                                 const stepIndex = payload.step_index ? `[${payload.step_index}/${payload.total_steps || '?'}] ` : '';
                                 const stepText = `Progres: ${stepIndex}${stepMsg}`;
@@ -7420,6 +7487,9 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                                     updateReactSteps(assistantMsgObj, reactSteps);
                                 }
                             } else if (eventName === 'anomaly_detected' || payload.event === 'anomaly_detected') {
+                                if (payload.ticker) {
+                                    checkTicker(payload.ticker);
+                                }
                                 const ticker = payload.ticker ? `[${payload.ticker}] ` : '';
                                 const metric = payload.metric_type || 'Volume';
                                 const zScore = payload.z_score !== undefined ? `${payload.z_score >= 0 ? '+' : ''}${Number(payload.z_score).toFixed(2)}σ` : '';
@@ -7432,6 +7502,9 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                                     updateRightPanelAnomaly(payload);
                                 }
                             } else if (eventName === 'finding_emitted' || payload.event === 'finding_emitted') {
+                                if (payload.ticker) {
+                                    checkTicker(payload.ticker);
+                                }
                                 const status = payload.verification_status || 'VERIFIED';
                                 const title = payload.title || 'Temuan Intelijen';
                                 const conf = payload.confidence_score ? ` (${(payload.confidence_score * 100).toFixed(0)}%)` : '';
@@ -7478,6 +7551,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                             } else if (eventName === 'session_complete' || eventName === 'agent_message_complete') {
                                 assistantMsgObj.setLatticeStatus('done');
                                 loadLiveGraph(currentSessionId);
+                                syncInvestigationToBackend();
 
                                 // Fallback: regex detect PDF in fullText if pdf_report_ready event wasn't caught
                                 const pdfMatch = fullText.match(/NISKAVA_[A-Z0-9_]+\.pdf/);
@@ -7507,6 +7581,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                                     assistantMsgObj.setMsgId(payload.message_id);
                                 }
                                 assistantMsgObj.setLatticeStatus('done');
+                                syncInvestigationToBackend();
                                 loadChatSessions(false);
                                 loadLiveGraph(currentSessionId);
                             }
@@ -7538,6 +7613,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                         const sb = assistantMsgObj.element.querySelector('.react-steps-box');
                         if (sb) sb.style.display = 'none';
                     }
+                    syncInvestigationToBackend();
                     loadChatSessions(false);
                     loadLiveGraph(currentSessionId);
                     scrollToBottom();
@@ -7563,7 +7639,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
 
             function createAssistantMessageElement(sessionId, msgId) {
                 let activeSessionId = sessionId || currentSessionId;
-                let activeMsgId = msgId;
+                let activeMsgId = msgId || ('msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'chat-message assistant-message';
                 msgDiv.innerHTML = `
@@ -7740,6 +7816,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
 
                 return {
                     element: msgDiv,
+                    msgId: activeMsgId,
                     stepsContent,
                     countBadge,
                     contentEl,
@@ -8477,16 +8554,6 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     loadRadarAnomalies();
                 }
 
-                const RADAR_TICKER_PROFILES = {
-                    'ANTM': { z: 3.85, vol: 125000000, base: 24000000, dev: '+8.2%' },
-                    'BBRI': { z: 3.42, vol: 245000000, base: 85000000, dev: '+5.4%' },
-                    'BBCA': { z: 2.95, vol: 180000000, base: 60000000, dev: '+3.8%' },
-                    'BUMI': { z: 4.10, vol: 6200000000, base: 1800000000, dev: '+14.5%' },
-                    'GOTO': { z: 3.20, vol: 2400000000, base: 750000000, dev: '+7.8%' },
-                    'TLKM': { z: 2.75, vol: 140000000, base: 45000000, dev: '+4.2%' },
-                    'ASII': { z: 2.65, vol: 88000000, base: 28000000, dev: '+3.5%' },
-                };
-
                 function formatVolumeCompact(num) {
                     const n = Number(num) || 0;
                     if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
@@ -8495,22 +8562,56 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     return n.toLocaleString('id-ID');
                 }
 
-                function getTickerProfileFallback(sym) {
-                    if (!sym) sym = 'IDX';
-                    const s = sym.toUpperCase().trim();
-                    if (RADAR_TICKER_PROFILES[s]) return RADAR_TICKER_PROFILES[s];
-                    let seed = 0;
-                    for (let i = 0; i < s.length; i++) seed += s.charCodeAt(i);
-                    const base = 15000000 + (seed % 20) * 2000000;
-                    const z = 2.5 + (seed % 15) * 0.1;
-                    const vol = base * (2.8 + (seed % 5) * 0.4);
-                    return {
-                        z: Number(z.toFixed(2)),
-                        vol: Math.round(vol),
-                        base: Math.round(base),
-                        dev: `+${(z * 1.8).toFixed(1)}%`
-                    };
+                function renderDossierEvidenceEmpty(ticker) {
+                    const isEn = currentLang === 'en';
+                    return `
+                        <div class="dossier-empty-state">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                            <strong>${isEn ? `No Verified Evidence Dossier for ${escapeHtml(ticker)}` : `Belum Ada Berkas Bukti Terverifikasi untuk ${escapeHtml(ticker)}`}</strong>
+                            <span>${isEn ? 'This stock has not completed a 7-stage causality audit. Start an investigation to correlate IDXnet disclosures and official news.' : 'Emiten ini belum melewati audit kausalitas 7-tahap. Mulai investigasi untuk menyaring keterbukaan informasi IDXnet dan berita bursa.'}</span>
+                            <button class="btn-primary" style="margin-top:6px;" onclick="initiateAuditFromDossier('${escapeHtml(ticker)}')">
+                                ${isEn ? `Start Causality Audit for ${escapeHtml(ticker)}` : `Mulai Audit Kausalitas ${escapeHtml(ticker)}`}
+                            </button>
+                        </div>
+                    `;
                 }
+
+                window.initiateAuditFromDossier = function(ticker) {
+                    switchMainView('chat');
+                    const chatInput = document.getElementById('chatInput');
+                    if (chatInput) {
+                        chatInput.value = `Jalankan investigasi formal 7-tahap otonom pada emiten ${ticker} untuk observasi 30 hari terakhir.`;
+                        if (typeof handleSendMessage === 'function') {
+                            handleSendMessage();
+                        }
+                    }
+                    showToast(currentLang === 'en' ? `Starting audit for ${ticker}...` : `Memulai audit emiten ${ticker}...`);
+                };
+
+                window.openDossierFromChat = function(ticker) {
+                    if (!ticker) return;
+                    const cleanTicker = ticker.trim().toUpperCase();
+
+                    // 1. Switch view to investigations dossier
+                    if (typeof switchMainView === 'function') {
+                        switchMainView('investigations');
+                    }
+
+                    // 2. Select ticker in dossier and load real candles & evidence
+                    if (typeof inspectRadarCase === 'function') {
+                        inspectRadarCase({
+                            ticker: cleanTicker,
+                            investigation_id: 'INV-' + cleanTicker
+                        });
+                    }
+
+                    // 3. Smoothly scroll dossier into view
+                    const dossierCard = document.getElementById('invDossierCard');
+                    if (dossierCard) {
+                        dossierCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                    showToast(typeof currentLang !== 'undefined' && currentLang === 'en' ? `Opened ${cleanTicker} dossier` : `Membuka berkas dossier ${cleanTicker}`);
+                };
 
                 async function selectInvestigation(invId, invMeta) {
                     selectedInvestigationId = invId;
@@ -8550,11 +8651,10 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                         console.warn('Gagal memuat anomali investigasi:', e);
                     }
 
-                    const fallback = getTickerProfileFallback(ticker);
-                    const zVal = (anom && anom.z_score != null) ? Number(anom.z_score) : ((invMeta && invMeta.z_score != null) ? Number(invMeta.z_score) : fallback.z);
-                    const actualVal = (anom && (anom.metric_value || anom.actual_value)) || (invMeta && (invMeta.metric_value || invMeta.actual_value)) || fallback.vol;
-                    const baseVal = (anom && (anom.baseline_value || anom.baseline_mean)) || (invMeta && (invMeta.baseline_value || invMeta.baseline_mean)) || fallback.base;
-                    const devVal = (anom && anom.metric_type && anom.metric_type !== 'volume_z_score') ? anom.metric_type : fallback.dev;
+                    const zVal = (anom && anom.z_score != null) ? Number(anom.z_score) : ((invMeta && invMeta.z_score != null) ? Number(invMeta.z_score) : null);
+                    const actualVal = (anom && (anom.metric_value != null ? anom.metric_value : anom.actual_value)) ?? (invMeta && (invMeta.metric_value != null ? invMeta.metric_value : invMeta.actual_value)) ?? null;
+                    const baseVal = (anom && (anom.baseline_value != null ? anom.baseline_value : anom.baseline_mean)) ?? (invMeta && (invMeta.baseline_value != null ? invMeta.baseline_value : invMeta.baseline_mean)) ?? null;
+                    const devVal = (anom && anom.metric_type && anom.metric_type !== 'volume_z_score') ? anom.metric_type : ((invMeta && invMeta.metric_type) || '—');
 
                     const zScoreEl = document.getElementById('invDossierZScore');
                     const actualVolEl = document.getElementById('invDossierActualVol');
@@ -8562,21 +8662,39 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     const returnDevEl = document.getElementById('invDossierReturnDev');
 
                     if (zScoreEl) {
-                        zScoreEl.textContent = `${zVal >= 0 ? '+' : ''}${zVal.toFixed(2)}σ`;
-                        zScoreEl.style.color = Math.abs(zVal) >= 3.0 ? '#EF4444' : (Math.abs(zVal) >= 2.5 ? '#F59E0B' : '#10B981');
+                        if (zVal != null && !isNaN(zVal)) {
+                            zScoreEl.textContent = `${zVal >= 0 ? '+' : ''}${zVal.toFixed(2)}σ`;
+                            zScoreEl.style.color = Math.abs(zVal) >= 3.0 ? '#EF4444' : (Math.abs(zVal) >= 2.5 ? '#F59E0B' : '#10B981');
+                        } else {
+                            zScoreEl.textContent = '—';
+                            zScoreEl.style.color = 'var(--text-muted)';
+                        }
                     }
-                    if (actualVolEl) actualVolEl.textContent = formatVolumeCompact(actualVal);
-                    if (baselineVolEl) baselineVolEl.textContent = formatVolumeCompact(baseVal);
+                    if (actualVolEl) actualVolEl.textContent = actualVal != null ? formatVolumeCompact(actualVal) : '—';
+                    if (baselineVolEl) baselineVolEl.textContent = baseVal != null ? formatVolumeCompact(baseVal) : '—';
                     if (returnDevEl) returnDevEl.textContent = devVal;
 
-                    // 2. Render Candlestick Chart (TradingView with real market candles)
+                    // 2. Render Candlestick Chart (TradingView with real market candles & provenance badge)
                     try {
                         const chartContainer = document.getElementById('invChartContainer');
                         if (chartContainer) {
                             const candleRes = await fetch(`${API_BASE}/api/market/candles?ticker=${encodeURIComponent(ticker)}&days=30`);
                             let candles = [];
+                            const badgeEl = document.getElementById('invChartSourceBadge');
                             if (candleRes.ok) {
                                 const candleJson = await candleRes.json();
+                                if (badgeEl) {
+                                    if (candleJson.source === 'sectors_api') {
+                                        badgeEl.className = 'source-badge source-badge-live';
+                                        badgeEl.textContent = '● LIVE: Sectors Financial API v2';
+                                    } else if (candleJson.source === 'cache') {
+                                        badgeEl.className = 'source-badge source-badge-live';
+                                        badgeEl.textContent = '● CACHE: Sectors API v2 (Permanent)';
+                                    } else {
+                                        badgeEl.className = 'source-badge source-badge-synthetic';
+                                        badgeEl.textContent = '▲ SIMULASI: Offline Synthetic Generator';
+                                    }
+                                }
                                 if (candleJson && Array.isArray(candleJson.data) && candleJson.data.length > 0) {
                                     candles = candleJson.data.map(c => ({
                                         time: c.date,
@@ -8587,6 +8705,9 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                                         volume: Number(c.volume)
                                     }));
                                 }
+                            } else if (badgeEl) {
+                                badgeEl.className = 'source-badge source-badge-error';
+                                badgeEl.textContent = '✕ Error Data Pasar';
                             }
                             const anomalyDate = (anom && anom.anomaly_date) || (invMeta && invMeta.anomaly_date) || (candles.length > 5 ? candles[candles.length - 4].time : undefined);
                             renderTradingViewCandlestick('invChartContainer', candles, anomalyDate);
@@ -8608,61 +8729,41 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                             if (findings.length > 0) {
                                 evidenceContainer.innerHTML = renderEvidenceMatrixHTML(findings);
                             } else {
-                                const isEn = currentLang === 'en';
-                                evidenceContainer.innerHTML = renderEvidenceMatrixHTML([
-                                    {
-                                        title: isEn ? `Trading Volume Spike for ${ticker}` : `Lonjakan Volume Perdagangan ${ticker}`,
-                                        claim: isEn ? `Trading volume for ${ticker} reached ${formatVolumeCompact(actualVal)} vs MA20 baseline of ${formatVolumeCompact(baseVal)} (+${zVal.toFixed(2)}σ).` : `Volume transaksi ${ticker} tercatat mencapai ${formatVolumeCompact(actualVal)} dibanding rata-rata MA20 ${formatVolumeCompact(baseVal)} (+${zVal.toFixed(2)}σ).`,
-                                        verification_status: 'SUPPORTED',
-                                        confidence_score: 0.95,
-                                        source: isEn ? 'IDXnet Corporate Disclosures' : 'IDXnet Keterbukaan Informasi'
-                                    },
-                                    {
-                                        title: isEn ? `Foreign Flow Dynamic for ${ticker}` : `Dinamika Foreign Flow ${ticker}`,
-                                        claim: isEn ? `Institutional flow movement and foreign participation aligned with exchange disclosure schedule.` : `Arus modal investor institusi dan partisipasi asing terpantau sejalan dengan jadwal keterbukaan emiten.`,
-                                        verification_status: 'SUPPORTED',
-                                        confidence_score: 0.85,
-                                        source: isEn ? 'Sectors Financial API v2' : 'Sectors Financial API v2'
-                                    },
-                                    {
-                                        title: isEn ? 'Market Rumors & Media Catalyst' : 'Rumor Pasar & Katalis Pemberitaan',
-                                        claim: isEn ? `Informal market commentary and social discussion surrounding ${ticker} have not been confirmed by official regulatory filings.` : `Spekulasi dan rumor pasar seputar aksi korporasi ${ticker} belum terkonfirmasi oleh pengumuman resmi bursa.`,
-                                        verification_status: 'UNCERTAIN',
-                                        confidence_score: 0.55,
-                                        source: isEn ? 'Financial Media Feeds' : 'Media Massa & Forum Investor'
-                                    }
-                                ]);
+                                evidenceContainer.innerHTML = renderDossierEvidenceEmpty(ticker);
                             }
                         }
                     } catch (e) {
                         console.warn('Gagal memuat findings:', e);
                     }
 
-                    // 4. Render Evidence & News Timeline
+                    // 4. Render Evidence & News Timeline (Dynamic from API)
                     const timelineContainer = document.getElementById('invTimelineContainer');
                     if (timelineContainer) {
+                        try {
+                            const timeRes = await fetch(`${API_BASE}/api/investigations/${invId}/timeline`);
+                            if (timeRes.ok) {
+                                const timeData = await timeRes.json();
+                                const events = Array.isArray(timeData.events) ? timeData.events : [];
+                                if (events.length > 0) {
+                                    timelineContainer.innerHTML = events.map(ev => `
+                                        <div class="signal-item">
+                                            <span class="signal-time">${escapeHtml(ev.event_timestamp || '')}</span>
+                                            <div class="signal-body">
+                                                <strong class="signal-title">${escapeHtml(ev.headline || ev.event_type || '')}</strong>
+                                                <p class="signal-desc">${escapeHtml(ev.details || '')}</p>
+                                            </div>
+                                        </div>
+                                    `).join('');
+                                    return;
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Gagal memuat timeline:', e);
+                        }
                         const isEn = currentLang === 'en';
                         timelineContainer.innerHTML = `
-                            <div class="signal-item">
-                                <span class="signal-time">${isEn ? 'Today, 09:05' : 'Hari ini, 09:05'}</span>
-                                <div class="signal-body">
-                                    <strong class="signal-title">${isEn ? 'Volume Spike Anomaly Detection (Z-Score ≥ 2.50σ)' : 'Deteksi Anomali Volume Spike (Z-Score ≥ 2.50σ)'}</strong>
-                                    <p class="signal-desc">${isEn ? `System detected abnormal trading volume for ${ticker} exceeding MA20 baseline.` : `Sistem mendeteksi lonjakan volume perdagangan ${ticker} melampaui rata-rata MA20.`}</p>
-                                </div>
-                            </div>
-                            <div class="signal-item">
-                                <span class="signal-time">${isEn ? 'Today, 09:06' : 'Hari ini, 09:06'}</span>
-                                <div class="signal-body">
-                                    <strong class="signal-title">${isEn ? 'IDXnet Corporate Disclosures Cross-Reference' : 'Cross-Reference Keterbukaan Informasi IDXnet'}</strong>
-                                    <p class="signal-desc">${isEn ? 'Correlating company regulatory disclosures and exchange announcements.' : 'Korelasi dokumen keterbukaan informasi emiten dan pengumuman bursa BEI.'}</p>
-                                </div>
-                            </div>
-                            <div class="signal-item">
-                                <span class="signal-time">${isEn ? 'Today, 09:07' : 'Hari ini, 09:07'}</span>
-                                <div class="signal-body">
-                                    <strong class="signal-title">${isEn ? 'Evidence Matrix Synthesis & Causality Reconciliation' : 'Sintesis Matriks Bukti & Rekonsiliasi Kausalitas'}</strong>
-                                    <p class="signal-desc">${isEn ? 'Classifying findings into Law 2 3-tier taxonomy (Supported, Uncertain, Contradicted).' : 'Klasifikasi temuan ke dalam taksonomi 3-tier (Supported, Uncertain, Contradicted) Law 2.'}</p>
-                                </div>
+                            <div class="dossier-empty-state">
+                                <span>${isEn ? 'No timeline events recorded yet. Chronological events will appear here once the investigation is executed.' : 'Belum ada kronologi peristiwa. Peristiwa kronologis akan tercatat otomatis saat investigasi dijalankan.'}</span>
                             </div>
                         `;
                     }

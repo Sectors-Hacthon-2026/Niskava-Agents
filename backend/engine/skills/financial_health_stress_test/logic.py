@@ -39,7 +39,11 @@ class FinancialHealthStressTestSkill(BaseSkill):
             client = SectorsAPIClient(db_path=db_path, mock_mode=mock_mode)
 
         # 1. Fetch Quarterly Financials
-        fin_list = client.get_quarterly_financials(ticker)
+        try:
+            fin_list = client.get_quarterly_financials(ticker)
+        except Exception:
+            fin_list = []
+
         if isinstance(fin_list, dict):
             latest_fin = fin_list.get("financials") or fin_list.get("data") or fin_list.get("results") or fin_list
             if isinstance(latest_fin, list) and latest_fin:
@@ -50,6 +54,15 @@ class FinancialHealthStressTestSkill(BaseSkill):
             latest_fin = fin_list[0] if isinstance(fin_list[0], dict) else {}
         else:
             latest_fin = {}
+
+        # Fallback to company report fundamentals if quarterly filings endpoint returned empty
+        if not latest_fin:
+            try:
+                rep = client.get_company_report(ticker)
+                fin_section = rep.get("financials", {}) if isinstance(rep.get("financials"), dict) else {}
+                latest_fin = fin_section or rep
+            except Exception:
+                pass
 
         # 2. Extract balance sheet items
         ca = float(latest_fin.get("current_assets", 14_000_000_000_000.0))

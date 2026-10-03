@@ -369,6 +369,38 @@ func (d *DB) CreateInvestigation(inv *Investigation) error {
 	return nil
 }
 
+// UpsertInvestigation creates or updates an investigation session record.
+func (d *DB) UpsertInvestigation(inv *Investigation) error {
+	if inv.StartedAt == "" {
+		inv.StartedAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	if inv.Status == "" {
+		inv.Status = "PENDING"
+	}
+	if inv.Market == "" {
+		inv.Market = "IDX"
+	}
+	if inv.TimeframeDays == 0 {
+		inv.TimeframeDays = 30
+	}
+
+	query := `
+		INSERT INTO investigations (id, ticker, market, timeframe_days, status, started_at, summary_text)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			ticker = excluded.ticker,
+			market = excluded.market,
+			timeframe_days = excluded.timeframe_days,
+			status = excluded.status,
+			summary_text = COALESCE(excluded.summary_text, investigations.summary_text)
+	`
+	_, err := d.conn.Exec(query, inv.ID, inv.Ticker, inv.Market, inv.TimeframeDays, inv.Status, inv.StartedAt, inv.SummaryText)
+	if err != nil {
+		return fmt.Errorf("failed to upsert investigation %s: %w", inv.ID, err)
+	}
+	return nil
+}
+
 // UpdateInvestigationStatus transitions an investigation status and optional summary.
 func (d *DB) UpdateInvestigationStatus(id, status string, summaryText *string) error {
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -511,6 +543,8 @@ func (d *DB) ListLatestRadarAnomalies(limit int, minZScore float64) ([]RadarAnom
 		FROM anomalies a
 		JOIN investigations i ON a.investigation_id = i.id
 		WHERE ABS(a.z_score) >= ?
+		  AND i.id NOT LIKE 'EVAL-%'
+		  AND i.id NOT LIKE 'TEST-%'
 		ORDER BY a.anomaly_date DESC, ABS(a.z_score) DESC, a.created_at DESC
 		LIMIT ?
 	`
@@ -547,6 +581,58 @@ func (d *DB) ListLatestRadarAnomalies(limit int, minZScore float64) ([]RadarAnom
 		results = []RadarAnomalyItem{}
 	}
 	return results, nil
+}
+
+// TimelineEvent is a single chronological entry in an investigation dossier.
+type TimelineEvent struct {
+	ID              string `json:"id"`
+	InvestigationID string `json:"investigation_id"`
+	EventTimestamp  string `json:"event_timestamp"`
+	EventType       string `json:"event_type"`
+	Headline        string `json:"headline"`
+	Details         string `json:"details"`
+}
+
+// GetInvestigationTimeline returns a chronological timeline for an investigation built
+// exclusively from persisted records: explicit timeline_events rows plus events derived
+// from the investigation's detected anomalies and verified findings. It never fabricates entries.
+func (d *DB) GetInvestigationTimeline(invID string) ([]TimelineEvent, error) {
+	query := `
+		SELECT id, investigation_id, event_timestamp, event_type, headline, COALESCE(details, '') AS details
+		FROM timeline_events
+		WHERE investigation_id = ?
+		UNION ALL
+		SELECT id, investigation_id, anomaly_date, 'QUANT_ANOMALY',
+		       metric_type || ' (Z=' || printf('%.2f', z_score) || 'σ)',
+		       COALESCE(description, '')
+		FROM anomalies
+		WHERE investigation_id = ?
+		UNION ALL
+		SELECT id, investigation_id, created_at, 'FINDING',
+		       title,
+		       '[' || verification_status || '] ' || claim_text
+		FROM findings
+		WHERE investigation_id = ?
+		ORDER BY 3 ASC
+	`
+	rows, err := d.conn.Query(query, invID, invID, invID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query timeline for %s: %w", invID, err)
+	}
+	defer rows.Close()
+
+	events := []TimelineEvent{}
+	for rows.Next() {
+		var ev TimelineEvent
+		if err := rows.Scan(&ev.ID, &ev.InvestigationID, &ev.EventTimestamp, &ev.EventType, &ev.Headline, &ev.Details); err != nil {
+			return nil, fmt.Errorf("failed to scan timeline event: %w", err)
+		}
+		events = append(events, ev)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate timeline for %s: %w", invID, err)
+	}
+	return events, nil
 }
 
 // CreateAnomaly records a quantitative anomaly in the database.

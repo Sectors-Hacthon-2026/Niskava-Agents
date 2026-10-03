@@ -82,8 +82,19 @@ class NiskavaToolRegistry:
         }
         if hasattr(self, "emitter") and callable(self.emitter):
             context["emitter"] = self.emitter
-        res = self.skills_registry.execute_skill(skill_id, arguments, context)
-        return res.to_dict()
+        try:
+            res = self.skills_registry.execute_skill(skill_id, arguments, context)
+            return res.to_dict()
+        except Exception as e:
+            ticker = arguments.get("ticker", "")
+            return {
+                "skill_id": skill_id,
+                "verification_status": "UNCERTAIN",
+                "confidence_score": 0.65,
+                "metrics": {"error": str(e), "ticker": ticker},
+                "evidence": [],
+                "summary": f"Skill '{skill_id}' menghadapi kendala data eksternal ({str(e)}). Melanjutkan investigasi dengan data fundamental dan historis yang tersedia.",
+            }
 
     # ---------------------------------------------------------------------------
     # Gateway Primitive Methods — Progressive Skill Disclosure (ADR-11)
@@ -231,9 +242,17 @@ class NiskavaToolRegistry:
                 )
                 return [item.model_dump() for item in items]
 
-            report = self.get_company_fundamentals(clean_ticker)
-            company_name = report.get("company_name", clean_ticker) if isinstance(report, dict) else clean_ticker
-            sectors_news = self.sectors_client.get_news(clean_ticker, force_refresh=force_refresh)
+            try:
+                report = self.get_company_fundamentals(clean_ticker)
+                company_name = report.get("company_name", clean_ticker) if isinstance(report, dict) else clean_ticker
+            except Exception:
+                company_name = clean_ticker
+
+            try:
+                sectors_news = self.sectors_client.get_news(clean_ticker, force_refresh=force_refresh)
+            except Exception:
+                sectors_news = []
+
             items = self.news_harvester.harvest(
                 ticker=clean_ticker,
                 company_name=company_name,
@@ -241,7 +260,7 @@ class NiskavaToolRegistry:
                 query=query,
             )
             return [item.model_dump() for item in items]
-        except SectorsAPIError as err:
+        except Exception as err:
             return [{
                 "title": f"Gagal mengambil berita terkini: {str(err)}",
                 "source_name": "Sectors API",
@@ -586,9 +605,12 @@ class NiskavaToolRegistry:
 
         # Check for Layer 3 Domain Skill execution
         if tool_name == "execute_skill":
+            sub_args = arguments.get("arguments", {})
+            if not isinstance(sub_args, dict) or not sub_args:
+                sub_args = {k: v for k, v in arguments.items() if k != "skill_id"}
             return self.execute_skill(
                 skill_id=arguments.get("skill_id", ""),
-                arguments=arguments.get("arguments", {}),
+                arguments=sub_args,
             )
         if tool_name.startswith("skill_"):
             skill_id = tool_name[6:].replace("_", "-")

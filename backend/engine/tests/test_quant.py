@@ -162,3 +162,41 @@ def test_detect_historical_anomalies_zero_close_safety():
     assert isinstance(anomalies, list)
 
 
+
+
+def _illiquid_spike_candles() -> list[dict]:
+    """20 quiet days + 1 day with a 20x volume spike, but only Rp 1,000,000 turnover."""
+    candles = [
+        {"date": f"2026-09-{i:02d}", "close": 50.0, "volume": 1000.0 if i % 2 else 1100.0}
+        for i in range(1, 21)
+    ]
+    candles.append({"date": "2026-09-21", "close": 50.0, "volume": 20000.0})
+    return candles
+
+
+def test_liquidity_floor_filters_illiquid_spike():
+    from engine.quant.anomaly import DEFAULT_MIN_TURNOVER_IDR
+
+    anomalies = detect_historical_anomalies(
+        _illiquid_spike_candles(), min_turnover_idr=DEFAULT_MIN_TURNOVER_IDR
+    )
+    assert anomalies == [], "Illiquid spike below Rp 1B turnover must not trigger an anomaly"
+
+
+def test_liquidity_floor_disabled_by_default_preserves_behavior():
+    anomalies = detect_historical_anomalies(_illiquid_spike_candles())
+    assert len(anomalies) == 1
+    assert anomalies[0].date == "2026-09-21"
+
+
+def test_liquidity_floor_keeps_liquid_spike():
+    # Day-21 turnover = 5,000,000 shares * Rp 1,620 = Rp 8.1B >= Rp 1B floor
+    candles = [
+        {"date": f"2026-08-{i + 1:02d}", "close": 1500.0, "volume": 1_000_000.0 if i % 2 == 0 else 1_200_000.0}
+        for i in range(20)
+    ]
+    candles.append({"date": "2026-08-21", "close": 1620.0, "volume": 5_000_000.0})
+
+    anomalies = detect_historical_anomalies(candles, min_turnover_idr=1_000_000_000.0)
+    assert len(anomalies) == 1
+    assert anomalies[0].date == "2026-08-21"
