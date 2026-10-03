@@ -1105,6 +1105,26 @@ var TUIStrings = map[string]map[string]string{
 		"en": "📊 SIDE-BY-SIDE AUDIT COMPARISON: %s VS %s",
 		"id": "📊 PERBANDINGAN AUDIT BERSANDINGAN: %s VS %s",
 	},
+	"sessions_gateway_footer_hint": {
+		"en": "  [Enter/1/2] Select Category  •  [↑/↓] Navigate  •  [Esc] Back to Menu",
+		"id": "  [Enter/1/2] Pilih Kategori  •  [↑/↓] Navigasi  •  [Esc] Kembali ke Menu",
+	},
+	"export_modal_footer_hint": {
+		"en": "  [Enter] Export Now  •  [↑/↓] Select Format  •  [Esc] Cancel",
+		"id": "  [Enter] Ekspor Sekarang  •  [↑/↓] Pilih Format  •  [Esc] Batal",
+	},
+	"slash_anomalies_usage_hint": {
+		"en": "💡 Usage: /anomalies <TICKER> (e.g. /anomalies ANTM) to automatically audit stock anomalies.",
+		"id": "💡 Gunakan: /anomalies <TICKER> (contoh: /anomalies ANTM) untuk mengaudit anomali saham secara otomatis.",
+	},
+	"repl_investigation_trail_divider": {
+		"en": "━━━ Investigation Audit Trail (%s) ━━━",
+		"id": "━━━ Jejak Audit Investigasi (%s) ━━━",
+	},
+	"repl_session_no_messages": {
+		"en": "  ℹ️  [Session %s: No prior messages recorded]",
+		"id": "  ℹ️  [Sesi %s: Belum ada pesan tersimpan]",
+	},
 }
 
 // T retrieves localized string for ActiveLanguage, falling back to "en".

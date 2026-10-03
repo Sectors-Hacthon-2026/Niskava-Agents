@@ -594,7 +594,7 @@ func (m SessionSelectorModel) View() string {
 		}
 
 		expB.WriteString("\n")
-		expB.WriteString(lipgloss.NewStyle().Italic(true).Foreground(ColorMuted).Render("  [Enter] Export Now  •  [↑/↓] Select Format  •  [Esc] Cancel"))
+		expB.WriteString(lipgloss.NewStyle().Italic(true).Foreground(ColorMuted).Render(T("export_modal_footer_hint")))
 
 		return "\n" + sessionBoxStyle.Render(expB.String()) + "\n\033[J"
 	}

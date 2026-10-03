@@ -149,7 +149,7 @@ func (m SessionGatewayModel) View() string {
 	}
 
 	b.WriteString(lipgloss.NewStyle().Italic(true).Foreground(ColorMuted).Render(
-		"  [Enter/1/2] Select Category  •  [↑/↓] Navigate  •  [Esc] Back to Menu",
+		T("sessions_gateway_footer_hint"),
 	))
 
 	return "\n" + sessionBoxStyle.Render(b.String()) + "\n\033[J"

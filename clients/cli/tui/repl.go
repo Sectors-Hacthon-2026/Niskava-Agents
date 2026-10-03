@@ -689,7 +689,7 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 			inv, errInv := appDB.GetInvestigation(sessionID)
 			if errInv == nil && inv != nil {
 				fmt.Println()
-				divider := lipgloss.NewStyle().Foreground(ColorMuted).Render(fmt.Sprintf("━━━ Investigation Audit Trail (%s) ━━━", sessionID))
+				divider := lipgloss.NewStyle().Foreground(ColorMuted).Render(TF("repl_investigation_trail_divider", sessionID))
 				fmt.Println(divider)
 				if inv.SummaryText != nil && *inv.SummaryText != "" {
 					fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(T("repl_agent_label")))
@@ -718,7 +718,7 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 			}
 		}
 		if strings.TrimSpace(sessionID) != "" {
-			emptyNotice := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(fmt.Sprintf("  ℹ️  [Session %s: No prior messages recorded]", sessionID))
+			emptyNotice := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(TF("repl_session_no_messages", sessionID))
 			fmt.Println("\n" + emptyNotice + "\n")
 		}
 		return
@@ -1184,7 +1184,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 
 			if len(anomalies) == 0 {
 				if len(targetTickers) == 0 {
-					fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render("💡 Gunakan: /anomalies <TICKER> (contoh: /anomalies ANTM) untuk mengaudit anomali saham secara otomatis."))
+					fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_anomalies_usage_hint")))
 				} else {
 					fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_anomalies_empty")))
 				}
