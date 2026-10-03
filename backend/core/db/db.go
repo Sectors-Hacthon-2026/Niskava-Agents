@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS investigations (
     started_at TEXT NOT NULL,
     completed_at TEXT,
     summary_text TEXT,
+    is_pinned INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -214,6 +215,7 @@ type Investigation struct {
 	StartedAt     string  `json:"started_at"`
 	CompletedAt   *string `json:"completed_at,omitempty"`
 	SummaryText   *string `json:"summary_text,omitempty"`
+	IsPinned      bool    `json:"is_pinned"`
 	CreatedAt     string  `json:"created_at"`
 }
 
@@ -314,6 +316,9 @@ func Open(dbPath string) (*DB, error) {
 		_, _ = conn.Exec(migrationSQL)
 	}
 
+	// Self-healing migration for is_pinned column in investigations table
+	_, _ = conn.Exec("ALTER TABLE investigations ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0;")
+
 	// Self-healing migration for ticker column in anomalies table if existing database was created prior
 	_, _ = conn.Exec("ALTER TABLE anomalies ADD COLUMN ticker TEXT NOT NULL DEFAULT '';")
 
@@ -377,11 +382,20 @@ func (d *DB) CreateInvestigation(inv *Investigation) error {
 		inv.TimeframeDays = 30
 	}
 
+	pinnedInt := 0
+	if inv.IsPinned {
+		pinnedInt = 1
+	}
+
 	query := `
-		INSERT INTO investigations (id, ticker, market, timeframe_days, status, started_at, summary_text)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT OR REPLACE INTO investigations (id, ticker, market, timeframe_days, status, started_at, completed_at, summary_text, is_pinned, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
 	`
-	_, err := d.conn.Exec(query, inv.ID, inv.Ticker, inv.Market, inv.TimeframeDays, inv.Status, inv.StartedAt, inv.SummaryText)
+	var createdAt interface{} = inv.CreatedAt
+	if inv.CreatedAt == "" {
+		createdAt = nil
+	}
+	_, err := d.conn.Exec(query, inv.ID, inv.Ticker, inv.Market, inv.TimeframeDays, inv.Status, inv.StartedAt, inv.CompletedAt, inv.SummaryText, pinnedInt, createdAt)
 	if err != nil {
 		return fmt.Errorf("failed to insert investigation %s: %w", inv.ID, err)
 	}
@@ -404,15 +418,33 @@ func (d *DB) UpdateInvestigationStatus(id, status string, summaryText *string) e
 	return nil
 }
 
-// ListInvestigations returns past investigation sessions ordered by start time desc.
+// UpdateInvestigationPin toggles or sets the is_pinned status of an investigation record.
+func (d *DB) UpdateInvestigationPin(id string, isPinned bool) error {
+	pinnedInt := 0
+	if isPinned {
+		pinnedInt = 1
+	}
+	query := `UPDATE investigations SET is_pinned = ? WHERE id = ?`
+	res, err := d.conn.Exec(query, pinnedInt, id)
+	if err != nil {
+		return fmt.Errorf("failed to update investigation pin status: %w", err)
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("investigation %s not found", id)
+	}
+	return nil
+}
+
+// ListInvestigations returns past investigation sessions ordered by is_pinned desc and start time desc.
 func (d *DB) ListInvestigations(limit int) ([]Investigation, error) {
 	if limit <= 0 {
 		limit = 50
 	}
 	query := `
-		SELECT id, ticker, market, timeframe_days, status, started_at, completed_at, summary_text, created_at
+		SELECT id, ticker, market, timeframe_days, status, started_at, completed_at, summary_text, is_pinned, created_at
 		FROM investigations
-		ORDER BY started_at DESC
+		ORDER BY is_pinned DESC, started_at DESC
 		LIMIT ?
 	`
 	rows, err := d.conn.Query(query, limit)
@@ -423,10 +455,14 @@ func (d *DB) ListInvestigations(limit int) ([]Investigation, error) {
 
 	var results []Investigation
 	for rows.Next() {
-		var inv Investigation
-		if err := rows.Scan(&inv.ID, &inv.Ticker, &inv.Market, &inv.TimeframeDays, &inv.Status, &inv.StartedAt, &inv.CompletedAt, &inv.SummaryText, &inv.CreatedAt); err != nil {
+		var (
+			inv      Investigation
+			isPinned int
+		)
+		if err := rows.Scan(&inv.ID, &inv.Ticker, &inv.Market, &inv.TimeframeDays, &inv.Status, &inv.StartedAt, &inv.CompletedAt, &inv.SummaryText, &isPinned, &inv.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan investigation row: %w", err)
 		}
+		inv.IsPinned = isPinned == 1
 		results = append(results, inv)
 	}
 	return results, nil
@@ -435,18 +471,22 @@ func (d *DB) ListInvestigations(limit int) ([]Investigation, error) {
 // GetInvestigation retrieves a specific session by its ID.
 func (d *DB) GetInvestigation(id string) (*Investigation, error) {
 	query := `
-		SELECT id, ticker, market, timeframe_days, status, started_at, completed_at, summary_text, created_at
+		SELECT id, ticker, market, timeframe_days, status, started_at, completed_at, summary_text, is_pinned, created_at
 		FROM investigations
 		WHERE id = ?
 	`
 	row := d.conn.QueryRow(query, id)
-	var inv Investigation
-	if err := row.Scan(&inv.ID, &inv.Ticker, &inv.Market, &inv.TimeframeDays, &inv.Status, &inv.StartedAt, &inv.CompletedAt, &inv.SummaryText, &inv.CreatedAt); err != nil {
+	var (
+		inv      Investigation
+		isPinned int
+	)
+	if err := row.Scan(&inv.ID, &inv.Ticker, &inv.Market, &inv.TimeframeDays, &inv.Status, &inv.StartedAt, &inv.CompletedAt, &inv.SummaryText, &isPinned, &inv.CreatedAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get investigation %s: %w", id, err)
 	}
+	inv.IsPinned = isPinned == 1
 	return &inv, nil
 }
 

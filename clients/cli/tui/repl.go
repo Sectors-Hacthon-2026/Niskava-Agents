@@ -1319,7 +1319,33 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 		}
 
 		if lower == "/sessions" {
-			printSessions(appDB)
+			if appDB == nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(T("repl_db_unavailable")))
+				continue
+			}
+			invList, errList := appDB.ListInvestigations(30)
+			if errList != nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("repl_chats_fetch_err", errList)))
+				continue
+			}
+			selector := NewInvestigationSelectorModelWithDB(invList, appDB)
+			pSel := tea.NewProgram(selector, tea.WithAltScreen())
+			mSel, errRun := pSel.Run()
+			if errRun == nil {
+				res := mSel.(InvestigationSelectorModel)
+				if !res.Canceled && res.SelectedSession != nil {
+					prevSessionID := sessionID
+					sessionID = res.SelectedSession.ID
+					fmt.Print("\033[H\033[2J")
+					renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
+					title := res.SelectedSession.Ticker
+					if title == "" {
+						title = res.SelectedSession.ID
+					}
+					fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
+					renderResumedHistory(appDB, sessionID)
+				}
+			}
 			continue
 		}
 
@@ -1333,7 +1359,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("repl_chats_fetch_err", errList)))
 				continue
 			}
-			selector := NewSessionSelectorModel(chatList)
+			selector := NewSessionSelectorModelWithDB(chatList, appDB)
 			pSel := tea.NewProgram(selector, tea.WithAltScreen())
 			mSel, errRun := pSel.Run()
 			if errRun == nil {

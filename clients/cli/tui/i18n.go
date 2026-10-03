@@ -130,12 +130,36 @@ var TUIStrings = map[string]map[string]string{
 		"id": "Sesi REPL interaktif berbasis perintah riset & anomali",
 	},
 	"launcher_sessions_title": {
-		"en": "Session History & Audit Trail (SQLite)",
-		"id": "Riwayat Sesi & Audit Trail (SQLite)",
+		"en": "Research Sessions & Audit Trails (SQLite)",
+		"id": "Sesi Riset & Laporan Investigasi (SQLite)",
 	},
 	"launcher_sessions_desc": {
-		"en": "Inspect past investigation sessions & verified evidence from local database",
-		"id": "Inspeksi riwayat investigasi & bukti terverifikasi dari database",
+		"en": "Browse, pin, export, and manage chat sessions or automated investigation audit trails",
+		"id": "Jelajahi, pin, ekspor, dan kelola sesi obrolan chat atau laporan audit investigasi otomatis",
+	},
+	"sessions_gateway_title": {
+		"en": "🌐 SELECT RESEARCH SESSION TYPE (SQLITE)",
+		"id": "🌐 PILIH KATEGORI SESI RISET (SQLITE)",
+	},
+	"sessions_gateway_prompt": {
+		"en": "Select session category to manage or inspect:",
+		"id": "Pilih kategori sesi yang ingin dikelola atau ditayangkan:",
+	},
+	"sessions_gateway_opt_chats": {
+		"en": "💬 Conversational Chat Sessions",
+		"id": "💬 Sesi Obrolan AI (Chat Sessions)",
+	},
+	"sessions_gateway_opt_chats_desc": {
+		"en": "Browse, pin, export transcript, and resume AI chat research turns",
+		"id": "Jelajahi, pin, ekspor transkrip, dan lanjutkan sesi obrolan AI",
+	},
+	"sessions_gateway_opt_inv": {
+		"en": "🔍 Automated Investigation Audit Trails",
+		"id": "🔍 Sesi Audit Investigasi Automatis (Investigations)",
+	},
+	"sessions_gateway_opt_inv_desc": {
+		"en": "Inspect 7-stage automated analysis reports, quantitative Z-score anomalies, & evidence",
+		"id": "Lihat laporan analisis pasar 7-stage, anomali kuantitatif Z-score, & bukti",
 	},
 	"launcher_help_title": {
 		"en": "Help Guide & Usage Instructions",
@@ -206,8 +230,8 @@ var TUIStrings = map[string]map[string]string{
 		"id": "Buka dashboard visual Web Workspace di browser",
 	},
 	"slash_sessions_desc": {
-		"en": "Inspect investigation session history & audit trail from SQLite",
-		"id": "Inspeksi riwayat sesi investigasi & audit trail dari SQLite",
+		"en": "Browse and manage automated investigation audit trails",
+		"id": "Jelajahi dan kelola sesi audit investigasi otomatis",
 	},
 	"slash_health_desc": {
 		"en": "Check status of daemon server, database, & AI providers",
@@ -705,6 +729,10 @@ var TUIStrings = map[string]map[string]string{
 		"en": "💬 SELECT CHAT SESSION TO RESUME",
 		"id": "💬 PILIH SESI CHAT UNTUK DILANJUTKAN",
 	},
+	"investigation_selector_title": {
+		"en": "🔍 SELECT INVESTIGATION AUDIT TRAIL TO VIEW",
+		"id": "🔍 PILIH SESI AUDIT INVESTIGASI UNTUK DITAMPILKAN",
+	},
 	"session_selector_hint": {
 		"en": "[↑/↓/PgUp/PgDn Nav  •  Ctrl+P Pin  •  Ctrl+D Delete  •  Ctrl+E Export  •  Ctrl+Y Copy  •  Enter Load  •  Esc Back]",
 		"id": "[↑/↓/PgUp/PgDn Navigasi  •  Ctrl+P Pin  •  Ctrl+D Hapus  •  Ctrl+E Ekspor  •  Ctrl+Y Salin  •  Enter Buka  •  Esc Batal]",
@@ -712,6 +740,46 @@ var TUIStrings = map[string]map[string]string{
 	"session_selector_delete_confirm": {
 		"en": "⚠️  DELETE SESSION: Are you sure you want to delete session '%s'? [y/N]",
 		"id": "⚠️  HAPUS SESI: Apakah Anda yakin ingin menghapus sesi '%s'? [y/N]",
+	},
+	"delete_warning_header": {
+		"en": "🚨 WARNING: PERMANENT SESSION DELETION",
+		"id": "🚨 PERHATIAN: KONFIRMASI HAPUS SESI PERMANEN",
+	},
+	"delete_warning_body": {
+		"en": "The selected session and all stored chat history/findings will be permanently deleted from local SQLite database.",
+		"id": "Sesi terpilih beserta seluruh riwayat obrolan/temuan akan dihapus secara permanen dari database SQLite lokal.",
+	},
+	"delete_warning_permanent": {
+		"en": "⚠️  THIS ACTION IS PERMANENT AND CANNOT BE UNDONE!",
+		"id": "⚠️  TINDAKAN INI PERMANEN DAN TIDAK DAPAT DIBATALKAN!",
+	},
+	"delete_warning_prompt": {
+		"en": "Are you sure you want to permanently delete '%s'? [y/N]",
+		"id": "Apakah Anda yakin ingin menghapus permanen '%s'? [y/N]",
+	},
+	"delete_warning_footer": {
+		"en": "[y] Confirm Permanent Delete  •  [n/Esc] Cancel & Keep Session",
+		"id": "[y] Yakin Hapus Permanen  •  [n/Esc] Batal Simpan Sesi",
+	},
+	"export_dialog_prompt": {
+		"en": "Select target export file format:",
+		"id": "Pilih format berkas ekspor yang diinginkan:",
+	},
+	"export_target_location_hint": {
+		"en": "📁 Destination folder: ~/.niskava/exports/",
+		"id": "📁 Lokasi direktori penyimpanan: ~/.niskava/exports/",
+	},
+	"export_fmt_md_desc": {
+		"en": "Standard structured research report format",
+		"id": "Format standar laporan riset terstruktur",
+	},
+	"export_fmt_json_desc": {
+		"en": "Raw structured audit trail for API integration",
+		"id": "Data mentah terstruktur untuk integrasi programmatic",
+	},
+	"export_fmt_txt_desc": {
+		"en": "Clean ASCII summary without markup formatting",
+		"id": "Ringkasan teks ASCII bersih tanpa format markup",
 	},
 	"session_selector_export_title": {
 		"en": "📥 EXPORT SESSION TRANSCRIPT",
@@ -746,8 +814,8 @@ var TUIStrings = map[string]map[string]string{
 		"id": "  (Tidak ada sesi yang cocok dengan pencarian)",
 	},
 	"slash_chats_desc": {
-		"en": "Browse and resume previous conversational chat sessions",
-		"id": "Jelajahi dan lanjutkan sesi obrolan chat sebelumnya",
+		"en": "Browse and manage interactive chat sessions",
+		"id": "Jelajahi dan kelola sesi obrolan interaktif AI",
 	},
 	"slash_resume_desc": {
 		"en": "Resume a specific chat session by ID (/resume <SESSION_ID>)",

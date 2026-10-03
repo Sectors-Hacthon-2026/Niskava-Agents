@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -295,3 +296,49 @@ func TestSessionSelector_PgUpPgDownHomeEnd(t *testing.T) {
 		t.Fatalf("expected cursor at 0 after PgUp key, got %d", m.Cursor)
 	}
 }
+
+func TestSessionSelectorModel_PinPersistenceWithDB(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test_pin.db")
+	tmpDB, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open test db: %v", err)
+	}
+	defer tmpDB.Close()
+
+	// Seed two sessions into SQLite
+	sess1 := &db.ChatSession{ID: "CHAT-PIN-001", Title: "Sesi ANTM", IsPinned: false, MessageCount: 1, LastMessagePreview: "Hasil ANTM"}
+	sess2 := &db.ChatSession{ID: "CHAT-PIN-002", Title: "Sesi BBCA", IsPinned: false, MessageCount: 1, LastMessagePreview: "Hasil BBCA"}
+	if err := tmpDB.CreateChatSession(sess1); err != nil {
+		t.Fatalf("failed to create session 1: %v", err)
+	}
+	if err := tmpDB.CreateChatSession(sess2); err != nil {
+		t.Fatalf("failed to create session 2: %v", err)
+	}
+
+	chats, _, err := tmpDB.ListChatSessions(10, 0, "")
+	if err != nil || len(chats) != 2 {
+		t.Fatalf("expected 2 chat sessions from DB, got %d (err: %v)", len(chats), err)
+	}
+
+	// Initialize model WITH DB binding
+	model := NewSessionSelectorModelWithDB(chats, tmpDB)
+
+	// Press Ctrl+P on first session (CHAT-PIN-001)
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m := updated.(SessionSelectorModel)
+
+	if !m.Sessions[0].IsPinned {
+		t.Fatalf("expected first session in memory to be pinned")
+	}
+
+	// Re-query database to verify persistence in SQLite
+	reloaded, err := tmpDB.GetChatSession("CHAT-PIN-001")
+	if err != nil || reloaded == nil {
+		t.Fatalf("failed to reload CHAT-PIN-001 from DB: %v", err)
+	}
+
+	if !reloaded.IsPinned {
+		t.Fatalf("EXPECTED IsPinned to be true in SQLite database after Ctrl+P, got false")
+	}
+}
+

@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -17,16 +15,16 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// SessionSelectorModel is an interactive Bubbletea menu to pick, resume, pin, export, and manage chat sessions.
-type SessionSelectorModel struct {
+// InvestigationSelectorModel is an interactive Bubbletea menu to pick, inspect, delete, export, and manage investigation sessions.
+type InvestigationSelectorModel struct {
 	AppDB             *db.DB
-	Sessions          []db.ChatSession
+	Investigations    []db.Investigation
 	Cursor            int
-	SelectedSession   *db.ChatSession
+	SelectedSession   *db.Investigation
 	Canceled          bool
 	FilterQuery       string
 	ConfirmDelete     bool
-	DeleteTarget      *db.ChatSession
+	DeleteTarget      *db.Investigation
 	ExportModalActive bool
 	ExportFormatIndex int // 0: Markdown (.md), 1: JSON (.json), 2: Plain Text (.txt)
 	StatusNotice      string
@@ -35,112 +33,65 @@ type SessionSelectorModel struct {
 	Height            int
 }
 
-var (
-	sessionTitleStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(ColorAccent)
-
-	sessionActiveStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(ColorAccent)
-
-	sessionCursorStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(ColorAccent)
-
-	sessionMetaStyle = lipgloss.NewStyle().
-				Foreground(ColorMuted)
-)
-
-// NewSessionSelectorModel creates an interactive selector model for chat sessions.
-func NewSessionSelectorModel(sessions []db.ChatSession) SessionSelectorModel {
-	return NewSessionSelectorModelWithDB(sessions, nil)
-}
-
-// NewSessionSelectorModelWithDB creates an interactive selector model backed by local DB for deletion and pinning.
-func NewSessionSelectorModelWithDB(sessions []db.ChatSession, appDB *db.DB) SessionSelectorModel {
-	sorted := sortSessions(sessions)
-	return SessionSelectorModel{
-		AppDB:    appDB,
-		Sessions: sorted,
-		Cursor:   0,
-		Width:    GetTermWidth(),
-		Height:   GetTermHeight(),
-	}
-}
-
-// sortSessions sorts sessions pinned first, then by UpdatedAt descending.
-func sortSessions(sessions []db.ChatSession) []db.ChatSession {
-	cloned := make([]db.ChatSession, len(sessions))
-	copy(cloned, sessions)
+// sortInvestigations sorts investigations pinned first, then by StartedAt descending.
+func sortInvestigations(investigations []db.Investigation) []db.Investigation {
+	cloned := make([]db.Investigation, len(investigations))
+	copy(cloned, investigations)
 	sort.SliceStable(cloned, func(i, j int) bool {
 		if cloned[i].IsPinned != cloned[j].IsPinned {
 			return cloned[i].IsPinned
 		}
-		return cloned[i].UpdatedAt > cloned[j].UpdatedAt
+		return cloned[i].StartedAt > cloned[j].StartedAt
 	})
 	return cloned
 }
 
-func (m SessionSelectorModel) getFilteredSessions() []db.ChatSession {
+// NewInvestigationSelectorModel creates an interactive selector model for investigation sessions.
+func NewInvestigationSelectorModel(investigations []db.Investigation) InvestigationSelectorModel {
+	return NewInvestigationSelectorModelWithDB(investigations, nil)
+}
+
+// NewInvestigationSelectorModelWithDB creates an interactive selector model backed by local DB for deletion and export.
+func NewInvestigationSelectorModelWithDB(investigations []db.Investigation, appDB *db.DB) InvestigationSelectorModel {
+	sorted := sortInvestigations(investigations)
+	return InvestigationSelectorModel{
+		AppDB:          appDB,
+		Investigations: sorted,
+		Cursor:         0,
+		Width:          GetTermWidth(),
+		Height:         GetTermHeight(),
+	}
+}
+
+func (m InvestigationSelectorModel) getFilteredInvestigations() []db.Investigation {
 	q := strings.TrimSpace(strings.ToLower(m.FilterQuery))
 	if q == "" {
-		return m.Sessions
+		return m.Investigations
 	}
-	var filtered []db.ChatSession
-	for _, s := range m.Sessions {
-		if strings.Contains(strings.ToLower(s.ID), q) ||
-			strings.Contains(strings.ToLower(s.Title), q) ||
-			strings.Contains(strings.ToLower(s.LastMessagePreview), q) {
-			filtered = append(filtered, s)
+	var filtered []db.Investigation
+	for _, inv := range m.Investigations {
+		summary := ""
+		if inv.SummaryText != nil {
+			summary = *inv.SummaryText
+		}
+		if strings.Contains(strings.ToLower(inv.ID), q) ||
+			strings.Contains(strings.ToLower(inv.Ticker), q) ||
+			strings.Contains(strings.ToLower(inv.Status), q) ||
+			strings.Contains(strings.ToLower(summary), q) {
+			filtered = append(filtered, inv)
 		}
 	}
 	return filtered
 }
 
-func (m SessionSelectorModel) Init() tea.Cmd {
+func (m InvestigationSelectorModel) Init() tea.Cmd {
 	return nil
 }
 
-// CopyToClipboard writes text directly to OS system clipboard without CGO.
-func CopyToClipboard(text string) error {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "windows":
-		cmd = exec.Command("clip")
-	case "darwin":
-		cmd = exec.Command("pbcopy")
-	default:
-		if _, err := exec.LookPath("xclip"); err == nil {
-			cmd = exec.Command("xclip", "-selection", "clipboard")
-		} else if _, err := exec.LookPath("xsel"); err == nil {
-			cmd = exec.Command("xsel", "--clipboard", "--input")
-		} else if _, err := exec.LookPath("wl-copy"); err == nil {
-			cmd = exec.Command("wl-copy")
-		} else {
-			return fmt.Errorf("no clipboard utility found")
-		}
-	}
-
-	in, err := cmd.StdinPipe()
-	if err != nil {
-		return err
-	}
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	if _, err := in.Write([]byte(text)); err != nil {
-		in.Close()
-		return err
-	}
-	in.Close()
-	return cmd.Wait()
-}
-
-// ExportSessionTranscript saves a chat session transcript to ~/.niskava/exports/ in target format.
-func ExportSessionTranscript(appDB *db.DB, session *db.ChatSession, formatIndex int) (string, error) {
-	if session == nil {
-		return "", fmt.Errorf("session is nil")
+// ExportInvestigationTranscript saves an investigation audit trail report to ~/.niskava/exports/ in target format.
+func ExportInvestigationTranscript(appDB *db.DB, inv *db.Investigation, formatIndex int) (string, error) {
+	if inv == nil {
+		return "", fmt.Errorf("investigation is nil")
 	}
 
 	homeDir, _ := os.UserHomeDir()
@@ -158,26 +109,26 @@ func ExportSessionTranscript(appDB *db.DB, session *db.ChatSession, formatIndex 
 	}
 
 	timestamp := time.Now().Format("20060102_150405")
-	cleanID := strings.ReplaceAll(session.ID, " ", "_")
-	filename := fmt.Sprintf("niskava_session_%s_%s.%s", cleanID, timestamp, ext)
+	cleanID := strings.ReplaceAll(inv.ID, " ", "_")
+	filename := fmt.Sprintf("niskava_investigation_%s_%s.%s", cleanID, timestamp, ext)
 	outPath := filepath.Join(exportDir, filename)
 
-	var messages []db.ChatMessage
+	var anomalies []db.Anomaly
+	var findings []db.Finding
 	if appDB != nil {
-		msgs, err := appDB.GetChatHistory(session.ID, 100)
-		if err == nil {
-			messages = msgs
-		}
+		anomalies, _ = appDB.GetAnomaliesByInvestigation(inv.ID)
+		findings, _ = appDB.ListFindingsByInvestigation(inv.ID)
 	}
 
 	var content string
 	switch formatIndex {
 	case 1: // JSON
 		exportObj := map[string]interface{}{
-			"session":     session,
-			"messages":    messages,
-			"exported_at": time.Now().Format(time.RFC3339),
-			"disclaimer":  "Niskava Agent provides non-advisory market intelligence research. Not financial advice.",
+			"investigation": inv,
+			"anomalies":     anomalies,
+			"findings":      findings,
+			"exported_at":   time.Now().Format(time.RFC3339),
+			"disclaimer":    "Niskava Agent provides non-advisory market intelligence research. Not financial advice.",
 		}
 		data, err := json.MarshalIndent(exportObj, "", "  ")
 		if err != nil {
@@ -187,11 +138,23 @@ func ExportSessionTranscript(appDB *db.DB, session *db.ChatSession, formatIndex 
 
 	case 2: // Plain Text
 		var b strings.Builder
-		b.WriteString(fmt.Sprintf("NISKAVA RESEARCH REPORT - SESSION %s\n", session.ID))
-		b.WriteString(fmt.Sprintf("Title: %s\n", session.Title))
-		b.WriteString(fmt.Sprintf("Date: %s\n\n", session.UpdatedAt))
-		for _, m := range messages {
-			b.WriteString(fmt.Sprintf("[%s] %s:\n%s\n\n", m.Role, m.CreatedAt, m.Content))
+		b.WriteString(fmt.Sprintf("NISKAVA INVESTIGATION AUDIT TRAIL - %s (%s)\n", inv.ID, inv.Ticker))
+		b.WriteString(fmt.Sprintf("Status: %s | Started: %s\n", inv.Status, inv.StartedAt))
+		if inv.SummaryText != nil && *inv.SummaryText != "" {
+			b.WriteString(fmt.Sprintf("Summary: %s\n\n", *inv.SummaryText))
+		}
+		if len(anomalies) > 0 {
+			b.WriteString("ANOMALIES:\n")
+			for idx, a := range anomalies {
+				b.WriteString(fmt.Sprintf(" %d. %s [%s] Val: %.2f, Baseline: %.2f, Z: %.2fσ (%s)\n", idx+1, a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore, a.Description))
+			}
+			b.WriteString("\n")
+		}
+		if len(findings) > 0 {
+			b.WriteString("FINDINGS:\n")
+			for idx, f := range findings {
+				b.WriteString(fmt.Sprintf(" %d. [%s] %s (Conf: %.0f%%)\n    %s\n", idx+1, f.VerificationStatus, f.Title, f.ConfidenceScore*100, f.ClaimText))
+			}
 		}
 		b.WriteString("\n---------------------------------------------------\n")
 		b.WriteString("DISCLAIMER: Operational empirical research only. Not investment advice.\n")
@@ -199,26 +162,37 @@ func ExportSessionTranscript(appDB *db.DB, session *db.ChatSession, formatIndex 
 
 	default: // Markdown (.md)
 		var b strings.Builder
-		b.WriteString(fmt.Sprintf("# Niskava Research Report: %s\n\n", session.Title))
-		b.WriteString(fmt.Sprintf("- **Session ID:** `%s`\n", session.ID))
-		b.WriteString(fmt.Sprintf("- **Date:** %s\n", session.UpdatedAt))
-		b.WriteString(fmt.Sprintf("- **Messages:** %d\n\n", session.MessageCount))
-		b.WriteString("---\n\n")
+		b.WriteString(fmt.Sprintf("# Niskava Agent — Audit & Investigation Report (%s)\n\n", inv.Ticker))
+		b.WriteString(fmt.Sprintf("- **Session ID:** `%s`\n", inv.ID))
+		b.WriteString(fmt.Sprintf("- **Ticker:** `%s`\n", inv.Ticker))
+		b.WriteString(fmt.Sprintf("- **Status:** `%s`\n", inv.Status))
+		b.WriteString(fmt.Sprintf("- **Started At:** `%s`\n\n---\n\n", inv.StartedAt))
 
-		if len(messages) == 0 {
-			b.WriteString(fmt.Sprintf("### Summary\n\n%s\n\n", session.LastMessagePreview))
-		} else {
-			for _, m := range messages {
-				r := strings.ToLower(strings.TrimSpace(m.Role))
-				if r == "user" || r == "human" {
-					b.WriteString(fmt.Sprintf("### 👤 User\n\n%s\n\n", m.Content))
-				} else {
-					b.WriteString(fmt.Sprintf("### ⚡ Niskava Agent\n\n%s\n\n", m.Content))
-				}
-			}
+		if inv.SummaryText != nil && *inv.SummaryText != "" {
+			b.WriteString(fmt.Sprintf("## ⚡ Executive Summary\n%s\n\n---\n\n", *inv.SummaryText))
 		}
 
-		b.WriteString("---\n\n> **Financial Non-Advisory Disclaimer:** Niskava Agent operates under strict POJK/IDX non-advisory guidelines. Research output does not constitute investment advice.\n")
+		if len(anomalies) > 0 {
+			b.WriteString(fmt.Sprintf("## 📊 Quantitative Anomalies (%d Detected)\n\n", len(anomalies)))
+			b.WriteString("| # | Date | Metric | Value | Baseline | Z-Score | Description |\n")
+			b.WriteString("|---|---|---|---|---|---|---|\n")
+			for idx, a := range anomalies {
+				b.WriteString(fmt.Sprintf("| %d | %s | %s | %.2f | %.2f | %.2fσ | %s |\n",
+					idx+1, a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore, a.Description))
+			}
+			b.WriteString("\n---\n\n")
+		}
+
+		if len(findings) > 0 {
+			b.WriteString(fmt.Sprintf("## 🔍 Verified Intelligence Findings (%d Emitted)\n\n", len(findings)))
+			for idx, f := range findings {
+				b.WriteString(fmt.Sprintf("### %d. [%s] %s (Confidence: %.0f%%)\n", idx+1, f.VerificationStatus, f.Title, f.ConfidenceScore*100))
+				b.WriteString(fmt.Sprintf("%s\n\n", f.ClaimText))
+			}
+			b.WriteString("---\n\n")
+		}
+
+		b.WriteString("> **Financial Non-Advisory Disclaimer:** Niskava Agent operates under strict POJK/IDX non-advisory guidelines. Research output does not constitute investment advice.\n")
 		content = b.String()
 	}
 
@@ -229,12 +203,8 @@ func ExportSessionTranscript(appDB *db.DB, session *db.ChatSession, formatIndex 
 	return outPath, nil
 }
 
-func isControlRune(msg tea.KeyMsg, asciiCode rune) bool {
-	return len(msg.Runes) == 1 && msg.Runes[0] == asciiCode
-}
-
-func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	filtered := m.getFilteredSessions()
+func (m InvestigationSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	filtered := m.getFilteredInvestigations()
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -259,16 +229,16 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.DeleteTarget != nil {
 					targetID := m.DeleteTarget.ID
 					if m.AppDB != nil {
-						_ = m.AppDB.DeleteChatSession(targetID)
+						_ = m.AppDB.DeleteInvestigation(targetID)
 					}
-					// Remove from local Sessions list
-					var updated []db.ChatSession
-					for _, s := range m.Sessions {
-						if s.ID != targetID {
-							updated = append(updated, s)
+					// Remove from local list
+					var updated []db.Investigation
+					for _, inv := range m.Investigations {
+						if inv.ID != targetID {
+							updated = append(updated, inv)
 						}
 					}
-					m.Sessions = sortSessions(updated)
+					m.Investigations = updated
 					m.StatusNotice = TF("session_selector_exported_notice", targetID)
 					m.StatusNoticeTime = time.Now()
 				}
@@ -303,7 +273,7 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if msg.Type == tea.KeyEnter || k == "enter" {
 				if len(filtered) > 0 && m.Cursor >= 0 && m.Cursor < len(filtered) {
 					target := filtered[m.Cursor]
-					outPath, err := ExportSessionTranscript(m.AppDB, &target, m.ExportFormatIndex)
+					outPath, err := ExportInvestigationTranscript(m.AppDB, &target, m.ExportFormatIndex)
 					if err == nil {
 						m.StatusNotice = TF("session_selector_exported_notice", outPath)
 					} else {
@@ -346,16 +316,15 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				target := filtered[m.Cursor]
 				newPinned := !target.IsPinned
 				if m.AppDB != nil {
-					_ = m.AppDB.UpdateChatSession(target.ID, nil, &newPinned, nil)
+					_ = m.AppDB.UpdateInvestigationPin(target.ID, newPinned)
 				}
-				// Update in local sessions list
-				for i, s := range m.Sessions {
-					if s.ID == target.ID {
-						m.Sessions[i].IsPinned = newPinned
+				for i, inv := range m.Investigations {
+					if inv.ID == target.ID {
+						m.Investigations[i].IsPinned = newPinned
 						break
 					}
 				}
-				m.Sessions = sortSessions(m.Sessions)
+				m.Investigations = sortInvestigations(m.Investigations)
 				if newPinned {
 					m.StatusNotice = T("session_selector_pinned_notice")
 				} else {
@@ -378,7 +347,11 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if isCtrlY {
 			if len(filtered) > 0 && m.Cursor >= 0 && m.Cursor < len(filtered) {
 				target := filtered[m.Cursor]
-				textToCopy := fmt.Sprintf("[%s] %s\nSummary: %s", target.ID, target.Title, target.LastMessagePreview)
+				summary := "-"
+				if target.SummaryText != nil {
+					summary = *target.SummaryText
+				}
+				textToCopy := fmt.Sprintf("[%s] %s (Status: %s)\nSummary: %s", target.ID, target.Ticker, target.Status, summary)
 				if err := CopyToClipboard(textToCopy); err == nil {
 					m.StatusNotice = T("session_selector_copied_notice")
 				} else {
@@ -456,7 +429,7 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
-		// Strictly filter text input: Only append printable runes (rune >= 32 and rune != 127)
+		// Strictly filter text input: Only append printable runes
 		if len(msg.Runes) > 0 {
 			hasPrintable := false
 			for _, r := range msg.Runes {
@@ -473,39 +446,7 @@ func (m SessionSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// SanitizePreviewText strips newlines, markdown tokens, and wide emojis to ensure 100% predictable 1-to-1 ASCII display width.
-func SanitizePreviewText(raw string) string {
-	s := strings.ReplaceAll(raw, "\r\n", " ")
-	s = strings.ReplaceAll(s, "\n", " ")
-	s = strings.ReplaceAll(s, "\r", " ")
-	s = strings.ReplaceAll(s, "\t", " ")
-
-	s = strings.ReplaceAll(s, "###", "")
-	s = strings.ReplaceAll(s, "##", "")
-	s = strings.ReplaceAll(s, "#", "")
-	s = strings.ReplaceAll(s, "**", "")
-	s = strings.ReplaceAll(s, "__", "")
-	s = strings.ReplaceAll(s, "```", "")
-	s = strings.ReplaceAll(s, "`", "")
-	s = strings.ReplaceAll(s, "❌", "")
-	s = strings.ReplaceAll(s, "⚠️", "")
-	s = strings.ReplaceAll(s, "🚨", "")
-	s = strings.ReplaceAll(s, "⚡", "")
-	s = strings.ReplaceAll(s, "👤", "")
-
-	var b strings.Builder
-	for _, r := range s {
-		if (r >= 32 && r <= 126) || (r >= 160 && r <= 255) {
-			b.WriteRune(r)
-		} else if r == ' ' {
-			b.WriteRune(' ')
-		}
-	}
-
-	return strings.Join(strings.Fields(b.String()), " ")
-}
-
-func (m SessionSelectorModel) View() string {
+func (m InvestigationSelectorModel) View() string {
 	var b strings.Builder
 
 	termW := m.Width
@@ -531,7 +472,7 @@ func (m SessionSelectorModel) View() string {
 		Padding(0, 1).
 		Foreground(ColorFg)
 
-	title := T("session_selector_title")
+	title := T("investigation_selector_title")
 	b.WriteString(sessionTitleStyle.Render(title))
 	b.WriteString("\n\n")
 
@@ -543,8 +484,8 @@ func (m SessionSelectorModel) View() string {
 
 		delHeader := lipgloss.NewStyle().Bold(true).Foreground(ColorDanger).Render(T("delete_warning_header"))
 		targetID := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(m.DeleteTarget.ID)
-		if m.DeleteTarget.Title != "" {
-			targetID += fmt.Sprintf(" (%s)", m.DeleteTarget.Title)
+		if m.DeleteTarget.Ticker != "" {
+			targetID += fmt.Sprintf(" [%s]", m.DeleteTarget.Ticker)
 		}
 
 		bodyMsg := lipgloss.NewStyle().Foreground(ColorMuted).Render(T("delete_warning_body"))
@@ -599,8 +540,8 @@ func (m SessionSelectorModel) View() string {
 		return "\n" + sessionBoxStyle.Render(expB.String()) + "\n\033[J"
 	}
 
-	filtered := m.getFilteredSessions()
-	totalAll := len(m.Sessions)
+	filtered := m.getFilteredInvestigations()
+	totalAll := len(m.Investigations)
 	totalFiltered := len(filtered)
 
 	// Render temporary status notice message if active
@@ -624,7 +565,7 @@ func (m SessionSelectorModel) View() string {
 	b.WriteString("\n\n")
 
 	if totalAll == 0 {
-		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("session_selector_empty")))
+		b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("sessions_inv_empty")))
 		b.WriteString("\n")
 		return "\n" + sessionBoxStyle.Render(b.String()) + "\n\033[J"
 	}
@@ -664,51 +605,54 @@ func (m SessionSelectorModel) View() string {
 	}
 
 	for i := windowStart; i < windowEnd; i++ {
-		s := filtered[i]
-		dateStr := s.UpdatedAt
+		inv := filtered[i]
+		dateStr := inv.StartedAt
 		if len(dateStr) > 16 {
 			dateStr = strings.Replace(dateStr[:16], "T", " ", 1)
 		}
 
-		preview := SanitizePreviewText(s.LastMessagePreview)
-		if preview == "" {
-			preview = "-"
+		summary := "-"
+		if inv.SummaryText != nil && *inv.SummaryText != "" {
+			summary = SanitizePreviewText(*inv.SummaryText)
 		}
-		preview = Truncate(preview, boxW-10)
+		summary = Truncate(summary, boxW-10)
 
-		rawTitle := SanitizePreviewText(s.Title)
-		title := rawTitle
-		if s.IsPinned {
-			title = "📌 " + title
+		statusStyled := inv.Status
+		switch inv.Status {
+		case "COMPLETED":
+			statusStyled = lipgloss.NewStyle().Foreground(ColorSuccess).Render("COMPLETED")
+		case "RUNNING":
+			statusStyled = lipgloss.NewStyle().Foreground(ColorAccent).Render("RUNNING")
+		case "FAILED":
+			statusStyled = lipgloss.NewStyle().Foreground(ColorDanger).Render("FAILED")
+		}
+
+		tickerLabel := inv.Ticker
+		if tickerLabel == "" {
+			tickerLabel = "IDX"
+		}
+		if inv.IsPinned {
+			tickerLabel = "📌 " + tickerLabel
 		}
 
 		var lineTitle string
 		if boxW < 50 {
-			titleCompact := Truncate(title, boxW-12)
-			lineTitle = fmt.Sprintf("%s | %s", s.ID, titleCompact)
+			lineTitle = fmt.Sprintf("%s | %s [%s]", inv.ID, tickerLabel, statusStyled)
 		} else {
-			titleMax := boxW - 38
-			if titleMax < 10 {
-				titleMax = 10
-			}
-			title = Truncate(title, titleMax)
-			lineTitle = fmt.Sprintf("%-18s %-16s (%d msgs) [%s]", s.ID, title, s.MessageCount, dateStr)
+			lineTitle = fmt.Sprintf("%-22s %-8s [%s] (%s)", inv.ID, tickerLabel, statusStyled, dateStr)
 		}
-		previewLine := fmt.Sprintf("    ↳ %s", preview)
+		previewLine := fmt.Sprintf("    ↳ %s", summary)
 
 		if i == m.Cursor {
 			b.WriteString(sessionCursorStyle.Render("> "))
 			b.WriteString(sessionActiveStyle.Render(lineTitle))
-			b.WriteString("\n")
-			b.WriteString(lipgloss.NewStyle().Foreground(ColorAccent).Render(previewLine))
-			b.WriteString("\n")
 		} else {
-			b.WriteString("  ")
-			b.WriteString(lipgloss.NewStyle().Foreground(ColorFg).Render(lineTitle))
-			b.WriteString("\n")
-			b.WriteString(sessionMetaStyle.Render(previewLine))
-			b.WriteString("\n")
+			b.WriteString(sessionMetaStyle.Render("  "))
+			b.WriteString(lineTitle)
 		}
+		b.WriteString("\n")
+		b.WriteString(sessionMetaStyle.Render(previewLine))
+		b.WriteString("\n")
 	}
 
 	b.WriteString("\n")
