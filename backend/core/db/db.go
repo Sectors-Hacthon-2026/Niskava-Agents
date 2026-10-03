@@ -487,6 +487,68 @@ func (d *DB) GetAnomaliesByInvestigation(invID string) ([]Anomaly, error) {
 	return results, nil
 }
 
+// RadarAnomalyItem represents a quantitative anomaly enriched with investigation ticker for market radar screener.
+type RadarAnomalyItem struct {
+	ID              string  `json:"id"`
+	InvestigationID string  `json:"investigation_id"`
+	Ticker          string  `json:"ticker"`
+	AnomalyDate     string  `json:"anomaly_date"`
+	MetricType      string  `json:"metric_type"`
+	MetricValue     float64 `json:"metric_value"`
+	BaselineValue   float64 `json:"baseline_value"`
+	ZScore          float64 `json:"z_score"`
+	Description     string  `json:"description"`
+	CreatedAt       string  `json:"created_at"`
+}
+
+// ListLatestRadarAnomalies retrieves top detected anomalies above minZScore across investigations.
+func (d *DB) ListLatestRadarAnomalies(limit int, minZScore float64) ([]RadarAnomalyItem, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	query := `
+		SELECT a.id, a.investigation_id, i.ticker, a.anomaly_date, a.metric_type, a.metric_value, a.baseline_value, a.z_score, a.description, a.created_at
+		FROM anomalies a
+		JOIN investigations i ON a.investigation_id = i.id
+		WHERE ABS(a.z_score) >= ?
+		ORDER BY a.anomaly_date DESC, ABS(a.z_score) DESC, a.created_at DESC
+		LIMIT ?
+	`
+	rows, err := d.conn.Query(query, minZScore, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query radar anomalies: %w", err)
+	}
+	defer rows.Close()
+
+	var results []RadarAnomalyItem
+	for rows.Next() {
+		var item RadarAnomalyItem
+		var desc sql.NullString
+		if err := rows.Scan(
+			&item.ID,
+			&item.InvestigationID,
+			&item.Ticker,
+			&item.AnomalyDate,
+			&item.MetricType,
+			&item.MetricValue,
+			&item.BaselineValue,
+			&item.ZScore,
+			&desc,
+			&item.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan radar anomaly: %w", err)
+		}
+		if desc.Valid {
+			item.Description = desc.String
+		}
+		results = append(results, item)
+	}
+	if results == nil {
+		results = []RadarAnomalyItem{}
+	}
+	return results, nil
+}
+
 // CreateAnomaly records a quantitative anomaly in the database.
 func (d *DB) CreateAnomaly(a *Anomaly) error {
 	query := `
@@ -1640,6 +1702,22 @@ func (d *DB) GetSectorsCache(cacheKey string) (string, error) {
 	`
 	var payload string
 	err := d.conn.QueryRow(query, cacheKey).Scan(&payload)
+	if err != nil {
+		return "", err
+	}
+	return payload, nil
+}
+
+// GetCachedDailyCandles retrieves the most recent unexpired cached daily candlestick payload for a ticker.
+func (d *DB) GetCachedDailyCandles(ticker string) (string, error) {
+	query := `
+		SELECT payload_json FROM sectors_cache
+		WHERE (endpoint LIKE '%/daily/' || ? || '%' OR endpoint LIKE '%/daily/' || LOWER(?) || '%')
+		  AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+		ORDER BY created_at DESC LIMIT 1
+	`
+	var payload string
+	err := d.conn.QueryRow(query, strings.ToUpper(ticker), strings.ToLower(ticker)).Scan(&payload)
 	if err != nil {
 		return "", err
 	}
