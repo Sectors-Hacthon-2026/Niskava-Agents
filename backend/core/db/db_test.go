@@ -1151,4 +1151,3 @@ func TestChatAttachmentsCRUD(t *testing.T) {
 		t.Fatalf("Expected nil after delete, got %+v", afterDelete)
 	}
 }
-

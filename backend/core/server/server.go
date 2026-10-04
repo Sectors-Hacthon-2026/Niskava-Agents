@@ -2272,7 +2272,6 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 					}
 				}
 
-
 				if ev.Event == ipc.EventAnomalyDetected && database != nil {
 					_ = database.EnsureInvestigationSession(sessionID, ev.Ticker)
 					anomID := fmt.Sprintf("ANOM-%s-%s-%d", sessionID, ev.AnomalyDate, time.Now().UnixNano()%100000)

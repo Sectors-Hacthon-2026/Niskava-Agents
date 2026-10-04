@@ -337,4 +337,3 @@ func TestRunnerParamsAttachmentArgs(t *testing.T) {
 		t.Fatalf("Expected --attachments argument in args, got: %v", args)
 	}
 }
-

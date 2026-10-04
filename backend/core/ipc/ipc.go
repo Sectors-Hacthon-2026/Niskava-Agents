@@ -80,14 +80,14 @@ type Event struct {
 
 // RunnerParams defines parameters to invoke the Python engine.
 type RunnerParams struct {
-	PythonBin    string
-	EnginePath   string
-	WorkDir      string
-	DBPath       string
-	Ticker       string
-	Days         int
-	SessionID    string
-	Offline      bool
+	PythonBin       string
+	EnginePath      string
+	WorkDir         string
+	DBPath          string
+	Ticker          string
+	Days            int
+	SessionID       string
+	Offline         bool
 	Prompt          string
 	Language        string
 	AttachmentPaths []string
