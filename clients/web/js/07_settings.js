@@ -377,7 +377,7 @@
                     });
                 }
 
-                // Formal 7-Stage Investigation Handlers
+                // Market Radar & Forensic Dossier Handlers
                 let selectedInvestigationId = null;
                 const btnInvBackToChat = document.getElementById('btnInvBackToChat');
                 if (btnInvBackToChat) {
@@ -392,6 +392,243 @@
                         }
                         switchMainView('chat');
                     });
+                }
+
+                const btnInvExportMd = document.getElementById('btnInvExportMd');
+                if (btnInvExportMd) {
+                    btnInvExportMd.addEventListener('click', () => {
+                        if (!selectedInvestigationId) {
+                            showToast(currentLang === 'en' ? 'No active investigation selected' : 'Belum ada sesi investigasi yang dipilih', true);
+                            return;
+                        }
+                        const titleEl = document.getElementById('invDossierTitle');
+                        const ticker = titleEl ? titleEl.textContent.replace('DOSSIER:', '').replace('HASIL AUDIT:', '').trim() : 'IDX';
+                        const zScore = document.getElementById('invDossierZScore')?.textContent || '-';
+                        const actualVol = document.getElementById('invDossierActualVol')?.textContent || '-';
+                        const baselineVol = document.getElementById('invDossierBaselineVol')?.textContent || '-';
+                        const returnDev = document.getElementById('invDossierReturnDev')?.textContent || '-';
+                        const dateStr = new Date().toISOString().slice(0, 10);
+
+                        let md = `# LAPORAN AUDIT OTONOM INTELIJEN PASAR: ${ticker}\n\n`;
+                        md += `**ID Sesi:** \`${selectedInvestigationId}\` | **Tanggal Ekspor:** ${dateStr}\n\n`;
+                        md += `## 1. Indikator Kuantitatif Deterministik (Law 1)\n\n`;
+                        md += `- **Volume Z-Score ($V_z$):** ${zScore}\n`;
+                        md += `- **Volume Perdagangan Aktual:** ${actualVol}\n`;
+                        md += `- **Baseline Historis MA20:** ${baselineVol}\n`;
+                        md += `- **Deviasi Return ($R_t$):** ${returnDev}\n\n`;
+
+                        md += `## 2. Matriks Verifikasi Bukti 3-Tier (Law 2)\n\n`;
+                        const findingCards = document.querySelectorAll('#invEvidenceContainer .evidence-item');
+                        if (findingCards.length > 0) {
+                            findingCards.forEach(c => {
+                                const claim = c.querySelector('.evidence-claim')?.textContent.trim() || '';
+                                const badge = c.querySelector('.evidence-status-badge')?.textContent.trim() || 'UNCERTAIN';
+                                const source = c.querySelector('.evidence-source')?.textContent.trim() || '-';
+                                md += `### [${badge}] ${claim}\n`;
+                                md += `- **Sumber Rujukan:** ${source}\n\n`;
+                            });
+                        } else {
+                            md += `*Data temuan matriks bukti diverifikasi langsung melalui dokumen keterbukaan informasi IDXnet.*\n\n`;
+                        }
+
+                        md += `## 3. Timeline Rekonsiliasi Kronologis Kausalitas\n\n`;
+                        const signals = document.querySelectorAll('#invTimelineContainer .signal-item');
+                        if (signals.length > 0) {
+                            signals.forEach(sig => {
+                                const time = sig.querySelector('.signal-time')?.textContent.trim() || '-';
+                                const title = sig.querySelector('.signal-title')?.textContent.trim() || '';
+                                const desc = sig.querySelector('.signal-desc')?.textContent.trim() || '';
+                                md += `- **${time}** - **${title}**: ${desc}\n`;
+                            });
+                            md += `\n`;
+                        }
+
+                        md += `> [!IMPORTANT]\n`;
+                        md += `> **Kepatuhan Regulasi Pasar Modal (Law 2 & Law 3):**\n`;
+                        md += `> Niskava Agent adalah platform riset intelijen pasar modal berbasis bukti untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi berizin dan BUKAN broker perdagangan saham. Seluruh dossier, skor anomali statistik, dan matriks bukti disajikan secara deskriptif untuk tujuan verifikasi fakta dan transparansi pasar, serta BUKAN merupakan rekomendasi beli/jual saham atau saran finansial terpersonalisasi.\n`;
+
+                        const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `niskava-audit-${ticker}-${selectedInvestigationId.slice(0, 8)}.md`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                        showToast(currentLang === 'en' ? 'Audit report markdown downloaded' : 'Laporan audit markdown berhasil diekspor');
+                    });
+                }
+
+                const btnRadarRefresh = document.getElementById('btnRadarRefresh');
+                if (btnRadarRefresh) {
+                    btnRadarRefresh.addEventListener('click', () => {
+                        loadRadarAnomalies();
+                        showToast(currentLang === 'en' ? 'Refreshing anomaly signals...' : 'Menyegarkan data anomali...');
+                    });
+                }
+
+                function formatRadarMetricName(type) {
+                    if (!type) return 'Volume Spike';
+                    if (type === 'volume_zscore') return 'Volume Anomaly (Vz)';
+                    if (type === 'price_zscore') return 'Price Volatility';
+                    if (type === 'foreign_flow_zscore') return 'Foreign Flow Divergence';
+                    return type.replace(/_/g, ' ').toUpperCase();
+                }
+
+                function formatRadarVolumeShort(num) {
+                    const val = Number(num);
+                    if (isNaN(val)) return '-';
+                    if (Math.abs(val) >= 1e9) return (val / 1e9).toFixed(1) + 'B';
+                    if (Math.abs(val) >= 1e6) return (val / 1e6).toFixed(1) + 'M';
+                    if (Math.abs(val) >= 1e3) return (val / 1e3).toFixed(1) + 'k';
+                    return val.toLocaleString('id-ID');
+                }
+
+                function renderRadarEmptyState(container) {
+                    if (!container) return;
+                    const msg = (typeof t === 'function' && t('radar_empty')) || (currentLang === 'en'
+                        ? 'No anomalies above 2.0σ threshold yet. Enter an IDX ticker below to inspect.'
+                        : 'Belum ada anomali terdeteksi melebihi ambang batas 2.0σ. Masukkan kode emiten di bawah untuk memeriksa.');
+                    container.innerHTML = `
+                        <div class="radar-empty-state">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                            <span>${msg}</span>
+                        </div>
+                    `;
+                }
+
+                async function loadRadarAnomalies() {
+                    const listEl = document.getElementById('radarAnomaliesList');
+                    if (!listEl) return;
+
+                    try {
+                        const res = await fetch(`${API_BASE}/api/radar/anomalies?limit=12&min_z=2.0`);
+                        if (!res.ok) {
+                            renderRadarEmptyState(listEl);
+                            return;
+                        }
+                        const data = await res.json();
+                        const rawAnomalies = (data && Array.isArray(data.anomalies)) ? data.anomalies : [];
+
+                        // Deduplicate tickers so each ticker appears at most once in the screener
+                        const seenTickers = new Set();
+                        const anomalies = [];
+                        for (const item of rawAnomalies) {
+                            const t = (item.ticker || '').trim().toUpperCase();
+                            if (t && !seenTickers.has(t)) {
+                                seenTickers.add(t);
+                                anomalies.push(item);
+                            }
+                        }
+
+                        if (anomalies.length === 0) {
+                            renderRadarEmptyState(listEl);
+                            return;
+                        }
+
+                        listEl.innerHTML = '';
+                        anomalies.forEach((item) => {
+                            const z = Number(item.z_score || 0);
+                            const ticker = escapeHtml(item.ticker || 'IDX');
+                            const invId = item.investigation_id || `INV-${ticker}`;
+                            const dateStr = item.anomaly_date || (item.created_at ? item.created_at.slice(0, 10) : '');
+
+                            let zBadgeClass = 'radar-zscore-normal';
+                            if (Math.abs(z) >= 3.0) {
+                                zBadgeClass = 'radar-zscore-critical';
+                            } else if (Math.abs(z) >= 2.5) {
+                                zBadgeClass = 'radar-zscore-warning';
+                            }
+
+                            const metricLabel = item.metric_type ? formatRadarMetricName(item.metric_type) : 'Volume Spike';
+                            let metricDetail = '';
+                            if (item.metric_value && item.baseline_value) {
+                                metricDetail = `Aktual ${formatRadarVolumeShort(item.metric_value)} / MA20 ${formatRadarVolumeShort(item.baseline_value)}`;
+                            } else if (item.description) {
+                                metricDetail = escapeHtml(item.description);
+                            }
+
+                            const card = document.createElement('div');
+                            card.className = 'radar-card';
+                            card.setAttribute('role', 'button');
+                            card.setAttribute('tabindex', '0');
+                            card.title = `${ticker}: Z-Score ${z >= 0 ? '+' : ''}${z.toFixed(2)}σ (${metricLabel})`;
+                            const inspectLabel = (typeof t === 'function' && t('radar_btn_inspect')) || (currentLang === 'en' ? 'Audit Stock' : 'Audit Saham Ini');
+
+                            card.innerHTML = `
+                                <div class="radar-card-top">
+                                    <span class="radar-card-ticker">${ticker}</span>
+                                    <span class="radar-card-zscore ${zBadgeClass}">${z >= 0 ? '+' : ''}${z.toFixed(2)}σ</span>
+                                </div>
+                                <div class="radar-card-metric">
+                                    <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(metricLabel)}</span>
+                                    <span class="radar-card-metric-val">${metricDetail || '-'}</span>
+                                </div>
+                                <div class="radar-card-date">${dateStr ? escapeHtml(dateStr) : '-'}</div>
+                                <button class="radar-card-btn" type="button">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                    <span>${inspectLabel}</span>
+                                </button>
+                            `;
+
+                            const onInspect = (e) => {
+                                if (e) e.stopPropagation();
+                                inspectRadarCase(item);
+                            };
+
+                            card.addEventListener('click', onInspect);
+                            card.addEventListener('keydown', (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    onInspect(e);
+                                }
+                            });
+
+                            const inspectBtn = card.querySelector('.radar-card-btn');
+                            if (inspectBtn) {
+                                inspectBtn.addEventListener('click', onInspect);
+                            }
+
+                            listEl.appendChild(card);
+                        });
+
+                        // Auto-select first anomaly if none selected yet
+                        if (!selectedInvestigationId && anomalies.length > 0) {
+                            const first = anomalies[0];
+                            selectInvestigation(first.investigation_id || `INV-${first.ticker}`, first);
+                        }
+                    } catch (e) {
+                        console.warn('Gagal memuat anomali pasar:', e);
+                        renderRadarEmptyState(listEl);
+                    }
+                }
+
+                function inspectRadarCase(arg1, arg2) {
+                    let ticker = '';
+                    let invId = '';
+                    let meta = {};
+                    if (typeof arg1 === 'object' && arg1 !== null) {
+                        meta = arg1;
+                        ticker = (arg1.ticker || '').trim().toUpperCase();
+                        invId = arg1.investigation_id || ('INV-' + ticker);
+                    } else {
+                        ticker = (arg1 || '').trim().toUpperCase();
+                        invId = arg2 || ('INV-' + ticker);
+                        meta = { ticker: ticker };
+                    }
+                    if (!ticker) return;
+
+                    const inputInvTicker = document.getElementById('inputInvTicker');
+                    if (inputInvTicker) {
+                        inputInvTicker.value = ticker;
+                    }
+                    selectInvestigation(invId, meta);
+                    const dossierCard = document.getElementById('invDossierCard');
+                    if (dossierCard) {
+                        dossierCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                    showToast(currentLang === 'en' ? `Inspecting audit for ${ticker}` : `Membuka audit saham ${ticker}`);
                 }
 
                 const btnRunFormalInvestigation = document.getElementById('btnRunFormalInvestigation');
@@ -414,66 +651,73 @@
                             chatInput.value = `Jalankan investigasi formal 7-tahap otonom pada emiten ${ticker} untuk observasi ${days} hari terakhir.`;
                             handleSendMessage();
                         }
-                        showToast(currentLang === 'en' ? `Starting 7-stage investigation for ${ticker}...` : `Memulai investigasi 7-tahap untuk ${ticker}...`);
+                        showToast(currentLang === 'en' ? `Starting audit for ${ticker}...` : `Memulai audit emiten ${ticker}...`);
                     });
                 }
 
                 async function loadInvestigations() {
-                    const invHistoryList = document.getElementById('invHistoryList');
-                    const invTotalCount = document.getElementById('invTotalCount');
-                    if (!invHistoryList) return;
-
-                    try {
-                        const res = await fetch(`${API_BASE}/api/investigations`);
-                        if (!res.ok) {
-                            invHistoryList.innerHTML = `<div style="font-size:11.5px; color:var(--text-muted); text-align:center; padding:20px 0;">${currentLang === 'en' ? 'No saved investigation sessions yet.' : 'Belum ada sesi investigasi tersimpan.'}</div>`;
-                            return;
-                        }
-                        const list = await res.json();
-                        if (!Array.isArray(list) || list.length === 0) {
-                            invHistoryList.innerHTML = `<div style="font-size:11.5px; color:var(--text-muted); text-align:center; padding:20px 0;">${currentLang === 'en' ? 'No investigation sessions. Click "Run Formal Audit" to start.' : 'Belum ada sesi investigasi. Klik "Mulai Audit Otonom" untuk memulai.'}</div>`;
-                            if (invTotalCount) invTotalCount.textContent = currentLang === 'en' ? '0 Sessions' : '0 Sesi';
-                            return;
-                        }
-
-                        if (invTotalCount) invTotalCount.textContent = `${list.length} ${currentLang === 'en' ? 'Sessions' : 'Sesi'}`;
-                        invHistoryList.innerHTML = '';
-
-                        list.forEach((item, idx) => {
-                            const sid = item.id || item.session_id || `INV-${idx}`;
-                            const title = item.title || item.ticker || `Investigasi ${sid.slice(0, 8)}`;
-                            const timeStr = item.created_at ? new Date(item.created_at).toLocaleDateString(currentLang === 'en' ? 'en-US' : 'id-ID', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : (currentLang === 'en' ? 'Just now' : 'Baru saja');
-                            const status = (item.status || 'COMPLETED').toUpperCase();
-
-                            const row = document.createElement('div');
-                            row.className = `inv-history-item ${selectedInvestigationId === sid ? 'active' : ''}`;
-                            row.innerHTML = `
-                                <div class="inv-history-item-title">${escapeHtml(title)}</div>
-                                <div class="inv-history-item-sub">
-                                    <span>${timeStr}</span>
-                                    <span class="inv-status-pill inv-status-${status === 'COMPLETED' ? 'completed' : 'running'}">${status}</span>
-                                </div>
-                            `;
-                            row.addEventListener('click', () => {
-                                document.querySelectorAll('.inv-history-item').forEach(el => el.classList.remove('active'));
-                                row.classList.add('active');
-                                selectInvestigation(sid, item);
-                            });
-                            invHistoryList.appendChild(row);
-                        });
-
-                        // Auto-select first item if none selected
-                        if (!selectedInvestigationId && list.length > 0) {
-                            const firstId = list[0].id || list[0].session_id;
-                            const firstRow = invHistoryList.querySelector('.inv-history-item');
-                            if (firstRow) firstRow.classList.add('active');
-                            selectInvestigation(firstId, list[0]);
-                        }
-                    } catch (e) {
-                        console.warn('Gagal memuat daftar investigasi:', e);
-                        invHistoryList.innerHTML = '<div style="font-size:11.5px; color:#EF4444; text-align:center; padding:20px 0;">Gagal memuat daftar investigasi.</div>';
-                    }
+                    // Load anomaly screener strip and auto-populate active case
+                    loadRadarAnomalies();
                 }
+
+                function formatVolumeCompact(num) {
+                    const n = Number(num) || 0;
+                    if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+                    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+                    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+                    return n.toLocaleString('id-ID');
+                }
+
+                function renderDossierEvidenceEmpty(ticker) {
+                    const isEn = currentLang === 'en';
+                    return `
+                        <div class="dossier-empty-state">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                            <strong>${isEn ? `No Verified Evidence Dossier for ${escapeHtml(ticker)}` : `Belum Ada Berkas Bukti Terverifikasi untuk ${escapeHtml(ticker)}`}</strong>
+                            <span>${isEn ? 'This stock has not completed a 7-stage causality audit. Start an investigation to correlate IDXnet disclosures and official news.' : 'Emiten ini belum melewati audit kausalitas 7-tahap. Mulai investigasi untuk menyaring keterbukaan informasi IDXnet dan berita bursa.'}</span>
+                            <button class="btn-primary" style="margin-top:6px;" onclick="initiateAuditFromDossier('${escapeHtml(ticker)}')">
+                                ${isEn ? `Start Causality Audit for ${escapeHtml(ticker)}` : `Mulai Audit Kausalitas ${escapeHtml(ticker)}`}
+                            </button>
+                        </div>
+                    `;
+                }
+
+                window.initiateAuditFromDossier = function(ticker) {
+                    switchMainView('chat');
+                    const chatInput = document.getElementById('chatInput');
+                    if (chatInput) {
+                        chatInput.value = `Jalankan investigasi formal 7-tahap otonom pada emiten ${ticker} untuk observasi 30 hari terakhir.`;
+                        if (typeof handleSendMessage === 'function') {
+                            handleSendMessage();
+                        }
+                    }
+                    showToast(currentLang === 'en' ? `Starting audit for ${ticker}...` : `Memulai audit emiten ${ticker}...`);
+                };
+
+                window.openDossierFromChat = function(ticker) {
+                    if (!ticker) return;
+                    const cleanTicker = ticker.trim().toUpperCase();
+
+                    // 1. Switch view to investigations dossier
+                    if (typeof switchMainView === 'function') {
+                        switchMainView('investigations');
+                    }
+
+                    // 2. Select ticker in dossier and load real candles & evidence
+                    if (typeof inspectRadarCase === 'function') {
+                        inspectRadarCase({
+                            ticker: cleanTicker,
+                            investigation_id: 'INV-' + cleanTicker
+                        });
+                    }
+
+                    // 3. Smoothly scroll dossier into view
+                    const dossierCard = document.getElementById('invDossierCard');
+                    if (dossierCard) {
+                        dossierCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                    showToast(typeof currentLang !== 'undefined' && currentLang === 'en' ? `Opened ${cleanTicker} dossier` : `Membuka berkas dossier ${cleanTicker}`);
+                };
 
                 async function selectInvestigation(invId, invMeta) {
                     selectedInvestigationId = invId;
@@ -486,78 +730,90 @@
                     if (emptyEl) emptyEl.style.display = 'none';
                     if (contentEl) contentEl.style.display = 'flex';
 
-                    const ticker = (invMeta && invMeta.ticker) || (invMeta && invMeta.title) || invId;
-                    if (titleEl) titleEl.textContent = `DOSSIER: ${ticker}`;
+                    const ticker = (invMeta && invMeta.ticker) || (invMeta && invMeta.title) || (invId ? invId.replace(/^INV-/, '') : 'IDX');
+                    if (titleEl) titleEl.textContent = `HASIL AUDIT: ${ticker}`;
                     if (statusEl) {
                         const st = (invMeta && invMeta.status) || 'COMPLETED';
                         statusEl.textContent = st;
                         statusEl.className = `inv-status-pill inv-status-${st.toLowerCase() === 'completed' ? 'completed' : 'running'}`;
                     }
                     if (metaEl) {
-                        metaEl.textContent = `${currentLang === 'en' ? 'Session' : 'Sesi'}: ${invId} | ${currentLang === 'en' ? 'Created' : 'Dibuat'}: ${invMeta && invMeta.created_at ? new Date(invMeta.created_at).toLocaleString(currentLang === 'en' ? 'en-US' : 'id-ID') : (currentLang === 'en' ? 'Today' : 'Hari ini')}`;
+                        metaEl.textContent = `${currentLang === 'en' ? 'Observation Horizon: 30 Trading Days | Sources: Sectors Financial API v2 & IDXnet' : 'Horizon: 30 Hari Perdagangan | Sumber: Sectors Financial API v2 & IDXnet'}`;
                     }
 
                     // 1. Fetch Anomalies (Law 1)
+                    let anom = null;
                     try {
                         const anomRes = await fetch(`${API_BASE}/api/investigations/${invId}/anomalies`);
                         if (anomRes.ok) {
-                            const anomalies = await anomRes.json();
-                            const anom = Array.isArray(anomalies) && anomalies.length > 0 ? anomalies[0] : null;
-                            const zScoreEl = document.getElementById('invDossierZScore');
-                            const actualVolEl = document.getElementById('invDossierActualVol');
-                            const baselineVolEl = document.getElementById('invDossierBaselineVol');
-                            const returnDevEl = document.getElementById('invDossierReturnDev');
-
-                            if (anom) {
-                                const z = Number(anom.z_score || 0);
-                                if (zScoreEl) {
-                                    zScoreEl.textContent = `${z >= 0 ? '+' : ''}${z.toFixed(2)}σ`;
-                                    zScoreEl.style.color = z >= 2.5 ? '#F6465D' : '#10B981';
-                                }
-                                if (actualVolEl) actualVolEl.textContent = (anom.actual_value || 0).toLocaleString('id-ID');
-                                if (baselineVolEl) baselineVolEl.textContent = (anom.baseline_mean || 0).toLocaleString('id-ID');
-                                if (returnDevEl) {
-                                    returnDevEl.textContent = anom.metric_type ? `${anom.metric_type}` : `${(z * 1.5).toFixed(1)}%`;
-                                }
-                            } else {
-                                if (zScoreEl) zScoreEl.textContent = '+2.85σ';
-                                if (actualVolEl) actualVolEl.textContent = '148.5M';
-                                if (baselineVolEl) baselineVolEl.textContent = '42.1M';
-                                if (returnDevEl) returnDevEl.textContent = '+12.4%';
-                            }
+                            const anomData = await anomRes.json();
+                            const anomalies = Array.isArray(anomData) ? anomData : (anomData.anomalies || []);
+                            if (anomalies.length > 0) anom = anomalies[0];
                         }
                     } catch (e) {
                         console.warn('Gagal memuat anomali investigasi:', e);
                     }
 
-                    // 2. Render Candlestick Chart (TradingView)
+                    const zVal = (anom && anom.z_score != null) ? Number(anom.z_score) : (invMeta && invMeta.z_score != null ? Number(invMeta.z_score) : null);
+                    const actualVal = (anom && anom.actual_value != null) ? anom.actual_value : (invMeta && invMeta.actual_value != null ? invMeta.actual_value : null);
+                    const baseVal = (anom && anom.baseline_mean != null) ? anom.baseline_mean : (invMeta && invMeta.baseline_value != null ? invMeta.baseline_value : null);
+                    const devVal = (anom && anom.metric_type && anom.metric_type !== 'volume_z_score') ? anom.metric_type : ((invMeta && invMeta.metric_type) || '-');
+
+                    const zScoreEl = document.getElementById('invDossierZScore');
+                    const actualVolEl = document.getElementById('invDossierActualVol');
+                    const baselineVolEl = document.getElementById('invDossierBaselineVol');
+                    const returnDevEl = document.getElementById('invDossierReturnDev');
+
+                    if (zScoreEl) {
+                        if (zVal != null && !isNaN(zVal)) {
+                            zScoreEl.textContent = `${zVal >= 0 ? '+' : ''}${zVal.toFixed(2)}σ`;
+                            zScoreEl.style.color = Math.abs(zVal) >= 3.0 ? '#AD1C1C' : (Math.abs(zVal) >= 2.5 ? '#8C5600' : '#0F6735');
+                        } else {
+                            zScoreEl.textContent = '-';
+                            zScoreEl.style.color = 'var(--text-muted)';
+                        }
+                    }
+                    if (actualVolEl) actualVolEl.textContent = actualVal != null ? formatVolumeCompact(actualVal) : '-';
+                    if (baselineVolEl) baselineVolEl.textContent = baseVal != null ? formatVolumeCompact(baseVal) : '-';
+                    if (returnDevEl) returnDevEl.textContent = devVal;
+
+                    // 2. Render Candlestick Chart (TradingView with real market candles & provenance badge)
                     try {
                         const chartContainer = document.getElementById('invChartContainer');
                         if (chartContainer) {
-                            const today = new Date();
-                            const sampleCandles = [];
-                            let price = 1500;
-                            for (let i = 20; i >= 0; i--) {
-                                const d = new Date(today);
-                                d.setDate(d.getDate() - i);
-                                const dateStr = d.toISOString().split('T')[0];
-                                const isAnomaly = (i === 1);
-                                const open = price;
-                                const high = isAnomaly ? price * 1.08 : price * 1.02;
-                                const low = price * 0.98;
-                                const close = isAnomaly ? price * 1.06 : price * 1.01;
-                                const vol = isAnomaly ? 148500000 : 35000000 + Math.random() * 20000000;
-                                price = close;
-                                sampleCandles.push({
-                                    time: dateStr,
-                                    open: Math.round(open),
-                                    high: Math.round(high),
-                                    low: Math.round(low),
-                                    close: Math.round(close),
-                                    volume: Math.round(vol)
-                                });
+                            const candleRes = await fetch(`${API_BASE}/api/market/candles?ticker=${encodeURIComponent(ticker)}&days=30`);
+                            let candles = [];
+                            const badgeEl = document.getElementById('invChartSourceBadge');
+                            if (candleRes.ok) {
+                                const candleJson = await candleRes.json();
+                                if (badgeEl) {
+                                    if (candleJson.source === 'sectors_api') {
+                                        badgeEl.className = 'source-badge source-badge-live';
+                                        badgeEl.textContent = '● LIVE: Sectors Financial API v2';
+                                    } else if (candleJson.source === 'cache') {
+                                        badgeEl.className = 'source-badge source-badge-live';
+                                        badgeEl.textContent = '● CACHE: Sectors API v2 (Permanent)';
+                                    } else {
+                                        badgeEl.className = 'source-badge source-badge-synthetic';
+                                        badgeEl.textContent = '▲ SIMULASI: Offline Synthetic Generator';
+                                    }
+                                }
+                                if (candleJson && Array.isArray(candleJson.data) && candleJson.data.length > 0) {
+                                    candles = candleJson.data.map(c => ({
+                                        time: c.date,
+                                        open: Number(c.open),
+                                        high: Number(c.high),
+                                        low: Number(c.low),
+                                        close: Number(c.close),
+                                        volume: Number(c.volume)
+                                    }));
+                                }
+                            } else if (badgeEl) {
+                                badgeEl.className = 'source-badge source-badge-error';
+                                badgeEl.textContent = '✕ Error Data Pasar';
                             }
-                            renderTradingViewCandlestick('invChartContainer', sampleCandles, sampleCandles[sampleCandles.length - 2]?.time);
+                            const anomalyDate = (anom && anom.anomaly_date) || (invMeta && invMeta.anomaly_date) || (candles.length > 5 ? candles[candles.length - 4].time : undefined);
+                            renderTradingViewCandlestick('invChartContainer', candles, anomalyDate);
                         }
                     } catch (e) {
                         console.warn('Gagal render chart candlestick investigasi:', e);
@@ -568,61 +824,49 @@
                         const findRes = await fetch(`${API_BASE}/api/investigations/${invId}/findings`);
                         const evidenceContainer = document.getElementById('invEvidenceContainer');
                         if (evidenceContainer) {
+                            let findings = [];
                             if (findRes.ok) {
-                                const findings = await findRes.json();
-                                if (Array.isArray(findings) && findings.length > 0) {
-                                    evidenceContainer.innerHTML = renderEvidenceMatrixHTML(findings);
-                                } else {
-                                    // Default standard finding according to Law 2
-                                    const isEn = currentLang === 'en';
-                                    evidenceContainer.innerHTML = renderEvidenceMatrixHTML([
-                                        {
-                                            title: isEn ? `Trading Volume Spike for ${ticker}` : `Lonjakan Volume Perdagangan ${ticker}`,
-                                            claim: isEn ? `Trading volume spiked significantly above the deterministic 2.50σ threshold relative to the 20-day baseline.` : `Volume perdagangan tercatat melonjak signifikan melewati ambang batas deterministik 2.50σ baseline 20 hari.`,
-                                            verification_status: 'SUPPORTED',
-                                            confidence_score: 0.94,
-                                            sources: [isEn ? 'IDXnet Corporate Disclosures' : 'IDXnet Keterbukaan Informasi', 'Historical Trade Feed']
-                                        },
-                                        {
-                                            title: isEn ? 'News Sentiment & Market Rumors' : 'Sentimen Berita & Rumor Pasar',
-                                            claim: isEn ? 'Media reporting concerning restructuring or corporate actions has not yet been confirmed by official IDX filings.' : 'Pemberitaan media mengenai restrukturisasi atau aksi korporasi belum terkonfirmasi oleh keterbukaan resmi IDX.',
-                                            verification_status: 'UNCERTAIN',
-                                            confidence_score: 0.52,
-                                            sources: [isEn ? 'Financial Media Feeds' : 'Portal Media Keuangan', 'Social Feeds']
-                                        }
-                                    ]);
-                                }
+                                const findJson = await findRes.json();
+                                findings = Array.isArray(findJson) ? findJson : (findJson.findings || []);
+                            }
+                            if (findings.length > 0) {
+                                evidenceContainer.innerHTML = renderEvidenceMatrixHTML(findings);
+                            } else {
+                                evidenceContainer.innerHTML = renderDossierEvidenceEmpty(ticker);
                             }
                         }
                     } catch (e) {
                         console.warn('Gagal memuat findings:', e);
                     }
 
-                    // 4. Render Evidence & News Timeline
+                    // 4. Render Evidence & News Timeline (Dynamic from API)
                     const timelineContainer = document.getElementById('invTimelineContainer');
                     if (timelineContainer) {
+                        try {
+                            const timeRes = await fetch(`${API_BASE}/api/investigations/${invId}/timeline`);
+                            if (timeRes.ok) {
+                                const timeData = await timeRes.json();
+                                const events = Array.isArray(timeData.events) ? timeData.events : [];
+                                if (events.length > 0) {
+                                    timelineContainer.innerHTML = events.map(ev => `
+                                        <div class="signal-item">
+                                            <span class="signal-time">${escapeHtml(ev.event_timestamp || '')}</span>
+                                            <div class="signal-body">
+                                                <strong class="signal-title">${escapeHtml(ev.headline || ev.event_type || '')}</strong>
+                                                <p class="signal-desc">${escapeHtml(ev.details || '')}</p>
+                                            </div>
+                                        </div>
+                                    `).join('');
+                                    return;
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Gagal memuat timeline:', e);
+                        }
                         const isEn = currentLang === 'en';
                         timelineContainer.innerHTML = `
-                            <div class="signal-item">
-                                <span class="signal-time">${isEn ? 'Today, 09:05' : 'Hari ini, 09:05'}</span>
-                                <div class="signal-body">
-                                    <strong class="signal-title">${isEn ? 'Volume Spike Anomaly Detection (Z-Score ≥ 2.50σ)' : 'Deteksi Anomali Volume Spike (Z-Score ≥ 2.50σ)'}</strong>
-                                    <p class="signal-desc">${isEn ? `System detected abnormal trading volume for ${ticker} exceeding MA20 baseline.` : `Sistem mendeteksi lonjakan volume perdagangan ${ticker} melampaui rata-rata MA20.`}</p>
-                                </div>
-                            </div>
-                            <div class="signal-item">
-                                <span class="signal-time">${isEn ? 'Today, 09:06' : 'Hari ini, 09:06'}</span>
-                                <div class="signal-body">
-                                    <strong class="signal-title">${isEn ? 'IDXnet Corporate Disclosures Cross-Reference' : 'Cross-Reference Keterbukaan Informasi IDXnet'}</strong>
-                                    <p class="signal-desc">${isEn ? 'Correlating company regulatory disclosures and exchange announcements.' : 'Korelasi dokumen keterbukaan informasi emiten dan pengumuman bursa BEI.'}</p>
-                                </div>
-                            </div>
-                            <div class="signal-item">
-                                <span class="signal-time">${isEn ? 'Today, 09:07' : 'Hari ini, 09:07'}</span>
-                                <div class="signal-body">
-                                    <strong class="signal-title">${isEn ? 'Evidence Matrix Synthesis & Causality Reconciliation' : 'Sintesis Matriks Bukti & Rekonsiliasi Kausalitas'}</strong>
-                                    <p class="signal-desc">${isEn ? 'Classifying findings into Law 2 3-tier taxonomy (Supported, Uncertain, Contradicted).' : 'Klasifikasi temuan ke dalam taksonomi 3-tier (Supported, Uncertain, Contradicted) Law 2.'}</p>
-                                </div>
+                            <div class="dossier-empty-state">
+                                <span>${isEn ? 'No timeline events recorded yet. Chronological events will appear here once the investigation is executed.' : 'Belum ada kronologi peristiwa. Peristiwa kronologis akan tercatat otomatis saat investigasi dijalankan.'}</span>
                             </div>
                         `;
                     }
