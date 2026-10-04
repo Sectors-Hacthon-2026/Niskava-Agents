@@ -313,3 +313,28 @@ func TestResolveRepoRootUserSpaceFallback(t *testing.T) {
 		t.Errorf("ResolveRepoRoot did not find ~/.niskava fallback, got: %s, want: %s", root, expected)
 	}
 }
+
+func TestRunnerParamsAttachmentArgs(t *testing.T) {
+	params := RunnerParams{
+		PythonBin:       "python3",
+		WorkDir:         t.TempDir(),
+		DBPath:          "/tmp/test.db",
+		Prompt:          "Analisis laporan keuangan terlampir",
+		AttachmentPaths: []string{"/tmp/doc1.pdf", "/tmp/doc2.csv"},
+	}
+
+	args := params.BuildArgs()
+	found := false
+	for i, arg := range args {
+		if arg == "--attachments" && i+1 < len(args) {
+			if args[i+1] == "/tmp/doc1.pdf,/tmp/doc2.csv" {
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("Expected --attachments argument in args, got: %v", args)
+	}
+}
+

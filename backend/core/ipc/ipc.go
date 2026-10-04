@@ -88,9 +88,40 @@ type RunnerParams struct {
 	Days         int
 	SessionID    string
 	Offline      bool
-	Prompt       string
-	Language     string
-	EnvOverrides map[string]string
+	Prompt          string
+	Language        string
+	AttachmentPaths []string
+	EnvOverrides    map[string]string
+}
+
+// BuildArgs constructs the python subprocess command line arguments.
+func (p RunnerParams) BuildArgs() []string {
+	args := []string{
+		"-m", "engine.runner",
+		"--db-path", p.DBPath,
+	}
+	if p.Prompt != "" {
+		args = append(args, "--prompt", p.Prompt)
+	}
+	if p.Ticker != "" {
+		args = append(args, "--ticker", p.Ticker)
+	}
+	if p.Days > 0 {
+		args = append(args, "--days", fmt.Sprintf("%d", p.Days))
+	}
+	if p.SessionID != "" {
+		args = append(args, "--session", p.SessionID)
+	}
+	if len(p.AttachmentPaths) > 0 {
+		args = append(args, "--attachments", strings.Join(p.AttachmentPaths, ","))
+	}
+	if p.Offline {
+		args = append(args, "--offline")
+	}
+	if p.Language != "" {
+		args = append(args, "--language", p.Language)
+	}
+	return args
 }
 
 // RunConversationStream spawns the Python runner for interactive or batch conversation turns.
@@ -359,53 +390,49 @@ func RunSubprocess(ctx context.Context, params RunnerParams) (<-chan Event, <-ch
 			}
 		}
 
-		args := []string{
-			"-m", "engine.runner",
-			"--db-path", params.DBPath,
-		}
-		if params.Prompt != "" {
-			args = append(args, "--prompt", params.Prompt)
-		}
-		if params.Ticker != "" {
-			args = append(args, "--ticker", params.Ticker)
-		}
-		if params.Days > 0 {
-			args = append(args, "--days", fmt.Sprintf("%d", params.Days))
-		}
-		if params.SessionID != "" {
-			args = append(args, "--session", params.SessionID)
-		}
-		if params.Offline {
-			args = append(args, "--offline")
-		}
-		if params.Language != "" {
-			args = append(args, "--language", params.Language)
-		}
-
+		args := params.BuildArgs()
 		cmd := exec.CommandContext(ctx, pythonBin, args...)
 		cmd.Dir = workDir
 
-		// Ensure PYTHONPATH includes backend directory, WorkDir, and environment PYTHONPATH
+		// Ensure PYTHONPATH prioritizes active repository workspace before ~/.niskava fallback
+		var pPaths []string
 		backendDir := filepath.Join(workDir, "backend")
-		pythonPath := backendDir + string(filepath.ListSeparator) + workDir
-		if _, err := os.Stat(filepath.Join(workDir, "engine", "runner.py")); err == nil {
-			pythonPath = workDir + string(filepath.ListSeparator) + pythonPath
-		}
+
+		// 1. Explicit NISKAVA_ROOT environment variable (highest precedence if set)
 		if envRoot := os.Getenv("NISKAVA_ROOT"); envRoot != "" {
-			pythonPath = filepath.Join(envRoot, "backend") + string(filepath.ListSeparator) + envRoot + string(filepath.ListSeparator) + pythonPath
+			if _, err := os.Stat(filepath.Join(envRoot, "backend", "engine", "runner.py")); err == nil {
+				pPaths = append(pPaths, filepath.Join(envRoot, "backend"), envRoot)
+			} else if _, err := os.Stat(filepath.Join(envRoot, "engine", "runner.py")); err == nil {
+				pPaths = append(pPaths, envRoot)
+			}
 		}
+
+		// 2. Active repository / workspace engine (takes precedence over ~/.niskava cache)
+		if _, err := os.Stat(filepath.Join(backendDir, "engine", "runner.py")); err == nil {
+			pPaths = append(pPaths, backendDir, workDir)
+		} else if _, err := os.Stat(filepath.Join(workDir, "engine", "runner.py")); err == nil {
+			pPaths = append(pPaths, workDir)
+		}
+
+		// 3. Optional params.WorkDir override
+		if params.WorkDir != "" && params.WorkDir != workDir {
+			pPaths = append(pPaths, params.WorkDir)
+		}
+
+		// 4. User-space fallback ~/.niskava
 		if home, err := os.UserHomeDir(); err == nil && home != "" {
 			userEngine := filepath.Join(home, ".niskava")
 			if _, err := os.Stat(filepath.Join(userEngine, "engine", "runner.py")); err == nil {
-				pythonPath = userEngine + string(filepath.ListSeparator) + pythonPath
+				pPaths = append(pPaths, userEngine)
 			}
 		}
-		if params.WorkDir != "" && params.WorkDir != workDir {
-			pythonPath = pythonPath + string(filepath.ListSeparator) + params.WorkDir
-		}
+
+		// 5. Existing system PYTHONPATH
 		if existing := os.Getenv("PYTHONPATH"); existing != "" {
-			pythonPath = pythonPath + string(filepath.ListSeparator) + existing
+			pPaths = append(pPaths, existing)
 		}
+
+		pythonPath := strings.Join(pPaths, string(filepath.ListSeparator))
 		baseEnv := cmd.Environ()
 		overrideKeys := make(map[string]bool)
 		for k := range params.EnvOverrides {
