@@ -11,7 +11,7 @@ func TestRenderWorkspaceHTML(t *testing.T) {
 		t.Fatalf("expected workspace HTML to be > 100KB, got %d bytes", len(html))
 	}
 	expectedStrings := []string{
-		"NISKAVA — AI for Brighter Investments",
+		"NISKAVA - AI for Brighter Investments",
 		"lightweight-charts",
 		"btnToggleSidebar",
 		"btnSidebarClose",

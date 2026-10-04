@@ -492,7 +492,7 @@ func TestAllSpecificationTablesCreated(t *testing.T) {
 	expectedTables := []string{
 		"investigations", "anomalies", "findings", "evidence_items",
 		"timeline_events", "sectors_cache", "memory_nodes", "memory_edges",
-		"chat_sessions", "chat_messages", "suspension_records", "insider_filings",
+		"chat_sessions", "chat_messages", "chat_attachments", "suspension_records", "insider_filings",
 		"news_cache", "telegram_chats",
 	}
 
@@ -1089,5 +1089,65 @@ func TestGetInvestigationTimeline_EmptyReturnsNonNilSlice(t *testing.T) {
 	}
 	if events == nil || len(events) != 0 {
 		t.Fatalf("expected empty non-nil slice, got %#v", events)
+	}
+}
+
+func TestChatAttachmentsCRUD(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_attachments.db")
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer database.Close()
+
+	sampleText := "PT Aneka Tambang Q2 2026 Financial Highlights"
+	att := &ChatAttachment{
+		ID:            "DOC-TEST-001",
+		SessionID:     "SESS-001",
+		Filename:      "Financial_Report_Q2_2026.pdf",
+		FilePath:      filepath.Join(tempDir, "Financial_Report_Q2_2026.pdf"),
+		FileSize:      1048576,
+		MimeType:      "application/pdf",
+		PageCount:     32,
+		ExtractedText: &sampleText,
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+	}
+
+	err = database.SaveChatAttachment(att)
+	if err != nil {
+		t.Fatalf("SaveChatAttachment failed: %v", err)
+	}
+
+	retrieved, err := database.GetChatAttachment("DOC-TEST-001")
+	if err != nil {
+		t.Fatalf("GetChatAttachment failed: %v", err)
+	}
+	if retrieved == nil || retrieved.Filename != att.Filename || retrieved.PageCount != 32 {
+		t.Fatalf("Retrieved attachment mismatch: %+v", retrieved)
+	}
+	if retrieved.ExtractedText == nil || *retrieved.ExtractedText != sampleText {
+		t.Fatalf("ExtractedText mismatch, got %v", retrieved.ExtractedText)
+	}
+
+	list, err := database.GetChatAttachmentsBySession("SESS-001")
+	if err != nil {
+		t.Fatalf("GetChatAttachmentsBySession failed: %v", err)
+	}
+	if len(list) != 1 || list[0].ID != "DOC-TEST-001" {
+		t.Fatalf("Expected 1 attachment, got %d", len(list))
+	}
+
+	// Test Delete
+	err = database.DeleteChatAttachment("DOC-TEST-001")
+	if err != nil {
+		t.Fatalf("DeleteChatAttachment failed: %v", err)
+	}
+	afterDelete, err := database.GetChatAttachment("DOC-TEST-001")
+	if err != nil {
+		t.Fatalf("GetChatAttachment after delete error: %v", err)
+	}
+	if afterDelete != nil {
+		t.Fatalf("Expected nil after delete, got %+v", afterDelete)
 	}
 }

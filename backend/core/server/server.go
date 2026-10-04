@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"net/http"
@@ -143,8 +144,9 @@ func (s *Server) syncTelegramBotState() {
 
 // ChatRequest represents the JSON payload for /api/chat.
 type ChatRequest struct {
-	Prompt    string `json:"prompt"`
-	SessionID string `json:"session_id,omitempty"`
+	Prompt        string   `json:"prompt"`
+	SessionID     string   `json:"session_id,omitempty"`
+	AttachmentIDs []string `json:"attachment_ids,omitempty"`
 }
 
 // CreateSessionRequest represents the JSON payload to create a new session.
@@ -1351,6 +1353,22 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				"session_id": sessionID,
 			})
 
+		case "attachments":
+			if r.Method != http.MethodGet {
+				http.Error(w, `{"error": "GET required"}`, http.StatusMethodNotAllowed)
+				return
+			}
+			attachments, err := database.GetChatAttachmentsBySession(sessionID)
+			if err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+				return
+			}
+			sendJSON(w, http.StatusOK, map[string]interface{}{
+				"session_id":  sessionID,
+				"total":       len(attachments),
+				"attachments": attachments,
+			})
+
 		case "messages":
 			if r.Method != http.MethodGet {
 				http.Error(w, `{"error": "GET required"}`, http.StatusMethodNotAllowed)
@@ -1449,6 +1467,122 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 		default:
 			http.Error(w, `{"error": "unknown session action"}`, http.StatusNotFound)
 		}
+	})
+
+	// 3b. Document Upload API (/api/upload) - Law 4: Local-First Data Sovereignty
+	mux.HandleFunc("/api/upload", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed. Use POST.", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Enforce 25 MB max body size
+		const maxUploadSize = 25 * 1024 * 1024
+		r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+		if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+			http.Error(w, `{"error": "File exceeds 25MB limit or invalid multipart body"}`, http.StatusBadRequest)
+			return
+		}
+
+		file, handler, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, `{"error": "Missing file in multipart form (key 'file')"}`, http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+
+		sessionID := strings.TrimSpace(r.FormValue("session_id"))
+		if sessionID == "" {
+			sessionID = fmt.Sprintf("SESS-%d", time.Now().Unix())
+		}
+
+		// Sanitize filename & extension
+		cleanName := filepath.Base(filepath.Clean(handler.Filename))
+		cleanName = strings.ReplaceAll(cleanName, " ", "_")
+		ext := strings.ToLower(filepath.Ext(cleanName))
+		allowedExts := map[string]bool{
+			".pdf": true, ".txt": true, ".csv": true, ".xlsx": true, ".docx": true,
+			".png": true, ".jpg": true, ".jpeg": true, ".md": true, ".json": true,
+		}
+		if !allowedExts[ext] {
+			http.Error(w, `{"error": "Unsupported file format. Whitelist: PDF, TXT, CSV, XLSX, DOCX, PNG, JPG, MD, JSON"}`, http.StatusBadRequest)
+			return
+		}
+
+		docID := fmt.Sprintf("DOC-%s-%04d", time.Now().Format("20060102150405"), time.Now().UnixNano()%10000)
+		homeDir, _ := os.UserHomeDir()
+		uploadsBase := filepath.Join(homeDir, ".niskava", "uploads")
+		if customUploads := os.Getenv("NISKAVA_UPLOADS_DIR"); customUploads != "" {
+			uploadsBase = customUploads
+		}
+		sessionUploadDir := filepath.Join(uploadsBase, sessionID)
+		_ = os.MkdirAll(sessionUploadDir, 0700)
+
+		savedFilePath := filepath.Join(sessionUploadDir, fmt.Sprintf("%s_%s", docID, cleanName))
+		dst, err := os.OpenFile(savedFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if err != nil {
+			http.Error(w, `{"error": "Failed to save file locally"}`, http.StatusInternalServerError)
+			return
+		}
+		defer dst.Close()
+
+		fileSize, err := io.Copy(dst, file)
+		if err != nil {
+			http.Error(w, `{"error": "Error writing file to disk"}`, http.StatusInternalServerError)
+			return
+		}
+
+		mimeType := handler.Header.Get("Content-Type")
+		if mimeType == "" {
+			mimeType = "application/octet-stream"
+		}
+
+		att := &db.ChatAttachment{
+			ID:        docID,
+			SessionID: sessionID,
+			Filename:  cleanName,
+			FilePath:  savedFilePath,
+			FileSize:  fileSize,
+			MimeType:  mimeType,
+			PageCount: 0,
+			CreatedAt: time.Now().UTC().Format(time.RFC3339),
+		}
+
+		if database != nil {
+			_ = database.SaveChatAttachment(att)
+		}
+
+		sendJSON(w, http.StatusCreated, att)
+	})
+
+	// 3c. Document Details API (/api/documents/{id})
+	mux.HandleFunc("/api/documents/", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		docID := strings.TrimPrefix(r.URL.Path, "/api/documents/")
+		docID = strings.Trim(docID, "/")
+		if docID == "" {
+			http.Error(w, `{"error": "document ID required"}`, http.StatusBadRequest)
+			return
+		}
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+		att, err := database.GetChatAttachment(docID)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+			return
+		}
+		if att == nil {
+			http.Error(w, `{"error": "document not found"}`, http.StatusNotFound)
+			return
+		}
+		sendJSON(w, http.StatusOK, att)
 	})
 
 	// 4. Investigations sessions list endpoint (pipeline audit sessions)
@@ -2011,15 +2145,25 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 
 		isOffline := (activeCfg.Preferences.OfflineMode || os.Getenv("NISKAVA_OFFLINE") == "1") && config.IsTestingMode()
 
+		var attachmentPaths []string
+		if len(req.AttachmentIDs) > 0 && database != nil {
+			for _, attID := range req.AttachmentIDs {
+				if att, err := database.GetChatAttachment(attID); err == nil && att != nil && att.FilePath != "" {
+					attachmentPaths = append(attachmentPaths, att.FilePath)
+				}
+			}
+		}
+
 		runnerParams := ipc.RunnerParams{
-			PythonBin:    pythonBin,
-			WorkDir:      wd,
-			DBPath:       dbPath,
-			Prompt:       req.Prompt,
-			SessionID:    sessionID,
-			Offline:      isOffline,
-			Language:     chatLang,
-			EnvOverrides: s.buildSubprocessEnv(),
+			PythonBin:       pythonBin,
+			WorkDir:         wd,
+			DBPath:          dbPath,
+			Prompt:          req.Prompt,
+			SessionID:       sessionID,
+			Offline:         isOffline,
+			Language:        chatLang,
+			AttachmentPaths: attachmentPaths,
+			EnvOverrides:    s.buildSubprocessEnv(),
 		}
 
 		eventsChan, errChan := ipc.RunSubprocess(execCtx, runnerParams)
@@ -2118,6 +2262,14 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 
 				if ev.Event == ipc.EventAgentMessageChunk {
 					assistantResponse.WriteString(ev.Chunk)
+				} else if ev.Event == ipc.EventAgentMessageComplete && assistantResponse.Len() == 0 && ev.Content != "" {
+					assistantResponse.WriteString(ev.Content)
+				} else if ev.Event == ipc.EventSessionComplete && assistantResponse.Len() == 0 {
+					if ev.Summary != "" {
+						assistantResponse.WriteString(ev.Summary)
+					} else if ev.Content != "" {
+						assistantResponse.WriteString(ev.Content)
+					}
 				}
 
 				if ev.Event == ipc.EventAnomalyDetected && database != nil {

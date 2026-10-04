@@ -11,6 +11,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
             let isGenerating = false;
             let currentAbortController = null;
             let switchMainView = null;
+            let stagedAttachments = [];
 
             // DOM Elements
 
@@ -27,6 +28,18 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 new_research: "Riset Baru",
                 nav_chat: "Percakapan AI",
                 nav_investigations: "Investigasi Formal",
+                nav_radar_audit: "Audit & Anomali",
+                radar_title: "Pemindai Anomali & Audit Saham",
+                radar_badge: "Bursa Efek Indonesia",
+                radar_desc: "Pemindaian otomatis lonjakan volume perdagangan (Vz ≥ 2.50σ), foreign flow, dan cross-check keterbukaan informasi IDXnet.",
+                radar_top_anomalies: "Sinyal Anomali Terdeteksi (Top Z-Score)",
+                radar_empty: "Belum ada anomali terdeteksi melebihi ambang batas 2.0σ. Masukkan kode emiten di bawah untuk memeriksa.",
+                radar_btn_inspect: "Audit Saham Ini",
+                radar_search_title: "Pemeriksaan Saham",
+                radar_search_placeholder: "Ketik kode emiten BEI (cth: ANTM, BBCA, BUMI)...",
+                btn_refresh_data: "Perbarui Data",
+                btn_inv_open_chat: "Buka di Percakapan AI",
+                btn_inv_export_md: "Ekspor Laporan Markdown",
                 nav_market: "Market Overview",
                 nav_watchlist: "Watchlist",
                 nav_graphify: "Memory Graph",
@@ -76,6 +89,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 export_tooltip: "Ekspor Markdown",
                 fork_tooltip: "Fork sesi dari titik percakapan ini (OpenCode Forking)",
                 investigation_details_tooltip: "Klik untuk rincian proses investigasi AI",
+                react_thinking_process: "Proses Berpikir & Investigasi",
                 investigating: "Menginvestigasi Intelijen Pasar",
                 investigation_done: "Investigasi selesai dalam",
                 investigation_failed: "Investigasi gagal setelah",
@@ -149,7 +163,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 inv_matrix_title: "Matriks Verifikasi Bukti 3-Tier (Law 2)",
                 inv_timeline_title: "Timeline Kronologis Bukti & Berita",
                 inv_disclaimer: "<strong>Kepatuhan Regulasi (Law 2 & Law 3):</strong> Seluruh dossier dan temuan investigasi disajikan secara obyektif berdasarkan data historis keterbukaan informasi IDXnet dan bukan merupakan rekomendasi transaksi finansial.",
-                graph_page_title: "Memory Graph — Jaringan Asosiasi Pasar Modal",
+                graph_page_title: "Memory Graph - Jaringan Asosiasi Pasar Modal",
                 graph_page_desc: "Visualisasi interaktif graf asosiasi multi-entitas pasar modal Indonesia (Emiten, Katalis Komoditas, Broker, Regulasi, dan Anomali Volume).",
                 btn_reload_graph: "Segarkan Graf",
                 graph_open_tab: "Buka Tab Mandiri",
@@ -216,6 +230,18 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 new_research: "New Research",
                 nav_chat: "AI Chat",
                 nav_investigations: "Formal Investigation",
+                nav_radar_audit: "Audit & Anomaly Screener",
+                radar_title: "Market Anomaly Screener & Audit",
+                radar_badge: "Indonesia Stock Exchange",
+                radar_desc: "Automated screening for volume spikes (Vz ≥ 2.50σ), foreign flow, and IDXnet corporate disclosure cross-referencing.",
+                radar_top_anomalies: "Detected Anomaly Signals (Top Z-Scores)",
+                radar_empty: "No anomalies above 2.0σ threshold yet. Enter an IDX ticker below to inspect.",
+                radar_btn_inspect: "Audit Stock",
+                radar_search_title: "Stock Audit Inspection",
+                radar_search_placeholder: "Enter IDX ticker (e.g. ANTM, BBCA, BUMI)...",
+                btn_refresh_data: "Refresh Data",
+                btn_inv_open_chat: "Open in AI Chat",
+                btn_inv_export_md: "Export Markdown Report",
                 nav_market: "Market Overview",
                 nav_watchlist: "Watchlist",
                 nav_graphify: "Memory Graph",
@@ -265,6 +291,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 export_tooltip: "Export Markdown",
                 fork_tooltip: "Fork session from this message (OpenCode Forking)",
                 investigation_details_tooltip: "Click for AI investigation details",
+                react_thinking_process: "Thinking & Investigation Process",
                 investigating: "Investigating Market Intelligence",
                 investigation_done: "Investigation completed in",
                 investigation_failed: "Investigation failed after",
@@ -338,7 +365,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 inv_matrix_title: "3-Tier Evidence Verification Matrix (Law 2)",
                 inv_timeline_title: "Chronological Evidence & News Timeline",
                 inv_disclaimer: "<strong>Regulatory Compliance (Law 2 & Law 3):</strong> All dossiers and investigative findings are presented objectively based on historical IDXnet disclosures and are not financial transaction recommendations.",
-                graph_page_title: "Memory Graph — Market Intelligence Knowledge Network",
+                graph_page_title: "Memory Graph - Market Intelligence Knowledge Network",
                 graph_page_desc: "Interactive multi-entity association graph for Indonesian capital markets (Issuers, Commodity Catalysts, Brokers, Regulators, and Volume Anomalies).",
                 btn_reload_graph: "Refresh Graph",
                 graph_open_tab: "Open Independent Tab",
@@ -862,26 +889,19 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 const container = document.getElementById(containerId);
                 if (!container) return;
 
-                // Generate deterministic realistic candles if none provided
-                if (!candleData || candleData.length === 0) {
-                    const basePrice = 1620;
-                    const now = new Date();
-                    candleData = [];
-                    for (let i = 29; i >= 0; i--) {
-                        const d = new Date(now);
-                        d.setDate(d.getDate() - i);
-                        const timeStr = d.toISOString().split('T')[0];
-                        const drift = Math.sin(i / 2.8) * 45 + (Math.random() - 0.48) * 30;
-                        const open = Math.round(basePrice + drift);
-                        const high = Math.round(open + Math.random() * 32 + 8);
-                        const low = Math.round(open - Math.random() * 32 - 8);
-                        const close = Math.round(open + (Math.random() - 0.48) * 30);
-                        const volume = Math.round(18000000 + (i === 1 ? 68000000 : Math.random() * 14000000));
-                        candleData.push({ time: timeStr, open, high, low, close, volume });
-                    }
-                    if (!anomalyDate && candleData.length > 2) {
-                        anomalyDate = candleData[candleData.length - 2].time;
-                    }
+                // Dispose any previous chart instance bound to this container
+                if (activeCharts[containerId]) {
+                    try { activeCharts[containerId].remove(); } catch (_) { /* already detached */ }
+                    delete activeCharts[containerId];
+                }
+
+                // Never fabricate market data: show an explicit empty state instead
+                if (!Array.isArray(candleData) || candleData.length === 0) {
+                    const msg = (typeof currentLang !== 'undefined' && currentLang === 'en')
+                        ? 'No daily candlestick data available for this ticker.'
+                        : 'Data candlestick harian belum tersedia untuk emiten ini.';
+                    container.innerHTML = `<div class="dossier-empty-state">${msg}</div>`;
+                    return;
                 }
 
                 container.innerHTML = '';
@@ -895,26 +915,26 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                             height: container.clientHeight || 240,
                             layout: {
                                 background: { color: 'transparent' },
-                                textColor: isDark ? '#94A3B8' : '#475569',
+                                textColor: isDark ? '#8E8C84' : '#6E6B63',
                                 fontSize: 11,
-                                fontFamily: 'Plus Jakarta Sans, sans-serif'
+                                fontFamily: 'Plus Jakarta Sans, -apple-system, sans-serif'
                             },
                             grid: {
-                                vertLines: { color: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' },
-                                horzLines: { color: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }
+                                vertLines: { color: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(20, 20, 19, 0.03)' },
+                                horzLines: { color: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(20, 20, 19, 0.03)' }
                             },
                             crosshair: { mode: 1 },
-                            rightPriceScale: { borderColor: isDark ? '#334155' : '#CBD5E1' },
-                            timeScale: { borderColor: isDark ? '#334155' : '#CBD5E1', timeVisible: true }
+                            rightPriceScale: { borderColor: isDark ? '#292926' : '#E6E4DC' },
+                            timeScale: { borderColor: isDark ? '#292926' : '#E6E4DC', timeVisible: true }
                         });
 
                         const candleSeries = chart.addCandlestickSeries({
-                            upColor: '#0ECB81',
-                            downColor: '#F6465D',
-                            borderUpColor: '#0ECB81',
-                            borderDownColor: '#F6465D',
-                            wickUpColor: '#0ECB81',
-                            wickDownColor: '#F6465D'
+                            upColor: '#0F6735',
+                            downColor: '#AD1C1C',
+                            borderUpColor: '#0F6735',
+                            borderDownColor: '#AD1C1C',
+                            wickUpColor: '#0F6735',
+                            wickDownColor: '#AD1C1C'
                         });
 
                         candleSeries.setData(candleData.map(c => ({
@@ -987,9 +1007,11 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 const priceRange = maxP - minP || 1;
 
                 const stepX = width / candleData.length;
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(20, 20, 19, 0.06)';
                 let svg = `<svg width="100%" height="100%" viewBox="0 0 ${width} ${height}" style="display:block;">`;
-                svg += `<line x1="0" y1="${height * 0.3}" x2="${width}" y2="${height * 0.3}" stroke="rgba(255,255,255,0.06)" />`;
-                svg += `<line x1="0" y1="${height * 0.6}" x2="${width}" y2="${height * 0.6}" stroke="rgba(255,255,255,0.06)" />`;
+                svg += `<line x1="0" y1="${height * 0.3}" x2="${width}" y2="${height * 0.3}" stroke="${gridColor}" />`;
+                svg += `<line x1="0" y1="${height * 0.6}" x2="${width}" y2="${height * 0.6}" stroke="${gridColor}" />`;
 
                 candleData.forEach((c, idx) => {
                     const x = idx * stepX + stepX / 2;
@@ -1655,8 +1677,9 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     btnSendMessage.title = t('btn_send_tooltip');
                     btnSendMessage.setAttribute('data-tooltip', t('btn_send_tooltip'));
                     btnSendMessage.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>`;
+                    const hasAttachments = (typeof stagedAttachments !== 'undefined' && Array.isArray(stagedAttachments) && stagedAttachments.length > 0);
                     const hasText = chatInput.value.trim().length > 0;
-                    btnSendMessage.disabled = !hasText;
+                    btnSendMessage.disabled = !hasText && !hasAttachments;
                 }
             }
 
@@ -1724,6 +1747,9 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 document.getElementById('currentSessionLabel').textContent = t('header_session_default');
                 chatInput.value = '';
                 chatInput.style.height = 'auto';
+                if (typeof clearStagedAttachments === 'function') {
+                    clearStagedAttachments();
+                }
                 updateSendButtonState();
                 document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
                 loadLiveGraph(currentSessionId);
@@ -1917,8 +1943,8 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 if (!nodes || nodes.length === 0) {
                     svg.innerHTML = `
                         <rect width="100%" height="100%" fill="transparent"/>
-                        <text x="175" y="95" text-anchor="middle" fill="#64748B" font-size="11" font-family="sans-serif">Belum ada relasi aktif untuk sesi ini</text>
-                        <text x="175" y="115" text-anchor="middle" fill="#475569" font-size="9" font-family="sans-serif">Ketik emiten (cth: ANTM, BBRI) di chat untuk mulai</text>
+                        <text x="175" y="95" text-anchor="middle" fill="var(--text-muted)" font-size="11" font-family="sans-serif">Belum ada relasi aktif untuk sesi ini</text>
+                        <text x="175" y="115" text-anchor="middle" fill="var(--text-faint)" font-size="9" font-family="sans-serif">Ketik emiten (cth: ANTM, BBRI) di chat untuk mulai</text>
                     `;
                     if (badge) badge.textContent = '-';
                     return;
@@ -1952,14 +1978,14 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 });
 
                 const typeColors = {
-                    'EMITEN': { fill: 'rgba(252, 213, 53, 0.18)', stroke: '#FCD535', text: '#946300' },
-                    'STOCK': { fill: 'rgba(252, 213, 53, 0.18)', stroke: '#FCD535', text: '#946300' },
-                    'COMMODITY': { fill: '#FFFBEB', stroke: '#F59E0B', text: '#B45309' },
-                    'INSTITUTION': { fill: '#ECFDF5', stroke: '#10B981', text: '#047857' },
-                    'SECTOR': { fill: 'rgba(252, 213, 53, 0.15)', stroke: '#F0B90B', text: '#946300' },
-                    'PEER': { fill: '#FAF5FF', stroke: '#8B5CF6', text: '#6B21A8' },
-                    'NEWS': { fill: '#F1F5F9', stroke: '#64748B', text: '#334155' },
-                    'ANOMALY': { fill: '#FEF2F2', stroke: '#EF4444', text: '#B91C1C' }
+                    'EMITEN': { fill: 'var(--bg-card)', stroke: 'var(--text-primary)', text: 'var(--text-primary)' },
+                    'STOCK': { fill: 'var(--bg-card)', stroke: 'var(--text-primary)', text: 'var(--text-primary)' },
+                    'COMMODITY': { fill: 'var(--badge-amber-bg)', stroke: 'var(--badge-amber-border)', text: 'var(--badge-amber-text)' },
+                    'INSTITUTION': { fill: 'var(--badge-green-bg)', stroke: 'var(--badge-green-border)', text: 'var(--badge-green-text)' },
+                    'SECTOR': { fill: 'var(--bg-panel)', stroke: 'var(--border-strong)', text: 'var(--text-primary)' },
+                    'PEER': { fill: 'var(--badge-purple-bg)', stroke: 'var(--badge-purple-border)', text: 'var(--badge-purple-text)' },
+                    'NEWS': { fill: 'var(--badge-blue-bg)', stroke: 'var(--badge-blue-border)', text: 'var(--badge-blue-text)' },
+                    'ANOMALY': { fill: 'var(--badge-red-bg)', stroke: 'var(--badge-red-border)', text: 'var(--badge-red-text)' }
                 };
 
                 let svgHtml = '';
@@ -1999,8 +2025,8 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 const centerLabel = (centerNode.label || centerNode.id).slice(0, 6);
                 svgHtml += `
                     <g class="graph-node active" data-id="${escapeHtml(centerNode.id)}" data-type="${escapeHtml(centerNode.node_type || '')}" data-label="${escapeHtml(centerNode.label || centerNode.id)}" transform="translate(${centerX}, ${centerY})">
-                        <circle r="26" fill="#FCD535" stroke="#1E2329" stroke-width="2.5" filter="drop-shadow(0 4px 10px rgba(252, 213, 53, 0.45))"></circle>
-                        <text text-anchor="middle" dy="4" font-size="11" font-weight="800" fill="#1E2329">${escapeHtml(centerLabel)}</text>
+                        <circle r="26" fill="var(--text-primary)" stroke="var(--bg-card)" stroke-width="2" filter="drop-shadow(0 2px 6px rgba(0, 0, 0, 0.15))"></circle>
+                        <text text-anchor="middle" dy="4" font-size="11" font-weight="700" fill="var(--bg-body)">${escapeHtml(centerLabel)}</text>
                     </g>
                 `;
 
@@ -2170,477 +2196,682 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
             }
 
     // --- 06_chat.js ---
-// 10. Message Dispatcher & SSE Stream Handler
-            async function handleSendMessage() {
-                const prompt = chatInput.value.trim();
-                if (!prompt || isGenerating) return;
+// ==========================================
+// 10. Message Dispatcher, Attachments & SSE Stream Handler
+// ==========================================
 
-                // Check if user is sending from the hero screen (new chat)
-                const wasHeroActive = heroView && (heroView.style.display !== 'none' && !heroView.classList.contains('hidden'));
+if (typeof stagedAttachments === 'undefined') {
+    window.stagedAttachments = [];
+}
 
-                // Switch from hero to chat view
-                if (typeof showChatView === 'function') {
-                    showChatView();
+const fileAttachmentInput = document.getElementById('fileAttachmentInput');
+const btnAttach = document.getElementById('btnAttach');
+const attachmentPreviewBar = document.getElementById('attachmentPreviewBar');
+const composerContainer = document.getElementById('composerContainer');
+const composerBox = document.getElementById('composerBox') || (composerContainer ? composerContainer.querySelector('.composer-box') : null);
+
+function formatFileSize(bytes) {
+    if (typeof bytes !== 'number' || isNaN(bytes)) return '0 B';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function getFileIconSVG(filename) {
+    const ext = (filename || '').split('.').pop().toLowerCase();
+    if (ext === 'pdf') {
+        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`;
+    }
+    if (['csv', 'xlsx', 'xls'].includes(ext)) {
+        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>`;
+    }
+    if (['png', 'jpg', 'jpeg'].includes(ext)) {
+        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
+    }
+    return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>`;
+}
+
+function renderAttachmentChips() {
+    if (!attachmentPreviewBar) return;
+    if (!stagedAttachments || stagedAttachments.length === 0) {
+        attachmentPreviewBar.innerHTML = '';
+        attachmentPreviewBar.style.display = 'none';
+        attachmentPreviewBar.classList.remove('has-items');
+        updateSendButtonState();
+        return;
+    }
+
+    attachmentPreviewBar.style.display = 'flex';
+    attachmentPreviewBar.classList.add('has-items');
+    attachmentPreviewBar.innerHTML = '';
+
+    stagedAttachments.forEach((file, index) => {
+        const chip = document.createElement('div');
+        chip.className = 'attachment-chip';
+        chip.title = `${file.name} (${formatFileSize(file.size)})`;
+
+        chip.innerHTML = `
+            <span class="attachment-chip-icon">${getFileIconSVG(file.name)}</span>
+            <span class="attachment-chip-name">${escapeHtml(file.name)}</span>
+            <span class="attachment-chip-size">${formatFileSize(file.size)}</span>
+            <button type="button" class="btn-remove-chip" aria-label="Hapus lampiran" data-index="${index}">&times;</button>
+        `;
+
+        const btnRemove = chip.querySelector('.btn-remove-chip');
+        btnRemove.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeStagedAttachment(index);
+        });
+
+        attachmentPreviewBar.appendChild(chip);
+    });
+
+    updateSendButtonState();
+}
+
+function removeStagedAttachment(index) {
+    if (index >= 0 && index < stagedAttachments.length) {
+        stagedAttachments.splice(index, 1);
+        renderAttachmentChips();
+    }
+}
+
+function clearStagedAttachments() {
+    stagedAttachments = [];
+    if (fileAttachmentInput) fileAttachmentInput.value = '';
+    renderAttachmentChips();
+}
+window.clearStagedAttachments = clearStagedAttachments;
+
+function handleFilesAdded(files) {
+    if (!files || files.length === 0) return;
+    const maxSizeBytes = 25 * 1024 * 1024;
+    const allowedExts = ['.pdf', '.txt', '.csv', '.xlsx', '.docx', '.png', '.jpg', '.jpeg', '.md', '.json'];
+    let addedCount = 0;
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const ext = '.' + file.name.split('.').pop().toLowerCase();
+
+        if (!allowedExts.includes(ext)) {
+            showToast(typeof currentLang !== 'undefined' && currentLang === 'en'
+                ? `Unsupported format: ${file.name}`
+                : `Format tidak didukung: ${file.name}`, true);
+            continue;
+        }
+
+        if (file.size > maxSizeBytes) {
+            showToast(typeof currentLang !== 'undefined' && currentLang === 'en'
+                ? `File exceeds 25MB limit: ${file.name}`
+                : `File melebihi batas 25MB: ${file.name}`, true);
+            continue;
+        }
+
+        // Avoid exact duplicates
+        const exists = stagedAttachments.some(f => f.name === file.name && f.size === file.size);
+        if (!exists) {
+            stagedAttachments.push(file);
+            addedCount++;
+        }
+    }
+
+    if (addedCount > 0) {
+        renderAttachmentChips();
+    }
+}
+
+// Attach Button Listener
+if (btnAttach && fileAttachmentInput) {
+    btnAttach.addEventListener('click', (e) => {
+        e.preventDefault();
+        fileAttachmentInput.click();
+    });
+
+    fileAttachmentInput.addEventListener('change', () => {
+        if (fileAttachmentInput.files && fileAttachmentInput.files.length > 0) {
+            handleFilesAdded(fileAttachmentInput.files);
+            fileAttachmentInput.value = '';
+        }
+    });
+}
+
+// Drag & Drop on composerContainer
+if (composerContainer) {
+    ['dragenter', 'dragover'].forEach(eventName => {
+        composerContainer.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            composerContainer.classList.add('drag-active');
+            if (composerBox) composerBox.classList.add('drag-active');
+        }, false);
+    });
+
+    ['dragleave', 'dragend'].forEach(eventName => {
+        composerContainer.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            composerContainer.classList.remove('drag-active');
+            if (composerBox) composerBox.classList.remove('drag-active');
+        }, false);
+    });
+
+    composerContainer.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        composerContainer.classList.remove('drag-active');
+        if (composerBox) composerBox.classList.remove('drag-active');
+
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleFilesAdded(e.dataTransfer.files);
+        }
+    }, false);
+}
+
+// Message Dispatcher & SSE Stream Handler
+async function handleSendMessage() {
+    const promptText = chatInput.value.trim();
+    if ((!promptText && (!stagedAttachments || stagedAttachments.length === 0)) || isGenerating) return;
+
+    // Check if user is sending from the hero screen (new chat)
+    const wasHeroActive = heroView && (heroView.style.display !== 'none' && !heroView.classList.contains('hidden'));
+
+    // Switch from hero to chat view
+    if (typeof showChatView === 'function') {
+        showChatView();
+    } else {
+        heroView.classList.add('hidden');
+        chatView.classList.add('active');
+    }
+
+    // If starting from hero view, ensure chatView starts clean with zero stale elements
+    if (wasHeroActive && chatView) {
+        chatView.innerHTML = '';
+    }
+
+    localStorage.setItem('niskava_active_session', currentSessionId);
+
+    // If attachments are staged, upload them first
+    let uploadedAttachments = [];
+    const filesToUpload = [...(stagedAttachments || [])];
+    stagedAttachments = [];
+    renderAttachmentChips();
+
+    if (filesToUpload.length > 0) {
+        const uploadPromises = filesToUpload.map(async (file) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('session_id', currentSessionId);
+            try {
+                const res = await fetch(`${API_BASE}/api/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (res.ok) {
+                    return await res.json();
                 } else {
-                    heroView.classList.add('hidden');
-                    chatView.classList.add('active');
+                    console.error('Upload failed with status:', res.status);
+                    return null;
                 }
+            } catch (err) {
+                console.error('Upload error:', err);
+                return null;
+            }
+        });
 
-                // If starting from hero view, ensure chatView starts clean with zero stale elements
-                if (wasHeroActive && chatView) {
-                    chatView.innerHTML = '';
-                }
+        const uploadResults = await Promise.all(uploadPromises);
+        uploadedAttachments = uploadResults.filter(Boolean);
+    }
 
-                localStorage.setItem('niskava_active_session', currentSessionId);
+    const defaultPrompt = typeof currentLang !== 'undefined' && currentLang === 'en'
+        ? 'Analyze and audit the attached document(s).'
+        : 'Analisis dan audit dokumen terlampir.';
+    const finalPrompt = promptText || defaultPrompt;
 
-                // Append user message
-                appendUserMessage(prompt);
-                chatInput.value = '';
-                chatInput.style.height = 'auto';
-                isGenerating = true;
-                updateSendButtonState();
+    // Append user message
+    appendUserMessage(finalPrompt, uploadedAttachments);
+    chatInput.value = '';
+    chatInput.style.height = 'auto';
+    isGenerating = true;
+    updateSendButtonState();
 
-                // Append assistant placeholder
-                const assistantMsgObj = createAssistantMessageElement(currentSessionId);
-                chatView.appendChild(assistantMsgObj.element);
-                scrollToBottom();
+    // Append assistant placeholder
+    const assistantMsgObj = createAssistantMessageElement(currentSessionId);
+    chatView.appendChild(assistantMsgObj.element);
+    scrollToBottom();
 
-                let fullText = '';
-                const reactSteps = [];
-                const findingsEmitted = [];
+    let fullText = '';
+    const reactSteps = [];
+    const findingsEmitted = [];
 
-                try {
-                    currentAbortController = new AbortController();
-                    const response = await fetch(`${API_BASE}/api/chat`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            prompt: prompt,
-                            session_id: currentSessionId
-                        }),
-                        signal: currentAbortController.signal
-                    });
+    const reqPayload = {
+        prompt: finalPrompt,
+        session_id: currentSessionId
+    };
+    if (uploadedAttachments.length > 0) {
+        reqPayload.attachment_ids = uploadedAttachments.map(a => a.id);
+    }
 
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    try {
+        currentAbortController = new AbortController();
+        const response = await fetch(`${API_BASE}/api/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(reqPayload),
+            signal: currentAbortController.signal
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const blocks = buffer.split(/\r?\n\r?\n/);
+            buffer = blocks.pop() || '';
+
+            for (const block of blocks) {
+                if (!block.trim() || block.startsWith(':')) continue;
+                const eventMatch = block.match(/^event:\s*(.+)$/m);
+                const dataMatch = block.match(/^data:\s*(.+)$/m);
+
+                const eventName = eventMatch ? eventMatch[1].trim() : 'message';
+                const rawData = dataMatch ? dataMatch[1].trim() : '';
+
+                let payload = {};
+                try { payload = JSON.parse(rawData); } catch(e) {}
+
+                if (eventName === 'agent_thought' || payload.event === 'agent_thought') {
+                    const thoughtText = payload.thought || payload.content || '';
+                    if (thoughtText && !reactSteps.includes(thoughtText)) {
+                        reactSteps.push(thoughtText);
+                        updateReactSteps(assistantMsgObj, reactSteps);
                     }
+                } else if (eventName === 'agent_tool_call' || payload.event === 'agent_tool_call') {
+                    const toolName = payload.tool || 'Eksekusi Alat';
+                    let argsSummary = '';
+                    if (payload.args && Object.keys(payload.args).length > 0) {
+                        try {
+                            argsSummary = ' (' + Object.entries(payload.args).map(([k, v]) => `${k}: ${v}`).join(', ') + ')';
+                        } catch(e) {}
+                    }
+                    const stepText = `Tool: ${toolName}${argsSummary}`;
+                    if (!reactSteps.includes(stepText)) {
+                        reactSteps.push(stepText);
+                        updateReactSteps(assistantMsgObj, reactSteps);
+                    }
+                } else if (eventName === 'agent_observation' || payload.event === 'agent_observation') {
+                    const toolName = payload.tool || 'Hasil';
+                    const summary = payload.summary || payload.content || '';
+                    const stepText = `Observasi [${toolName}]: ${summary.slice(0, 120)}${summary.length > 120 ? '...' : ''}`;
+                    if (!reactSteps.includes(stepText)) {
+                        reactSteps.push(stepText);
+                        updateReactSteps(assistantMsgObj, reactSteps);
+                    }
+                } else if (eventName === 'progress_step' || payload.event === 'progress_step') {
+                    const stepMsg = payload.message || payload.stage || '';
+                    const stepIndex = payload.step_index ? `[${payload.step_index}/${payload.total_steps || '?'}] ` : '';
+                    const stepText = `Progres: ${stepIndex}${stepMsg}`;
+                    if (stepMsg && !reactSteps.includes(stepText)) {
+                        reactSteps.push(stepText);
+                        updateReactSteps(assistantMsgObj, reactSteps);
+                    }
+                } else if (eventName === 'anomaly_detected' || payload.event === 'anomaly_detected') {
+                    const ticker = payload.ticker ? `[${payload.ticker}] ` : '';
+                    const metric = payload.metric_type || 'Volume';
+                    const zScore = payload.z_score !== undefined ? `${payload.z_score >= 0 ? '+' : ''}${Number(payload.z_score).toFixed(2)}σ` : '';
+                    const stepText = `Anomali Terdeteksi: ${ticker}${metric} Deviasi ${zScore}`;
+                    if (!reactSteps.includes(stepText)) {
+                        reactSteps.push(stepText);
+                        updateReactSteps(assistantMsgObj, reactSteps);
+                    }
+                    if (payload.ticker) {
+                        updateRightPanelAnomaly(payload);
+                    }
+                } else if (eventName === 'finding_emitted' || payload.event === 'finding_emitted') {
+                    const status = payload.verification_status || 'VERIFIED';
+                    const title = payload.title || 'Temuan Intelijen';
+                    const conf = payload.confidence_score ? ` (${(payload.confidence_score * 100).toFixed(0)}%)` : '';
+                    const stepText = `Bukti Kausalitas [${status}]: ${title}${conf}`;
+                    if (!reactSteps.includes(stepText)) {
+                        reactSteps.push(stepText);
+                        updateReactSteps(assistantMsgObj, reactSteps);
+                    }
+                    findingsEmitted.push(payload);
+                    if (assistantMsgObj.evidenceContainer) {
+                        assistantMsgObj.evidenceContainer.style.display = 'block';
+                        assistantMsgObj.evidenceContainer.innerHTML = renderEvidenceMatrixHTML(findingsEmitted);
+                    }
+                } else if (eventName === 'agent_message_chunk' || payload.event === 'agent_message_chunk') {
+                    const chunk = payload.chunk || '';
+                    fullText += chunk;
+                    assistantMsgObj.contentEl.innerHTML = renderMarkdown(fullText);
+                    assistantMsgObj.setLatticeStatus('done');
+                    scrollToBottom();
+                } else if (eventName === 'session_error' || payload.event === 'session_error') {
+                    assistantMsgObj.setLatticeStatus('error');
+                    const errMsg = payload.error || 'A system error occurred while processing the analysis.';
+                    assistantMsgObj.contentEl.innerHTML += `<div style="margin-top:10px; color:var(--badge-red-text); background:var(--badge-red-bg); padding:12px; border-radius:8px; border:1px solid var(--badge-red-border);">
+                        <strong>Investigation Error:</strong> ${escapeHtml(errMsg)}
+                    </div>`;
+                    scrollToBottom();
+                } else if (eventName === 'pdf_report_ready' || payload.event === 'pdf_report_ready') {
+                    const filename = payload.filename || '';
+                    if (filename && !assistantMsgObj.element.querySelector('.pdf-download-banner')) {
+                        const downloadBtn = document.createElement('div');
+                        downloadBtn.className = 'pdf-download-banner';
+                        downloadBtn.innerHTML = `
+                            <div style="display:flex; align-items:center; gap:10px; margin-top:12px; padding:10px 14px; background:var(--badge-green-bg,#e8f5e9); border:1px solid var(--badge-green-border,#a5d6a7); border-radius:8px; font-size:13px;">
+                                <span style="font-size:20px;">📄</span>
+                                <div style="flex:1">
+                                    <strong style="color:var(--badge-green-text,#1b5e20);">${typeof currentLang !== 'undefined' && currentLang === 'id' ? 'Laporan PDF Audit Siap' : 'PDF Audit Report Ready'}</strong>
+                                    <div style="font-family:monospace; font-size:11px; opacity:0.8; margin-top:2px;">${escapeHtml(filename)}</div>
+                                </div>
+                                <a href="${API_BASE}/api/reports/${encodeURIComponent(filename)}" download="${escapeHtml(filename)}" style="padding:6px 14px; background:var(--accent-primary,#1d47a0); color:#fff; border-radius:6px; text-decoration:none; font-size:12px; font-weight:600; white-space:nowrap;">⬇ Download PDF</a>
+                            </div>
+                        `;
+                        const bodyEl = assistantMsgObj.element.querySelector('.message-body');
+                        if (bodyEl) bodyEl.appendChild(downloadBtn);
+                    }
+                } else if (eventName === 'session_complete' || eventName === 'agent_message_complete') {
+                    assistantMsgObj.setLatticeStatus('done');
+                    loadLiveGraph(currentSessionId);
 
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
-                    let buffer = '';
-
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-
-                        buffer += decoder.decode(value, { stream: true });
-                        const blocks = buffer.split(/\r?\n\r?\n/);
-                        buffer = blocks.pop() || '';
-
-                        for (const block of blocks) {
-                            if (!block.trim() || block.startsWith(':')) continue;
-                            const eventMatch = block.match(/^event:\s*(.+)$/m);
-                            const dataMatch = block.match(/^data:\s*(.+)$/m);
-
-                            const eventName = eventMatch ? eventMatch[1].trim() : 'message';
-                            const rawData = dataMatch ? dataMatch[1].trim() : '';
-
-                            let payload = {};
-                            try { payload = JSON.parse(rawData); } catch(e) {}
-
-                            if (eventName === 'agent_thought' || payload.event === 'agent_thought') {
-                                const thoughtText = payload.thought || payload.content || '';
-                                if (thoughtText && !reactSteps.includes(thoughtText)) {
-                                    reactSteps.push(thoughtText);
-                                    updateReactSteps(assistantMsgObj, reactSteps);
-                                }
-                            } else if (eventName === 'agent_tool_call' || payload.event === 'agent_tool_call') {
-                                const toolName = payload.tool || 'Eksekusi Alat';
-                                let argsSummary = '';
-                                if (payload.args && Object.keys(payload.args).length > 0) {
-                                    try {
-                                        argsSummary = ' (' + Object.entries(payload.args).map(([k, v]) => `${k}: ${v}`).join(', ') + ')';
-                                    } catch(e) {}
-                                }
-                                const stepText = `Tool: ${toolName}${argsSummary}`;
-                                if (!reactSteps.includes(stepText)) {
-                                    reactSteps.push(stepText);
-                                    updateReactSteps(assistantMsgObj, reactSteps);
-                                }
-                            } else if (eventName === 'agent_observation' || payload.event === 'agent_observation') {
-                                const toolName = payload.tool || 'Hasil';
-                                const summary = payload.summary || payload.content || '';
-                                const stepText = `Observasi [${toolName}]: ${summary.slice(0, 120)}${summary.length > 120 ? '...' : ''}`;
-                                if (!reactSteps.includes(stepText)) {
-                                    reactSteps.push(stepText);
-                                    updateReactSteps(assistantMsgObj, reactSteps);
-                                }
-                            } else if (eventName === 'progress_step' || payload.event === 'progress_step') {
-                                const stepMsg = payload.message || payload.stage || '';
-                                const stepIndex = payload.step_index ? `[${payload.step_index}/${payload.total_steps || '?'}] ` : '';
-                                const stepText = `Progres: ${stepIndex}${stepMsg}`;
-                                if (stepMsg && !reactSteps.includes(stepText)) {
-                                    reactSteps.push(stepText);
-                                    updateReactSteps(assistantMsgObj, reactSteps);
-                                }
-                            } else if (eventName === 'anomaly_detected' || payload.event === 'anomaly_detected') {
-                                const ticker = payload.ticker ? `[${payload.ticker}] ` : '';
-                                const metric = payload.metric_type || 'Volume';
-                                const zScore = payload.z_score !== undefined ? `${payload.z_score >= 0 ? '+' : ''}${Number(payload.z_score).toFixed(2)}σ` : '';
-                                const stepText = `Anomali Terdeteksi: ${ticker}${metric} Deviasi ${zScore}`;
-                                if (!reactSteps.includes(stepText)) {
-                                    reactSteps.push(stepText);
-                                    updateReactSteps(assistantMsgObj, reactSteps);
-                                }
-                                if (payload.ticker) {
-                                    updateRightPanelAnomaly(payload);
-                                }
-                            } else if (eventName === 'finding_emitted' || payload.event === 'finding_emitted') {
-                                const status = payload.verification_status || 'VERIFIED';
-                                const title = payload.title || 'Temuan Intelijen';
-                                const conf = payload.confidence_score ? ` (${(payload.confidence_score * 100).toFixed(0)}%)` : '';
-                                const stepText = `Bukti Kausalitas [${status}]: ${title}${conf}`;
-                                if (!reactSteps.includes(stepText)) {
-                                    reactSteps.push(stepText);
-                                    updateReactSteps(assistantMsgObj, reactSteps);
-                                }
-                                findingsEmitted.push(payload);
-                                if (assistantMsgObj.evidenceContainer) {
-                                    assistantMsgObj.evidenceContainer.style.display = 'block';
-                                    assistantMsgObj.evidenceContainer.innerHTML = renderEvidenceMatrixHTML(findingsEmitted);
-                                }
-                            } else if (eventName === 'agent_message_chunk' || payload.event === 'agent_message_chunk') {
-                                const chunk = payload.chunk || '';
-                                fullText += chunk;
-                                assistantMsgObj.contentEl.innerHTML = renderMarkdown(fullText);
-                                scrollToBottom();
-                            } else if (eventName === 'session_error' || payload.event === 'session_error') {
-                                assistantMsgObj.setLatticeStatus('error');
-                                const errMsg = payload.error || 'Terjadi kesalahan sistem saat mengeksekusi analisis.';
-                                assistantMsgObj.contentEl.innerHTML += `<div style="margin-top:10px; color:var(--badge-red-text); background:var(--badge-red-bg); padding:12px; border-radius:8px; border:1px solid var(--badge-red-border);">
-                                    <strong>Kendala Investigasi:</strong> ${escapeHtml(errMsg)}
-                                </div>`;
-                                scrollToBottom();
-                            } else if (eventName === 'pdf_report_ready' || payload.event === 'pdf_report_ready') {
-                                const filename = payload.filename || '';
-                                if (filename && !assistantMsgObj.element.querySelector('.pdf-download-banner')) {
-                                    const downloadBtn = document.createElement('div');
-                                    downloadBtn.className = 'pdf-download-banner';
-                                    downloadBtn.innerHTML = `
-                                        <div style="display:flex; align-items:center; gap:10px; margin-top:12px; padding:10px 14px; background:var(--badge-green-bg,#e8f5e9); border:1px solid var(--badge-green-border,#a5d6a7); border-radius:8px; font-size:13px;">
-                                            <span style="font-size:20px;">📄</span>
-                                            <div style="flex:1">
-                                                <strong style="color:var(--badge-green-text,#1b5e20);">${typeof currentLang !== 'undefined' && currentLang === 'en' ? 'PDF Audit Report Ready' : 'Laporan PDF Audit Siap'}</strong>
-                                                <div style="font-family:monospace; font-size:11px; opacity:0.8; margin-top:2px;">${escapeHtml(filename)}</div>
-                                            </div>
-                                            <a href="${API_BASE}/api/reports/${encodeURIComponent(filename)}" download="${escapeHtml(filename)}" style="padding:6px 14px; background:var(--accent-primary,#1d47a0); color:#fff; border-radius:6px; text-decoration:none; font-size:12px; font-weight:600; white-space:nowrap;">⬇ Download PDF</a>
-                                        </div>
-                                    `;
-                                    const bodyEl = assistantMsgObj.element.querySelector('.message-body');
-                                    if (bodyEl) bodyEl.appendChild(downloadBtn);
-                                }
-                            } else if (eventName === 'session_complete' || eventName === 'agent_message_complete') {
-                                assistantMsgObj.setLatticeStatus('done');
-                                loadLiveGraph(currentSessionId);
-
-                                // Fallback: regex detect PDF in fullText if pdf_report_ready event wasn't caught
-                                const pdfMatch = fullText.match(/NISKAVA_[A-Z0-9_]+\.pdf/);
-                                if (pdfMatch && !assistantMsgObj.element.querySelector('.pdf-download-banner')) {
-                                    const filename = pdfMatch[0];
-                                    const downloadBtn = document.createElement('div');
-                                    downloadBtn.className = 'pdf-download-banner';
-                                    downloadBtn.innerHTML = `
-                                        <div style="display:flex; align-items:center; gap:10px; margin-top:12px; padding:10px 14px; background:var(--badge-green-bg,#e8f5e9); border:1px solid var(--badge-green-border,#a5d6a7); border-radius:8px; font-size:13px;">
-                                            <span style="font-size:20px;">📄</span>
-                                            <div style="flex:1">
-                                                <strong style="color:var(--badge-green-text,#1b5e20);">${typeof currentLang !== 'undefined' && currentLang === 'en' ? 'PDF Audit Report Ready' : 'Laporan PDF Audit Siap'}</strong>
-                                                <div style="font-family:monospace; font-size:11px; opacity:0.8; margin-top:2px;">${escapeHtml(filename)}</div>
-                                            </div>
-                                            <a href="${API_BASE}/api/reports/${encodeURIComponent(filename)}" download="${escapeHtml(filename)}" style="padding:6px 14px; background:var(--accent-primary,#1d47a0); color:#fff; border-radius:6px; text-decoration:none; font-size:12px; font-weight:600; white-space:nowrap;">⬇ Download PDF</a>
-                                        </div>
-                                    `;
-                                    const bodyEl = assistantMsgObj.element.querySelector('.message-body');
-                                    if (bodyEl) bodyEl.appendChild(downloadBtn);
-                                }
-                            } else if (eventName === 'done' || payload.event === 'done') {
-                                if (payload.session_id) {
-                                    currentSessionId = payload.session_id;
-                                    localStorage.setItem('niskava_active_session', currentSessionId);
-                                }
-                                if (payload.message_id && assistantMsgObj.setMsgId) {
-                                    assistantMsgObj.setMsgId(payload.message_id);
-                                }
-                                assistantMsgObj.setLatticeStatus('done');
-                                loadChatSessions(false);
-                                loadLiveGraph(currentSessionId);
-                            }
+                    // Fallback populate content if chunks were not streamed
+                    if (!fullText) {
+                        const fallbackText = payload.content || payload.summary || payload.response || '';
+                        if (fallbackText) {
+                            fullText = fallbackText;
+                            assistantMsgObj.contentEl.innerHTML = renderMarkdown(fullText);
                         }
                     }
 
-                    if (!fullText) {
-                        assistantMsgObj.contentEl.innerHTML = renderMarkdown(reactSteps.length > 0 ?
-                            `_Investigasi intelijen pasar selesai dieksekusi dengan ${reactSteps.length} langkah observasi._` :
-                            `_Analisis selesai tanpa output teks tambahan._`);
+                    // Fallback: regex detect PDF in fullText if pdf_report_ready event wasn't caught
+                    const pdfMatch = fullText.match(/NISKAVA_[A-Z0-9_]+\.pdf/);
+                    if (pdfMatch && !assistantMsgObj.element.querySelector('.pdf-download-banner')) {
+                        const filename = pdfMatch[0];
+                        const downloadBtn = document.createElement('div');
+                        downloadBtn.className = 'pdf-download-banner';
+                        downloadBtn.innerHTML = `
+                            <div style="display:flex; align-items:center; gap:10px; margin-top:12px; padding:10px 14px; background:var(--badge-green-bg,#e8f5e9); border:1px solid var(--badge-green-border,#a5d6a7); border-radius:8px; font-size:13px;">
+                                <span style="font-size:20px;">📄</span>
+                                <div style="flex:1">
+                                    <strong style="color:var(--badge-green-text,#1b5e20);">${typeof currentLang !== 'undefined' && currentLang === 'id' ? 'Laporan PDF Audit Siap' : 'PDF Audit Report Ready'}</strong>
+                                    <div style="font-family:monospace; font-size:11px; opacity:0.8; margin-top:2px;">${escapeHtml(filename)}</div>
+                                </div>
+                                <a href="${API_BASE}/api/reports/${encodeURIComponent(filename)}" download="${escapeHtml(filename)}" style="padding:6px 14px; background:var(--accent-primary,#1d47a0); color:#fff; border-radius:6px; text-decoration:none; font-size:12px; font-weight:600; white-space:nowrap;">⬇ Download PDF</a>
+                            </div>
+                        `;
+                        const bodyEl = assistantMsgObj.element.querySelector('.message-body');
+                        if (bodyEl) bodyEl.appendChild(downloadBtn);
                     }
-
-                } catch (err) {
-                    if (err.name !== 'AbortError') {
-                        assistantMsgObj.setLatticeStatus('error');
-                        const isNetworkErr = err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'));
-                        assistantMsgObj.contentEl.innerHTML = `<div style="color:var(--badge-red-text); background:var(--badge-red-bg); padding:12px; border-radius:8px; border:1px solid var(--badge-red-border); line-height:1.5;">
-                            <strong>Kendala Koneksi Investigasi:</strong> ${escapeHtml(err.message)}.<br>
-                            ${isNetworkErr ? '<small style="opacity:0.9;">Pastikan backend daemon aktif di terminal: <code>.\\niskava.exe serve --port 8080</code></small>' : ''}
-                        </div>`;
+                } else if (eventName === 'done' || payload.event === 'done') {
+                    if (payload.session_id) {
+                        currentSessionId = payload.session_id;
+                        localStorage.setItem('niskava_active_session', currentSessionId);
                     }
-                } finally {
-                    isGenerating = false;
-                    updateSendButtonState();
-                    if (assistantMsgObj.getLatticeStatus && assistantMsgObj.getLatticeStatus() !== 'error') {
-                        assistantMsgObj.setLatticeStatus('done');
+                    if (payload.message_id && assistantMsgObj.setMsgId) {
+                        assistantMsgObj.setMsgId(payload.message_id);
                     }
-                    if (reactSteps.length === 0 && assistantMsgObj.element) {
-                        const sb = assistantMsgObj.element.querySelector('.react-steps-box');
-                        if (sb) sb.style.display = 'none';
-                    }
+                    assistantMsgObj.setLatticeStatus('done');
                     loadChatSessions(false);
                     loadLiveGraph(currentSessionId);
-                    scrollToBottom();
                 }
             }
+        }
 
-            function appendUserMessage(text) {
-                const safeText = (text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'chat-message user-message';
-                msgDiv.innerHTML = `
-                    <div class="message-avatar user">G</div>
-                    <div class="message-body">
-                        <div class="message-header-row">
-                            <span class="message-author">User</span>
-                            <span class="message-time">${t('just_now')}</span>
-                        </div>
-                        <div class="markdown-rendered"><p>${safeText}</p></div>
+        if (!fullText && (!assistantMsgObj.getLatticeStatus || assistantMsgObj.getLatticeStatus() !== 'error')) {
+            assistantMsgObj.contentEl.innerHTML = renderMarkdown(reactSteps.length > 0 ?
+                `_Market intelligence analysis completed with ${reactSteps.length} observation steps._` :
+                `_No text response received from AI model. Please verify your AI provider settings in Settings or retry your prompt._`);
+        }
+
+    } catch (err) {
+        if (err.name !== 'AbortError') {
+            assistantMsgObj.setLatticeStatus('error');
+            const isNetworkErr = err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'));
+            assistantMsgObj.contentEl.innerHTML = `<div style="color:var(--badge-red-text); background:var(--badge-red-bg); padding:12px; border-radius:8px; border:1px solid var(--badge-red-border); line-height:1.5;">
+                <strong>Investigation Connection Error:</strong> ${escapeHtml(err.message)}.<br>
+                ${isNetworkErr ? '<small style="opacity:0.9;">Ensure the backend daemon is running in terminal: <code>niskava serve --port 8080</code></small>' : ''}
+            </div>`;
+        }
+    } finally {
+        isGenerating = false;
+        updateSendButtonState();
+        if (assistantMsgObj.getLatticeStatus && assistantMsgObj.getLatticeStatus() !== 'error') {
+            assistantMsgObj.setLatticeStatus('done');
+        }
+        if (reactSteps.length === 0 && assistantMsgObj.element) {
+            const sb = assistantMsgObj.element.querySelector('.react-accordion') || assistantMsgObj.element.querySelector('.react-steps-box');
+            if (sb) sb.style.display = 'none';
+        }
+        loadChatSessions(false);
+        loadLiveGraph(currentSessionId);
+        scrollToBottom();
+    }
+}
+
+function appendUserMessage(text, attachments) {
+    const safeText = (text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'chat-message user-message';
+
+    let attachmentsHTML = '';
+    if (attachments && attachments.length > 0) {
+        const cardsHTML = attachments.map(att => {
+            const fname = att.filename || att.name || 'document';
+            const fsize = formatFileSize(att.file_size || att.size || 0);
+            return `
+                <div class="user-attachment-card" title="${escapeHtml(fname)} (${fsize})">
+                    <span class="attachment-icon">${getFileIconSVG(fname)}</span>
+                    <span class="attachment-filename">${escapeHtml(fname)}</span>
+                    <span class="attachment-meta">${fsize}</span>
+                </div>
+            `;
+        }).join('');
+        attachmentsHTML = `<div class="user-attachments-grid">${cardsHTML}</div>`;
+    }
+
+    msgDiv.innerHTML = `
+        <div class="message-avatar user">G</div>
+        <div class="message-body">
+            <div class="message-header-row">
+                <span class="message-author">User</span>
+                <span class="message-time">${t('just_now')}</span>
+            </div>
+            ${attachmentsHTML}
+            <div class="markdown-rendered"><p>${safeText}</p></div>
+        </div>
+    `;
+    chatView.appendChild(msgDiv);
+}
+
+function createAssistantMessageElement(sessionId, msgId) {
+    let activeSessionId = sessionId || currentSessionId;
+    let activeMsgId = msgId;
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'chat-message assistant-message';
+
+    const thinkingTitle = t('react_thinking_process') || (typeof currentLang !== 'undefined' && currentLang === 'en' ? 'Thinking & Investigation Process' : 'Proses Berpikir & Investigasi');
+
+    msgDiv.innerHTML = `
+        <div class="message-avatar ai"><img src="data:image/png;base64,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" alt="NISKAVA Agent" class="ai-avatar-img"></div>
+        <div class="message-body">
+            <div class="message-header-row">
+                <span class="message-author">NISKAVA Agent</span>
+                <span class="message-time">${t('just_now')}</span>
+            </div>
+            
+            <!-- Collapsible ReAct Execution Accordion -->
+            <div class="react-accordion react-steps-box" role="region" aria-label="Investigation Steps">
+                <div class="react-accordion-header react-steps-toggle" role="button" tabindex="0" title="${t('investigation_details_tooltip') || 'Klik untuk rincian proses investigasi'}">
+                    <div class="react-accordion-header-left">
+                        <span class="react-status-dot pulsing"></span>
+                        <span class="react-accordion-title">${thinkingTitle}</span>
+                        <span class="react-accordion-timer font-mono">0.0s</span>
                     </div>
-                `;
-                chatView.appendChild(msgDiv);
-            }
-
-            function createAssistantMessageElement(sessionId, msgId) {
-                let activeSessionId = sessionId || currentSessionId;
-                let activeMsgId = msgId;
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'chat-message assistant-message';
-                msgDiv.innerHTML = `
-                    <div class="message-avatar ai"><img src="data:image/png;base64,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" alt="NISKAVA Agent" class="ai-avatar-img"></div>
-                    <div class="message-body">
-                        <div class="message-header-row">
-                            <span class="message-author">NISKAVA Agent</span>
-                            <span class="message-time">${t('just_now')}</span>
-                        </div>
-                        
-                        <!-- ReAct Accordion with LatticeLoader (React Bits) -->
-                        <div class="react-steps-box">
-                            <div class="react-steps-toggle" role="button" tabindex="0" title="${t('investigation_details_tooltip')}">
-                                <!-- LatticeLoader Component -->
-                                <div class="ll-root" data-status="working" data-shape="round">
-                                    <span class="ll-grid-wrap" aria-hidden="true">
-                                        <!-- 3x3 Orbit Pattern Wave -->
-                                        <span class="ll-run">
-                                            <span class="ll-cell animating" style="animation-delay: 0ms;"></span>
-                                            <span class="ll-cell animating" style="animation-delay: 108ms;"></span>
-                                            <span class="ll-cell animating" style="animation-delay: 216ms;"></span>
-                                            <span class="ll-cell animating" style="animation-delay: 756ms;"></span>
-                                            <span class="ll-cell hole"></span>
-                                            <span class="ll-cell animating" style="animation-delay: 324ms;"></span>
-                                            <span class="ll-cell animating" style="animation-delay: 648ms;"></span>
-                                            <span class="ll-cell animating" style="animation-delay: 540ms;"></span>
-                                            <span class="ll-cell animating" style="animation-delay: 432ms;"></span>
-                                        </span>
-                                        <!-- 3x3 Mark (Check: [2, 3, 5, 7], Error: [0, 2, 4, 6, 8]) -->
-                                        <span class="ll-mark">
-                                            <span class="ll-cell"></span>
-                                            <span class="ll-cell"></span>
-                                            <span class="ll-cell"></span>
-                                            <span class="ll-cell"></span>
-                                            <span class="ll-cell"></span>
-                                            <span class="ll-cell"></span>
-                                            <span class="ll-cell"></span>
-                                            <span class="ll-cell"></span>
-                                            <span class="ll-cell"></span>
-                                        </span>
-                                    </span>
-                                    <span class="ll-text-wrap" aria-hidden="true">
-                                        <span class="ll-text ll-text-working">${t('investigating')}</span>
-                                        <span class="ll-text ll-text-done" style="display:none; opacity:0;">${t('investigation_done')}</span>
-                                        <span class="ll-text ll-text-error" style="display:none; opacity:0;">${t('investigation_failed')}</span>
-                                    </span>
-                                    <span class="ll-timer font-mono">0.0s</span>
-                                </div>
-
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <span class="react-count-badge" style="color:var(--accent-text); font-family:var(--font-mono); font-size:11.5px; font-weight:600;">0 ${t('steps')}</span>
-                                    <svg class="steps-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted);"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                                </div>
-                            </div>
-                            <div class="react-steps-content" style="display:none;"></div>
-                        </div>
-
-                        <!-- Markdown Content -->
-                        <div class="markdown-rendered"></div>
-
-                        <!-- Dedicated 3-Tier Evidence Matrix (Law 2 Non-Advisory) -->
-                        <div class="evidence-matrix-container" style="display:none; margin-top:14px;"></div>
-
-                        <!-- Action row -->
-                        <div class="message-action-row">
-                            <button class="btn-msg-action btn-copy-report" title="${t('copy_tooltip')}">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                <span>${t('copy')}</span>
-                            </button>
-                            <button class="btn-msg-action btn-export-md" title="${t('export_tooltip')}">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                <span>${t('export')}</span>
-                            </button>
-                            <button class="btn-msg-action btn-fork-chat" title="${t('fork_tooltip')}">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M6 9a9 9 0 0 0 9 9"></path></svg>
-                                <span>${t('fork')}</span>
-                            </button>
-                        </div>
+                    <div class="react-accordion-header-right">
+                        <span class="react-accordion-badge react-count-badge">0 ${t('steps')}</span>
+                        <svg class="react-accordion-chevron steps-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
                     </div>
-                `;
+                </div>
+                <div class="react-accordion-content react-steps-content"></div>
+            </div>
 
-                const stepsBox = msgDiv.querySelector('.react-steps-box');
-                const stepsToggle = msgDiv.querySelector('.react-steps-toggle');
-                const stepsContent = msgDiv.querySelector('.react-steps-content');
-                const countBadge = msgDiv.querySelector('.react-count-badge');
-                const stepsChevron = msgDiv.querySelector('.steps-chevron');
-                const contentEl = msgDiv.querySelector('.markdown-rendered');
-                const evidenceContainer = msgDiv.querySelector('.evidence-matrix-container');
-                
-                // LatticeLoader Elements
-                const llRoot = msgDiv.querySelector('.ll-root');
-                const llMark = msgDiv.querySelector('.ll-mark');
-                const textWorking = msgDiv.querySelector('.ll-text-working');
-                const textDone = msgDiv.querySelector('.ll-text-done');
-                const textError = msgDiv.querySelector('.ll-text-error');
-                const llTimer = msgDiv.querySelector('.ll-timer');
+            <!-- Markdown Content -->
+            <div class="markdown-rendered"></div>
 
-                // Live stopwatch timer
-                const startTime = performance.now();
-                let timerInterval = setInterval(() => {
-                    const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-                    llTimer.textContent = `${elapsed}s`;
-                }, 100);
+            <!-- Dedicated 3-Tier Evidence Matrix (Law 2 Non-Advisory) -->
+            <div class="evidence-matrix-container" style="display:none; margin-top:14px;"></div>
 
-                let currentStatus = 'working';
-                function setLatticeStatus(status) {
-                    currentStatus = status;
-                    clearInterval(timerInterval);
-                    const finalElapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-                    llTimer.textContent = `${finalElapsed}s`;
-                    llRoot.setAttribute('data-status', status);
+            <!-- Quick Action Bar -->
+            <div class="message-action-row">
+                <button type="button" class="btn-msg-action btn-copy-report" title="${t('copy_tooltip')}">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    <span>${t('copy')}</span>
+                </button>
+                <button type="button" class="btn-msg-action btn-export-md" title="${t('export_tooltip')}">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span>${t('export')}</span>
+                </button>
+                <button type="button" class="btn-msg-action btn-fork-chat" title="${t('fork_tooltip')}">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M6 9a9 9 0 0 0 9 9"></path></svg>
+                    <span>${t('fork')}</span>
+                </button>
+            </div>
+        </div>
+    `;
 
-                    const markCells = llMark.querySelectorAll('.ll-cell');
+    const accordionEl = msgDiv.querySelector('.react-accordion');
+    const stepsToggle = msgDiv.querySelector('.react-accordion-header');
+    const stepsContent = msgDiv.querySelector('.react-accordion-content');
+    const countBadge = msgDiv.querySelector('.react-accordion-badge');
+    const stepsChevron = msgDiv.querySelector('.react-accordion-chevron');
+    const contentEl = msgDiv.querySelector('.markdown-rendered');
+    const evidenceContainer = msgDiv.querySelector('.evidence-matrix-container');
+    const statusDot = msgDiv.querySelector('.react-status-dot');
+    const timerEl = msgDiv.querySelector('.react-accordion-timer');
 
-                    if (status === 'done') {
-                        textWorking.style.display = 'none';
-                        textError.style.display = 'none';
-                        textDone.style.display = 'inline';
-                        setTimeout(() => { textDone.style.opacity = '1'; }, 20);
+    // Live stopwatch timer
+    const startTime = performance.now();
+    let timerInterval = setInterval(() => {
+        const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+        if (timerEl) timerEl.textContent = `${elapsed}s`;
+    }, 100);
 
-                        // Turn on checkmark cells: 2, 3, 5, 7
-                        [2, 3, 5, 7].forEach(idx => {
-                            if (markCells[idx]) markCells[idx].setAttribute('data-on', '');
-                        });
-                    } else if (status === 'error') {
-                        textWorking.style.display = 'none';
-                        textDone.style.display = 'none';
-                        textError.style.display = 'inline';
-                        setTimeout(() => { textError.style.opacity = '1'; }, 20);
+    let currentStatus = 'working';
+    function setLatticeStatus(status) {
+        currentStatus = status;
+        clearInterval(timerInterval);
+        const finalElapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+        if (timerEl) timerEl.textContent = `${finalElapsed}s`;
 
-                        // Turn on error cross cells: 0, 2, 4, 6, 8
-                        [0, 2, 4, 6, 8].forEach(idx => {
-                            if (markCells[idx]) markCells[idx].setAttribute('data-on', '');
-                        });
-                    }
-                }
-
-                stepsToggle.addEventListener('click', () => {
-                    const isShown = stepsContent.style.display !== 'none';
-                    stepsContent.style.display = isShown ? 'none' : 'flex';
-                    if (stepsChevron) {
-                        stepsChevron.classList.toggle('open', !isShown);
-                    }
-                });
-
-                const btnCopy = msgDiv.querySelector('.btn-copy-report');
-                btnCopy.addEventListener('click', async () => {
-                    const text = contentEl.innerText || contentEl.textContent || '';
-                    const ok = await copyToClipboard(text);
-                    if (ok) {
-                        showToast(t('toast_copied'));
-                    } else {
-                        showToast(currentLang === 'en' ? 'Failed to copy to clipboard' : 'Gagal menyalin ke papan klip', true);
-                    }
-                });
-
-                const btnExport = msgDiv.querySelector('.btn-export-md');
-                btnExport.addEventListener('click', () => {
-                    const blob = new Blob([contentEl.innerText], { type: 'text/markdown' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `NISKAVA_Report_${activeSessionId}.md`;
-                    a.click();
-                    showToast(t('toast_exported'));
-                });
-
-                const btnFork = msgDiv.querySelector('.btn-fork-chat');
-                if (btnFork) {
-                    btnFork.addEventListener('click', () => {
-                        forkChatSession(activeSessionId || currentSessionId, activeMsgId);
-                    });
-                }
-
-                return {
-                    element: msgDiv,
-                    stepsContent,
-                    countBadge,
-                    contentEl,
-                    evidenceContainer,
-                    setLatticeStatus,
-                    getLatticeStatus: () => currentStatus,
-                    setMsgId: (id) => { activeMsgId = id; }
-                };
+        if (statusDot) {
+            statusDot.classList.remove('pulsing', 'done', 'error');
+            if (status === 'done') {
+                statusDot.classList.add('done');
+            } else if (status === 'error') {
+                statusDot.classList.add('error');
+            } else {
+                statusDot.classList.add('pulsing');
             }
+        }
+    }
 
-            function updateReactSteps(msgObj, steps) {
-                if (!Array.isArray(steps)) steps = [steps];
-                const unit = currentLang === 'en' ? (steps.length === 1 ? t('step') : t('steps')) : t('steps');
-                msgObj.countBadge.textContent = `${steps.length} ${unit}`;
-                msgObj.stepsContent.innerHTML = steps.map(s => `
-                    <div class="react-step-row">
-                        <span class="react-step-bullet">●</span>
-                        <span>${String(s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
-                    </div>
-                `).join('');
-            }
+    stepsToggle.addEventListener('click', () => {
+        const isShown = accordionEl.classList.contains('open');
+        accordionEl.classList.toggle('open');
+        if (stepsChevron) {
+            stepsChevron.classList.toggle('open', !isShown);
+        }
+    });
 
-            function scrollToBottom() {
-                const workspaceContent = document.getElementById('workspaceContent');
-                workspaceContent.scrollTo({
-                    top: workspaceContent.scrollHeight,
-                    behavior: 'smooth'
-                });
-            }
+    const btnCopy = msgDiv.querySelector('.btn-copy-report');
+    btnCopy.addEventListener('click', async () => {
+        const textToCopy = contentEl.innerText || contentEl.textContent || '';
+        const ok = await copyToClipboard(textToCopy);
+        if (ok) {
+            const origHTML = btnCopy.innerHTML;
+            btnCopy.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span style="color:#10B981;">${typeof currentLang !== 'undefined' && currentLang === 'en' ? 'Copied!' : 'Disalin!'}</span>`;
+            setTimeout(() => { btnCopy.innerHTML = origHTML; }, 2000);
+            showToast(t('toast_copied'));
+        } else {
+            showToast(typeof currentLang !== 'undefined' && currentLang === 'en' ? 'Failed to copy to clipboard' : 'Gagal menyalin ke papan klip', true);
+        }
+    });
 
-            // Accidental Navigation Guard: Warn user before reloading if analysis is actively streaming/thinking
-            window.addEventListener('beforeunload', (e) => {
-                if (isGenerating) {
-                    e.preventDefault();
-                    e.returnValue = '';
-                }
-            });
+    const btnExport = msgDiv.querySelector('.btn-export-md');
+    btnExport.addEventListener('click', () => {
+        const blob = new Blob([contentEl.innerText], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `NISKAVA_Report_${activeSessionId}.md`;
+        a.click();
+        showToast(t('toast_exported'));
+    });
+
+    const btnFork = msgDiv.querySelector('.btn-fork-chat');
+    if (btnFork) {
+        btnFork.addEventListener('click', () => {
+            forkChatSession(activeSessionId || currentSessionId, activeMsgId);
+        });
+    }
+
+    return {
+        element: msgDiv,
+        stepsContent,
+        countBadge,
+        contentEl,
+        evidenceContainer,
+        setLatticeStatus,
+        getLatticeStatus: () => currentStatus,
+        setMsgId: (id) => { activeMsgId = id; }
+    };
+}
+
+function updateReactSteps(msgObj, steps) {
+    if (!Array.isArray(steps)) steps = [steps];
+    const unit = typeof currentLang !== 'undefined' && currentLang === 'en'
+        ? (steps.length === 1 ? t('step') : t('steps'))
+        : t('steps');
+    if (msgObj.countBadge) {
+        msgObj.countBadge.textContent = `${steps.length} ${unit}`;
+    }
+    if (msgObj.stepsContent) {
+        msgObj.stepsContent.innerHTML = steps.map(s => `
+            <div class="react-step-row">
+                <span class="react-step-bullet">●</span>
+                <span class="react-step-text">${String(s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
+            </div>
+        `).join('');
+        msgObj.stepsContent.scrollTop = msgObj.stepsContent.scrollHeight;
+    }
+}
+
+function scrollToBottom() {
+    const workspaceContent = document.getElementById('workspaceContent');
+    if (workspaceContent) {
+        workspaceContent.scrollTo({
+            top: workspaceContent.scrollHeight,
+            behavior: 'smooth'
+        });
+    }
+}
+
+// Accidental Navigation Guard: Warn user before reloading if analysis is actively streaming/thinking
+window.addEventListener('beforeunload', (e) => {
+    if (isGenerating) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
 
     // --- 07_settings.js ---
 // 10. Navigation, Dedicated Memory Graph & Settings/Toolkit Integration
@@ -3022,7 +3253,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     });
                 }
 
-                // Formal 7-Stage Investigation Handlers
+                // Market Radar & Forensic Dossier Handlers
                 let selectedInvestigationId = null;
                 const btnInvBackToChat = document.getElementById('btnInvBackToChat');
                 if (btnInvBackToChat) {
@@ -3037,6 +3268,243 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                         }
                         switchMainView('chat');
                     });
+                }
+
+                const btnInvExportMd = document.getElementById('btnInvExportMd');
+                if (btnInvExportMd) {
+                    btnInvExportMd.addEventListener('click', () => {
+                        if (!selectedInvestigationId) {
+                            showToast(currentLang === 'en' ? 'No active investigation selected' : 'Belum ada sesi investigasi yang dipilih', true);
+                            return;
+                        }
+                        const titleEl = document.getElementById('invDossierTitle');
+                        const ticker = titleEl ? titleEl.textContent.replace('DOSSIER:', '').replace('HASIL AUDIT:', '').trim() : 'IDX';
+                        const zScore = document.getElementById('invDossierZScore')?.textContent || '-';
+                        const actualVol = document.getElementById('invDossierActualVol')?.textContent || '-';
+                        const baselineVol = document.getElementById('invDossierBaselineVol')?.textContent || '-';
+                        const returnDev = document.getElementById('invDossierReturnDev')?.textContent || '-';
+                        const dateStr = new Date().toISOString().slice(0, 10);
+
+                        let md = `# LAPORAN AUDIT OTONOM INTELIJEN PASAR: ${ticker}\n\n`;
+                        md += `**ID Sesi:** \`${selectedInvestigationId}\` | **Tanggal Ekspor:** ${dateStr}\n\n`;
+                        md += `## 1. Indikator Kuantitatif Deterministik (Law 1)\n\n`;
+                        md += `- **Volume Z-Score ($V_z$):** ${zScore}\n`;
+                        md += `- **Volume Perdagangan Aktual:** ${actualVol}\n`;
+                        md += `- **Baseline Historis MA20:** ${baselineVol}\n`;
+                        md += `- **Deviasi Return ($R_t$):** ${returnDev}\n\n`;
+
+                        md += `## 2. Matriks Verifikasi Bukti 3-Tier (Law 2)\n\n`;
+                        const findingCards = document.querySelectorAll('#invEvidenceContainer .evidence-item');
+                        if (findingCards.length > 0) {
+                            findingCards.forEach(c => {
+                                const claim = c.querySelector('.evidence-claim')?.textContent.trim() || '';
+                                const badge = c.querySelector('.evidence-status-badge')?.textContent.trim() || 'UNCERTAIN';
+                                const source = c.querySelector('.evidence-source')?.textContent.trim() || '-';
+                                md += `### [${badge}] ${claim}\n`;
+                                md += `- **Sumber Rujukan:** ${source}\n\n`;
+                            });
+                        } else {
+                            md += `*Data temuan matriks bukti diverifikasi langsung melalui dokumen keterbukaan informasi IDXnet.*\n\n`;
+                        }
+
+                        md += `## 3. Timeline Rekonsiliasi Kronologis Kausalitas\n\n`;
+                        const signals = document.querySelectorAll('#invTimelineContainer .signal-item');
+                        if (signals.length > 0) {
+                            signals.forEach(sig => {
+                                const time = sig.querySelector('.signal-time')?.textContent.trim() || '-';
+                                const title = sig.querySelector('.signal-title')?.textContent.trim() || '';
+                                const desc = sig.querySelector('.signal-desc')?.textContent.trim() || '';
+                                md += `- **${time}** - **${title}**: ${desc}\n`;
+                            });
+                            md += `\n`;
+                        }
+
+                        md += `> [!IMPORTANT]\n`;
+                        md += `> **Kepatuhan Regulasi Pasar Modal (Law 2 & Law 3):**\n`;
+                        md += `> Niskava Agent adalah platform riset intelijen pasar modal berbasis bukti untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi berizin dan BUKAN broker perdagangan saham. Seluruh dossier, skor anomali statistik, dan matriks bukti disajikan secara deskriptif untuk tujuan verifikasi fakta dan transparansi pasar, serta BUKAN merupakan rekomendasi beli/jual saham atau saran finansial terpersonalisasi.\n`;
+
+                        const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `niskava-audit-${ticker}-${selectedInvestigationId.slice(0, 8)}.md`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                        showToast(currentLang === 'en' ? 'Audit report markdown downloaded' : 'Laporan audit markdown berhasil diekspor');
+                    });
+                }
+
+                const btnRadarRefresh = document.getElementById('btnRadarRefresh');
+                if (btnRadarRefresh) {
+                    btnRadarRefresh.addEventListener('click', () => {
+                        loadRadarAnomalies();
+                        showToast(currentLang === 'en' ? 'Refreshing anomaly signals...' : 'Menyegarkan data anomali...');
+                    });
+                }
+
+                function formatRadarMetricName(type) {
+                    if (!type) return 'Volume Spike';
+                    if (type === 'volume_zscore') return 'Volume Anomaly (Vz)';
+                    if (type === 'price_zscore') return 'Price Volatility';
+                    if (type === 'foreign_flow_zscore') return 'Foreign Flow Divergence';
+                    return type.replace(/_/g, ' ').toUpperCase();
+                }
+
+                function formatRadarVolumeShort(num) {
+                    const val = Number(num);
+                    if (isNaN(val)) return '-';
+                    if (Math.abs(val) >= 1e9) return (val / 1e9).toFixed(1) + 'B';
+                    if (Math.abs(val) >= 1e6) return (val / 1e6).toFixed(1) + 'M';
+                    if (Math.abs(val) >= 1e3) return (val / 1e3).toFixed(1) + 'k';
+                    return val.toLocaleString('id-ID');
+                }
+
+                function renderRadarEmptyState(container) {
+                    if (!container) return;
+                    const msg = (typeof t === 'function' && t('radar_empty')) || (currentLang === 'en'
+                        ? 'No anomalies above 2.0σ threshold yet. Enter an IDX ticker below to inspect.'
+                        : 'Belum ada anomali terdeteksi melebihi ambang batas 2.0σ. Masukkan kode emiten di bawah untuk memeriksa.');
+                    container.innerHTML = `
+                        <div class="radar-empty-state">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                            <span>${msg}</span>
+                        </div>
+                    `;
+                }
+
+                async function loadRadarAnomalies() {
+                    const listEl = document.getElementById('radarAnomaliesList');
+                    if (!listEl) return;
+
+                    try {
+                        const res = await fetch(`${API_BASE}/api/radar/anomalies?limit=12&min_z=2.0`);
+                        if (!res.ok) {
+                            renderRadarEmptyState(listEl);
+                            return;
+                        }
+                        const data = await res.json();
+                        const rawAnomalies = (data && Array.isArray(data.anomalies)) ? data.anomalies : [];
+
+                        // Deduplicate tickers so each ticker appears at most once in the screener
+                        const seenTickers = new Set();
+                        const anomalies = [];
+                        for (const item of rawAnomalies) {
+                            const t = (item.ticker || '').trim().toUpperCase();
+                            if (t && !seenTickers.has(t)) {
+                                seenTickers.add(t);
+                                anomalies.push(item);
+                            }
+                        }
+
+                        if (anomalies.length === 0) {
+                            renderRadarEmptyState(listEl);
+                            return;
+                        }
+
+                        listEl.innerHTML = '';
+                        anomalies.forEach((item) => {
+                            const z = Number(item.z_score || 0);
+                            const ticker = escapeHtml(item.ticker || 'IDX');
+                            const invId = item.investigation_id || `INV-${ticker}`;
+                            const dateStr = item.anomaly_date || (item.created_at ? item.created_at.slice(0, 10) : '');
+
+                            let zBadgeClass = 'radar-zscore-normal';
+                            if (Math.abs(z) >= 3.0) {
+                                zBadgeClass = 'radar-zscore-critical';
+                            } else if (Math.abs(z) >= 2.5) {
+                                zBadgeClass = 'radar-zscore-warning';
+                            }
+
+                            const metricLabel = item.metric_type ? formatRadarMetricName(item.metric_type) : 'Volume Spike';
+                            let metricDetail = '';
+                            if (item.metric_value && item.baseline_value) {
+                                metricDetail = `Aktual ${formatRadarVolumeShort(item.metric_value)} / MA20 ${formatRadarVolumeShort(item.baseline_value)}`;
+                            } else if (item.description) {
+                                metricDetail = escapeHtml(item.description);
+                            }
+
+                            const card = document.createElement('div');
+                            card.className = 'radar-card';
+                            card.setAttribute('role', 'button');
+                            card.setAttribute('tabindex', '0');
+                            card.title = `${ticker}: Z-Score ${z >= 0 ? '+' : ''}${z.toFixed(2)}σ (${metricLabel})`;
+                            const inspectLabel = (typeof t === 'function' && t('radar_btn_inspect')) || (currentLang === 'en' ? 'Audit Stock' : 'Audit Saham Ini');
+
+                            card.innerHTML = `
+                                <div class="radar-card-top">
+                                    <span class="radar-card-ticker">${ticker}</span>
+                                    <span class="radar-card-zscore ${zBadgeClass}">${z >= 0 ? '+' : ''}${z.toFixed(2)}σ</span>
+                                </div>
+                                <div class="radar-card-metric">
+                                    <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(metricLabel)}</span>
+                                    <span class="radar-card-metric-val">${metricDetail || '-'}</span>
+                                </div>
+                                <div class="radar-card-date">${dateStr ? escapeHtml(dateStr) : '-'}</div>
+                                <button class="radar-card-btn" type="button">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                    <span>${inspectLabel}</span>
+                                </button>
+                            `;
+
+                            const onInspect = (e) => {
+                                if (e) e.stopPropagation();
+                                inspectRadarCase(item);
+                            };
+
+                            card.addEventListener('click', onInspect);
+                            card.addEventListener('keydown', (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    onInspect(e);
+                                }
+                            });
+
+                            const inspectBtn = card.querySelector('.radar-card-btn');
+                            if (inspectBtn) {
+                                inspectBtn.addEventListener('click', onInspect);
+                            }
+
+                            listEl.appendChild(card);
+                        });
+
+                        // Auto-select first anomaly if none selected yet
+                        if (!selectedInvestigationId && anomalies.length > 0) {
+                            const first = anomalies[0];
+                            selectInvestigation(first.investigation_id || `INV-${first.ticker}`, first);
+                        }
+                    } catch (e) {
+                        console.warn('Gagal memuat anomali pasar:', e);
+                        renderRadarEmptyState(listEl);
+                    }
+                }
+
+                function inspectRadarCase(arg1, arg2) {
+                    let ticker = '';
+                    let invId = '';
+                    let meta = {};
+                    if (typeof arg1 === 'object' && arg1 !== null) {
+                        meta = arg1;
+                        ticker = (arg1.ticker || '').trim().toUpperCase();
+                        invId = arg1.investigation_id || ('INV-' + ticker);
+                    } else {
+                        ticker = (arg1 || '').trim().toUpperCase();
+                        invId = arg2 || ('INV-' + ticker);
+                        meta = { ticker: ticker };
+                    }
+                    if (!ticker) return;
+
+                    const inputInvTicker = document.getElementById('inputInvTicker');
+                    if (inputInvTicker) {
+                        inputInvTicker.value = ticker;
+                    }
+                    selectInvestigation(invId, meta);
+                    const dossierCard = document.getElementById('invDossierCard');
+                    if (dossierCard) {
+                        dossierCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                    showToast(currentLang === 'en' ? `Inspecting audit for ${ticker}` : `Membuka audit saham ${ticker}`);
                 }
 
                 const btnRunFormalInvestigation = document.getElementById('btnRunFormalInvestigation');
@@ -3059,66 +3527,73 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                             chatInput.value = `Jalankan investigasi formal 7-tahap otonom pada emiten ${ticker} untuk observasi ${days} hari terakhir.`;
                             handleSendMessage();
                         }
-                        showToast(currentLang === 'en' ? `Starting 7-stage investigation for ${ticker}...` : `Memulai investigasi 7-tahap untuk ${ticker}...`);
+                        showToast(currentLang === 'en' ? `Starting audit for ${ticker}...` : `Memulai audit emiten ${ticker}...`);
                     });
                 }
 
                 async function loadInvestigations() {
-                    const invHistoryList = document.getElementById('invHistoryList');
-                    const invTotalCount = document.getElementById('invTotalCount');
-                    if (!invHistoryList) return;
-
-                    try {
-                        const res = await fetch(`${API_BASE}/api/investigations`);
-                        if (!res.ok) {
-                            invHistoryList.innerHTML = `<div style="font-size:11.5px; color:var(--text-muted); text-align:center; padding:20px 0;">${currentLang === 'en' ? 'No saved investigation sessions yet.' : 'Belum ada sesi investigasi tersimpan.'}</div>`;
-                            return;
-                        }
-                        const list = await res.json();
-                        if (!Array.isArray(list) || list.length === 0) {
-                            invHistoryList.innerHTML = `<div style="font-size:11.5px; color:var(--text-muted); text-align:center; padding:20px 0;">${currentLang === 'en' ? 'No investigation sessions. Click "Run Formal Audit" to start.' : 'Belum ada sesi investigasi. Klik "Mulai Audit Otonom" untuk memulai.'}</div>`;
-                            if (invTotalCount) invTotalCount.textContent = currentLang === 'en' ? '0 Sessions' : '0 Sesi';
-                            return;
-                        }
-
-                        if (invTotalCount) invTotalCount.textContent = `${list.length} ${currentLang === 'en' ? 'Sessions' : 'Sesi'}`;
-                        invHistoryList.innerHTML = '';
-
-                        list.forEach((item, idx) => {
-                            const sid = item.id || item.session_id || `INV-${idx}`;
-                            const title = item.title || item.ticker || `Investigasi ${sid.slice(0, 8)}`;
-                            const timeStr = item.created_at ? new Date(item.created_at).toLocaleDateString(currentLang === 'en' ? 'en-US' : 'id-ID', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : (currentLang === 'en' ? 'Just now' : 'Baru saja');
-                            const status = (item.status || 'COMPLETED').toUpperCase();
-
-                            const row = document.createElement('div');
-                            row.className = `inv-history-item ${selectedInvestigationId === sid ? 'active' : ''}`;
-                            row.innerHTML = `
-                                <div class="inv-history-item-title">${escapeHtml(title)}</div>
-                                <div class="inv-history-item-sub">
-                                    <span>${timeStr}</span>
-                                    <span class="inv-status-pill inv-status-${status === 'COMPLETED' ? 'completed' : 'running'}">${status}</span>
-                                </div>
-                            `;
-                            row.addEventListener('click', () => {
-                                document.querySelectorAll('.inv-history-item').forEach(el => el.classList.remove('active'));
-                                row.classList.add('active');
-                                selectInvestigation(sid, item);
-                            });
-                            invHistoryList.appendChild(row);
-                        });
-
-                        // Auto-select first item if none selected
-                        if (!selectedInvestigationId && list.length > 0) {
-                            const firstId = list[0].id || list[0].session_id;
-                            const firstRow = invHistoryList.querySelector('.inv-history-item');
-                            if (firstRow) firstRow.classList.add('active');
-                            selectInvestigation(firstId, list[0]);
-                        }
-                    } catch (e) {
-                        console.warn('Gagal memuat daftar investigasi:', e);
-                        invHistoryList.innerHTML = '<div style="font-size:11.5px; color:#EF4444; text-align:center; padding:20px 0;">Gagal memuat daftar investigasi.</div>';
-                    }
+                    // Load anomaly screener strip and auto-populate active case
+                    loadRadarAnomalies();
                 }
+
+                function formatVolumeCompact(num) {
+                    const n = Number(num) || 0;
+                    if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+                    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+                    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+                    return n.toLocaleString('id-ID');
+                }
+
+                function renderDossierEvidenceEmpty(ticker) {
+                    const isEn = currentLang === 'en';
+                    return `
+                        <div class="dossier-empty-state">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                            <strong>${isEn ? `No Verified Evidence Dossier for ${escapeHtml(ticker)}` : `Belum Ada Berkas Bukti Terverifikasi untuk ${escapeHtml(ticker)}`}</strong>
+                            <span>${isEn ? 'This stock has not completed a 7-stage causality audit. Start an investigation to correlate IDXnet disclosures and official news.' : 'Emiten ini belum melewati audit kausalitas 7-tahap. Mulai investigasi untuk menyaring keterbukaan informasi IDXnet dan berita bursa.'}</span>
+                            <button class="btn-primary" style="margin-top:6px;" onclick="initiateAuditFromDossier('${escapeHtml(ticker)}')">
+                                ${isEn ? `Start Causality Audit for ${escapeHtml(ticker)}` : `Mulai Audit Kausalitas ${escapeHtml(ticker)}`}
+                            </button>
+                        </div>
+                    `;
+                }
+
+                window.initiateAuditFromDossier = function(ticker) {
+                    switchMainView('chat');
+                    const chatInput = document.getElementById('chatInput');
+                    if (chatInput) {
+                        chatInput.value = `Jalankan investigasi formal 7-tahap otonom pada emiten ${ticker} untuk observasi 30 hari terakhir.`;
+                        if (typeof handleSendMessage === 'function') {
+                            handleSendMessage();
+                        }
+                    }
+                    showToast(currentLang === 'en' ? `Starting audit for ${ticker}...` : `Memulai audit emiten ${ticker}...`);
+                };
+
+                window.openDossierFromChat = function(ticker) {
+                    if (!ticker) return;
+                    const cleanTicker = ticker.trim().toUpperCase();
+
+                    // 1. Switch view to investigations dossier
+                    if (typeof switchMainView === 'function') {
+                        switchMainView('investigations');
+                    }
+
+                    // 2. Select ticker in dossier and load real candles & evidence
+                    if (typeof inspectRadarCase === 'function') {
+                        inspectRadarCase({
+                            ticker: cleanTicker,
+                            investigation_id: 'INV-' + cleanTicker
+                        });
+                    }
+
+                    // 3. Smoothly scroll dossier into view
+                    const dossierCard = document.getElementById('invDossierCard');
+                    if (dossierCard) {
+                        dossierCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                    showToast(typeof currentLang !== 'undefined' && currentLang === 'en' ? `Opened ${cleanTicker} dossier` : `Membuka berkas dossier ${cleanTicker}`);
+                };
 
                 async function selectInvestigation(invId, invMeta) {
                     selectedInvestigationId = invId;
@@ -3131,78 +3606,90 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     if (emptyEl) emptyEl.style.display = 'none';
                     if (contentEl) contentEl.style.display = 'flex';
 
-                    const ticker = (invMeta && invMeta.ticker) || (invMeta && invMeta.title) || invId;
-                    if (titleEl) titleEl.textContent = `DOSSIER: ${ticker}`;
+                    const ticker = (invMeta && invMeta.ticker) || (invMeta && invMeta.title) || (invId ? invId.replace(/^INV-/, '') : 'IDX');
+                    if (titleEl) titleEl.textContent = `HASIL AUDIT: ${ticker}`;
                     if (statusEl) {
                         const st = (invMeta && invMeta.status) || 'COMPLETED';
                         statusEl.textContent = st;
                         statusEl.className = `inv-status-pill inv-status-${st.toLowerCase() === 'completed' ? 'completed' : 'running'}`;
                     }
                     if (metaEl) {
-                        metaEl.textContent = `${currentLang === 'en' ? 'Session' : 'Sesi'}: ${invId} | ${currentLang === 'en' ? 'Created' : 'Dibuat'}: ${invMeta && invMeta.created_at ? new Date(invMeta.created_at).toLocaleString(currentLang === 'en' ? 'en-US' : 'id-ID') : (currentLang === 'en' ? 'Today' : 'Hari ini')}`;
+                        metaEl.textContent = `${currentLang === 'en' ? 'Observation Horizon: 30 Trading Days | Sources: Sectors Financial API v2 & IDXnet' : 'Horizon: 30 Hari Perdagangan | Sumber: Sectors Financial API v2 & IDXnet'}`;
                     }
 
                     // 1. Fetch Anomalies (Law 1)
+                    let anom = null;
                     try {
                         const anomRes = await fetch(`${API_BASE}/api/investigations/${invId}/anomalies`);
                         if (anomRes.ok) {
-                            const anomalies = await anomRes.json();
-                            const anom = Array.isArray(anomalies) && anomalies.length > 0 ? anomalies[0] : null;
-                            const zScoreEl = document.getElementById('invDossierZScore');
-                            const actualVolEl = document.getElementById('invDossierActualVol');
-                            const baselineVolEl = document.getElementById('invDossierBaselineVol');
-                            const returnDevEl = document.getElementById('invDossierReturnDev');
-
-                            if (anom) {
-                                const z = Number(anom.z_score || 0);
-                                if (zScoreEl) {
-                                    zScoreEl.textContent = `${z >= 0 ? '+' : ''}${z.toFixed(2)}σ`;
-                                    zScoreEl.style.color = z >= 2.5 ? '#F6465D' : '#10B981';
-                                }
-                                if (actualVolEl) actualVolEl.textContent = (anom.actual_value || 0).toLocaleString('id-ID');
-                                if (baselineVolEl) baselineVolEl.textContent = (anom.baseline_mean || 0).toLocaleString('id-ID');
-                                if (returnDevEl) {
-                                    returnDevEl.textContent = anom.metric_type ? `${anom.metric_type}` : `${(z * 1.5).toFixed(1)}%`;
-                                }
-                            } else {
-                                if (zScoreEl) zScoreEl.textContent = '+2.85σ';
-                                if (actualVolEl) actualVolEl.textContent = '148.5M';
-                                if (baselineVolEl) baselineVolEl.textContent = '42.1M';
-                                if (returnDevEl) returnDevEl.textContent = '+12.4%';
-                            }
+                            const anomData = await anomRes.json();
+                            const anomalies = Array.isArray(anomData) ? anomData : (anomData.anomalies || []);
+                            if (anomalies.length > 0) anom = anomalies[0];
                         }
                     } catch (e) {
                         console.warn('Gagal memuat anomali investigasi:', e);
                     }
 
-                    // 2. Render Candlestick Chart (TradingView)
+                    const zVal = (anom && anom.z_score != null) ? Number(anom.z_score) : (invMeta && invMeta.z_score != null ? Number(invMeta.z_score) : null);
+                    const actualVal = (anom && anom.actual_value != null) ? anom.actual_value : (invMeta && invMeta.actual_value != null ? invMeta.actual_value : null);
+                    const baseVal = (anom && anom.baseline_mean != null) ? anom.baseline_mean : (invMeta && invMeta.baseline_value != null ? invMeta.baseline_value : null);
+                    const devVal = (anom && anom.metric_type && anom.metric_type !== 'volume_z_score') ? anom.metric_type : ((invMeta && invMeta.metric_type) || '-');
+
+                    const zScoreEl = document.getElementById('invDossierZScore');
+                    const actualVolEl = document.getElementById('invDossierActualVol');
+                    const baselineVolEl = document.getElementById('invDossierBaselineVol');
+                    const returnDevEl = document.getElementById('invDossierReturnDev');
+
+                    if (zScoreEl) {
+                        if (zVal != null && !isNaN(zVal)) {
+                            zScoreEl.textContent = `${zVal >= 0 ? '+' : ''}${zVal.toFixed(2)}σ`;
+                            zScoreEl.style.color = Math.abs(zVal) >= 3.0 ? '#AD1C1C' : (Math.abs(zVal) >= 2.5 ? '#8C5600' : '#0F6735');
+                        } else {
+                            zScoreEl.textContent = '-';
+                            zScoreEl.style.color = 'var(--text-muted)';
+                        }
+                    }
+                    if (actualVolEl) actualVolEl.textContent = actualVal != null ? formatVolumeCompact(actualVal) : '-';
+                    if (baselineVolEl) baselineVolEl.textContent = baseVal != null ? formatVolumeCompact(baseVal) : '-';
+                    if (returnDevEl) returnDevEl.textContent = devVal;
+
+                    // 2. Render Candlestick Chart (TradingView with real market candles & provenance badge)
                     try {
                         const chartContainer = document.getElementById('invChartContainer');
                         if (chartContainer) {
-                            const today = new Date();
-                            const sampleCandles = [];
-                            let price = 1500;
-                            for (let i = 20; i >= 0; i--) {
-                                const d = new Date(today);
-                                d.setDate(d.getDate() - i);
-                                const dateStr = d.toISOString().split('T')[0];
-                                const isAnomaly = (i === 1);
-                                const open = price;
-                                const high = isAnomaly ? price * 1.08 : price * 1.02;
-                                const low = price * 0.98;
-                                const close = isAnomaly ? price * 1.06 : price * 1.01;
-                                const vol = isAnomaly ? 148500000 : 35000000 + Math.random() * 20000000;
-                                price = close;
-                                sampleCandles.push({
-                                    time: dateStr,
-                                    open: Math.round(open),
-                                    high: Math.round(high),
-                                    low: Math.round(low),
-                                    close: Math.round(close),
-                                    volume: Math.round(vol)
-                                });
+                            const candleRes = await fetch(`${API_BASE}/api/market/candles?ticker=${encodeURIComponent(ticker)}&days=30`);
+                            let candles = [];
+                            const badgeEl = document.getElementById('invChartSourceBadge');
+                            if (candleRes.ok) {
+                                const candleJson = await candleRes.json();
+                                if (badgeEl) {
+                                    if (candleJson.source === 'sectors_api') {
+                                        badgeEl.className = 'source-badge source-badge-live';
+                                        badgeEl.textContent = '● LIVE: Sectors Financial API v2';
+                                    } else if (candleJson.source === 'cache') {
+                                        badgeEl.className = 'source-badge source-badge-live';
+                                        badgeEl.textContent = '● CACHE: Sectors API v2 (Permanent)';
+                                    } else {
+                                        badgeEl.className = 'source-badge source-badge-synthetic';
+                                        badgeEl.textContent = '▲ SIMULASI: Offline Synthetic Generator';
+                                    }
+                                }
+                                if (candleJson && Array.isArray(candleJson.data) && candleJson.data.length > 0) {
+                                    candles = candleJson.data.map(c => ({
+                                        time: c.date,
+                                        open: Number(c.open),
+                                        high: Number(c.high),
+                                        low: Number(c.low),
+                                        close: Number(c.close),
+                                        volume: Number(c.volume)
+                                    }));
+                                }
+                            } else if (badgeEl) {
+                                badgeEl.className = 'source-badge source-badge-error';
+                                badgeEl.textContent = '✕ Error Data Pasar';
                             }
-                            renderTradingViewCandlestick('invChartContainer', sampleCandles, sampleCandles[sampleCandles.length - 2]?.time);
+                            const anomalyDate = (anom && anom.anomaly_date) || (invMeta && invMeta.anomaly_date) || (candles.length > 5 ? candles[candles.length - 4].time : undefined);
+                            renderTradingViewCandlestick('invChartContainer', candles, anomalyDate);
                         }
                     } catch (e) {
                         console.warn('Gagal render chart candlestick investigasi:', e);
@@ -3213,61 +3700,49 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                         const findRes = await fetch(`${API_BASE}/api/investigations/${invId}/findings`);
                         const evidenceContainer = document.getElementById('invEvidenceContainer');
                         if (evidenceContainer) {
+                            let findings = [];
                             if (findRes.ok) {
-                                const findings = await findRes.json();
-                                if (Array.isArray(findings) && findings.length > 0) {
-                                    evidenceContainer.innerHTML = renderEvidenceMatrixHTML(findings);
-                                } else {
-                                    // Default standard finding according to Law 2
-                                    const isEn = currentLang === 'en';
-                                    evidenceContainer.innerHTML = renderEvidenceMatrixHTML([
-                                        {
-                                            title: isEn ? `Trading Volume Spike for ${ticker}` : `Lonjakan Volume Perdagangan ${ticker}`,
-                                            claim: isEn ? `Trading volume spiked significantly above the deterministic 2.50σ threshold relative to the 20-day baseline.` : `Volume perdagangan tercatat melonjak signifikan melewati ambang batas deterministik 2.50σ baseline 20 hari.`,
-                                            verification_status: 'SUPPORTED',
-                                            confidence_score: 0.94,
-                                            sources: [isEn ? 'IDXnet Corporate Disclosures' : 'IDXnet Keterbukaan Informasi', 'Historical Trade Feed']
-                                        },
-                                        {
-                                            title: isEn ? 'News Sentiment & Market Rumors' : 'Sentimen Berita & Rumor Pasar',
-                                            claim: isEn ? 'Media reporting concerning restructuring or corporate actions has not yet been confirmed by official IDX filings.' : 'Pemberitaan media mengenai restrukturisasi atau aksi korporasi belum terkonfirmasi oleh keterbukaan resmi IDX.',
-                                            verification_status: 'UNCERTAIN',
-                                            confidence_score: 0.52,
-                                            sources: [isEn ? 'Financial Media Feeds' : 'Portal Media Keuangan', 'Social Feeds']
-                                        }
-                                    ]);
-                                }
+                                const findJson = await findRes.json();
+                                findings = Array.isArray(findJson) ? findJson : (findJson.findings || []);
+                            }
+                            if (findings.length > 0) {
+                                evidenceContainer.innerHTML = renderEvidenceMatrixHTML(findings);
+                            } else {
+                                evidenceContainer.innerHTML = renderDossierEvidenceEmpty(ticker);
                             }
                         }
                     } catch (e) {
                         console.warn('Gagal memuat findings:', e);
                     }
 
-                    // 4. Render Evidence & News Timeline
+                    // 4. Render Evidence & News Timeline (Dynamic from API)
                     const timelineContainer = document.getElementById('invTimelineContainer');
                     if (timelineContainer) {
+                        try {
+                            const timeRes = await fetch(`${API_BASE}/api/investigations/${invId}/timeline`);
+                            if (timeRes.ok) {
+                                const timeData = await timeRes.json();
+                                const events = Array.isArray(timeData.events) ? timeData.events : [];
+                                if (events.length > 0) {
+                                    timelineContainer.innerHTML = events.map(ev => `
+                                        <div class="signal-item">
+                                            <span class="signal-time">${escapeHtml(ev.event_timestamp || '')}</span>
+                                            <div class="signal-body">
+                                                <strong class="signal-title">${escapeHtml(ev.headline || ev.event_type || '')}</strong>
+                                                <p class="signal-desc">${escapeHtml(ev.details || '')}</p>
+                                            </div>
+                                        </div>
+                                    `).join('');
+                                    return;
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Gagal memuat timeline:', e);
+                        }
                         const isEn = currentLang === 'en';
                         timelineContainer.innerHTML = `
-                            <div class="signal-item">
-                                <span class="signal-time">${isEn ? 'Today, 09:05' : 'Hari ini, 09:05'}</span>
-                                <div class="signal-body">
-                                    <strong class="signal-title">${isEn ? 'Volume Spike Anomaly Detection (Z-Score ≥ 2.50σ)' : 'Deteksi Anomali Volume Spike (Z-Score ≥ 2.50σ)'}</strong>
-                                    <p class="signal-desc">${isEn ? `System detected abnormal trading volume for ${ticker} exceeding MA20 baseline.` : `Sistem mendeteksi lonjakan volume perdagangan ${ticker} melampaui rata-rata MA20.`}</p>
-                                </div>
-                            </div>
-                            <div class="signal-item">
-                                <span class="signal-time">${isEn ? 'Today, 09:06' : 'Hari ini, 09:06'}</span>
-                                <div class="signal-body">
-                                    <strong class="signal-title">${isEn ? 'IDXnet Corporate Disclosures Cross-Reference' : 'Cross-Reference Keterbukaan Informasi IDXnet'}</strong>
-                                    <p class="signal-desc">${isEn ? 'Correlating company regulatory disclosures and exchange announcements.' : 'Korelasi dokumen keterbukaan informasi emiten dan pengumuman bursa BEI.'}</p>
-                                </div>
-                            </div>
-                            <div class="signal-item">
-                                <span class="signal-time">${isEn ? 'Today, 09:07' : 'Hari ini, 09:07'}</span>
-                                <div class="signal-body">
-                                    <strong class="signal-title">${isEn ? 'Evidence Matrix Synthesis & Causality Reconciliation' : 'Sintesis Matriks Bukti & Rekonsiliasi Kausalitas'}</strong>
-                                    <p class="signal-desc">${isEn ? 'Classifying findings into Law 2 3-tier taxonomy (Supported, Uncertain, Contradicted).' : 'Klasifikasi temuan ke dalam taksonomi 3-tier (Supported, Uncertain, Contradicted) Law 2.'}</p>
-                                </div>
+                            <div class="dossier-empty-state">
+                                <span>${isEn ? 'No timeline events recorded yet. Chronological events will appear here once the investigation is executed.' : 'Belum ada kronologi peristiwa. Peristiwa kronologis akan tercatat otomatis saat investigasi dijalankan.'}</span>
                             </div>
                         `;
                     }

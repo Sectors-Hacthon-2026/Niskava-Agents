@@ -8,26 +8,19 @@
                 const container = document.getElementById(containerId);
                 if (!container) return;
 
-                // Generate deterministic realistic candles if none provided
-                if (!candleData || candleData.length === 0) {
-                    const basePrice = 1620;
-                    const now = new Date();
-                    candleData = [];
-                    for (let i = 29; i >= 0; i--) {
-                        const d = new Date(now);
-                        d.setDate(d.getDate() - i);
-                        const timeStr = d.toISOString().split('T')[0];
-                        const drift = Math.sin(i / 2.8) * 45 + (Math.random() - 0.48) * 30;
-                        const open = Math.round(basePrice + drift);
-                        const high = Math.round(open + Math.random() * 32 + 8);
-                        const low = Math.round(open - Math.random() * 32 - 8);
-                        const close = Math.round(open + (Math.random() - 0.48) * 30);
-                        const volume = Math.round(18000000 + (i === 1 ? 68000000 : Math.random() * 14000000));
-                        candleData.push({ time: timeStr, open, high, low, close, volume });
-                    }
-                    if (!anomalyDate && candleData.length > 2) {
-                        anomalyDate = candleData[candleData.length - 2].time;
-                    }
+                // Dispose any previous chart instance bound to this container
+                if (activeCharts[containerId]) {
+                    try { activeCharts[containerId].remove(); } catch (_) { /* already detached */ }
+                    delete activeCharts[containerId];
+                }
+
+                // Never fabricate market data: show an explicit empty state instead
+                if (!Array.isArray(candleData) || candleData.length === 0) {
+                    const msg = (typeof currentLang !== 'undefined' && currentLang === 'en')
+                        ? 'No daily candlestick data available for this ticker.'
+                        : 'Data candlestick harian belum tersedia untuk emiten ini.';
+                    container.innerHTML = `<div class="dossier-empty-state">${msg}</div>`;
+                    return;
                 }
 
                 container.innerHTML = '';
@@ -41,26 +34,26 @@
                             height: container.clientHeight || 240,
                             layout: {
                                 background: { color: 'transparent' },
-                                textColor: isDark ? '#94A3B8' : '#475569',
+                                textColor: isDark ? '#8E8C84' : '#6E6B63',
                                 fontSize: 11,
-                                fontFamily: 'Plus Jakarta Sans, sans-serif'
+                                fontFamily: 'Plus Jakarta Sans, -apple-system, sans-serif'
                             },
                             grid: {
-                                vertLines: { color: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' },
-                                horzLines: { color: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }
+                                vertLines: { color: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(20, 20, 19, 0.03)' },
+                                horzLines: { color: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(20, 20, 19, 0.03)' }
                             },
                             crosshair: { mode: 1 },
-                            rightPriceScale: { borderColor: isDark ? '#334155' : '#CBD5E1' },
-                            timeScale: { borderColor: isDark ? '#334155' : '#CBD5E1', timeVisible: true }
+                            rightPriceScale: { borderColor: isDark ? '#292926' : '#E6E4DC' },
+                            timeScale: { borderColor: isDark ? '#292926' : '#E6E4DC', timeVisible: true }
                         });
 
                         const candleSeries = chart.addCandlestickSeries({
-                            upColor: '#0ECB81',
-                            downColor: '#F6465D',
-                            borderUpColor: '#0ECB81',
-                            borderDownColor: '#F6465D',
-                            wickUpColor: '#0ECB81',
-                            wickDownColor: '#F6465D'
+                            upColor: '#0F6735',
+                            downColor: '#AD1C1C',
+                            borderUpColor: '#0F6735',
+                            borderDownColor: '#AD1C1C',
+                            wickUpColor: '#0F6735',
+                            wickDownColor: '#AD1C1C'
                         });
 
                         candleSeries.setData(candleData.map(c => ({
@@ -133,9 +126,11 @@
                 const priceRange = maxP - minP || 1;
 
                 const stepX = width / candleData.length;
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(20, 20, 19, 0.06)';
                 let svg = `<svg width="100%" height="100%" viewBox="0 0 ${width} ${height}" style="display:block;">`;
-                svg += `<line x1="0" y1="${height * 0.3}" x2="${width}" y2="${height * 0.3}" stroke="rgba(255,255,255,0.06)" />`;
-                svg += `<line x1="0" y1="${height * 0.6}" x2="${width}" y2="${height * 0.6}" stroke="rgba(255,255,255,0.06)" />`;
+                svg += `<line x1="0" y1="${height * 0.3}" x2="${width}" y2="${height * 0.3}" stroke="${gridColor}" />`;
+                svg += `<line x1="0" y1="${height * 0.6}" x2="${width}" y2="${height * 0.6}" stroke="${gridColor}" />`;
 
                 candleData.forEach((c, idx) => {
                     const x = idx * stepX + stepX / 2;

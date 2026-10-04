@@ -148,6 +148,19 @@ CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_parent ON chat_sessions(parent_session_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
 
+CREATE TABLE IF NOT EXISTS chat_attachments (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    mime_type TEXT NOT NULL,
+    page_count INTEGER NOT NULL DEFAULT 0,
+    extracted_text TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_chat_attachments_session ON chat_attachments(session_id);
+
 CREATE TABLE IF NOT EXISTS suspension_records (
     id TEXT PRIMARY KEY,
     symbol TEXT NOT NULL,
@@ -935,6 +948,99 @@ func (d *DB) SearchChatMessages(query string, limit int) ([]ChatSearchResult, er
 		results = []ChatSearchResult{}
 	}
 	return results, nil
+}
+
+// ChatAttachment represents an uploaded user document stored locally (Law 4: Local-First).
+type ChatAttachment struct {
+	ID            string  `json:"id"`
+	SessionID     string  `json:"session_id"`
+	Filename      string  `json:"filename"`
+	FilePath      string  `json:"file_path"`
+	FileSize      int64   `json:"file_size"`
+	MimeType      string  `json:"mime_type"`
+	PageCount     int     `json:"page_count"`
+	ExtractedText *string `json:"extracted_text,omitempty"`
+	CreatedAt     string  `json:"created_at"`
+}
+
+// SaveChatAttachment records an uploaded file attachment into SQLite.
+func (d *DB) SaveChatAttachment(att *ChatAttachment) error {
+	if att.CreatedAt == "" {
+		att.CreatedAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	query := `
+		INSERT INTO chat_attachments (id, session_id, filename, file_path, file_size, mime_type, page_count, extracted_text, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	_, err := d.conn.Exec(query, att.ID, att.SessionID, att.Filename, att.FilePath, att.FileSize, att.MimeType, att.PageCount, att.ExtractedText, att.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("failed to save chat attachment %s: %w", att.ID, err)
+	}
+	return nil
+}
+
+// GetChatAttachment retrieves an attachment by its unique ID.
+func (d *DB) GetChatAttachment(id string) (*ChatAttachment, error) {
+	query := `
+		SELECT id, session_id, filename, file_path, file_size, mime_type, page_count, extracted_text, created_at
+		FROM chat_attachments
+		WHERE id = ?
+	`
+	row := d.conn.QueryRow(query, id)
+	var att ChatAttachment
+	var extractedText sql.NullString
+	if err := row.Scan(&att.ID, &att.SessionID, &att.Filename, &att.FilePath, &att.FileSize, &att.MimeType, &att.PageCount, &extractedText, &att.CreatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get chat attachment %s: %w", id, err)
+	}
+	if extractedText.Valid {
+		att.ExtractedText = &extractedText.String
+	}
+	return &att, nil
+}
+
+// GetChatAttachmentsBySession returns all attachments uploaded within a given session ordered chronologically.
+func (d *DB) GetChatAttachmentsBySession(sessionID string) ([]*ChatAttachment, error) {
+	query := `
+		SELECT id, session_id, filename, file_path, file_size, mime_type, page_count, extracted_text, created_at
+		FROM chat_attachments
+		WHERE session_id = ?
+		ORDER BY created_at ASC
+	`
+	rows, err := d.conn.Query(query, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query attachments for session %s: %w", sessionID, err)
+	}
+	defer rows.Close()
+
+	var attachments []*ChatAttachment
+	for rows.Next() {
+		var att ChatAttachment
+		var extractedText sql.NullString
+		if err := rows.Scan(&att.ID, &att.SessionID, &att.Filename, &att.FilePath, &att.FileSize, &att.MimeType, &att.PageCount, &extractedText, &att.CreatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan chat attachment: %w", err)
+		}
+		if extractedText.Valid {
+			att.ExtractedText = &extractedText.String
+		}
+		attachments = append(attachments, &att)
+	}
+	if attachments == nil {
+		attachments = []*ChatAttachment{}
+	}
+	return attachments, rows.Err()
+}
+
+// DeleteChatAttachment deletes an attachment record from the database.
+func (d *DB) DeleteChatAttachment(id string) error {
+	query := `DELETE FROM chat_attachments WHERE id = ?`
+	_, err := d.conn.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete chat attachment %s: %w", id, err)
+	}
+	return nil
 }
 
 // CreateChatSession inserts a new chat session record.

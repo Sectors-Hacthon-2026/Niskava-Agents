@@ -35,10 +35,10 @@
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                     <span data-i18n="nav_chat">Percakapan AI</span>
                 </a>
-                <a href="#" class="nav-link-item" data-nav="investigations" data-tooltip="Investigasi Formal" data-i18n-tooltip="nav_investigations">
+                <a href="#" class="nav-link-item" data-nav="investigations" data-tooltip="Audit & Anomali" data-i18n-tooltip="nav_radar_audit">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                    <span data-i18n="nav_investigations">Investigasi Formal</span>
-                    <span class="panel-card-badge" style="font-size:9px; padding:1px 5px; background:rgba(252,213,53,0.18); color:var(--text-primary); margin-left:auto;">7-Tahap</span>
+                    <span data-i18n="nav_radar_audit">Audit & Anomali</span>
+                    <span class="panel-card-badge" style="font-size:9px; padding:1px 5px; background:var(--primary-light); color:var(--text-primary); margin-left:auto;">Live</span>
                 </a>
                 <a href="#" class="nav-link-item" data-nav="graphify" data-tooltip="Memory Graph" data-i18n-tooltip="nav_graphify">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
@@ -241,8 +241,8 @@
                         <div class="graph-header-title-col">
                             <div class="graph-header-title">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-                                <span data-i18n="graph_page_title">Memory Graph — Jaringan Asosiasi Pasar Modal</span>
-                                <span class="panel-card-badge" style="background:rgba(252,213,53,0.18); color:var(--text-primary);">Law 6 Local Ego-Network</span>
+                                <span data-i18n="graph_page_title">Memory Graph - Jaringan Asosiasi Pasar Modal</span>
+                                <span class="panel-card-badge" style="background:var(--primary-light); color:var(--text-primary);">Law 6 Local Ego-Network</span>
                             </div>
                             <span class="graph-header-desc" data-i18n="graph_page_desc">Visualisasi interaktif graf asosiasi multi-entitas pasar modal Indonesia (Emiten, Katalis Komoditas, Broker, Regulasi, dan Anomali Volume).</span>
                         </div>
@@ -273,18 +273,19 @@
                     </div>
                 </section>
 
-                <!-- FORMAL 7-STAGE INVESTIGATION SURFACE (Roadmap Gap 2 & Wireframe 4.1) -->
+                <!-- MARKET RADAR & FORENSIC DOSSIER (Track 1: Proactive Law 1 - Law 6) -->
                 <section class="investigations-page-view" id="investigationsPageView" style="display:none;">
-                    <div class="graph-header-box">
-                        <div class="graph-header-title-col">
-                            <div class="graph-header-title">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                                <span data-i18n="inv_formal_title">Investigasi Formal Otonom (7-Tahap)</span>
-                                <span class="panel-card-badge" style="background:rgba(252,213,53,0.18); color:var(--text-primary);">Pipeline Law 1 — Law 6</span>
+                    <!-- 1. Header -->
+                    <div class="radar-header">
+                        <div class="radar-header-info">
+                            <div class="radar-header-title">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                <span data-i18n="radar_title">Pemindai Anomali & Audit Saham</span>
+                                <span class="radar-header-badge" data-i18n="radar_badge">Bursa Efek Indonesia</span>
                             </div>
-                            <span class="graph-header-desc" data-i18n="inv_formal_desc">Audit komprehensif anomali pasar modal Indonesia terverifikasi bukti matematis (Z-Score ≥ 2.50σ) dan taksonomi 3-tier.</span>
+                            <span class="radar-header-desc" data-i18n="radar_desc">Pemindaian otomatis lonjakan volume perdagangan (Vz ≥ 2.50σ), foreign flow, dan cross-check keterbukaan informasi IDXnet.</span>
                         </div>
-                        <div class="graph-header-actions">
+                        <div class="radar-header-actions">
                             <button class="btn-test-conn" id="btnInvBackToChat" title="Buka Percakapan AI">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                                 <span data-i18n="btn_inv_back_to_chat">Percakapan AI</span>
@@ -292,79 +293,85 @@
                         </div>
                     </div>
 
-                    <div class="inv-split-container">
-                        <!-- Left Pane: Trigger Form + History List -->
-                        <div class="inv-left-pane">
-                            <!-- Form Audit Baru -->
-                            <div class="inv-card">
-                                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-                                    <strong style="font-size:13px; color:var(--text-primary);" data-i18n="inv_initiate_title">Inisiasi Audit Otonom</strong>
-                                    <span class="panel-card-badge">7-Tahap</span>
-                                </div>
-                                <div style="display:flex; flex-direction:column; gap:10px;">
-                                    <div>
-                                        <label style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:4px;" data-i18n="inv_ticker_label">Ticker Emiten BEI (IDX)</label>
-                                        <input type="text" class="form-input" id="inputInvTicker" placeholder="cth: ANTM, BBCA, BUMI..." data-i18n-placeholder="inv_ticker_placeholder" maxlength="5" style="text-transform:uppercase; font-weight:700; width:100%;">
-                                    </div>
-                                    <div>
-                                        <label style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:4px;" data-i18n="inv_horizon_label">Rentang Observasi (Horizon)</label>
-                                        <select class="form-input" id="selectInvDays" style="width:100%;">
-                                            <option value="30" data-i18n="inv_horizon_30">30 Hari Perdagangan</option>
-                                            <option value="60" data-i18n="inv_horizon_60">60 Hari Perdagangan</option>
-                                            <option value="90" data-i18n="inv_horizon_90">90 Hari Perdagangan</option>
-                                        </select>
-                                    </div>
-                                    <button class="btn-primary-action" id="btnRunFormalInvestigation" style="width:100%; margin-top:8px;">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                                        <span data-i18n="btn_run_investigation">Mulai Audit Otonom</span>
-                                    </button>
-                                </div>
+                    <!-- 2. Screener Section: Sinyal Anomali Terdeteksi (Top Z-Score) -->
+                    <div class="radar-section" id="radarSection">
+                        <div class="radar-strip-header">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                                <span style="font-size:13px; font-weight:700; color:var(--text-primary);" data-i18n="radar_top_anomalies">Sinyal Anomali Terdeteksi (Top Z-Score)</span>
+                                <span class="panel-card-badge" style="background:rgba(34,197,94,0.12); color:#22C55E; border:1px solid rgba(34,197,94,0.25);">Live Screening</span>
                             </div>
-
-                            <!-- History List -->
-                            <div class="inv-card" style="flex:1; display:flex; flex-direction:column;">
-                                <div style="display:flex; align-items:center; justify-content:space-between;">
-                                    <strong style="font-size:13px; color:var(--text-primary);" data-i18n="inv_history_title">Riwayat Investigasi</strong>
-                                    <span class="panel-card-badge" id="invTotalCount">0 Sesi</span>
-                                </div>
-                                <div class="inv-history-list" id="invHistoryList">
-                                    <div style="font-size:11.5px; color:var(--text-muted); text-align:center; padding:20px 0;" data-i18n="inv_loading_history">Memuat riwayat investigasi...</div>
-                                </div>
+                            <button class="btn-test-conn" id="btnRadarRefresh" title="Perbarui Data" style="padding:4px 10px; font-size:11px;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                <span data-i18n="btn_refresh_data">Perbarui Data</span>
+                            </button>
+                        </div>
+                        <div class="radar-strip" id="radarAnomaliesList">
+                            <div class="radar-empty-state">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                <span data-i18n="radar_empty">Belum ada anomali terdeteksi melebihi ambang batas 2.0σ. Masukkan kode emiten di bawah untuk memeriksa.</span>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Right Pane: Interactive Dossier Viewer -->
+                    <!-- 3. Target Bar: Pemeriksaan Saham -->
+                    <div class="radar-quick-bar">
+                        <div class="radar-quick-title">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <span data-i18n="radar_search_title">Pemeriksaan Saham</span>
+                        </div>
+                        <div class="radar-quick-fields">
+                            <input type="text" class="form-input" id="inputInvTicker" placeholder="Ketik kode emiten BEI (cth: ANTM, BBCA, BUMI)..." data-i18n-placeholder="radar_search_placeholder" maxlength="5" style="text-transform:uppercase; font-weight:700; font-family:var(--font-mono);">
+                            <select class="form-input" id="selectInvDays">
+                                <option value="30" data-i18n="inv_horizon_30">30 Hari Perdagangan</option>
+                                <option value="60" data-i18n="inv_horizon_60">60 Hari Perdagangan</option>
+                                <option value="90" data-i18n="inv_horizon_90">90 Hari Perdagangan</option>
+                            </select>
+                            <button class="btn-primary-action" id="btnRunFormalInvestigation">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                <span data-i18n="btn_run_investigation">Mulai Audit</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 4. Full-Width Audit Workspace Container -->
+                    <div class="inv-split-container">
+                        <!-- Interactive Audit Report Viewer (100% Width) -->
                         <div class="inv-right-pane">
                             <div class="inv-card" id="invDossierCard" style="flex:1; display:flex; flex-direction:column; overflow-y:auto;">
-                                <div id="invDossierEmpty" style="display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; padding:40px 20px; text-align:center; color:var(--text-muted);">
-                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:12px; opacity:0.6;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-                                    <strong style="font-size:14px; color:var(--text-primary); margin-bottom:4px;" data-i18n="inv_empty_title">Dossier Investigasi Belum Dipilih</strong>
-                                    <p style="font-size:12px; max-width:380px; margin:0;" data-i18n="inv_empty_desc">Pilih salah satu sesi dari daftar di sebelah kiri atau jalankan audit baru untuk menelaah anomali statistik, candlestick, bukti 3-tier, dan kronologi kejadian.</p>
+                                <div id="invDossierEmpty" style="display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; padding:48px 24px; text-align:center; color:var(--text-muted);">
+                                    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:14px; opacity:0.6;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                                    <strong style="font-size:15px; color:var(--text-primary); margin-bottom:6px;" data-i18n="inv_empty_title">Pemeriksaan Saham Belum Dipilih</strong>
+                                    <p style="font-size:12.5px; max-width:520px; margin:0; line-height:1.5;" data-i18n="inv_empty_desc">Pilih salah satu saham dari daftar anomali di atas atau ketik kode emiten untuk melihat indikator kuantitatif, grafik candlestick, dan matriks bukti keterbukaan informasi.</p>
                                 </div>
 
-                                <div id="invDossierContent" style="display:none; flex-direction:column; gap:16px;">
-                                    <!-- Header Dossier -->
-                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--border-subtle); padding-bottom:12px;">
+                                <div id="invDossierContent" style="display:none; flex-direction:column; gap:18px;">
+                                    <!-- Header Hasil Audit -->
+                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--border-subtle); padding-bottom:14px; flex-wrap:wrap; gap:12px;">
                                         <div>
                                             <div style="display:flex; align-items:center; gap:8px;">
-                                                <h2 id="invDossierTitle" style="font-size:18px; font-weight:800; color:var(--text-primary); margin:0;">DOSSIER: ANTM</h2>
+                                                <h2 id="invDossierTitle" style="font-size:18px; font-weight:800; color:var(--text-primary); margin:0; font-family:var(--font-mono);">HASIL AUDIT: ANTM</h2>
                                                 <span class="inv-status-pill inv-status-completed" id="invDossierStatus">COMPLETED</span>
                                             </div>
-                                            <div style="font-size:11.5px; color:var(--text-muted); margin-top:4px;" id="invDossierMeta">Horizon: 30 Hari | Sesi: INV-2026-ANTM</div>
+                                            <div style="font-size:11.5px; color:var(--text-muted); margin-top:4px;" id="invDossierMeta">Horizon: 30 Hari Perdagangan | Sumber: Sectors Financial API v2 & IDXnet</div>
                                         </div>
-                                        <div style="display:flex; gap:8px;">
-                                            <button class="btn-test-conn" id="btnInvOpenChat" title="Buka Sesi Ini di Percakapan AI">
+                                        <div style="display:flex; gap:8px; align-items:center;">
+                                            <button class="btn-test-conn" id="btnInvOpenChat" title="Buka di Percakapan AI">
                                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                                                <span data-i18n="btn_inv_open_chat">Buka di Chat</span>
+                                                <span data-i18n="btn_inv_open_chat">Buka di Percakapan AI</span>
+                                            </button>
+                                            <button class="btn-test-conn" id="btnInvExportMd" title="Ekspor Laporan Markdown">
+                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                                <span data-i18n="btn_inv_export_md">Ekspor Laporan Markdown</span>
                                             </button>
                                         </div>
                                     </div>
 
-                                    <!-- Law 1: Kuantitatif Anomali -->
+                                    <!-- Indikator Kuantitatif Volume & Return -->
                                     <div>
                                         <div style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
                                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-                                            <span data-i18n="inv_anomaly_title">Ringkasan Anomali Deterministik (Law 1)</span>
+                                            <span data-i18n="inv_anomaly_title">Indikator Kuantitatif Volume & Return</span>
                                         </div>
                                         <div class="graph-stats-row" id="invAnomalyStatsRow">
                                             <div class="graph-stat-card">
@@ -388,37 +395,34 @@
 
                                     <!-- Chart: TradingView Candlestick -->
                                     <div>
-                                        <div style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:4px; display:flex; align-items:center; justify-content:space-between;">
+                                        <div style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:6px; display:flex; align-items:center; justify-content:space-between;">
                                             <div style="display:flex; align-items:center; gap:6px;">
                                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
                                                 <span data-i18n="inv_chart_title">Visualisasi Candlestick & Volume Spike (TradingView)</span>
                                             </div>
-                                            <span style="font-size:11px; color:var(--text-muted);" id="invChartStatus" data-i18n="inv_chart_status">Data Pasar Harian</span>
+                                            <div style="display:flex; align-items:center; gap:8px;">
+                                                <span class="source-badge source-badge-pending" id="invChartSourceBadge" title="Sumber data candlestick">-</span>
+                                                <span style="font-size:11px; color:var(--text-muted);" id="invChartStatus" data-i18n="inv_chart_status">Data Pasar Harian</span>
+                                            </div>
                                         </div>
                                         <div class="tradingview-chart-box" id="invChartContainer"></div>
                                     </div>
 
-                                    <!-- Law 2: Matriks Bukti 3-Tier -->
+                                    <!-- Matriks Bukti Kausalitas (Header terintegrasi dari komponen) -->
+                                    <div id="invEvidenceContainer"></div>
+
+                                    <!-- Kronologi Keterbukaan Informasi & Peristiwa -->
                                     <div>
                                         <div style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                                            <span data-i18n="inv_matrix_title">Matriks Verifikasi Bukti 3-Tier (Law 2)</span>
-                                        </div>
-                                        <div id="invEvidenceContainer"></div>
-                                    </div>
-
-                                    <!-- Timeline Kronologi -->
-                                    <div>
-                                        <div style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">
                                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                            <span data-i18n="inv_timeline_title">Timeline Kronologis Bukti & Berita</span>
+                                            <span data-i18n="inv_timeline_title">Kronologi Keterbukaan Informasi & Peristiwa</span>
                                         </div>
                                         <div class="signal-list" id="invTimelineContainer"></div>
                                     </div>
 
-                                    <!-- Law 2 & 3 Compliance Disclaimer -->
+                                    <!-- Kepatuhan Regulasi (Law 2 & Law 3) -->
                                     <div class="compliance-disclaimer-box" style="margin-top:8px;" data-i18n="inv_disclaimer">
-                                        <strong>Kepatuhan Regulasi (Law 2 & Law 3):</strong> Seluruh dossier dan temuan investigasi disajikan secara obyektif berdasarkan data historis keterbukaan informasi IDXnet dan bukan merupakan rekomendasi transaksi finansial.
+                                        <strong>Kepatuhan Regulasi (Law 2 & Law 3):</strong> Seluruh hasil analisis dan matriks bukti disajikan secara obyektif berdasarkan data historis keterbukaan informasi BEI/IDXnet dan bukan merupakan rekomendasi transaksi atau saran finansial.
                                     </div>
                                 </div>
                             </div>
@@ -430,7 +434,9 @@
 
             <!-- 3. DOCKED CHAT COMPOSER -->
             <div class="composer-container" id="composerContainer">
-                <div class="composer-box">
+                <input type="file" id="fileAttachmentInput" multiple accept=".pdf,.txt,.csv,.xlsx,.docx,.png,.jpg,.jpeg,.md,.json" style="display:none;" />
+                <div class="composer-box" id="composerBox">
+                    <div class="attachment-preview-bar" id="attachmentPreviewBar" style="display:none;"></div>
                     <textarea 
                         class="composer-textarea" 
                         id="chatInput" 
@@ -440,7 +446,7 @@
 
                     <div class="composer-bottom-row">
                         <div class="composer-tools-left">
-                            <button class="composer-tool-btn" id="btnAttach" aria-label="Lampirkan Dokumen" data-tooltip="Lampirkan Dokumen" data-i18n-tooltip="btn_attach_tooltip" title="Lampirkan Dokumen">
+                            <button class="composer-tool-btn" id="btnAttach" type="button" aria-label="Lampirkan Dokumen" data-tooltip="Lampirkan Dokumen" data-i18n-tooltip="btn_attach_tooltip" title="Lampirkan Dokumen">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
                             </button>
                             <button class="composer-tool-btn active" id="btnToolWeb" aria-label="Toggle Web Intelligence">

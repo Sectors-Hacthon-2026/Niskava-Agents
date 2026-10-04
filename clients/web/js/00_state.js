@@ -7,6 +7,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
             let isGenerating = false;
             let currentAbortController = null;
             let switchMainView = null;
+            let stagedAttachments = [];
 
             // DOM Elements
 
