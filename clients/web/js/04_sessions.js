@@ -543,8 +543,9 @@
                     btnSendMessage.title = t('btn_send_tooltip');
                     btnSendMessage.setAttribute('data-tooltip', t('btn_send_tooltip'));
                     btnSendMessage.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>`;
+                    const hasAttachments = (typeof stagedAttachments !== 'undefined' && Array.isArray(stagedAttachments) && stagedAttachments.length > 0);
                     const hasText = chatInput.value.trim().length > 0;
-                    btnSendMessage.disabled = !hasText;
+                    btnSendMessage.disabled = !hasText && !hasAttachments;
                 }
             }
 
@@ -612,6 +613,9 @@
                 document.getElementById('currentSessionLabel').textContent = t('header_session_default');
                 chatInput.value = '';
                 chatInput.style.height = 'auto';
+                if (typeof clearStagedAttachments === 'function') {
+                    clearStagedAttachments();
+                }
                 updateSendButtonState();
                 document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
                 loadLiveGraph(currentSessionId);
