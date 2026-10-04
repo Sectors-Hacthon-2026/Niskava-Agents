@@ -79,6 +79,10 @@ Launch the interactive configuration wizard to register your Sectors API key and
 npx @zyrexnns/niskava-agent setup
 ```
 
+<p align="center">
+  <img src="docs/assets/niskava-setup-wizard.png" alt="Niskava Dynamic Setup Wizard" width="85%">
+</p>
+
 ### Step 2: Launch the Central Gateway
 
 Start Niskava to open the interactive Central Gateway:
@@ -127,6 +131,11 @@ The primary visual workspace (`http://localhost:20128`), built with a Bloomberg 
 * **Live SSE Streaming Reasoning:** Real-time visibility into agent hypothesis generation, tool calls, and data cross-referencing.
 * **Evidence Matrix & Timeline:** Chronological mapping of corporate disclosures and news relative to price action.
 * **Market Screener:** Multi-factor filtering across market cap, volume anomalies, foreign flow streaks, and valuation metrics.
+* **In-App Settings & Diagnostics Hub:** Hot-reload API credentials, switch AI providers, and monitor Sectors cache directly in the browser:
+
+<p align="center">
+  <img src="docs/assets/niskva-settings-web.png" alt="Niskava Web Settings and System Diagnostics Modal" width="85%">
+</p>
 
 ```bash
 niskava serve --port 20128 --open
@@ -137,6 +146,10 @@ niskava serve --port 20128 --open
 ### 2. Terminal UI & Interactive REPL (`niskava terminal`)
 
 A fast, distraction-free terminal research interface powered by Bubble Tea and Glamour markdown rendering:
+
+<p align="center">
+  <img src="docs/assets/niskava-terminal-chat.png" alt="Niskava Interactive Terminal REPL Session" width="85%">
+</p>
 
 * **Conversational IDX Research:** Query market catalysts, foreign accumulation, and financial health in natural language (Indonesian or English).
 * **Built-in Slash Commands:** `/help`, `/chats`, `/model`, `/doctor`, `/compact`, `/export`, and `/exit`.
@@ -307,7 +320,21 @@ Niskava reads settings from environment variables or `~/.niskava/config.yaml`:
 
 ## Testing & Quality Verification
 
-Run the automated test suites covering Go core and Python agent engines:
+### System & Environment Doctor (`niskava doctor`)
+
+Verify platform readiness, local SQLite WAL integrity, Python quantitative dependencies, and live Sectors API connectivity:
+
+```bash
+niskava doctor
+```
+
+<p align="center">
+  <img src="docs/assets/niskava-doctor.png" alt="Niskava System and Environment Doctor Diagnostics" width="85%">
+</p>
+
+### Automated Unit Test Suites
+
+Run the full automated test suites covering Go core and Python agent engines:
 
 ```bash
 # Run Python engine tests (mathematics, ReAct loop, skills, MCP)

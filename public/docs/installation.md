@@ -169,6 +169,10 @@ Run the interactive setup wizard to configure your credentials:
 niskava setup
 ```
 
+<p align="center">
+  <img src="../../docs/assets/niskava-setup-wizard.png" alt="Niskava Interactive Setup Wizard" width="90%">
+</p>
+
 The wizard guides you through:
 
 ### Step 1: AI Provider Selection
@@ -197,24 +201,10 @@ Always run the built-in system doctor to verify environment readiness before you
 niskava doctor
 ```
 
-Example successful diagnostic output:
-```text
-  ██████╗  ██████╗  ██████╗████████╗ ██████╗ ██████╗
-  ██╔══██╗██╔═══██╗██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗
-  ██║  ██║██║   ██║██║        ██║   ██║   ██║██████╔╝
-  ██║  ██║██║   ██║██║        ██║   ██║   ██║██╔══██╗
-  ██████╔╝╚██████╔╝╚██████╗   ██║   ╚██████╔╝██║  ██║
-  ╚═════╝  ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝
-  Niskava System Health & Environmental Verification
+<p align="center">
+  <img src="../../docs/assets/niskava-doctor.png" alt="Niskava System and Environment Doctor" width="90%">
+</p>
 
-  [✓] Go Runtime: go1.24.0 (PASS)
-  [✓] Python Binary: /usr/bin/python3 (v3.11.8) (PASS)
-  [✓] Python Packages: numpy, pandas, networkx, trafilatura, fpdf2 (PASS)
-  [✓] Database: ~/.niskava/niskava.db (WAL Mode Enabled) (PASS)
-  [✓] Sectors API v2: Connection verified (LIVE) (PASS)
-  [✓] AI Provider: Gemini (gemini-2.0-flash) (READY) (PASS)
-
-  Doctor check passed! Niskava Agent is fully operational.
-```
+The doctor command verifies the Go runtime, host platform, Python binary, quantitative packages (NumPy, NetworkX), SQLite WAL database integrity, AI provider response latency, Sectors API live connection, and Telegram bot configuration.
 
 If any check fails, `niskava doctor` provides immediate actionable recommendations. Refer to the [Troubleshooting & FAQ Guide](troubleshooting-and-faq.md) for detailed error resolutions.

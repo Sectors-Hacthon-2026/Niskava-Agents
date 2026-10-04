@@ -16,6 +16,10 @@ npx @zyrexnns/niskava-agent doctor
 niskava doctor
 ```
 
+<p align="center">
+  <img src="../../docs/assets/niskava-doctor.png" alt="Niskava System and Environment Doctor Diagnostics" width="90%">
+</p>
+
 The doctor command verifies the Go runtime, Python binary, Python quantitative packages, SQLite WAL database, Sectors API connectivity, and AI provider credentials in under 2 seconds.
 
 ---

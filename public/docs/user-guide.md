@@ -50,6 +50,10 @@ Running `niskava` without arguments starts the interactive Terminal UI launcher:
 niskava
 ```
 
+<p align="center">
+  <img src="../../docs/assets/niskava-cli-gateway.png" alt="Niskava Central CLI Gateway Launcher" width="90%">
+</p>
+
 The launcher displays application health status, configured API keys, and a keyboard-driven menu:
 
 * **`[T]` Terminal UI (Interactive Live CLI)**: Launches the natural language REPL.
@@ -70,6 +74,10 @@ The interactive REPL provides a natural language conversational research environ
 ```bash
 niskava terminal    # or: niskava repl / niskava chat
 ```
+
+<p align="center">
+  <img src="../../docs/assets/niskava-terminal-chat.png" alt="Niskava Terminal REPL Chat Session" width="90%">
+</p>
 
 ### Prompt History Navigation
 * Press **Up Arrow (↑)** to recall previous queries.
@@ -146,12 +154,20 @@ Launch the high-throughput local REST/SSE server and interactive visual workspac
 niskava serve --port 20128 --open
 ```
 
+<p align="center">
+  <img src="../../docs/assets/niskava-web-dashboard.png" alt="Niskava Web Workspace Canvas" width="100%">
+</p>
+
 ### Key Workspace Features:
 * **Interactive Candlestick Chart:** Powered by TradingView lightweight charts with Volume Z-Score badges ($V_z \ge 2.5\sigma$) and breakout tags ($|R_t| \ge 5\%$).
 * **Real-Time Thinking Stream:** Server-Sent Events (SSE) stream agent reasoning, tool calls, and observations live.
 * **Interactive Evidence Matrix:** Filter findings by status (`SUPPORTED`, `UNCERTAIN`, `CONTRADICTED`) and confidence level.
 * **Chronological Timeline Graph:** Visual representation of corporate events relative to trading volume spikes.
-* **Settings Hub:** Dynamic provider switching, timeout sliders, cache flush, and Telegram whitelist configuration.
+* **Settings & Diagnostics Hub:** Dynamic provider switching, timeout sliders, cache flush, and Telegram whitelist configuration directly in the browser:
+
+<p align="center">
+  <img src="../../docs/assets/niskva-settings-web.png" alt="Niskava Web Settings and Diagnostics Modal" width="90%">
+</p>
 
 ---
 
