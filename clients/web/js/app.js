@@ -221,7 +221,68 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 stat_credit_saved: "Kredit Dihemat",
                 stat_permanent_entries: "Entri Permanen (OHLCV)",
                 stat_expired_entries: "Entri Kadaluarsa",
-                label_clean_disk: "Bersihkan data kadaluarsa untuk menghemat ruang disk:"
+                label_clean_disk: "Bersihkan data kadaluarsa untuk menghemat ruang disk:",
+                // Settings & Profile
+                profile_default_user: "User",
+                settings_ssot_desc: '<strong style="color:var(--text-primary);">Penyimpanan Konfigurasi (.env):</strong> Tersinkronisasi Otomatis (<code class="path-code">~/.niskava/.env</code> &amp; <code class="path-code">./.env</code>)',
+                settings_ssot_badge: "Dual Sync SSoT",
+                settings_hot_reload_hint: "Perubahan kredensial langsung ter-hot-reload (Zero Restart)",
+                tab1_sectors_banner_title: "Sectors Financial API v2 (Market Data IDX)",
+                tab1_sectors_banner_desc: "Kredensial feed data pasar saham BEI & kuota 1.000 kredit (Kepatuhan Law 5).",
+                tab1_btn_goto_sectors: "Buka Pengaturan Sectors &rarr;",
+                label_ai_provider_desc: "Pilih engine LLM untuk ReAct autonomous reasoning & korelasi bukti kausalitas.",
+                tag_recommended: "Disarankan",
+                tag_saved: "Tersimpan",
+                tag_no_key: "Belum Ada Kunci",
+                tag_gateway: "Gateway",
+                tag_local: "Lokal",
+                tag_reasoning: "Penalaran",
+                tag_ready: "Siap",
+                tag_available: "Tersedia",
+                btn_test_conn_span: "Uji Koneksi",
+                label_gemini_key: "Gemini API Key",
+                label_gemini_model: "Gemini Model Name",
+                label_openai_base_url: "OpenAI Base URL",
+                label_openai_model: "OpenAI Model Name",
+                label_ollama_base_url: "Ollama Base URL",
+                label_ollama_model: "Ollama Model Name",
+                label_anthropic_key: "Anthropic API Key",
+                label_anthropic_model: "Anthropic Model Name",
+                label_timeout_desc: "Batas durasi inferensi loop ReAct otonom per query.",
+                preset_timeout_15: "15s (Cepat)",
+                preset_timeout_60: "60s (Seimbang)",
+                preset_timeout_120: "120s (Mendalam)",
+                preset_timeout_300: "300s (Maks)",
+                profile_fast: "cepat",
+                profile_balanced: "seimbang",
+                profile_deep: "mendalam",
+                profile_local: "lokal",
+                profile_custom: "kustom",
+                label_sectors_key: "Sectors Financial API v2 Key",
+                label_sectors_key_desc: "Kredensial resmi Sectors Financial API untuk data fundamental, OHLCV, keterbukaan IDX, dan foreign flow.",
+                badge_grant_budget: "1.000 Grant Budget",
+                label_usage_quota: "Penggunaan Kuota Panggilan:",
+                label_remaining_quota_prefix: "Sisa Kuota: ~",
+                label_remaining_calls_suffix: "panggilan",
+                title_cache_maint: "Pemeliharaan Cache SQLite",
+                btn_flush_all_cache: "Flush Semua Cache",
+                tele_token_empty: "Belum Ada Token",
+                tele_token_saved: "Token Tersimpan",
+                btn_unlock_tele_token: "Ganti Token",
+                tele_status_standby: "STANDBY",
+                tele_status_running: "BERJALAN",
+                tele_no_whitelist: "Belum ada user di-whitelist (akses terbuka untuk semua).",
+                settings_ssot_paths_title: "Jalur Penyimpanan SSoT (Single Source of Truth)",
+                settings_copy_path: "Salin Path",
+                diag_status_daemon: "STATUS DAEMON",
+                diag_go_runtime: "GO RUNTIME",
+                diag_sqlite_wal: "SQLITE WAL (LAW 4)",
+                diag_active_provider: "ACTIVE AI PROVIDER",
+                diag_op_mode: "MODE OPERASI",
+                diag_local_ipc: "Local IPC Aktif",
+                diag_sessions_saved: "sesi tersimpan",
+                diag_credit_sync: "Law 5 Active Credit Sync",
+                diag_local_first_badge: "Local-First"
             },
             en: {
                 brand_subtitle: "AI for Brighter Investments",
@@ -423,7 +484,68 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 stat_credit_saved: "Credits Saved",
                 stat_permanent_entries: "Permanent Entries (OHLCV)",
                 stat_expired_entries: "Expired Entries",
-                label_clean_disk: "Clean expired data to save disk space:"
+                label_clean_disk: "Clean expired data to save disk space:",
+                // Settings & Profile
+                profile_default_user: "User",
+                settings_ssot_desc: '<strong style="color:var(--text-primary);">Configuration Storage (.env):</strong> Auto-Synchronized (<code class="path-code">~/.niskava/.env</code> &amp; <code class="path-code">./.env</code>)',
+                settings_ssot_badge: "Dual Sync SSoT",
+                settings_hot_reload_hint: "Credential changes are hot-reloaded immediately (Zero Restart)",
+                tab1_sectors_banner_title: "Sectors Financial API v2 (IDX Market Data)",
+                tab1_sectors_banner_desc: "IDX stock market data feed credentials & 1,000 credit quota (Law 5 Compliance).",
+                tab1_btn_goto_sectors: "Open Sectors Settings &rarr;",
+                label_ai_provider_desc: "Select LLM engine for ReAct autonomous reasoning & causality evidence correlation.",
+                tag_recommended: "Recommended",
+                tag_saved: "Saved",
+                tag_no_key: "No Key",
+                tag_gateway: "Gateway",
+                tag_local: "Local",
+                tag_reasoning: "Reasoning",
+                tag_ready: "Ready",
+                tag_available: "Available",
+                btn_test_conn_span: "Test Connection",
+                label_gemini_key: "Gemini API Key",
+                label_gemini_model: "Gemini Model Name",
+                label_openai_base_url: "OpenAI Base URL",
+                label_openai_model: "OpenAI Model Name",
+                label_ollama_base_url: "Ollama Base URL",
+                label_ollama_model: "Ollama Model Name",
+                label_anthropic_key: "Anthropic API Key",
+                label_anthropic_model: "Anthropic Model Name",
+                label_timeout_desc: "Autonomous ReAct loop inference duration limit per query.",
+                preset_timeout_15: "15s (Fast)",
+                preset_timeout_60: "60s (Balanced)",
+                preset_timeout_120: "120s (Deep)",
+                preset_timeout_300: "300s (Max)",
+                profile_fast: "fast",
+                profile_balanced: "balanced",
+                profile_deep: "deep",
+                profile_local: "local",
+                profile_custom: "custom",
+                label_sectors_key: "Sectors Financial API v2 Key",
+                label_sectors_key_desc: "Official Sectors Financial API credentials for fundamentals, OHLCV, IDX disclosures, and foreign flow.",
+                badge_grant_budget: "1,000 Grant Budget",
+                label_usage_quota: "Call Quota Usage:",
+                label_remaining_quota_prefix: "Est. Remaining: ~",
+                label_remaining_calls_suffix: "calls",
+                title_cache_maint: "SQLite Cache Maintenance",
+                btn_flush_all_cache: "Flush All Cache",
+                tele_token_empty: "No Token",
+                tele_token_saved: "Token Saved",
+                btn_unlock_tele_token: "Change Token",
+                tele_status_standby: "STANDBY",
+                tele_status_running: "RUNNING",
+                tele_no_whitelist: "No users whitelisted yet (open access for all).",
+                settings_ssot_paths_title: "SSoT Storage Paths (Single Source of Truth)",
+                settings_copy_path: "Copy Path",
+                diag_status_daemon: "DAEMON STATUS",
+                diag_go_runtime: "GO RUNTIME",
+                diag_sqlite_wal: "SQLITE WAL (LAW 4)",
+                diag_active_provider: "ACTIVE AI PROVIDER",
+                diag_op_mode: "OPERATIONAL MODE",
+                diag_local_ipc: "Local IPC Active",
+                diag_sessions_saved: "sessions saved",
+                diag_credit_sync: "Law 5 Active Credit Sync",
+                diag_local_first_badge: "Local-First"
             }
         };
 
@@ -551,6 +673,11 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
             // (e) Update Composer Send Button Tooltip if function exists
             if (typeof updateSendButtonState === 'function') {
                 updateSendButtonState();
+            }
+
+            // (f) Update Settings modal dynamic texts if hook is available
+            if (typeof updateSettingsLanguage === 'function') {
+                updateSettingsLanguage();
             }
 
             if (triggerToast && typeof showToast === 'function') {
@@ -3121,6 +3248,10 @@ window.addEventListener('beforeunload', (e) => {
                 const btnCleanCache = document.getElementById('btnCleanCache');
                 const diagnosticsDetails = document.getElementById('diagnosticsDetails');
 
+                let lastSettingsData = null;
+                let lastTelegramData = null;
+                let lastDiagnosticsData = null;
+
                 switchMainView = function(targetNav) {
                     if (typeof closeMobileSidebar === 'function') {
                         closeMobileSidebar();
@@ -3805,20 +3936,20 @@ window.addEventListener('beforeunload', (e) => {
                     if (valueEl) {
                         valueEl.textContent = `${Math.round(num)}s`;
                     }
-                    let profile = '[custom]';
+                    let profileKey = 'custom';
                     if (num <= 25) {
-                        profile = '[fast]';
+                        profileKey = 'fast';
                     } else if (num <= 65) {
-                        profile = '[balanced]';
+                        profileKey = 'balanced';
                     } else if (num <= 125) {
-                        profile = '[deep]';
+                        profileKey = 'deep';
                     } else if (num <= 185) {
-                        profile = '[local]';
+                        profileKey = 'local';
                     } else {
-                        profile = '[custom]';
+                        profileKey = 'custom';
                     }
                     if (badgeEl) {
-                        badgeEl.textContent = profile;
+                        badgeEl.textContent = `[${t('profile_' + profileKey)}]`;
                     }
                 }
                 window.onTimeoutSliderInput = onTimeoutSliderInput;
@@ -3839,6 +3970,8 @@ window.addEventListener('beforeunload', (e) => {
                         const res = await fetch(`${API_BASE}/api/settings?reveal=true`);
                         if (!res.ok) return;
                         const data = await res.json();
+                        lastSettingsData = data;
+
                         if (data.auth) {
                             if (selectAiProvider && data.auth.ai_provider) {
                                 selectAiProvider.value = data.auth.ai_provider;
@@ -3848,68 +3981,68 @@ window.addEventListener('beforeunload', (e) => {
                             }
                             if (statusSectorsKey) {
                                 if (data.auth.has_sectors_key) {
-                                    statusSectorsKey.textContent = currentLang === 'en' ? 'Saved' : 'Tersimpan';
+                                    statusSectorsKey.textContent = t('tag_saved');
                                     statusSectorsKey.style.color = '#10B981';
                                     if (inputSectorsKey) {
                                         inputSectorsKey.value = data.auth.sectors_api_key || '';
                                         inputSectorsKey.dataset.saved = 'true';
-                                        inputSectorsKey.placeholder = 'sec_live_... (Tersimpan)';
+                                        inputSectorsKey.placeholder = `sec_live_... (${t('tag_saved')})`;
                                     }
                                 } else {
-                                    statusSectorsKey.textContent = currentLang === 'en' ? 'No Key' : 'Belum Ada Kunci';
+                                    statusSectorsKey.textContent = t('tag_no_key');
                                     statusSectorsKey.style.color = '#F59E0B';
                                     if (inputSectorsKey) {
                                         inputSectorsKey.value = '';
                                         delete inputSectorsKey.dataset.saved;
-                                        inputSectorsKey.placeholder = 'sec_live_... (Masukkan Sectors API Key)';
+                                        inputSectorsKey.placeholder = 'sec_live_... (Kosongkan jika tidak diubah)';
                                     }
                                 }
                             }
                             const tab1SectorsBadge = document.getElementById('tab1SectorsBadge');
                             if (tab1SectorsBadge) {
                                 if (data.auth.has_sectors_key) {
-                                    tab1SectorsBadge.textContent = currentLang === 'en' ? 'Saved' : 'Tersimpan';
+                                    tab1SectorsBadge.textContent = t('tag_saved');
                                     tab1SectorsBadge.style.color = '#10B981';
                                 } else {
-                                    tab1SectorsBadge.textContent = currentLang === 'en' ? 'No Key' : 'Belum Ada Kunci';
+                                    tab1SectorsBadge.textContent = t('tag_no_key');
                                     tab1SectorsBadge.style.color = '#F59E0B';
                                 }
                             }
                             if (statusGeminiKey) {
                                 if (data.auth.has_gemini_key) {
-                                    statusGeminiKey.textContent = currentLang === 'en' ? 'Saved' : 'Tersimpan';
+                                    statusGeminiKey.textContent = t('tag_saved');
                                     statusGeminiKey.style.color = '#10B981';
                                     if (inputGeminiKey) {
                                         inputGeminiKey.value = data.auth.gemini_api_key || '';
                                         inputGeminiKey.dataset.saved = 'true';
-                                        inputGeminiKey.placeholder = 'AIzaSy... (Tersimpan)';
+                                        inputGeminiKey.placeholder = `AIzaSy... (${t('tag_saved')})`;
                                     }
                                 } else {
-                                    statusGeminiKey.textContent = currentLang === 'en' ? 'No Key' : 'Belum Ada Kunci';
+                                    statusGeminiKey.textContent = t('tag_no_key');
                                     statusGeminiKey.style.color = '#F59E0B';
                                     if (inputGeminiKey) {
                                         inputGeminiKey.value = '';
                                         delete inputGeminiKey.dataset.saved;
-                                        inputGeminiKey.placeholder = 'AIzaSy... (Masukkan Gemini API Key)';
+                                        inputGeminiKey.placeholder = 'AIzaSy... (Kosongkan jika tidak diubah)';
                                     }
                                 }
                             }
                             if (statusOpenaiKey) {
                                 if (data.auth.has_openai_key) {
-                                    statusOpenaiKey.textContent = currentLang === 'en' ? 'Saved' : 'Tersimpan';
+                                    statusOpenaiKey.textContent = t('tag_saved');
                                     statusOpenaiKey.style.color = '#10B981';
                                     if (inputOpenaiKey) {
                                         inputOpenaiKey.value = data.auth.openai_api_key || '';
                                         inputOpenaiKey.dataset.saved = 'true';
-                                        inputOpenaiKey.placeholder = 'sk-... (Tersimpan)';
+                                        inputOpenaiKey.placeholder = `sk-... (${t('tag_saved')})`;
                                     }
                                 } else {
-                                    statusOpenaiKey.textContent = currentLang === 'en' ? 'No Key' : 'Belum Ada Kunci';
+                                    statusOpenaiKey.textContent = t('tag_no_key');
                                     statusOpenaiKey.style.color = 'var(--text-muted)';
                                     if (inputOpenaiKey) {
                                         inputOpenaiKey.value = '';
                                         delete inputOpenaiKey.dataset.saved;
-                                        inputOpenaiKey.placeholder = 'sk-... (Kosongkan jika menggunakan gateway lokal)';
+                                        inputOpenaiKey.placeholder = 'sk-... (Kosongkan jika tidak diubah)';
                                     }
                                 }
                             }
@@ -3934,33 +4067,32 @@ window.addEventListener('beforeunload', (e) => {
                             }
                             if (statusAnthropicKey) {
                                 if (data.auth.has_anthropic_key) {
-                                    statusAnthropicKey.textContent = currentLang === 'en' ? 'Saved' : 'Tersimpan';
+                                    statusAnthropicKey.textContent = t('tag_saved');
                                     statusAnthropicKey.style.color = '#10B981';
                                     if (inputAnthropicKey) {
                                         inputAnthropicKey.value = data.auth.anthropic_api_key || '';
                                         inputAnthropicKey.dataset.saved = 'true';
-                                        inputAnthropicKey.placeholder = 'sk-ant-api03-... (Tersimpan)';
+                                        inputAnthropicKey.placeholder = `sk-ant-... (${t('tag_saved')})`;
                                     }
                                 } else {
-                                    statusAnthropicKey.textContent = currentLang === 'en' ? 'No Key' : 'Belum Ada Kunci';
+                                    statusAnthropicKey.textContent = t('tag_no_key');
                                     statusAnthropicKey.style.color = 'var(--text-muted)';
                                     if (inputAnthropicKey) {
                                         inputAnthropicKey.value = '';
                                         delete inputAnthropicKey.dataset.saved;
-                                        inputAnthropicKey.placeholder = 'sk-ant-api03-... (Masukkan Anthropic API Key)';
+                                        inputAnthropicKey.placeholder = 'sk-ant-... (Kosongkan jika tidak diubah)';
                                     }
                                 }
                             }
                             // Update reactive provider card badges
-                            const isEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
                             const tagGemini = document.getElementById('tagGeminiStatus');
                             if (tagGemini) {
                                 if (data.auth && data.auth.has_gemini_key) {
-                                    tagGemini.textContent = isEn ? 'Saved' : 'Tersimpan';
+                                    tagGemini.textContent = t('tag_saved');
                                     tagGemini.style.color = '#10B981';
                                     tagGemini.style.background = 'rgba(16, 185, 129, 0.12)';
                                 } else {
-                                    tagGemini.textContent = isEn ? 'Recommended' : 'Disarankan';
+                                    tagGemini.textContent = t('tag_recommended');
                                     tagGemini.style.color = '#03A66D';
                                     tagGemini.style.background = 'rgba(3, 166, 109, 0.12)';
                                 }
@@ -3969,11 +4101,11 @@ window.addEventListener('beforeunload', (e) => {
                             const tagOpenai = document.getElementById('tagOpenaiStatus');
                             if (tagOpenai) {
                                 if (data.auth && data.auth.has_openai_key) {
-                                    tagOpenai.textContent = isEn ? 'Saved' : 'Tersimpan';
+                                    tagOpenai.textContent = t('tag_saved');
                                     tagOpenai.style.color = '#10B981';
                                     tagOpenai.style.background = 'rgba(16, 185, 129, 0.12)';
                                 } else {
-                                    tagOpenai.textContent = 'Gateway';
+                                    tagOpenai.textContent = t('tag_gateway');
                                     tagOpenai.style.color = '';
                                     tagOpenai.style.background = '';
                                 }
@@ -3982,11 +4114,11 @@ window.addEventListener('beforeunload', (e) => {
                             const tagAnthropic = document.getElementById('tagAnthropicStatus');
                             if (tagAnthropic) {
                                 if (data.auth && data.auth.has_anthropic_key) {
-                                    tagAnthropic.textContent = isEn ? 'Saved' : 'Tersimpan';
+                                    tagAnthropic.textContent = t('tag_saved');
                                     tagAnthropic.style.color = '#10B981';
                                     tagAnthropic.style.background = 'rgba(16, 185, 129, 0.12)';
                                 } else {
-                                    tagAnthropic.textContent = isEn ? 'Reasoning' : 'Penalaran';
+                                    tagAnthropic.textContent = t('tag_reasoning');
                                     tagAnthropic.style.color = '';
                                     tagAnthropic.style.background = '';
                                 }
@@ -3996,11 +4128,11 @@ window.addEventListener('beforeunload', (e) => {
                             if (tagOllama) {
                                 const ollamaUrl = (data.auth && data.auth.ollama_base_url) || (inputOllamaBaseUrl ? inputOllamaBaseUrl.value.trim() : '') || 'http://localhost:11434';
                                 if (ollamaUrl) {
-                                    tagOllama.textContent = isEn ? 'Available' : 'Tersedia';
+                                    tagOllama.textContent = t('tag_available');
                                     tagOllama.style.color = '#10B981';
                                     tagOllama.style.background = 'rgba(16, 185, 129, 0.12)';
                                 } else {
-                                    tagOllama.textContent = isEn ? 'Local' : 'Lokal';
+                                    tagOllama.textContent = t('tag_local');
                                     tagOllama.style.color = '';
                                     tagOllama.style.background = '';
                                 }
@@ -4198,7 +4330,7 @@ window.addEventListener('beforeunload', (e) => {
                     if (!teleAllowedUsersChips) return;
                     teleAllowedUsersChips.innerHTML = '';
                     if (currentTeleUsers.length === 0) {
-                        teleAllowedUsersChips.innerHTML = '<span style="font-size:11px; color:var(--text-muted); font-style:italic;">Belum ada user di-whitelist (akses terbuka untuk semua).</span>';
+                        teleAllowedUsersChips.innerHTML = `<span style="font-size:11px; color:var(--text-muted); font-style:italic;">${t('tele_no_whitelist')}</span>`;
                     } else {
                         currentTeleUsers.forEach((u, idx) => {
                             const chip = document.createElement('div');
@@ -4253,6 +4385,7 @@ window.addEventListener('beforeunload', (e) => {
                         const res = await fetch(`${API_BASE}/api/settings/telegram`);
                         if (!res.ok) return;
                         const data = await res.json();
+                        lastTelegramData = data;
                         const isRunning = (data.status === 'RUNNING');
 
                         if (teleBotStatusBadge) {
@@ -4273,30 +4406,33 @@ window.addEventListener('beforeunload', (e) => {
                         }
                         if (statusTeleToken) {
                             if (data.has_token) {
-                                statusTeleToken.textContent = currentLang === 'en' ? 'Token Saved' : 'Token Tersimpan';
+                                statusTeleToken.textContent = t('tele_token_saved');
                                 statusTeleToken.style.color = '#10B981';
                                 if (inputTeleToken) {
                                     inputTeleToken.disabled = false;
                                     inputTeleToken.value = data.bot_token || '';
                                     inputTeleToken.dataset.saved = 'true';
-                                    inputTeleToken.placeholder = '7123456789:AAH... (Tersimpan)';
+                                    inputTeleToken.placeholder = `7123456789:AAH... (${t('tag_saved')})`;
                                 }
                                 if (btnUnlockTeleToken) {
                                     btnUnlockTeleToken.style.display = 'none';
                                 }
                             } else {
-                                statusTeleToken.textContent = currentLang === 'en' ? 'No Token' : 'Belum Ada Token';
+                                statusTeleToken.textContent = t('tele_token_empty');
                                 statusTeleToken.style.color = 'var(--text-muted)';
                                 if (inputTeleToken) {
                                     inputTeleToken.disabled = false;
                                     inputTeleToken.value = '';
                                     delete inputTeleToken.dataset.saved;
-                                    inputTeleToken.placeholder = '7123456789:AAH... (Masukkan token bot)';
+                                    inputTeleToken.placeholder = '7123456789:AAH... (Kosongkan jika tidak diubah)';
                                 }
                                 if (btnUnlockTeleToken) {
                                     btnUnlockTeleToken.style.display = 'none';
                                 }
                             }
+                        }
+                        if (btnUnlockTeleToken) {
+                            btnUnlockTeleToken.textContent = t('btn_unlock_tele_token');
                         }
 
                         // Dynamic Start / Stop Bot Button Toggle
@@ -4307,13 +4443,13 @@ window.addEventListener('beforeunload', (e) => {
                                 btnStopTeleBot.disabled = false;
                                 btnStopTeleBot.style.opacity = '1';
                                 btnStopTeleBot.style.cursor = 'pointer';
-                                btnStopTeleBot.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg><span>${currentLang === 'en' ? 'Stop Bot' : 'Matikan Bot'}</span>`;
+                                btnStopTeleBot.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg><span>${t('btn_stop_bot')}</span>`;
                             }
                         } else {
                             if (btnStopTeleBot) btnStopTeleBot.style.display = 'none';
                             if (btnStartTeleBot) {
                                 btnStartTeleBot.style.display = 'inline-flex';
-                                btnStartTeleBot.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>${currentLang === 'en' ? 'Start Bot' : 'Nyalakan Bot'}</span>`;
+                                btnStartTeleBot.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>${t('btn_start_bot')}</span>`;
                                 if (!data.has_token) {
                                     btnStartTeleBot.disabled = true;
                                     btnStartTeleBot.style.opacity = '0.5';
@@ -4497,105 +4633,211 @@ window.addEventListener('beforeunload', (e) => {
                 }
 
                 // System Diagnostics
+                function renderDiagnosticsHTML(data) {
+                    if (!diagnosticsDetails || !data) return;
+                    const dbSizeKb = data.database_size_bytes ? (data.database_size_bytes / 1024).toFixed(1) + ' KB' : 'N/A';
+                    const isEn = (currentLang === 'en');
+
+                    diagnosticsDetails.innerHTML = `
+                        <div class="kpi-stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+                            <div class="kpi-stat-card">
+                                <span class="kpi-stat-label">${t('diag_status_daemon')}</span>
+                                <span class="kpi-stat-num" style="color:#10B981; font-size:14px;">${escapeHtml(data.status || 'OK')}</span>
+                                <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${t('diag_local_ipc')}</span>
+                            </div>
+                            <div class="kpi-stat-card">
+                                <span class="kpi-stat-label">${t('diag_go_runtime')}</span>
+                                <span class="kpi-stat-num" style="font-size:14px;">${escapeHtml(data.go_version || 'Go')}</span>
+                                <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${escapeHtml(data.os || '')} (${escapeHtml(data.arch || '')}) | ${data.num_cpu || 1} CPU</span>
+                            </div>
+                            <div class="kpi-stat-card">
+                                <span class="kpi-stat-label">${t('diag_sqlite_wal')}</span>
+                                <span class="kpi-stat-num" style="font-size:14px;">${dbSizeKb}</span>
+                                <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${data.total_sessions || 0} ${t('diag_sessions_saved')}</span>
+                            </div>
+                        </div>
+                        <div class="kpi-stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-top:0;">
+                            <div class="kpi-stat-card">
+                                <span class="kpi-stat-label">${t('diag_active_provider')}</span>
+                                <span class="kpi-stat-num" style="color:var(--accent-text); font-size:14px;">${escapeHtml((data.ai_provider || 'openai').toUpperCase())}</span>
+                                <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">ReAct Cognitive Engine</span>
+                            </div>
+                            <div class="kpi-stat-card">
+                                <span class="kpi-stat-label">${t('diag_op_mode')}</span>
+                                <span class="kpi-stat-num" style="color:#10B981; font-size:14px;">SECTORS v2 LIVE</span>
+                                <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${t('diag_credit_sync')}</span>
+                            </div>
+                        </div>
+                        <div class="settings-card" style="margin-top:2px;">
+                            <div class="settings-card-head">
+                                <div class="settings-card-title">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                                    <span>${t('settings_ssot_paths_title')}</span>
+                                </div>
+                                <span class="panel-card-badge">${t('diag_local_first_badge')}</span>
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:11px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:var(--bg-card); border-radius:6px; border:1px solid var(--border-subtle);">
+                                    <div><strong style="color:var(--text-primary);">Database:</strong> <span style="color:var(--text-secondary);">${escapeHtml(data.database_path || '~/.niskava/niskava.db')}</span></div>
+                                    <button type="button" class="btn-copy-path" data-path="${escapeHtml(data.database_path || '~/.niskava/niskava.db')}" title="${t('settings_copy_path')}" style="cursor:pointer; color:var(--text-muted); padding:2px 6px; border:none; background:transparent;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    </button>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:var(--bg-card); border-radius:6px; border:1px solid var(--border-subtle);">
+                                    <div><strong style="color:var(--text-primary);">Config:</strong> <span style="color:var(--text-secondary);">${escapeHtml(data.config_path || '~/.niskava/config.yaml')}</span></div>
+                                    <button type="button" class="btn-copy-path" data-path="${escapeHtml(data.config_path || '~/.niskava/config.yaml')}" title="${t('settings_copy_path')}" style="cursor:pointer; color:var(--text-muted); padding:2px 6px; border:none; background:transparent;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    </button>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:var(--bg-card); border-radius:6px; border:1px solid var(--border-subtle);">
+                                    <div><strong style="color:var(--text-primary);">DotEnv:</strong> <span style="color:var(--text-secondary);">${escapeHtml(data.dotenv_path || '~/.niskava/.env')}</span></div>
+                                    <button type="button" class="btn-copy-path" data-path="${escapeHtml(data.dotenv_path || '~/.niskava/.env')}" title="${t('settings_copy_path')}" style="cursor:pointer; color:var(--text-muted); padding:2px 6px; border:none; background:transparent;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    // Attach copy path events
+                    diagnosticsDetails.querySelectorAll('.btn-copy-path').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            const path = btn.getAttribute('data-path');
+                            if (path) {
+                                copyToClipboard(path).then((success) => {
+                                    if (success) {
+                                        showToast(isEn ? 'Path copied to clipboard' : 'Jalur disalin ke papan klip');
+                                    } else {
+                                        showToast(isEn ? 'Failed to copy path' : 'Gagal menyalin jalur', 'error');
+                                    }
+                                });
+                            }
+                        });
+                    });
+                }
+
                 async function fetchDiagnostics() {
                     if (!diagnosticsDetails) return;
                     try {
                         const res = await fetch(`${API_BASE}/api/system/diagnostics`);
                         if (!res.ok) return;
                         const data = await res.json();
-                        const dbSizeKb = data.database_size_bytes ? (data.database_size_bytes / 1024).toFixed(1) + ' KB' : 'N/A';
-                        const isEn = (currentLang === 'en');
+                        lastDiagnosticsData = data;
 
                         const sidebarProfileName = document.getElementById('sidebarProfileName');
                         const sidebarProfileAvatar = document.getElementById('sidebarProfileAvatar');
-                        if (sidebarProfileName && data.username) {
-                            sidebarProfileName.textContent = data.username;
+                        const uname = data.username || 'User';
+                        if (sidebarProfileName) {
+                            sidebarProfileName.textContent = (uname.toLowerCase() === 'user') ? t('profile_default_user') : uname;
                         }
-                        if (sidebarProfileAvatar && data.username) {
-                            sidebarProfileAvatar.textContent = data.username.slice(0, 2).toUpperCase();
+                        if (sidebarProfileAvatar) {
+                            sidebarProfileAvatar.textContent = (uname.toLowerCase() === 'user') ? 'US' : uname.slice(0, 2).toUpperCase();
                         }
 
-                        diagnosticsDetails.innerHTML = `
-                            <div class="kpi-stats-grid" style="grid-template-columns: repeat(3, 1fr);">
-                                <div class="kpi-stat-card">
-                                    <span class="kpi-stat-label">STATUS DAEMON</span>
-                                    <span class="kpi-stat-num" style="color:#10B981; font-size:14px;">${escapeHtml(data.status || 'OK')}</span>
-                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">Local IPC Active</span>
-                                </div>
-                                <div class="kpi-stat-card">
-                                    <span class="kpi-stat-label">GO RUNTIME</span>
-                                    <span class="kpi-stat-num" style="font-size:14px;">${escapeHtml(data.go_version || 'Go')}</span>
-                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${escapeHtml(data.os || '')} (${escapeHtml(data.arch || '')}) | ${data.num_cpu || 1} CPU</span>
-                                </div>
-                                <div class="kpi-stat-card">
-                                    <span class="kpi-stat-label">SQLITE WAL (LAW 4)</span>
-                                    <span class="kpi-stat-num" style="font-size:14px;">${dbSizeKb}</span>
-                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${data.total_sessions || 0} ${isEn ? 'sessions saved' : 'sesi tersimpan'}</span>
-                                </div>
-                            </div>
-                            <div class="kpi-stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-top:0;">
-                                <div class="kpi-stat-card">
-                                    <span class="kpi-stat-label">ACTIVE AI PROVIDER</span>
-                                    <span class="kpi-stat-num" style="color:var(--accent-text); font-size:14px;">${escapeHtml((data.ai_provider || 'openai').toUpperCase())}</span>
-                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">ReAct Cognitive Engine</span>
-                                </div>
-                                <div class="kpi-stat-card">
-                                    <span class="kpi-stat-label">MODE OPERASI</span>
-                                    <span class="kpi-stat-num" style="color:#10B981; font-size:14px;">SECTORS v2 LIVE</span>
-                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">Law 5 Active Credit Sync</span>
-                                </div>
-                            </div>
-                            <div class="settings-card" style="margin-top:2px;">
-                                <div class="settings-card-head">
-                                    <div class="settings-card-title">
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                                        <span>Jalur Penyimpanan SSoT (Single Source of Truth)</span>
-                                    </div>
-                                    <span class="panel-card-badge">Local-First</span>
-                                </div>
-                                <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:11px;">
-                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:var(--bg-card); border-radius:6px; border:1px solid var(--border-subtle);">
-                                        <div><strong style="color:var(--text-primary);">Database:</strong> <span style="color:var(--text-secondary);">${escapeHtml(data.database_path || '~/.niskava/niskava.db')}</span></div>
-                                        <button type="button" class="btn-copy-path" data-path="${escapeHtml(data.database_path || '~/.niskava/niskava.db')}" title="Salin Path" style="cursor:pointer; color:var(--text-muted); padding:2px 6px; border:none; background:transparent;">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                        </button>
-                                    </div>
-                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:var(--bg-card); border-radius:6px; border:1px solid var(--border-subtle);">
-                                        <div><strong style="color:var(--text-primary);">Config:</strong> <span style="color:var(--text-secondary);">${escapeHtml(data.config_path || '~/.niskava/config.yaml')}</span></div>
-                                        <button type="button" class="btn-copy-path" data-path="${escapeHtml(data.config_path || '~/.niskava/config.yaml')}" title="Salin Path" style="cursor:pointer; color:var(--text-muted); padding:2px 6px; border:none; background:transparent;">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                        </button>
-                                    </div>
-                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:var(--bg-card); border-radius:6px; border:1px solid var(--border-subtle);">
-                                        <div><strong style="color:var(--text-primary);">DotEnv:</strong> <span style="color:var(--text-secondary);">${escapeHtml(data.dotenv_path || '~/.niskava/.env')}</span></div>
-                                        <button type="button" class="btn-copy-path" data-path="${escapeHtml(data.dotenv_path || '~/.niskava/.env')}" title="Salin Path" style="cursor:pointer; color:var(--text-muted); padding:2px 6px; border:none; background:transparent;">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-
-                        // Attach copy path events
-                        diagnosticsDetails.querySelectorAll('.btn-copy-path').forEach(btn => {
-                            btn.addEventListener('click', (e) => {
-                                e.preventDefault();
-                                const path = btn.getAttribute('data-path');
-                                if (path) {
-                                    copyToClipboard(path).then((success) => {
-                                        if (success) {
-                                            showToast(isEn ? 'Path copied to clipboard' : 'Jalur disalin ke papan klip');
-                                        } else {
-                                            showToast(isEn ? 'Failed to copy path' : 'Gagal menyalin jalur', 'error');
-                                        }
-                                    });
-                                }
-                            });
-                        });
+                        renderDiagnosticsHTML(data);
                     } catch (e) {
                         diagnosticsDetails.innerHTML = `<div style="color:#EF4444; font-size:12px;">${currentLang === 'en' ? 'Failed to load diagnostics:' : 'Gagal memuat diagnostik:'} ${escapeHtml(e.message)}</div>`;
                     }
                 }
+
+                function updateSettingsLanguage() {
+                    const slider = document.getElementById('timeout-slider');
+                    if (slider) {
+                        onTimeoutSliderInput(slider.value);
+                    }
+                    if (lastSettingsData) {
+                        const data = lastSettingsData;
+                        const tagGemini = document.getElementById('tagGeminiStatus');
+                        if (tagGemini) {
+                            if (data.auth && data.auth.has_gemini_key) {
+                                tagGemini.textContent = t('tag_saved');
+                            } else {
+                                tagGemini.textContent = t('tag_recommended');
+                            }
+                        }
+                        const tagOpenai = document.getElementById('tagOpenaiStatus');
+                        if (tagOpenai) {
+                            if (data.auth && data.auth.has_openai_key) {
+                                tagOpenai.textContent = t('tag_saved');
+                            } else {
+                                tagOpenai.textContent = t('tag_gateway');
+                            }
+                        }
+                        const tagAnthropic = document.getElementById('tagAnthropicStatus');
+                        if (tagAnthropic) {
+                            if (data.auth && data.auth.has_anthropic_key) {
+                                tagAnthropic.textContent = t('tag_saved');
+                            } else {
+                                tagAnthropic.textContent = t('tag_reasoning');
+                            }
+                        }
+                        const tagOllama = document.getElementById('tagOllamaStatus');
+                        if (tagOllama) {
+                            const ollamaUrl = (data.auth && data.auth.ollama_base_url) || (inputOllamaBaseUrl ? inputOllamaBaseUrl.value.trim() : '') || 'http://localhost:11434';
+                            tagOllama.textContent = ollamaUrl ? t('tag_available') : t('tag_local');
+                        }
+                        if (statusSectorsKey) {
+                            statusSectorsKey.textContent = (data.auth && data.auth.has_sectors_key) ? t('tag_saved') : t('tag_no_key');
+                        }
+                        const tab1SectorsBadge = document.getElementById('tab1SectorsBadge');
+                        if (tab1SectorsBadge) {
+                            tab1SectorsBadge.textContent = (data.auth && data.auth.has_sectors_key) ? t('tag_saved') : t('tag_no_key');
+                        }
+                        if (statusGeminiKey) {
+                            statusGeminiKey.textContent = (data.auth && data.auth.has_gemini_key) ? t('tag_saved') : t('tag_no_key');
+                        }
+                        if (statusOpenaiKey) {
+                            statusOpenaiKey.textContent = (data.auth && data.auth.has_openai_key) ? t('tag_saved') : t('tag_no_key');
+                        }
+                        if (statusAnthropicKey) {
+                            statusAnthropicKey.textContent = (data.auth && data.auth.has_anthropic_key) ? t('tag_saved') : t('tag_no_key');
+                        }
+                        const badge = document.getElementById('dataFreshnessBadge');
+                        const label = document.getElementById('labelFreshnessStatus');
+                        if (badge && label) {
+                            if (data.auth && data.auth.has_sectors_key) {
+                                label.textContent = 'IDX Live (EOD)';
+                                badge.title = currentLang === 'en' ? 'Sectors Financial API v2 Active (Click to Flush Cache)' : 'Sectors Financial API v2 Aktif (Klik untuk Flush Cache)';
+                            } else {
+                                label.textContent = currentLang === 'en' ? 'No Sectors Key' : 'Belum Ada Kunci IDX';
+                                badge.title = currentLang === 'en' ? 'Configure SECTORS_API_KEY in Settings' : 'Konfigurasi SECTORS_API_KEY di Pengaturan';
+                            }
+                        }
+                    }
+                    if (lastTelegramData) {
+                        const data = lastTelegramData;
+                        if (statusTeleToken) {
+                            statusTeleToken.textContent = data.has_token ? t('tele_token_saved') : t('tele_token_empty');
+                        }
+                        if (btnUnlockTeleToken) {
+                            btnUnlockTeleToken.textContent = t('btn_unlock_tele_token');
+                        }
+                        const isRunning = (data.status === 'RUNNING');
+                        if (btnStopTeleBot && isRunning) {
+                            btnStopTeleBot.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg><span>${t('btn_stop_bot')}</span>`;
+                        }
+                        if (btnStartTeleBot && !isRunning) {
+                            btnStartTeleBot.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>${t('btn_start_bot')}</span>`;
+                            if (!data.has_token) {
+                                btnStartTeleBot.title = currentLang === 'en' ? 'Configure Telegram Bot Token first' : 'Konfigurasi Token Bot terlebih dahulu';
+                            }
+                        }
+                        renderTeleUserChips();
+                    }
+                    const btnFlush = document.getElementById('btnFlushAllCache');
+                    if (btnFlush) {
+                        btnFlush.textContent = t('btn_flush_all_cache');
+                    }
+                    const sidebarProfileName = document.getElementById('sidebarProfileName');
+                    if (sidebarProfileName && (!lastDiagnosticsData || !lastDiagnosticsData.username || lastDiagnosticsData.username.toLowerCase() === 'user')) {
+                        sidebarProfileName.textContent = t('profile_default_user');
+                    }
+                    if (lastDiagnosticsData) {
+                        renderDiagnosticsHTML(lastDiagnosticsData);
+                    }
+                }
+                window.updateSettingsLanguage = updateSettingsLanguage;
 
                 // Save Settings
                 if (btnSaveSettings) {

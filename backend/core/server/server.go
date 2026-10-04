@@ -1048,13 +1048,7 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			isOffline = activeCfg.Preferences.OfflineMode && config.IsTestingMode()
 		}
 
-		username := os.Getenv("USER")
-		if username == "" {
-			username = os.Getenv("USERNAME")
-		}
-		if username == "" {
-			username = "Analyst"
-		}
+		username := "User"
 
 		sendJSON(w, http.StatusOK, map[string]interface{}{
 			"status":              "OK",

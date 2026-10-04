@@ -59,9 +59,9 @@
 
             <!-- User Profile Row -->
             <div class="sidebar-profile" id="sidebarProfile" data-tooltip="Profil & Pengaturan" data-i18n-tooltip="profile_settings_tooltip">
-                <div class="profile-avatar" id="sidebarProfileAvatar">AN</div>
+                <div class="profile-avatar" id="sidebarProfileAvatar">US</div>
                 <div class="profile-info">
-                    <span class="profile-name" id="sidebarProfileName">Analyst</span>
+                    <span class="profile-name" id="sidebarProfileName" data-i18n="profile_default_user">User</span>
                     <span class="profile-badge">v0.1.4</span>
                 </div>
                 <button class="profile-settings-btn" id="btnSettings" aria-label="Pengaturan Sistem" data-i18n-tooltip="profile_settings_tooltip" title="Pengaturan Sistem">
@@ -502,7 +502,7 @@
                             <span data-i18n="modal_title">Pengaturan & Diagnostik Sistem</span>
                             <span class="settings-ver-badge">v0.1.4</span>
                         </div>
-                        <div class="modal-subtitle">
+                        <div class="modal-subtitle" data-i18n="modal_subtitle">
                             Konfigurasi model AI, koneksi data pasar Sectors v2, bot Telegram, dan integritas penyimpanan lokal.
                         </div>
                     </div>
@@ -540,11 +540,11 @@
             <div class="settings-ssot-banner">
                 <div class="ssot-banner-left">
                     <span class="ssot-pulse-dot"></span>
-                    <span>
+                    <span data-i18n="settings_ssot_desc">
                         <strong style="color:var(--text-primary);">Penyimpanan Konfigurasi (.env):</strong> Tersinkronisasi Otomatis (<code class="path-code">~/.niskava/.env</code> &amp; <code class="path-code">./.env</code>)
                     </span>
                 </div>
-                <span class="badge-ssot-tag" id="modalConfigSyncTime">Dual Sync SSoT</span>
+                <span class="badge-ssot-tag" id="modalConfigSyncTime" data-i18n="settings_ssot_badge">Dual Sync SSoT</span>
             </div>
 
             <!-- Modal Body -->
@@ -558,13 +558,13 @@
                                 <div style="display:flex; align-items:center; gap:8px;">
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary); flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
                                     <div>
-                                        <strong style="font-size:12px; color:var(--text-primary);">Sectors Financial API v2 (Market Data IDX)</strong>
-                                        <div style="font-size:11px; color:var(--text-muted);">Kredensial feed data pasar saham BEI &amp; kuota 1.000 kredit (Kepatuhan Law 5).</div>
+                                        <strong style="font-size:12px; color:var(--text-primary);" data-i18n="tab1_sectors_banner_title">Sectors Financial API v2 (Market Data IDX)</strong>
+                                        <div style="font-size:11px; color:var(--text-muted);" data-i18n="tab1_sectors_banner_desc">Kredensial feed data pasar saham BEI &amp; kuota 1.000 kredit (Kepatuhan Law 5).</div>
                                     </div>
                                 </div>
                                 <div style="display:flex; align-items:center; gap:8px;">
                                     <span id="tab1SectorsBadge" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
-                                    <button type="button" class="btn-test-conn" id="btnGoToSectorsTab" style="font-size:11px; padding:3px 10px; cursor:pointer;">
+                                    <button type="button" class="btn-test-conn" id="btnGoToSectorsTab" style="font-size:11px; padding:3px 10px; cursor:pointer;" data-i18n="tab1_btn_goto_sectors">
                                         <span>Buka Pengaturan Sectors &rarr;</span>
                                     </button>
                                 </div>
@@ -579,7 +579,7 @@
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><path d="M12 6v6l4 2"></path></svg>
                                         <span data-i18n="label_ai_provider">Provider AI Aktif</span>
                                     </div>
-                                    <div class="settings-card-desc">Pilih engine LLM untuk ReAct autonomous reasoning &amp; korelasi bukti kausalitas.</div>
+                                    <div class="settings-card-desc" data-i18n="label_ai_provider_desc">Pilih engine LLM untuk ReAct autonomous reasoning &amp; korelasi bukti kausalitas.</div>
                                 </div>
                                 <select class="form-input" id="selectAiProvider" style="display:none;">
                                     <option value="gemini" data-i18n="opt_gemini">Google Gemini (AI Studio)</option>
@@ -594,7 +594,7 @@
                                         <div class="provider-icon-badge">
                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                                         </div>
-                                        <span class="provider-tag" id="tagGeminiStatus" style="color:#03A66D; background:rgba(3,166,109,0.12);">Disarankan</span>
+                                        <span class="provider-tag" id="tagGeminiStatus" style="color:#03A66D; background:rgba(3,166,109,0.12);" data-i18n="tag_recommended">Disarankan</span>
                                     </div>
                                     <div class="provider-name">Google Gemini</div>
                                     <div class="provider-sub">Gemini 2.0 Flash / Pro</div>
@@ -605,7 +605,7 @@
                                         <div class="provider-icon-badge">
                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
                                         </div>
-                                        <span class="provider-tag" id="tagOpenaiStatus">Gateway</span>
+                                        <span class="provider-tag" id="tagOpenaiStatus" data-i18n="tag_gateway">Gateway</span>
                                     </div>
                                     <div class="provider-name">OpenAI / 9router</div>
                                     <div class="provider-sub">GPT-4o / DeepSeek / Local</div>
@@ -616,7 +616,7 @@
                                         <div class="provider-icon-badge">
                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
                                         </div>
-                                        <span class="provider-tag" id="tagOllamaStatus">Lokal</span>
+                                        <span class="provider-tag" id="tagOllamaStatus" data-i18n="tag_local">Lokal</span>
                                     </div>
                                     <div class="provider-name">Ollama Engine</div>
                                     <div class="provider-sub">DeepSeek-R1 / Qwen 2.5</div>
@@ -627,7 +627,7 @@
                                         <div class="provider-icon-badge">
                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
                                         </div>
-                                        <span class="provider-tag" id="tagAnthropicStatus">Penalaran</span>
+                                        <span class="provider-tag" id="tagAnthropicStatus" data-i18n="tag_reasoning">Penalaran</span>
                                     </div>
                                     <div class="provider-name">Anthropic Claude</div>
                                     <div class="provider-sub">Claude 3.5 Sonnet</div>
@@ -639,7 +639,7 @@
                         <div class="provider-fields-group settings-card" id="groupGemini" data-provider="gemini">
                             <div class="form-row">
                                 <label class="form-label">
-                                    <span>Gemini API Key</span>
+                                    <span data-i18n="label_gemini_key">Gemini API Key</span>
                                     <span id="statusGeminiKey" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
                                 </label>
                                 <div class="form-input-group">
@@ -649,14 +649,14 @@
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                         </button>
                                     </div>
-                                    <button type="button" class="btn-test-conn" id="btnTestGemini" data-i18n="btn_test">
+                                    <button type="button" class="btn-test-conn" id="btnTestGemini">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                                        <span>Uji Koneksi</span>
+                                        <span data-i18n="btn_test_conn_span">Uji Koneksi</span>
                                     </button>
                                 </div>
                             </div>
                             <div class="form-row" style="margin-top:4px;">
-                                <label class="form-label"><span>Gemini Model Name</span></label>
+                                <label class="form-label"><span data-i18n="label_gemini_model">Gemini Model Name</span></label>
                                 <input type="text" class="form-input code-font" id="inputGeminiModel" placeholder="gemini-2.0-flash">
                                 <div class="quick-preset-chips">
                                     <span class="preset-chip-label">Preset:</span>
@@ -681,14 +681,14 @@
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                         </button>
                                     </div>
-                                    <button type="button" class="btn-test-conn" id="btnTestOpenai" data-i18n="btn_test">
+                                    <button type="button" class="btn-test-conn" id="btnTestOpenai">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                                        <span>Uji Koneksi</span>
+                                        <span data-i18n="btn_test_conn_span">Uji Koneksi</span>
                                     </button>
                                 </div>
                             </div>
                             <div class="form-row" style="margin-top:4px;">
-                                <label class="form-label"><span>OpenAI Base URL</span></label>
+                                <label class="form-label"><span data-i18n="label_openai_base_url">OpenAI Base URL</span></label>
                                 <input type="text" class="form-input code-font" id="inputOpenaiBaseUrl" placeholder="http://localhost:20128/v1 atau https://api.openai.com/v1">
                                 <div class="quick-preset-chips">
                                     <span class="preset-chip-label">Preset:</span>
@@ -697,7 +697,7 @@
                                 </div>
                             </div>
                             <div class="form-row" style="margin-top:4px;">
-                                <label class="form-label"><span>OpenAI Model Name</span></label>
+                                <label class="form-label"><span data-i18n="label_openai_model">OpenAI Model Name</span></label>
                                 <input type="text" class="form-input code-font" id="inputOpenaiModel" placeholder="gpt-4o-mini atau gpt-4o">
                                 <div class="quick-preset-chips">
                                     <span class="preset-chip-label">Preset:</span>
@@ -712,19 +712,19 @@
                         <div class="provider-fields-group settings-card" id="groupOllama" data-provider="ollama" style="display:none;">
                             <div class="form-row">
                                 <label class="form-label">
-                                    <span>Ollama Base URL</span>
+                                    <span data-i18n="label_ollama_base_url">Ollama Base URL</span>
                                     <span id="statusOllamaKey" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
                                 </label>
                                 <div class="form-input-group">
                                     <input type="text" class="form-input code-font" id="inputOllamaBaseUrl" placeholder="http://localhost:11434">
-                                    <button type="button" class="btn-test-conn" id="btnTestOllama" data-i18n="btn_test">
+                                    <button type="button" class="btn-test-conn" id="btnTestOllama">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                                        <span>Uji Koneksi</span>
+                                        <span data-i18n="btn_test_conn_span">Uji Koneksi</span>
                                     </button>
                                 </div>
                             </div>
                             <div class="form-row" style="margin-top:4px;">
-                                <label class="form-label"><span>Ollama Model Name</span></label>
+                                <label class="form-label"><span data-i18n="label_ollama_model">Ollama Model Name</span></label>
                                 <input type="text" class="form-input code-font" id="inputOllamaModel" placeholder="deepseek-r1:8b atau qwen2.5">
                                 <div class="quick-preset-chips">
                                     <span class="preset-chip-label">Preset:</span>
@@ -739,7 +739,7 @@
                         <div class="provider-fields-group settings-card" id="groupAnthropic" data-provider="anthropic" style="display:none;">
                             <div class="form-row">
                                 <label class="form-label">
-                                    <span>Anthropic API Key</span>
+                                    <span data-i18n="label_anthropic_key">Anthropic API Key</span>
                                     <span id="statusAnthropicKey" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
                                 </label>
                                 <div class="form-input-group">
@@ -749,14 +749,14 @@
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                         </button>
                                     </div>
-                                    <button type="button" class="btn-test-conn" id="btnTestAnthropic" data-i18n="btn_test">
+                                    <button type="button" class="btn-test-conn" id="btnTestAnthropic">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                                        <span>Uji Koneksi</span>
+                                        <span data-i18n="btn_test_conn_span">Uji Koneksi</span>
                                     </button>
                                 </div>
                             </div>
                             <div class="form-row" style="margin-top:4px;">
-                                <label class="form-label"><span>Anthropic Model Name</span></label>
+                                <label class="form-label"><span data-i18n="label_anthropic_model">Anthropic Model Name</span></label>
                                 <input type="text" class="form-input code-font" id="inputAnthropicModel" placeholder="claude-3-5-sonnet-20241022">
                                 <div class="quick-preset-chips">
                                     <span class="preset-chip-label">Preset:</span>
@@ -774,7 +774,7 @@
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                                         <span data-i18n="label_timeout">Inference Timeout</span>
                                     </div>
-                                    <div class="settings-card-desc">Batas durasi inferensi loop ReAct otonom per query.</div>
+                                    <div class="settings-card-desc" data-i18n="label_timeout_desc">Batas durasi inferensi loop ReAct otonom per query.</div>
                                 </div>
                                 <div style="display:inline-flex; align-items:center; gap:6px;">
                                     <span id="timeout-value-badge" class="panel-card-badge" style="color:var(--accent-text); font-weight:700;">60s</span>
@@ -783,10 +783,10 @@
                             </div>
                             <input type="range" class="form-range" id="timeout-slider" min="10" max="300" step="5" value="60" oninput="onTimeoutSliderInput(this.value)" style="width:100%; accent-color:var(--primary); cursor:pointer;">
                             <div class="quick-preset-chips" style="justify-content:space-between; margin-top:2px;">
-                                <button type="button" class="preset-chip" data-timeout="15">15s (Fast)</button>
-                                <button type="button" class="preset-chip" data-timeout="60">60s (Balanced)</button>
-                                <button type="button" class="preset-chip" data-timeout="120">120s (Deep)</button>
-                                <button type="button" class="preset-chip" data-timeout="300">300s (Max)</button>
+                                <button type="button" class="preset-chip" data-timeout="15" data-i18n="preset_timeout_15">15s (Cepat)</button>
+                                <button type="button" class="preset-chip" data-timeout="60" data-i18n="preset_timeout_60">60s (Seimbang)</button>
+                                <button type="button" class="preset-chip" data-timeout="120" data-i18n="preset_timeout_120">120s (Mendalam)</button>
+                                <button type="button" class="preset-chip" data-timeout="300" data-i18n="preset_timeout_300">300s (Maks)</button>
                             </div>
                         </div>
                     </div>
@@ -801,9 +801,9 @@
                                 <div>
                                     <div class="settings-card-title">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
-                                        <span>Sectors Financial API v2 Key</span>
+                                        <span data-i18n="label_sectors_key">Sectors Financial API v2 Key</span>
                                     </div>
-                                    <div class="settings-card-desc">Kredensial resmi Sectors Financial API untuk data fundamental, OHLCV, keterbukaan IDX, dan foreign flow.</div>
+                                    <div class="settings-card-desc" data-i18n="label_sectors_key_desc">Kredensial resmi Sectors Financial API untuk data fundamental, OHLCV, keterbukaan IDX, dan foreign flow.</div>
                                 </div>
                                 <span id="statusSectorsKey" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
                             </div>
@@ -814,9 +814,9 @@
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                     </button>
                                 </div>
-                                <button type="button" class="btn-test-conn" id="btnTestSectors" data-i18n="btn_test">
+                                <button type="button" class="btn-test-conn" id="btnTestSectors">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                                    <span>Uji Koneksi</span>
+                                    <span data-i18n="btn_test_conn_span">Uji Koneksi</span>
                                 </button>
                             </div>
                         </div>
@@ -828,7 +828,7 @@
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
                                     <span data-i18n="label_sectors_budget">Disiplin Anggaran Kredit Sectors v2 (Law 5)</span>
                                 </div>
-                                <span class="panel-card-badge" style="color:var(--accent-text); border-color:rgba(252,213,53,0.35);">1.000 Grant Budget</span>
+                                <span class="panel-card-badge" style="color:var(--accent-text); border-color:rgba(252,213,53,0.35);" data-i18n="badge_grant_budget">1.000 Grant Budget</span>
                             </div>
                             <div class="settings-card-desc" data-i18n="desc_sectors_cache">
                                 Monitor efisiensi kuota 1.000 kredit Sectors API v2 (Kepatuhan Law 5). Setiap permintaan pasar yang terlayani melalui cache SQLite lokal menghemat 1 kredit secara otomatis.
@@ -837,7 +837,7 @@
                             <!-- Progress Bar -->
                             <div style="margin-top:4px;">
                                 <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px; margin-bottom:5px;">
-                                    <span style="color:var(--text-secondary); font-weight:600;">Penggunaan Kuota Panggilan:</span>
+                                    <span style="color:var(--text-secondary); font-weight:600;" data-i18n="label_usage_quota">Penggunaan Kuota Panggilan:</span>
                                     <span id="statCreditUsageText" style="color:var(--text-primary); font-family:var(--font-mono); font-weight:700;">0 / 1.000</span>
                                 </div>
                                 <div class="credit-progress-wrap" style="margin-top:0;">
@@ -876,7 +876,7 @@
                                 <div>
                                     <div class="settings-card-title">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                        <span>Pemeliharaan Cache SQLite</span>
+                                        <span data-i18n="title_cache_maint">Pemeliharaan Cache SQLite</span>
                                     </div>
                                     <div class="settings-card-desc" data-i18n="label_clean_disk">Bersihkan data kadaluarsa atau purge seluruh cache untuk pengujian segar.</div>
                                 </div>
@@ -884,7 +884,7 @@
                                     <button type="button" class="btn-test-conn" id="btnCleanCache" data-i18n="clean_cache">
                                         <span>Bersihkan Kadaluarsa</span>
                                     </button>
-                                    <button type="button" class="btn-test-conn" id="btnFlushAllCache" style="color:#F6465D;">
+                                    <button type="button" class="btn-test-conn" id="btnFlushAllCache" style="color:#F6465D;" data-i18n="btn_flush_all_cache">
                                         <span>Flush Semua Cache</span>
                                     </button>
                                 </div>
@@ -923,7 +923,7 @@
                             <div class="form-row">
                                 <label class="form-label">
                                     <span data-i18n="label_tele_token">Telegram Bot Token</span>
-                                    <span id="statusTeleToken" class="panel-card-badge">Belum Ada Token</span>
+                                    <span id="statusTeleToken" class="panel-card-badge" data-i18n="tele_token_empty">Belum Ada Token</span>
                                 </label>
                                 <div class="form-input-group">
                                     <div class="input-with-action">
@@ -932,7 +932,7 @@
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                         </button>
                                     </div>
-                                    <button type="button" class="btn-test-conn" id="btnUnlockTeleToken" style="display:none; white-space:nowrap;">Ganti Token</button>
+                                    <button type="button" class="btn-test-conn" id="btnUnlockTeleToken" style="display:none; white-space:nowrap;" data-i18n="btn_unlock_tele_token">Ganti Token</button>
                                 </div>
                             </div>
                         </div>
@@ -982,7 +982,7 @@
             <div class="modal-footer">
                 <div class="modal-footer-info">
                     <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#10B981;"></span>
-                    <span>Perubahan kredensial langsung ter-hot-reload (Zero Restart)</span>
+                    <span data-i18n="settings_hot_reload_hint">Perubahan kredensial langsung ter-hot-reload (Zero Restart)</span>
                 </div>
                 <div class="modal-footer-actions">
                     <button type="button" class="btn-test-conn" id="btnCancelSettings" data-i18n="btn_cancel">Batal</button>
