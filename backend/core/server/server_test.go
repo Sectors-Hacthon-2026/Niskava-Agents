@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -1429,3 +1430,79 @@ func TestCreateInvestigationEndpoint(t *testing.T) {
 		t.Errorf("expected ticker BBCA, got %s", inv.Ticker)
 	}
 }
+
+func TestDocumentUploadAndRetrieval(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_upload.db")
+	database, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	t.Setenv("NISKAVA_UPLOADS_DIR", filepath.Join(tempDir, "uploads"))
+
+	srv, err := Start(ctx, 0, database, config.DefaultConfig())
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+
+	// 1. Prepare multipart upload
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	_ = writer.WriteField("session_id", "TEST-UPLOAD-SESS")
+	part, err := writer.CreateFormFile("file", "annual_report_2026.pdf")
+	if err != nil {
+		t.Fatalf("failed to create form file: %v", err)
+	}
+	_, _ = part.Write([]byte("%PDF-1.4 Mock PDF Header for Testing Purpose"))
+	_ = writer.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/upload", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /api/upload failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		t.Fatalf("Expected 200/201, got %d", resp.StatusCode)
+	}
+
+	var uploadResp map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&uploadResp); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	docID, ok := uploadResp["id"].(string)
+	if !ok || docID == "" {
+		t.Fatalf("Expected valid id, got: %+v", uploadResp)
+	}
+
+	// 2. Retrieve document metadata
+	getResp, err := http.DefaultClient.Get(srv.URL + "/api/documents/" + docID)
+	if err != nil {
+		t.Fatalf("GET /api/documents/:id failed: %v", err)
+	}
+	defer getResp.Body.Close()
+	if getResp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", getResp.StatusCode)
+	}
+
+	// 3. Verify session attachments query
+	listResp, err := http.DefaultClient.Get(srv.URL + "/api/chat/sessions/TEST-UPLOAD-SESS/attachments")
+	if err != nil {
+		t.Fatalf("GET session attachments failed: %v", err)
+	}
+	defer listResp.Body.Close()
+	if listResp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", listResp.StatusCode)
+	}
+}
+
