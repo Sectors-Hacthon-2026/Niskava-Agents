@@ -1,15 +1,25 @@
-# Niskava Agent
+<p align="center">
+  <a href="https://github.com/Sectors-Hacthon-2026/Niskava-Agents">
+    <img src="docs/assets/branding/head_mark_transparent.png" alt="Niskava Agent Logo" width="128">
+  </a>
+</p>
 
-**Autonomous Financial Market Intelligence & Quantitative Research Orchestration Platform for the Indonesia Stock Exchange (IDX)**
+<h1 align="center">Niskava Agent</h1>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![NPM Version](https://img.shields.io/npm/v/@zyrexnns/niskava-agent.svg?style=flat&color=CB3837)](https://www.npmjs.com/package/@zyrexnns/niskava-agent)
-[![Powered by Sectors API](https://img.shields.io/badge/Data%20Source-Sectors%20Financial%20API%20v2-0969da.svg)](https://sectors.app/)
-[![Target Market](https://img.shields.io/badge/Market-IDX%20%28Indonesia%20Stock%20Exchange%29-1a7f37.svg)](#)
-[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8.svg)](https://go.dev/)
-[![Python Version](https://img.shields.io/badge/Python-3.11+-3776AB.svg)](https://www.python.org/)
-[![Storage](https://img.shields.io/badge/Storage-Local--First%20SQLite%20WAL-lightgrey.svg)](#)
-[![Documentation](https://img.shields.io/badge/Docs-public%2Fdocs-purple.svg)](public/docs/README.md)
+<p align="center">
+  <strong>Autonomous Financial Market Intelligence & Quantitative Research Orchestration Platform for the Indonesia Stock Exchange (IDX)</strong>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
+  <a href="https://www.npmjs.com/package/@zyrexnns/niskava-agent"><img src="https://img.shields.io/npm/v/@zyrexnns/niskava-agent.svg?style=flat&color=CB3837" alt="NPM Version"></a>
+  <a href="https://sectors.app/"><img src="https://img.shields.io/badge/Data%20Source-Sectors%20Financial%20API%20v2-0969da.svg" alt="Powered by Sectors API"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Market-IDX%20%28Indonesia%20Stock%20Exchange%29-1a7f37.svg" alt="Target Market"></a>
+  <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go-1.22+-00ADD8.svg" alt="Go Version"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11+-3776AB.svg" alt="Python Version"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Storage-Local--First%20SQLite%20WAL-lightgrey.svg" alt="Storage"></a>
+  <a href="public/docs/README.md"><img src="https://img.shields.io/badge/Docs-public%2Fdocs-purple.svg" alt="Documentation"></a>
+</p>
 
 ---
 
@@ -22,6 +32,10 @@ It bridges the critical gap between structured quantitative market facts (powere
 When unusual market activity occurs—such as a volume surge, price breakout, or aggressive foreign accumulation—Niskava does not output speculative chatbot commentary. Instead, it computes deterministic statistics via NumPy/Pandas, formulates investigative hypotheses, harvests external disclosures within a strict chronological window ($T_{\text{anomaly}} \pm 2\text{ days}$), and compiles an empirical evidence audit trail classified into `SUPPORTED`, `UNCERTAIN`, or `CONTRADICTED` findings.
 
 > **Core Philosophy:** *"Don't just answer questions. Investigate them."*
+
+<p align="center">
+  <img src="docs/assets/niskava-web-dashboard.png" alt="Niskava Agent Web Workspace Canvas" width="100%">
+</p>
 
 ---
 
@@ -224,6 +238,10 @@ niskava terminal    # or: niskava repl / niskava chat
 * **Prompt History:** Navigate previous queries using `Up` / `Down` arrows.
 * **Braille Progress Spinner:** Live indicator of ReAct phase transitions (NumPy math, news harvest, synthesis).
 
+<p align="center">
+  <img src="docs/assets/niskava-cli-gateway.png" alt="Niskava Agent Interactive Terminal REPL & HUD" width="85%">
+</p>
+
 ### 2. Autonomous Headless Investigation
 ```bash
 # Run 30-day investigation on any IDX ticker:
@@ -241,6 +259,10 @@ niskava serve --port 20128 --open
 * Interactive TradingView candlestick charts with anomaly markers.
 * Real-time Server-Sent Events (SSE) reasoning stream.
 * Interactive Evidence Matrix and temporal causality graph.
+
+<p align="center">
+  <img src="docs/assets/niskava-web-dashboard.png" alt="Niskava Agent Web Workspace Canvas (:20128)" width="100%">
+</p>
 
 ### 4. Model Context Protocol (MCP) Server
 ```bash
@@ -325,6 +347,6 @@ Detailed documentation is available in the [`public/docs/`](public/docs/README.m
 
 ## License & Acknowledgments
 
-* **License:** [MIT License](LICENSE)
+* **License:** [Apache License 2.0](LICENSE) — see the [LICENSE](LICENSE) file for details.
 * **Market Data Source:** Powered by official [Sectors Financial API v2](https://sectors.app/).
 * **Participating Project:** Developed for [Sectors Hackathon Indonesia 2026](https://hackathon.sectors.app/) (Track 1: AI Agents & Assistants).
