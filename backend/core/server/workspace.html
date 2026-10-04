@@ -4374,6 +4374,316 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* ==========================================================================
+           CONFIRMATION & PROMPT MODAL DIALOGS (DESIGN.md Institutional Dual-Theme)
+           ========================================================================== */
+        .confirm-modal-overlay {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 12, 16, 0.72);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 2000;
+            padding: 16px;
+            animation: modalOverlayFadeIn 0.15s ease-out;
+        }
+
+        .confirm-modal-card {
+            width: 100%;
+            max-width: 440px;
+            padding: 22px 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.36), 0 0 1px rgba(255, 255, 255, 0.1);
+            animation: modalScaleIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .confirm-modal-body {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+        }
+
+        .confirm-icon-badge {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background: var(--bg-card-hover);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+        }
+
+        .confirm-icon-badge.danger {
+            background: var(--badge-red-bg);
+            border-color: var(--badge-red-border);
+            color: #DC2626;
+        }
+
+        .confirm-icon-badge.warning {
+            background: var(--badge-amber-bg);
+            border-color: var(--badge-amber-border);
+            color: #D97706;
+        }
+
+        .confirm-icon-badge.info {
+            background: var(--badge-blue-bg);
+            border-color: var(--badge-blue-border);
+            color: var(--text-primary);
+        }
+
+        .confirm-content {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1;
+        }
+
+        .confirm-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
+            line-height: 1.3;
+            margin: 0;
+        }
+
+        .confirm-message {
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            line-height: 1.45;
+            margin: 0;
+        }
+
+        .confirm-input-wrap {
+            margin-top: 6px;
+            width: 100%;
+        }
+
+        .confirm-input {
+            width: 100%;
+            height: 38px;
+            padding: 0 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-input);
+            font-size: 13px;
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            transition: all 0.15s ease;
+            box-sizing: border-box;
+        }
+
+        .confirm-input:focus {
+            border-color: var(--border-focus);
+            outline: none;
+            box-shadow: 0 0 0 2px var(--primary-light);
+        }
+
+        .confirm-modal-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .btn-confirm-cancel {
+            height: 38px;
+            padding: 0 18px;
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .btn-confirm-cancel:hover {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            border-color: var(--border-strong);
+        }
+
+        .btn-confirm-cancel:focus-visible {
+            outline: 2px solid var(--border-focus);
+            outline-offset: 2px;
+        }
+
+        .btn-confirm-action {
+            height: 38px;
+            padding: 0 20px;
+            border-radius: 8px;
+            border: none;
+            font-size: 12.5px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+        }
+
+        .btn-confirm-action.danger {
+            background: #DC2626;
+            color: #FFFFFF;
+        }
+
+        .btn-confirm-action.danger:hover {
+            background: #B91C1C;
+        }
+
+        .btn-confirm-action.warning {
+            background: #D97706;
+            color: #FFFFFF;
+        }
+
+        .btn-confirm-action.warning:hover {
+            background: #B45309;
+        }
+
+        .btn-confirm-action.primary {
+            background: var(--primary);
+            color: var(--primary-text);
+        }
+
+        .btn-confirm-action.primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-confirm-action:focus-visible {
+            outline: 2px solid var(--border-focus);
+            outline-offset: 2px;
+        }
+
+        /* ==========================================================================
+           RICH MULTI-VARIANT TOAST SYSTEM (DESIGN.md)
+           ========================================================================== */
+        .app-toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 2200;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+
+        .app-toast {
+            pointer-events: auto;
+            position: relative;
+            bottom: auto;
+            right: auto;
+            transform: translateY(12px) scale(0.97);
+            opacity: 0;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 10px 14px;
+            box-shadow: var(--shadow-floating);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 240px;
+            max-width: 420px;
+            font-size: 12.5px;
+            line-height: 1.4;
+        }
+
+        .app-toast.show {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        .app-toast.toast-success {
+            border-left: 3.5px solid #10B981;
+        }
+
+        .app-toast.toast-error {
+            border-left: 3.5px solid #EF4444;
+        }
+
+        .app-toast.toast-warning {
+            border-left: 3.5px solid #F59E0B;
+        }
+
+        .app-toast.toast-info {
+            border-left: 3.5px solid var(--primary);
+        }
+
+        .toast-icon {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toast-success .toast-icon { color: #10B981; }
+        .toast-error .toast-icon { color: #EF4444; }
+        .toast-warning .toast-icon { color: #F59E0B; }
+        .toast-info .toast-icon { color: var(--text-primary); }
+
+        .toast-message {
+            flex: 1;
+            word-break: break-word;
+            font-weight: 500;
+        }
+
+        .toast-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+            line-height: 1;
+            transition: all 0.12s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toast-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-card-hover);
+        }
+
+        @media (max-width: 768px) {
+            .app-toast-container {
+                bottom: 16px;
+                left: 16px;
+                right: 16px;
+            }
+            .app-toast {
+                width: 100%;
+                max-width: 100%;
+            }
+            .confirm-modal-card {
+                max-width: 100%;
+                padding: 18px 20px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -4861,8 +5171,14 @@
 
     </div>
 
-    <!-- Toast Notification Element -->
-    <div class="app-toast" id="appToast">Informasi disalin ke papan klip</div>
+    <!-- Rich Toast Notification Container -->
+    <div class="app-toast-container" id="appToastContainer">
+        <div class="app-toast toast-info" id="appToast" role="status" aria-live="polite">
+            <div class="toast-icon" id="appToastIcon"></div>
+            <div class="toast-message" id="appToastMessage">Notification</div>
+            <button type="button" class="toast-close" id="appToastClose" aria-label="Close">✕</button>
+        </div>
+    </div>
 
     <!-- SETTINGS & SYSTEM DIAGNOSTICS MODAL -->
     <div class="modal-overlay" id="settingsModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modalSettingsTitle">
@@ -5373,6 +5689,32 @@
             </div>
         </div>
     </div>
+
+    <!-- CONFIRMATION MODAL DIALOG (DESIGN.md) -->
+    <div class="modal-overlay confirm-modal-overlay" id="confirmModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="confirmDialogTitle" aria-describedby="confirmDialogMessage">
+        <div class="modal-card confirm-modal-card">
+            <div class="confirm-modal-body">
+                <div class="confirm-icon-badge danger" id="confirmDialogIcon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </div>
+                <div class="confirm-content">
+                    <h3 class="confirm-title" id="confirmDialogTitle" data-i18n="modal_confirm_title">Confirm Action</h3>
+                    <p class="confirm-message" id="confirmDialogMessage">Are you sure you want to proceed?</p>
+                    <div class="confirm-input-wrap" id="confirmInputWrap" style="display:none;">
+                        <input type="text" class="confirm-input" id="confirmDialogInput" autocomplete="off" placeholder="...">
+                    </div>
+                </div>
+            </div>
+            <div class="confirm-modal-actions">
+                <button type="button" class="btn-confirm-cancel" id="btnConfirmCancel" data-i18n="modal_cancel_btn">Cancel</button>
+                <button type="button" class="btn-confirm-action danger" id="btnConfirmAction" data-i18n="modal_confirm_btn">Continue</button>
+            </div>
+        </div>
+    </div>
     <script>
 (function() {
     'use strict';
@@ -5503,9 +5845,27 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 menu_rename: "Ganti Nama",
                 menu_delete: "Hapus Chat",
                 rename_prompt: "Ganti judul percakapan:",
+                rename_dialog_title: "Ganti Judul Percakapan",
+                rename_input_placeholder: "Masukkan judul sesi...",
                 delete_confirm: "Hapus sesi percakapan ini? Tindakan ini tidak dapat dibatalkan.",
+                modal_confirm_title: "Konfirmasi Tindakan",
+                modal_confirm_btn: "Lanjutkan",
+                modal_cancel_btn: "Batal",
+                delete_session_title: "Hapus Sesi Percakapan?",
+                delete_session_desc: "Sesi percakapan ini beserta riwayat dan graf memori terkait akan dihapus permanen dari basis data lokal.",
+                delete_session_confirm_btn: "Hapus Sesi",
+                reset_history_title: "Reset Seluruh Riwayat?",
+                reset_history_desc: "Semua riwayat percakapan dan pesan riset akan dihapus bersih. Tindakan ini tidak dapat dibatalkan.",
+                reset_history_confirm_btn: "Reset Seluruh Riwayat",
+                flush_cache_title: "Flush Seluruh Cache Sectors?",
+                flush_cache_desc: "Flush semua cache (termasuk candlestick OHLCV historis)? Kueri berikutnya akan membutuhkan kuota kredit Sectors API.",
+                flush_cache_confirm_btn: "Flush Seluruh Cache",
+                toast_cache_flushed: "Seluruh cache berhasil di-flush",
                 fork_prompt: "Masukkan judul untuk sesi percabangan baru:",
+                fork_dialog_title: "Cabangkan Sesi Riset (Fork)",
+                fork_input_placeholder: "Masukkan judul sesi cabang...",
                 fork_default_title: "Fork: Riset Pasar",
+                btn_fork: "Cabangkan Sesi",
                 history_empty: "Belum ada riwayat percakapan.<br>Mulai riset baru di atas.",
                 options_tooltip: "Opsi percakapan",
                 btn_send_tooltip: "Kirim Pesan",
@@ -5766,9 +6126,27 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 menu_rename: "Rename",
                 menu_delete: "Delete Chat",
                 rename_prompt: "Enter new title for chat:",
+                rename_dialog_title: "Rename Research Session",
+                rename_input_placeholder: "Enter session title...",
                 delete_confirm: "Delete this chat session? This action cannot be undone.",
+                modal_confirm_title: "Confirm Action",
+                modal_confirm_btn: "Continue",
+                modal_cancel_btn: "Cancel",
+                delete_session_title: "Delete Research Session?",
+                delete_session_desc: "This conversation and associated memory relations will be permanently deleted from local storage.",
+                delete_session_confirm_btn: "Delete Session",
+                reset_history_title: "Reset All Research History?",
+                reset_history_desc: "All conversation sessions and messages will be wiped clean. This action cannot be undone.",
+                reset_history_confirm_btn: "Reset All History",
+                flush_cache_title: "Flush All Sectors Cache?",
+                flush_cache_desc: "Flush all cache (including historical OHLCV candles)? Subsequent queries will consume Sectors API credits.",
+                flush_cache_confirm_btn: "Flush All Cache",
+                toast_cache_flushed: "All cache flushed successfully",
                 fork_prompt: "Enter title for new branched session:",
+                fork_dialog_title: "Branch Research Session (Fork)",
+                fork_input_placeholder: "Enter title for new session...",
                 fork_default_title: "Fork: Market Research",
+                btn_fork: "Fork Session",
                 history_empty: "No chat history yet.<br>Start a new research above.",
                 options_tooltip: "Conversation options",
                 btn_send_tooltip: "Send Message",
@@ -6262,14 +6640,225 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 });
             }
 
-            // Toast helper
-            function showToast(msg) {
-                appToast.textContent = msg;
-                appToast.classList.add('show');
-                setTimeout(() => {
-                    appToast.classList.remove('show');
-                }, 2200);
+            // Toast helper with multi-variant support & auto-dismiss
+            let toastTimer = null;
+            function showToast(msg, type = 'info', duration = 2600) {
+                const toastEl = document.getElementById('appToast');
+                const toastMsgEl = document.getElementById('appToastMessage');
+                const toastIconEl = document.getElementById('appToastIcon');
+                const toastCloseBtn = document.getElementById('appToastClose');
+                if (!toastEl) return;
+
+                // Handle legacy boolean type (e.g. showToast('Error', true))
+                if (type === true) type = 'error';
+                if (!type || type === false) type = 'info';
+
+                // Select SVG icon based on variant
+                let iconSvg = '';
+                if (type === 'success') {
+                    iconSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
+                } else if (type === 'error') {
+                    iconSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+                } else if (type === 'warning') {
+                    iconSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+                } else {
+                    iconSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+                }
+
+                if (toastIconEl) toastIconEl.innerHTML = iconSvg;
+                if (toastMsgEl) {
+                    toastMsgEl.textContent = msg;
+                } else {
+                    toastEl.textContent = msg;
+                }
+
+                // Clean existing variant classes and add current
+                toastEl.classList.remove('toast-success', 'toast-error', 'toast-warning', 'toast-info');
+                toastEl.classList.add(`toast-${type}`);
+                toastEl.classList.add('show');
+
+                if (toastTimer) clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => {
+                    toastEl.classList.remove('show');
+                }, duration);
+
+                if (toastCloseBtn) {
+                    toastCloseBtn.onclick = () => {
+                        if (toastTimer) clearTimeout(toastTimer);
+                        toastEl.classList.remove('show');
+                    };
+                }
             }
+
+            // Modern Confirmation Dialog Modal (Promise-based, accessible, dual-theme)
+            function showConfirmDialog({ title, message, confirmText, cancelText, type = 'danger' } = {}) {
+                return new Promise((resolve) => {
+                    const modal = document.getElementById('confirmModal');
+                    const titleEl = document.getElementById('confirmDialogTitle');
+                    const msgEl = document.getElementById('confirmDialogMessage');
+                    const iconEl = document.getElementById('confirmDialogIcon');
+                    const btnCancel = document.getElementById('btnConfirmCancel');
+                    const btnAction = document.getElementById('btnConfirmAction');
+
+                    if (!modal) {
+                        // Fallback if modal DOM element is missing
+                        const fallbackConfirm = window.confirm(message || title || 'Confirm action?');
+                        return resolve(fallbackConfirm);
+                    }
+
+                    const isEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
+                    const defaultTitle = isEn ? 'Confirm Action' : 'Konfirmasi Tindakan';
+                    const defaultCancel = isEn ? 'Cancel' : 'Batal';
+                    const defaultConfirm = isEn ? 'Continue' : 'Lanjutkan';
+
+                    if (titleEl) titleEl.textContent = title || defaultTitle;
+                    if (msgEl) msgEl.textContent = message || '';
+                    if (btnCancel) btnCancel.textContent = cancelText || defaultCancel;
+                    if (btnAction) {
+                        btnAction.textContent = confirmText || defaultConfirm;
+                        btnAction.className = `btn-confirm-action ${type}`;
+                    }
+
+                    if (iconEl) {
+                        iconEl.className = `confirm-icon-badge ${type}`;
+                        if (type === 'danger') {
+                            iconEl.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
+                        } else if (type === 'warning') {
+                            iconEl.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+                        } else {
+                            iconEl.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+                        }
+                    }
+
+                    const inputWrap = document.getElementById('confirmInputWrap');
+                    if (inputWrap) inputWrap.style.display = 'none';
+
+                    modal.style.display = 'flex';
+                    if (btnCancel) btnCancel.focus();
+
+                    function cleanup(result) {
+                        modal.style.display = 'none';
+                        window.removeEventListener('keydown', handleKey);
+                        modal.removeEventListener('click', handleBackdrop);
+                        if (btnCancel) btnCancel.onclick = null;
+                        if (btnAction) btnAction.onclick = null;
+                        resolve(result);
+                    }
+
+                    function handleKey(e) {
+                        if (e.key === 'Escape') {
+                            e.preventDefault();
+                            cleanup(false);
+                        } else if (e.key === 'Enter') {
+                            if (document.activeElement === btnCancel) {
+                                e.preventDefault();
+                                cleanup(false);
+                            } else {
+                                e.preventDefault();
+                                cleanup(true);
+                            }
+                        }
+                    }
+
+                    function handleBackdrop(e) {
+                        if (e.target === modal) {
+                            cleanup(false);
+                        }
+                    }
+
+                    if (btnCancel) btnCancel.onclick = () => cleanup(false);
+                    if (btnAction) btnAction.onclick = () => cleanup(true);
+                    modal.addEventListener('click', handleBackdrop);
+                    window.addEventListener('keydown', handleKey);
+                });
+            }
+
+            // Modern Accessible Input Dialog Modal (Promise-based, supports text input, Esc/Enter, dual-theme)
+            function showInputDialog({ title, message, defaultValue = '', placeholder = '', confirmText, cancelText, type = 'primary' } = {}) {
+                return new Promise((resolve) => {
+                    const modal = document.getElementById('confirmModal');
+                    const titleEl = document.getElementById('confirmDialogTitle');
+                    const msgEl = document.getElementById('confirmDialogMessage');
+                    const iconEl = document.getElementById('confirmDialogIcon');
+                    const inputWrap = document.getElementById('confirmInputWrap');
+                    const inputEl = document.getElementById('confirmDialogInput');
+                    const btnCancel = document.getElementById('btnConfirmCancel');
+                    const btnAction = document.getElementById('btnConfirmAction');
+
+                    if (!modal || !inputEl || !inputWrap) {
+                        const fallbackVal = window.prompt(message || title || 'Enter value:', defaultValue);
+                        return resolve(fallbackVal);
+                    }
+
+                    const isEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
+                    const defaultTitle = isEn ? 'Input Required' : 'Masukkan Data';
+                    const defaultCancel = isEn ? 'Cancel' : 'Batal';
+                    const defaultConfirm = isEn ? 'Save' : 'Simpan';
+
+                    if (titleEl) titleEl.textContent = title || defaultTitle;
+                    if (msgEl) msgEl.textContent = message || '';
+                    if (btnCancel) btnCancel.textContent = cancelText || defaultCancel;
+                    if (btnAction) {
+                        btnAction.textContent = confirmText || defaultConfirm;
+                        btnAction.className = `btn-confirm-action ${type}`;
+                    }
+
+                    if (iconEl) {
+                        iconEl.className = `confirm-icon-badge ${type}`;
+                        iconEl.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>';
+                    }
+
+                    inputWrap.style.display = 'block';
+                    inputEl.value = defaultValue || '';
+                    inputEl.placeholder = placeholder || (isEn ? 'Enter value...' : 'Masukkan nilai...');
+
+                    modal.style.display = 'flex';
+                    setTimeout(() => {
+                        inputEl.focus();
+                        inputEl.select();
+                    }, 50);
+
+                    function cleanup(result) {
+                        modal.style.display = 'none';
+                        inputWrap.style.display = 'none';
+                        window.removeEventListener('keydown', handleKey);
+                        modal.removeEventListener('click', handleBackdrop);
+                        if (btnCancel) btnCancel.onclick = null;
+                        if (btnAction) btnAction.onclick = null;
+                        resolve(result);
+                    }
+
+                    function handleKey(e) {
+                        if (e.key === 'Escape') {
+                            e.preventDefault();
+                            cleanup(null);
+                        } else if (e.key === 'Enter') {
+                            if (document.activeElement === btnCancel) {
+                                e.preventDefault();
+                                cleanup(null);
+                            } else {
+                                e.preventDefault();
+                                cleanup(inputEl.value);
+                            }
+                        }
+                    }
+
+                    function handleBackdrop(e) {
+                        if (e.target === modal) {
+                            cleanup(null);
+                        }
+                    }
+
+                    if (btnCancel) btnCancel.onclick = () => cleanup(null);
+                    if (btnAction) btnAction.onclick = () => cleanup(inputEl.value);
+                    modal.addEventListener('click', handleBackdrop);
+                    window.addEventListener('keydown', handleKey);
+                });
+            }
+
+            window.showConfirmDialog = showConfirmDialog;
+            window.showInputDialog = showInputDialog;
+            window.showToast = showToast;
 
             // Keyboard shortcut Cmd/Ctrl + K to focus search
             window.addEventListener('keydown', (e) => {
@@ -6609,8 +7198,17 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
 
             // OpenCode Branching / Forking Handler
             async function forkChatSession(sessionId, messageId, title) {
-                const newTitle = prompt(t('fork_prompt'), `Fork: ${title || (currentLang === 'en' ? 'Market Research' : 'Riset Pasar')}`);
-                if (!newTitle) return;
+                const defaultForkTitle = `Fork: ${title || (currentLang === 'en' ? 'Market Research' : 'Riset Pasar')}`;
+                const newTitle = await showInputDialog({
+                    title: t('fork_dialog_title') || (currentLang === 'en' ? 'Branch Research Session (Fork)' : 'Cabangkan Sesi Riset (Fork)'),
+                    message: t('fork_prompt') || (currentLang === 'en' ? 'Enter title for new branched session:' : 'Masukkan judul untuk sesi percabangan baru:'),
+                    defaultValue: defaultForkTitle,
+                    placeholder: t('fork_input_placeholder') || (currentLang === 'en' ? 'Enter session title...' : 'Masukkan judul sesi...'),
+                    confirmText: t('btn_fork') || (currentLang === 'en' ? 'Fork Session' : 'Cabangkan Sesi'),
+                    cancelText: t('modal_cancel_btn') || (currentLang === 'en' ? 'Cancel' : 'Batal'),
+                    type: 'primary'
+                });
+                if (!newTitle || !newTitle.trim()) return;
 
                 try {
                     const res = await fetch(`${API_BASE}/api/chat/sessions/${encodeURIComponent(sessionId)}/fork`, {
@@ -6654,7 +7252,15 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
 
             // Rename Session Handler
             async function renameSession(sessionId, oldTitle) {
-                const newTitle = prompt(t('rename_prompt'), oldTitle);
+                const newTitle = await showInputDialog({
+                    title: t('rename_dialog_title') || (currentLang === 'en' ? 'Rename Research Session' : 'Ganti Judul Percakapan'),
+                    message: t('rename_prompt') || (currentLang === 'en' ? 'Enter new title for chat:' : 'Ganti judul percakapan:'),
+                    defaultValue: oldTitle,
+                    placeholder: t('rename_input_placeholder') || (currentLang === 'en' ? 'Enter session title...' : 'Masukkan judul sesi...'),
+                    confirmText: t('btn_save') || (currentLang === 'en' ? 'Save' : 'Simpan'),
+                    cancelText: t('modal_cancel_btn') || (currentLang === 'en' ? 'Cancel' : 'Batal'),
+                    type: 'primary'
+                });
                 if (!newTitle || newTitle.trim() === oldTitle.trim()) return;
 
                 try {
@@ -7028,14 +7634,21 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
             }
 
             async function deleteSession(sessionId) {
-                if (!confirm(t('delete_confirm'))) return;
+                const confirmed = await showConfirmDialog({
+                    title: t('delete_session_title'),
+                    message: t('delete_session_desc'),
+                    confirmText: t('delete_session_confirm_btn'),
+                    cancelText: t('modal_cancel_btn'),
+                    type: 'danger'
+                });
+                if (!confirmed) return;
                 try {
                     let res = await fetch(`${API_BASE}/api/chat/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
                     if (!res.ok) {
                         res = await fetch(`${API_BASE}/api/chat/reset?session_id=${encodeURIComponent(sessionId)}`, { method: 'POST' });
                     }
                     if (res.ok) {
-                        showToast(currentLang === 'en' ? 'Chat session deleted' : 'Sesi percakapan dihapus');
+                        showToast(currentLang === 'en' ? 'Chat session deleted' : 'Sesi percakapan dihapus', 'success');
                         if (currentSessionId === sessionId) {
                             btnNewResearch.click();
                         } else {
@@ -7044,6 +7657,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     }
                 } catch(e) {
                     console.error('Error deleting session', e);
+                    showToast(currentLang === 'en' ? 'Failed to delete session' : 'Gagal menghapus sesi', 'error');
                 }
             }
 
@@ -7051,11 +7665,18 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
             const btnResetHistory = document.getElementById('btnResetHistory');
             if (btnResetHistory) {
                 btnResetHistory.addEventListener('click', async () => {
-                    if (confirm(t('delete_confirm'))) {
+                    const confirmed = await showConfirmDialog({
+                        title: t('reset_history_title'),
+                        message: t('reset_history_desc'),
+                        confirmText: t('reset_history_confirm_btn'),
+                        cancelText: t('modal_cancel_btn'),
+                        type: 'danger'
+                    });
+                    if (confirmed) {
                         try {
                             const res = await fetch(`${API_BASE}/api/chat/reset`, { method: 'POST' });
                             if (res.ok) {
-                                showToast(currentLang === 'en' ? 'All history reset successfully' : 'Seluruh riwayat berhasil direset');
+                                showToast(currentLang === 'en' ? 'All history reset successfully' : 'Seluruh riwayat berhasil direset', 'success');
                                 currentSessionId = 'WEB-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(1000 + Math.random() * 9000);
                                 chatView.innerHTML = '';
                                 chatView.classList.remove('active');
@@ -7065,6 +7686,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                             }
                         } catch(e) {
                             console.error('Error resetting history', e);
+                            showToast(currentLang === 'en' ? 'Failed to reset history' : 'Gagal mereset riwayat', 'error');
                         }
                     }
                 });
@@ -9987,20 +10609,24 @@ window.addEventListener('beforeunload', (e) => {
                     btnFlushAllCache.addEventListener('click', async (e) => {
                         e.preventDefault();
                         const isEn = (currentLang === 'en');
-                        const confirmMsg = isEn ?
-                            'Flush ALL cache (including permanent historical OHLCV candles)? Subsequent queries will consume Sectors API credits.' :
-                            'Flush SEMUA cache (termasuk candlestick OHLCV historis)? Kueri berikutnya akan membutuhkan kuota kredit Sectors API.';
-                        if (!confirm(confirmMsg)) return;
+                        const confirmed = await showConfirmDialog({
+                            title: t('flush_cache_title'),
+                            message: t('flush_cache_desc'),
+                            confirmText: t('flush_cache_confirm_btn'),
+                            cancelText: t('modal_cancel_btn'),
+                            type: 'warning'
+                        });
+                        if (!confirmed) return;
 
                         try {
                             btnFlushAllCache.disabled = true;
                             btnFlushAllCache.textContent = isEn ? 'Flushing...' : 'Memproses...';
                             const res = await fetch(`${API_BASE}/api/system/cache/clean?all=1`, { method: 'POST' });
                             const data = await res.json();
-                            showToast(isEn ? `All cache flushed (${data.cleaned_entries ?? 0} entries removed)` : `Seluruh cache di-flush (${data.cleaned_entries ?? 0} entri dihapus)`);
+                            showToast(isEn ? `All cache flushed (${data.cleaned_entries ?? 0} entries removed)` : `Seluruh cache di-flush (${data.cleaned_entries ?? 0} entri dihapus)`, 'success');
                             fetchSectorsUsage();
                         } catch (err) {
-                            showToast(isEn ? `Failed to flush cache: ${err.message}` : `Gagal flush cache: ${err.message}`, true);
+                            showToast(isEn ? `Failed to flush cache: ${err.message}` : `Gagal flush cache: ${err.message}`, 'error');
                         } finally {
                             btnFlushAllCache.disabled = false;
                             btnFlushAllCache.textContent = isEn ? 'Flush All Cache' : 'Flush Semua Cache';

@@ -502,8 +502,14 @@
 
     </div>
 
-    <!-- Toast Notification Element -->
-    <div class="app-toast" id="appToast">Informasi disalin ke papan klip</div>
+    <!-- Rich Toast Notification Container -->
+    <div class="app-toast-container" id="appToastContainer">
+        <div class="app-toast toast-info" id="appToast" role="status" aria-live="polite">
+            <div class="toast-icon" id="appToastIcon"></div>
+            <div class="toast-message" id="appToastMessage">Notification</div>
+            <button type="button" class="toast-close" id="appToastClose" aria-label="Close">✕</button>
+        </div>
+    </div>
 
     <!-- SETTINGS & SYSTEM DIAGNOSTICS MODAL -->
     <div class="modal-overlay" id="settingsModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modalSettingsTitle">
@@ -1011,6 +1017,32 @@
                         <span>Simpan Perubahan</span>
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONFIRMATION MODAL DIALOG (DESIGN.md) -->
+    <div class="modal-overlay confirm-modal-overlay" id="confirmModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="confirmDialogTitle" aria-describedby="confirmDialogMessage">
+        <div class="modal-card confirm-modal-card">
+            <div class="confirm-modal-body">
+                <div class="confirm-icon-badge danger" id="confirmDialogIcon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </div>
+                <div class="confirm-content">
+                    <h3 class="confirm-title" id="confirmDialogTitle" data-i18n="modal_confirm_title">Confirm Action</h3>
+                    <p class="confirm-message" id="confirmDialogMessage">Are you sure you want to proceed?</p>
+                    <div class="confirm-input-wrap" id="confirmInputWrap" style="display:none;">
+                        <input type="text" class="confirm-input" id="confirmDialogInput" autocomplete="off" placeholder="...">
+                    </div>
+                </div>
+            </div>
+            <div class="confirm-modal-actions">
+                <button type="button" class="btn-confirm-cancel" id="btnConfirmCancel" data-i18n="modal_cancel_btn">Cancel</button>
+                <button type="button" class="btn-confirm-action danger" id="btnConfirmAction" data-i18n="modal_confirm_btn">Continue</button>
             </div>
         </div>
     </div>

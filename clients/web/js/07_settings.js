@@ -1608,20 +1608,24 @@
                     btnFlushAllCache.addEventListener('click', async (e) => {
                         e.preventDefault();
                         const isEn = (currentLang === 'en');
-                        const confirmMsg = isEn ?
-                            'Flush ALL cache (including permanent historical OHLCV candles)? Subsequent queries will consume Sectors API credits.' :
-                            'Flush SEMUA cache (termasuk candlestick OHLCV historis)? Kueri berikutnya akan membutuhkan kuota kredit Sectors API.';
-                        if (!confirm(confirmMsg)) return;
+                        const confirmed = await showConfirmDialog({
+                            title: t('flush_cache_title'),
+                            message: t('flush_cache_desc'),
+                            confirmText: t('flush_cache_confirm_btn'),
+                            cancelText: t('modal_cancel_btn'),
+                            type: 'warning'
+                        });
+                        if (!confirmed) return;
 
                         try {
                             btnFlushAllCache.disabled = true;
                             btnFlushAllCache.textContent = isEn ? 'Flushing...' : 'Memproses...';
                             const res = await fetch(`${API_BASE}/api/system/cache/clean?all=1`, { method: 'POST' });
                             const data = await res.json();
-                            showToast(isEn ? `All cache flushed (${data.cleaned_entries ?? 0} entries removed)` : `Seluruh cache di-flush (${data.cleaned_entries ?? 0} entri dihapus)`);
+                            showToast(isEn ? `All cache flushed (${data.cleaned_entries ?? 0} entries removed)` : `Seluruh cache di-flush (${data.cleaned_entries ?? 0} entri dihapus)`, 'success');
                             fetchSectorsUsage();
                         } catch (err) {
-                            showToast(isEn ? `Failed to flush cache: ${err.message}` : `Gagal flush cache: ${err.message}`, true);
+                            showToast(isEn ? `Failed to flush cache: ${err.message}` : `Gagal flush cache: ${err.message}`, 'error');
                         } finally {
                             btnFlushAllCache.disabled = false;
                             btnFlushAllCache.textContent = isEn ? 'Flush All Cache' : 'Flush Semua Cache';

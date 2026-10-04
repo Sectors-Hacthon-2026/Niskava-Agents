@@ -225,8 +225,17 @@
 
             // OpenCode Branching / Forking Handler
             async function forkChatSession(sessionId, messageId, title) {
-                const newTitle = prompt(t('fork_prompt'), `Fork: ${title || (currentLang === 'en' ? 'Market Research' : 'Riset Pasar')}`);
-                if (!newTitle) return;
+                const defaultForkTitle = `Fork: ${title || (currentLang === 'en' ? 'Market Research' : 'Riset Pasar')}`;
+                const newTitle = await showInputDialog({
+                    title: t('fork_dialog_title') || (currentLang === 'en' ? 'Branch Research Session (Fork)' : 'Cabangkan Sesi Riset (Fork)'),
+                    message: t('fork_prompt') || (currentLang === 'en' ? 'Enter title for new branched session:' : 'Masukkan judul untuk sesi percabangan baru:'),
+                    defaultValue: defaultForkTitle,
+                    placeholder: t('fork_input_placeholder') || (currentLang === 'en' ? 'Enter session title...' : 'Masukkan judul sesi...'),
+                    confirmText: t('btn_fork') || (currentLang === 'en' ? 'Fork Session' : 'Cabangkan Sesi'),
+                    cancelText: t('modal_cancel_btn') || (currentLang === 'en' ? 'Cancel' : 'Batal'),
+                    type: 'primary'
+                });
+                if (!newTitle || !newTitle.trim()) return;
 
                 try {
                     const res = await fetch(`${API_BASE}/api/chat/sessions/${encodeURIComponent(sessionId)}/fork`, {

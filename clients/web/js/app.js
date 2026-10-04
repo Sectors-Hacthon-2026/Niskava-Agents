@@ -127,9 +127,27 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 menu_rename: "Ganti Nama",
                 menu_delete: "Hapus Chat",
                 rename_prompt: "Ganti judul percakapan:",
+                rename_dialog_title: "Ganti Judul Percakapan",
+                rename_input_placeholder: "Masukkan judul sesi...",
                 delete_confirm: "Hapus sesi percakapan ini? Tindakan ini tidak dapat dibatalkan.",
+                modal_confirm_title: "Konfirmasi Tindakan",
+                modal_confirm_btn: "Lanjutkan",
+                modal_cancel_btn: "Batal",
+                delete_session_title: "Hapus Sesi Percakapan?",
+                delete_session_desc: "Sesi percakapan ini beserta riwayat dan graf memori terkait akan dihapus permanen dari basis data lokal.",
+                delete_session_confirm_btn: "Hapus Sesi",
+                reset_history_title: "Reset Seluruh Riwayat?",
+                reset_history_desc: "Semua riwayat percakapan dan pesan riset akan dihapus bersih. Tindakan ini tidak dapat dibatalkan.",
+                reset_history_confirm_btn: "Reset Seluruh Riwayat",
+                flush_cache_title: "Flush Seluruh Cache Sectors?",
+                flush_cache_desc: "Flush semua cache (termasuk candlestick OHLCV historis)? Kueri berikutnya akan membutuhkan kuota kredit Sectors API.",
+                flush_cache_confirm_btn: "Flush Seluruh Cache",
+                toast_cache_flushed: "Seluruh cache berhasil di-flush",
                 fork_prompt: "Masukkan judul untuk sesi percabangan baru:",
+                fork_dialog_title: "Cabangkan Sesi Riset (Fork)",
+                fork_input_placeholder: "Masukkan judul sesi cabang...",
                 fork_default_title: "Fork: Riset Pasar",
+                btn_fork: "Cabangkan Sesi",
                 history_empty: "Belum ada riwayat percakapan.<br>Mulai riset baru di atas.",
                 options_tooltip: "Opsi percakapan",
                 btn_send_tooltip: "Kirim Pesan",
@@ -390,9 +408,27 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 menu_rename: "Rename",
                 menu_delete: "Delete Chat",
                 rename_prompt: "Enter new title for chat:",
+                rename_dialog_title: "Rename Research Session",
+                rename_input_placeholder: "Enter session title...",
                 delete_confirm: "Delete this chat session? This action cannot be undone.",
+                modal_confirm_title: "Confirm Action",
+                modal_confirm_btn: "Continue",
+                modal_cancel_btn: "Cancel",
+                delete_session_title: "Delete Research Session?",
+                delete_session_desc: "This conversation and associated memory relations will be permanently deleted from local storage.",
+                delete_session_confirm_btn: "Delete Session",
+                reset_history_title: "Reset All Research History?",
+                reset_history_desc: "All conversation sessions and messages will be wiped clean. This action cannot be undone.",
+                reset_history_confirm_btn: "Reset All History",
+                flush_cache_title: "Flush All Sectors Cache?",
+                flush_cache_desc: "Flush all cache (including historical OHLCV candles)? Subsequent queries will consume Sectors API credits.",
+                flush_cache_confirm_btn: "Flush All Cache",
+                toast_cache_flushed: "All cache flushed successfully",
                 fork_prompt: "Enter title for new branched session:",
+                fork_dialog_title: "Branch Research Session (Fork)",
+                fork_input_placeholder: "Enter title for new session...",
                 fork_default_title: "Fork: Market Research",
+                btn_fork: "Fork Session",
                 history_empty: "No chat history yet.<br>Start a new research above.",
                 options_tooltip: "Conversation options",
                 btn_send_tooltip: "Send Message",
@@ -886,14 +922,225 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 });
             }
 
-            // Toast helper
-            function showToast(msg) {
-                appToast.textContent = msg;
-                appToast.classList.add('show');
-                setTimeout(() => {
-                    appToast.classList.remove('show');
-                }, 2200);
+            // Toast helper with multi-variant support & auto-dismiss
+            let toastTimer = null;
+            function showToast(msg, type = 'info', duration = 2600) {
+                const toastEl = document.getElementById('appToast');
+                const toastMsgEl = document.getElementById('appToastMessage');
+                const toastIconEl = document.getElementById('appToastIcon');
+                const toastCloseBtn = document.getElementById('appToastClose');
+                if (!toastEl) return;
+
+                // Handle legacy boolean type (e.g. showToast('Error', true))
+                if (type === true) type = 'error';
+                if (!type || type === false) type = 'info';
+
+                // Select SVG icon based on variant
+                let iconSvg = '';
+                if (type === 'success') {
+                    iconSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
+                } else if (type === 'error') {
+                    iconSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+                } else if (type === 'warning') {
+                    iconSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+                } else {
+                    iconSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+                }
+
+                if (toastIconEl) toastIconEl.innerHTML = iconSvg;
+                if (toastMsgEl) {
+                    toastMsgEl.textContent = msg;
+                } else {
+                    toastEl.textContent = msg;
+                }
+
+                // Clean existing variant classes and add current
+                toastEl.classList.remove('toast-success', 'toast-error', 'toast-warning', 'toast-info');
+                toastEl.classList.add(`toast-${type}`);
+                toastEl.classList.add('show');
+
+                if (toastTimer) clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => {
+                    toastEl.classList.remove('show');
+                }, duration);
+
+                if (toastCloseBtn) {
+                    toastCloseBtn.onclick = () => {
+                        if (toastTimer) clearTimeout(toastTimer);
+                        toastEl.classList.remove('show');
+                    };
+                }
             }
+
+            // Modern Confirmation Dialog Modal (Promise-based, accessible, dual-theme)
+            function showConfirmDialog({ title, message, confirmText, cancelText, type = 'danger' } = {}) {
+                return new Promise((resolve) => {
+                    const modal = document.getElementById('confirmModal');
+                    const titleEl = document.getElementById('confirmDialogTitle');
+                    const msgEl = document.getElementById('confirmDialogMessage');
+                    const iconEl = document.getElementById('confirmDialogIcon');
+                    const btnCancel = document.getElementById('btnConfirmCancel');
+                    const btnAction = document.getElementById('btnConfirmAction');
+
+                    if (!modal) {
+                        // Fallback if modal DOM element is missing
+                        const fallbackConfirm = window.confirm(message || title || 'Confirm action?');
+                        return resolve(fallbackConfirm);
+                    }
+
+                    const isEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
+                    const defaultTitle = isEn ? 'Confirm Action' : 'Konfirmasi Tindakan';
+                    const defaultCancel = isEn ? 'Cancel' : 'Batal';
+                    const defaultConfirm = isEn ? 'Continue' : 'Lanjutkan';
+
+                    if (titleEl) titleEl.textContent = title || defaultTitle;
+                    if (msgEl) msgEl.textContent = message || '';
+                    if (btnCancel) btnCancel.textContent = cancelText || defaultCancel;
+                    if (btnAction) {
+                        btnAction.textContent = confirmText || defaultConfirm;
+                        btnAction.className = `btn-confirm-action ${type}`;
+                    }
+
+                    if (iconEl) {
+                        iconEl.className = `confirm-icon-badge ${type}`;
+                        if (type === 'danger') {
+                            iconEl.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
+                        } else if (type === 'warning') {
+                            iconEl.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+                        } else {
+                            iconEl.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+                        }
+                    }
+
+                    const inputWrap = document.getElementById('confirmInputWrap');
+                    if (inputWrap) inputWrap.style.display = 'none';
+
+                    modal.style.display = 'flex';
+                    if (btnCancel) btnCancel.focus();
+
+                    function cleanup(result) {
+                        modal.style.display = 'none';
+                        window.removeEventListener('keydown', handleKey);
+                        modal.removeEventListener('click', handleBackdrop);
+                        if (btnCancel) btnCancel.onclick = null;
+                        if (btnAction) btnAction.onclick = null;
+                        resolve(result);
+                    }
+
+                    function handleKey(e) {
+                        if (e.key === 'Escape') {
+                            e.preventDefault();
+                            cleanup(false);
+                        } else if (e.key === 'Enter') {
+                            if (document.activeElement === btnCancel) {
+                                e.preventDefault();
+                                cleanup(false);
+                            } else {
+                                e.preventDefault();
+                                cleanup(true);
+                            }
+                        }
+                    }
+
+                    function handleBackdrop(e) {
+                        if (e.target === modal) {
+                            cleanup(false);
+                        }
+                    }
+
+                    if (btnCancel) btnCancel.onclick = () => cleanup(false);
+                    if (btnAction) btnAction.onclick = () => cleanup(true);
+                    modal.addEventListener('click', handleBackdrop);
+                    window.addEventListener('keydown', handleKey);
+                });
+            }
+
+            // Modern Accessible Input Dialog Modal (Promise-based, supports text input, Esc/Enter, dual-theme)
+            function showInputDialog({ title, message, defaultValue = '', placeholder = '', confirmText, cancelText, type = 'primary' } = {}) {
+                return new Promise((resolve) => {
+                    const modal = document.getElementById('confirmModal');
+                    const titleEl = document.getElementById('confirmDialogTitle');
+                    const msgEl = document.getElementById('confirmDialogMessage');
+                    const iconEl = document.getElementById('confirmDialogIcon');
+                    const inputWrap = document.getElementById('confirmInputWrap');
+                    const inputEl = document.getElementById('confirmDialogInput');
+                    const btnCancel = document.getElementById('btnConfirmCancel');
+                    const btnAction = document.getElementById('btnConfirmAction');
+
+                    if (!modal || !inputEl || !inputWrap) {
+                        const fallbackVal = window.prompt(message || title || 'Enter value:', defaultValue);
+                        return resolve(fallbackVal);
+                    }
+
+                    const isEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
+                    const defaultTitle = isEn ? 'Input Required' : 'Masukkan Data';
+                    const defaultCancel = isEn ? 'Cancel' : 'Batal';
+                    const defaultConfirm = isEn ? 'Save' : 'Simpan';
+
+                    if (titleEl) titleEl.textContent = title || defaultTitle;
+                    if (msgEl) msgEl.textContent = message || '';
+                    if (btnCancel) btnCancel.textContent = cancelText || defaultCancel;
+                    if (btnAction) {
+                        btnAction.textContent = confirmText || defaultConfirm;
+                        btnAction.className = `btn-confirm-action ${type}`;
+                    }
+
+                    if (iconEl) {
+                        iconEl.className = `confirm-icon-badge ${type}`;
+                        iconEl.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>';
+                    }
+
+                    inputWrap.style.display = 'block';
+                    inputEl.value = defaultValue || '';
+                    inputEl.placeholder = placeholder || (isEn ? 'Enter value...' : 'Masukkan nilai...');
+
+                    modal.style.display = 'flex';
+                    setTimeout(() => {
+                        inputEl.focus();
+                        inputEl.select();
+                    }, 50);
+
+                    function cleanup(result) {
+                        modal.style.display = 'none';
+                        inputWrap.style.display = 'none';
+                        window.removeEventListener('keydown', handleKey);
+                        modal.removeEventListener('click', handleBackdrop);
+                        if (btnCancel) btnCancel.onclick = null;
+                        if (btnAction) btnAction.onclick = null;
+                        resolve(result);
+                    }
+
+                    function handleKey(e) {
+                        if (e.key === 'Escape') {
+                            e.preventDefault();
+                            cleanup(null);
+                        } else if (e.key === 'Enter') {
+                            if (document.activeElement === btnCancel) {
+                                e.preventDefault();
+                                cleanup(null);
+                            } else {
+                                e.preventDefault();
+                                cleanup(inputEl.value);
+                            }
+                        }
+                    }
+
+                    function handleBackdrop(e) {
+                        if (e.target === modal) {
+                            cleanup(null);
+                        }
+                    }
+
+                    if (btnCancel) btnCancel.onclick = () => cleanup(null);
+                    if (btnAction) btnAction.onclick = () => cleanup(inputEl.value);
+                    modal.addEventListener('click', handleBackdrop);
+                    window.addEventListener('keydown', handleKey);
+                });
+            }
+
+            window.showConfirmDialog = showConfirmDialog;
+            window.showInputDialog = showInputDialog;
+            window.showToast = showToast;
 
             // Keyboard shortcut Cmd/Ctrl + K to focus search
             window.addEventListener('keydown', (e) => {
@@ -1233,8 +1480,17 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
 
             // OpenCode Branching / Forking Handler
             async function forkChatSession(sessionId, messageId, title) {
-                const newTitle = prompt(t('fork_prompt'), `Fork: ${title || (currentLang === 'en' ? 'Market Research' : 'Riset Pasar')}`);
-                if (!newTitle) return;
+                const defaultForkTitle = `Fork: ${title || (currentLang === 'en' ? 'Market Research' : 'Riset Pasar')}`;
+                const newTitle = await showInputDialog({
+                    title: t('fork_dialog_title') || (currentLang === 'en' ? 'Branch Research Session (Fork)' : 'Cabangkan Sesi Riset (Fork)'),
+                    message: t('fork_prompt') || (currentLang === 'en' ? 'Enter title for new branched session:' : 'Masukkan judul untuk sesi percabangan baru:'),
+                    defaultValue: defaultForkTitle,
+                    placeholder: t('fork_input_placeholder') || (currentLang === 'en' ? 'Enter session title...' : 'Masukkan judul sesi...'),
+                    confirmText: t('btn_fork') || (currentLang === 'en' ? 'Fork Session' : 'Cabangkan Sesi'),
+                    cancelText: t('modal_cancel_btn') || (currentLang === 'en' ? 'Cancel' : 'Batal'),
+                    type: 'primary'
+                });
+                if (!newTitle || !newTitle.trim()) return;
 
                 try {
                     const res = await fetch(`${API_BASE}/api/chat/sessions/${encodeURIComponent(sessionId)}/fork`, {
@@ -1278,7 +1534,15 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
 
             // Rename Session Handler
             async function renameSession(sessionId, oldTitle) {
-                const newTitle = prompt(t('rename_prompt'), oldTitle);
+                const newTitle = await showInputDialog({
+                    title: t('rename_dialog_title') || (currentLang === 'en' ? 'Rename Research Session' : 'Ganti Judul Percakapan'),
+                    message: t('rename_prompt') || (currentLang === 'en' ? 'Enter new title for chat:' : 'Ganti judul percakapan:'),
+                    defaultValue: oldTitle,
+                    placeholder: t('rename_input_placeholder') || (currentLang === 'en' ? 'Enter session title...' : 'Masukkan judul sesi...'),
+                    confirmText: t('btn_save') || (currentLang === 'en' ? 'Save' : 'Simpan'),
+                    cancelText: t('modal_cancel_btn') || (currentLang === 'en' ? 'Cancel' : 'Batal'),
+                    type: 'primary'
+                });
                 if (!newTitle || newTitle.trim() === oldTitle.trim()) return;
 
                 try {
@@ -1652,14 +1916,21 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
             }
 
             async function deleteSession(sessionId) {
-                if (!confirm(t('delete_confirm'))) return;
+                const confirmed = await showConfirmDialog({
+                    title: t('delete_session_title'),
+                    message: t('delete_session_desc'),
+                    confirmText: t('delete_session_confirm_btn'),
+                    cancelText: t('modal_cancel_btn'),
+                    type: 'danger'
+                });
+                if (!confirmed) return;
                 try {
                     let res = await fetch(`${API_BASE}/api/chat/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
                     if (!res.ok) {
                         res = await fetch(`${API_BASE}/api/chat/reset?session_id=${encodeURIComponent(sessionId)}`, { method: 'POST' });
                     }
                     if (res.ok) {
-                        showToast(currentLang === 'en' ? 'Chat session deleted' : 'Sesi percakapan dihapus');
+                        showToast(currentLang === 'en' ? 'Chat session deleted' : 'Sesi percakapan dihapus', 'success');
                         if (currentSessionId === sessionId) {
                             btnNewResearch.click();
                         } else {
@@ -1668,6 +1939,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                     }
                 } catch(e) {
                     console.error('Error deleting session', e);
+                    showToast(currentLang === 'en' ? 'Failed to delete session' : 'Gagal menghapus sesi', 'error');
                 }
             }
 
@@ -1675,11 +1947,18 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
             const btnResetHistory = document.getElementById('btnResetHistory');
             if (btnResetHistory) {
                 btnResetHistory.addEventListener('click', async () => {
-                    if (confirm(t('delete_confirm'))) {
+                    const confirmed = await showConfirmDialog({
+                        title: t('reset_history_title'),
+                        message: t('reset_history_desc'),
+                        confirmText: t('reset_history_confirm_btn'),
+                        cancelText: t('modal_cancel_btn'),
+                        type: 'danger'
+                    });
+                    if (confirmed) {
                         try {
                             const res = await fetch(`${API_BASE}/api/chat/reset`, { method: 'POST' });
                             if (res.ok) {
-                                showToast(currentLang === 'en' ? 'All history reset successfully' : 'Seluruh riwayat berhasil direset');
+                                showToast(currentLang === 'en' ? 'All history reset successfully' : 'Seluruh riwayat berhasil direset', 'success');
                                 currentSessionId = 'WEB-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(1000 + Math.random() * 9000);
                                 chatView.innerHTML = '';
                                 chatView.classList.remove('active');
@@ -1689,6 +1968,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                             }
                         } catch(e) {
                             console.error('Error resetting history', e);
+                            showToast(currentLang === 'en' ? 'Failed to reset history' : 'Gagal mereset riwayat', 'error');
                         }
                     }
                 });
@@ -4611,20 +4891,24 @@ window.addEventListener('beforeunload', (e) => {
                     btnFlushAllCache.addEventListener('click', async (e) => {
                         e.preventDefault();
                         const isEn = (currentLang === 'en');
-                        const confirmMsg = isEn ?
-                            'Flush ALL cache (including permanent historical OHLCV candles)? Subsequent queries will consume Sectors API credits.' :
-                            'Flush SEMUA cache (termasuk candlestick OHLCV historis)? Kueri berikutnya akan membutuhkan kuota kredit Sectors API.';
-                        if (!confirm(confirmMsg)) return;
+                        const confirmed = await showConfirmDialog({
+                            title: t('flush_cache_title'),
+                            message: t('flush_cache_desc'),
+                            confirmText: t('flush_cache_confirm_btn'),
+                            cancelText: t('modal_cancel_btn'),
+                            type: 'warning'
+                        });
+                        if (!confirmed) return;
 
                         try {
                             btnFlushAllCache.disabled = true;
                             btnFlushAllCache.textContent = isEn ? 'Flushing...' : 'Memproses...';
                             const res = await fetch(`${API_BASE}/api/system/cache/clean?all=1`, { method: 'POST' });
                             const data = await res.json();
-                            showToast(isEn ? `All cache flushed (${data.cleaned_entries ?? 0} entries removed)` : `Seluruh cache di-flush (${data.cleaned_entries ?? 0} entri dihapus)`);
+                            showToast(isEn ? `All cache flushed (${data.cleaned_entries ?? 0} entries removed)` : `Seluruh cache di-flush (${data.cleaned_entries ?? 0} entri dihapus)`, 'success');
                             fetchSectorsUsage();
                         } catch (err) {
-                            showToast(isEn ? `Failed to flush cache: ${err.message}` : `Gagal flush cache: ${err.message}`, true);
+                            showToast(isEn ? `Failed to flush cache: ${err.message}` : `Gagal flush cache: ${err.message}`, 'error');
                         } finally {
                             btnFlushAllCache.disabled = false;
                             btnFlushAllCache.textContent = isEn ? 'Flush All Cache' : 'Flush Semua Cache';
