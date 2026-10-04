@@ -148,7 +148,7 @@ niskava serve --port 20128 --open
 A fast, distraction-free terminal research interface powered by Bubble Tea and Glamour markdown rendering:
 
 <p align="center">
-  <img src="docs/assets/niskava-terminal-chat.png" alt="Niskava Interactive Terminal REPL Session" width="85%">
+  <img src="docs/assets/niskava-terminal-chat.png?v=2" alt="Niskava Interactive Terminal REPL Session" width="85%">
 </p>
 
 * **Conversational IDX Research:** Query market catalysts, foreign accumulation, and financial health in natural language (Indonesian or English).

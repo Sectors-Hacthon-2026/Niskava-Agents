@@ -76,7 +76,7 @@ niskava terminal    # or: niskava repl / niskava chat
 ```
 
 <p align="center">
-  <img src="../../docs/assets/niskava-terminal-chat.png" alt="Niskava Terminal REPL Chat Session" width="90%">
+  <img src="../../docs/assets/niskava-terminal-chat.png?v=2" alt="Niskava Terminal REPL Chat Session" width="90%">
 </p>
 
 ### Prompt History Navigation
