@@ -319,7 +319,11 @@ func (m LauncherModel) View() string {
 
 	var statusContent string
 	if w < 55 {
-		statusContent = fmt.Sprintf("v%s • %s %s", m.Version, apiKeyDot, apiKeyStatusStr)
+		ver := m.Version
+		if !strings.HasPrefix(ver, "v") {
+			ver = "v" + ver
+		}
+		statusContent = fmt.Sprintf("%s • %s %s", ver, apiKeyDot, apiKeyStatusStr)
 	} else {
 		statusContent = TF(
 			"launcher_status_bar",

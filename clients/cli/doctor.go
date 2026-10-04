@@ -295,7 +295,7 @@ func RenderDoctorReport(report DiagnosticReport) {
 		Render("NISKAVA AGENT — SYSTEM & ENVIRONMENT DOCTOR")
 	sb.WriteString(title + "\n")
 	sb.WriteString(lipgloss.NewStyle().Foreground(tui.ColorMuted).
-		Render(fmt.Sprintf("Target Platform: %s/%s  •  Go: %s", report.OS, report.Arch, report.GoVersion)) + "\n\n")
+		Render(fmt.Sprintf("Niskava: v%s  •  Target Platform: %s/%s  •  Go: %s", Version, report.OS, report.Arch, report.GoVersion)) + "\n\n")
 
 	hasFail := false
 	hasWarn := false
