@@ -1,13 +1,13 @@
 <p align="center">
   <a href="https://github.com/Sectors-Hacthon-2026/Niskava-Agents">
-    <img src="docs/assets/branding/head_mark_transparent.png" alt="Niskava Agent Logo" width="128">
+    <img src="docs/assets/branding/niskava_logo_white_256.png" alt="Niskava Agent Logo" width="128" style="border-radius: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);">
   </a>
 </p>
 
 <h1 align="center">Niskava Agent</h1>
 
 <p align="center">
-  <strong>Autonomous Financial Market Intelligence & Quantitative Research Orchestration Platform for the Indonesia Stock Exchange (IDX)</strong>
+  <strong>Autonomous Financial Market Intelligence & Empirical Quantitative Research Orchestration Platform for the Indonesia Stock Exchange (IDX)</strong>
 </p>
 
 <p align="center">
@@ -21,17 +21,59 @@
   <a href="public/docs/README.md"><img src="https://img.shields.io/badge/Docs-public%2Fdocs-purple.svg" alt="Documentation"></a>
 </p>
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Topic-IDX%20Stock%20Exchange-24292e.svg" alt="Topic IDX">
+  <img src="https://img.shields.io/badge/Topic-Financial%20AI%20Agent-24292e.svg" alt="Topic Financial AI">
+  <img src="https://img.shields.io/badge/Topic-Quantitative%20Math%20Firewall-24292e.svg" alt="Topic Quantitative">
+  <img src="https://img.shields.io/badge/Topic-Model%20Context%20Protocol%20(MCP)-24292e.svg" alt="Topic MCP">
+  <img src="https://img.shields.io/badge/Topic-Autonomous%20ReAct%20Loop-24292e.svg" alt="Topic ReAct">
+  <img src="https://img.shields.io/badge/Topic-Local--First%20Graph%20Memory-24292e.svg" alt="Topic Graph Memory">
+</p>
+
+<p align="center">
+  <a href="#about-niskava-agent"><strong>About</strong></a> •
+  <a href="#key-capabilities"><strong>Key Capabilities</strong></a> •
+  <a href="#quantitative-mathematical-engine"><strong>Quant Engine</strong></a> •
+  <a href="#evidence-verification-taxonomy--confidence-scoring"><strong>Evidence Taxonomy</strong></a> •
+  <a href="#quickstart--installation"><strong>Installation</strong></a> •
+  <a href="#interaction-surfaces"><strong>Surfaces</strong></a> •
+  <a href="public/docs/README.md"><strong>Docs Hub</strong></a>
+</p>
+
+> **Repository Topics:** `idx-stock-exchange` • `financial-ai` • `market-intelligence` • `ai-agents` • `quantitative-finance` • `react-loop` • `model-context-protocol` • `sectors-api` • `bandarmology` • `indonesia-stock-market` • `local-first` • `sqlite-wal` • `tradingview-charts`
+
 ---
 
-## Overview
+## About Niskava Agent
 
-**Niskava Agent** is an autonomous market intelligence and equity research platform designed specifically for the **Indonesia Stock Exchange (IDX / Bursa Efek Indonesia)**.
+**Niskava Agent** is an autonomous financial market intelligence orchestration platform designed specifically for the **Indonesia Stock Exchange (IDX / Bursa Efek Indonesia)**. Built for professional equity analysts, financial journalists, and data-driven retail swing traders, Niskava bridges the critical gap between structured quantitative facts (powered by official **Sectors Financial API v2**) and qualitative corporate disclosures (formal IDXnet regulatory filings and vetted financial media).
 
-It bridges the critical gap between structured quantitative market facts (powered by official **Sectors Financial API v2** endpoints) and qualitative external intelligence (official IDXnet corporate disclosures, regulatory filings, and vetted financial news).
+### The Problem It Solves
 
-When unusual market activity occurs—such as a volume surge, price breakout, or aggressive foreign accumulation—Niskava does not output speculative chatbot commentary. Instead, it computes deterministic statistics via NumPy/Pandas, formulates investigative hypotheses, harvests external disclosures within a strict chronological window ($T_{\text{anomaly}} \pm 2\text{ days}$), and compiles an empirical evidence audit trail classified into `SUPPORTED`, `UNCERTAIN`, or `CONTRADICTED` findings.
+1. **The LLM Math Hallucination Trap:** Generic LLM wrappers frequently hallucinate financial indicators, volume moving averages, and abnormal returns when given raw financial tables.
+2. **Atemporal "Narrative-Spinning":** Chatbots often mix up news timelines—attributing a stock's sudden rally to a corporate disclosure that occurred *days after* the pump, or missing insider pre-accumulation entirely.
+3. **Regulatory Non-Compliance & Buy/Sell Noise:** Most market tools act as speculative tip sheets or illegal automated trade execution bots, violating financial non-advisory boundaries.
+4. **Data Privacy & Cloud Centralization:** Cloud-based research tools harvest user query logs and session intellectual property.
 
-> **Core Philosophy:** *"Don't just answer questions. Investigate them."*
+### The Niskava Approach: *"Don't Just Answer Questions. Investigate Them."*
+
+Niskava replaces speculative guessing with an **empirical, 7-stage evidence pipeline**:
+* All quantitative indicators (Volume Z-Scores $V_z$, Abnormal Returns $R_t$, Foreign Flow Z-Scores $F_z$, and Sector Divergence $D_t$) are computed **deterministically via NumPy/Pandas** before any LLM is called (Law 1).
+* Hypotheses are tested against official exchange filings (IDXnet) and curated news harvested strictly within a chronological window ($T_{\text{anomaly}} \pm 2\text{ days}$).
+* Findings are classified into an objective **Three-Tier Verification Taxonomy** (`SUPPORTED`, `UNCERTAIN`, `CONTRADICTED`) with strict confidence rubrics.
+* Operates under a **strict Financial Non-Advisory boundary** (Law 2 & 3) with **100% Local-First Data Sovereignty** stored in SQLite WAL (`~/.niskava/niskava.db`).
+
+### Comparison Matrix: Traditional Chatbots vs. Niskava Agent
+
+| Dimension | Generic LLM Chatbots & Chart Wrappers | Niskava Autonomous Market Intelligence |
+|---|---|---|
+| **Quantitative Compute** | LLM mental math & statistical hallucinations | **Deterministic NumPy Firewall (Law 1)**: Zero numerical hallucination |
+| **Evidence Grounding** | Speculative assertions & unverified social rumors | **3-Tier Verification Taxonomy**: `SUPPORTED`, `UNCERTAIN`, `CONTRADICTED` |
+| **Temporal Precedence** | Atemporal correlation (confuses cause & effect) | **Chronological Event Anchoring**: $T_{\text{anomaly}} \pm 2\text{ days}$ causal audit |
+| **Foreign & Broker Flow** | Ignored or high-level qualitative summaries | **Bandarmology & Foreign Flow Z-Scores ($F_z$)**: Institutional accumulation tracking |
+| **Protocol Extensibility** | Proprietary closed silos | **Native Model Context Protocol (MCP)**: Usable with Claude Desktop, Cursor, Antigravity |
+| **Data Sovereignty & Privacy**| User prompts & history uploaded to cloud vendors | **Local-First SQLite WAL (`~/.niskava/niskava.db`)**: 100% local persistence |
+| **Regulatory Posture** | Often peddles illegal BUY/SELL advice | **Strict Non-Advisory (Law 2 & 3)**: Pure investigative audit evidence |
 
 <p align="center">
   <img src="docs/assets/niskava-web-dashboard.png" alt="Niskava Agent Web Workspace Canvas" width="100%">
