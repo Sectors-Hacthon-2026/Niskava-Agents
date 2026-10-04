@@ -444,6 +444,113 @@ class NiskavaToolRegistry:
         """Get summary graph topological statistics and top central entities."""
         return self.memory.get_graph_stats()
 
+    def inspect_document(
+        self,
+        doc_path: str,
+        query: Optional[str] = None,
+        page: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Inspect, search, or read specific pages of an uploaded document locally.
+
+        Complies with Law 1 (Deterministic Before Generative) and Law 4 (Local-First).
+
+        Args:
+            doc_path: Local file path of the document to inspect.
+            query: Optional keyword or phrase to search within document text.
+            page: Optional 1-indexed page number to extract.
+
+        Returns:
+            Dict containing document metadata, page content, or search matches.
+        """
+        if not doc_path:
+            return {"error": True, "message": "Missing doc_path parameter."}
+
+        clean_path = os.path.expanduser(str(doc_path).strip())
+        if not os.path.exists(clean_path):
+            # Fallback: check ~/.niskava/uploads/ recursively for matching filename
+            base_filename = os.path.basename(clean_path)
+            uploads_dir = os.path.expanduser("~/.niskava/uploads")
+            matched_path = None
+            if os.path.exists(uploads_dir):
+                for root, _, files in os.walk(uploads_dir):
+                    for f in files:
+                        if f == base_filename or f.endswith("_" + base_filename) or base_filename in f:
+                            matched_path = os.path.join(root, f)
+                            break
+                    if matched_path:
+                        break
+            if matched_path and os.path.exists(matched_path):
+                clean_path = matched_path
+            else:
+                return {"error": True, "message": f"Document not found at path: {clean_path}"}
+
+        from engine.skills.document_audit.parser import (
+            get_document_page,
+            parse_document,
+            search_document,
+        )
+
+        try:
+            parsed = parse_document(clean_path)
+        except Exception as exc:
+            return {
+                "error": True,
+                "message": f"Failed to parse document: {str(exc)}",
+            }
+
+        filename = parsed.get("filename", os.path.basename(clean_path))
+        total_pages = parsed.get("page_count", 0)
+
+        if page is not None:
+            try:
+                page_int = int(page)
+            except (ValueError, TypeError):
+                return {
+                    "error": True,
+                    "message": f"Invalid page number: '{page}'. Page must be an integer.",
+                }
+
+            page_text = get_document_page(parsed, page_int)
+            if page_text is None:
+                return {
+                    "error": True,
+                    "message": f"Page {page_int} out of range (document has {total_pages} pages).",
+                    "filename": filename,
+                    "total_pages": total_pages,
+                }
+
+            return {
+                "filename": filename,
+                "doc_path": clean_path,
+                "page": page_int,
+                "total_pages": total_pages,
+                "content": page_text,
+            }
+
+        if query:
+            matches = search_document(parsed, str(query).strip(), max_matches=5)
+            return {
+                "filename": filename,
+                "doc_path": clean_path,
+                "query": query,
+                "total_matches": len(matches),
+                "matches": matches,
+            }
+
+        # Default overview: metadata and first 2-3 pages preview
+        preview_pages = [
+            {"page": p["page_number"], "preview": p["text"][:500]}
+            for p in parsed.get("pages", [])[:3]
+        ]
+        return {
+            "filename": filename,
+            "doc_path": clean_path,
+            "format": parsed.get("format", ""),
+            "file_size": parsed.get("file_size", 0),
+            "total_pages": total_pages,
+            "preview": preview_pages,
+        }
+
     def get_tool_definitions(self) -> List[Dict[str, Any]]:
         """Return the 4 lean gateway tool definitions for LLM function calling.
 
@@ -465,6 +572,7 @@ class NiskavaToolRegistry:
                     "financial_health_stress_test (stress-test liquidity/solvency ratios and evaluate default rumors), "
                     "mining_commodity_divergence (test mining company correlation against global spot commodity benchmarks), "
                     "peer_valuation_benchmark (benchmark PER/PBV multiples against IDX subsector median), "
+                    "document_audit (audit and inspect uploaded local financial documents, prospectuses, or disclosures), "
                     "investigation_report_pdf (generate institutional PDF audit trail report; ONLY when user asks to export/save/print PDF)."
                 ),
                 "parameters": {
@@ -477,7 +585,7 @@ class NiskavaToolRegistry:
                                 "market_anomaly_recon, event_causality_audit, "
                                 "insider_bandarmology_forensic, financial_health_stress_test, "
                                 "mining_commodity_divergence, peer_valuation_benchmark, "
-                                "investigation_report_pdf."
+                                "document_audit, investigation_report_pdf."
                             ),
                         },
                         "arguments": {
@@ -588,6 +696,36 @@ class NiskavaToolRegistry:
                 },
             },
         ]
+
+    def get_all_tool_definitions(self) -> List[Dict[str, Any]]:
+        """Return full list of tool definitions including gateways and inspect_document."""
+        defs = list(self.get_tool_definitions())
+        defs.append({
+            "name": "inspect_document",
+            "description": (
+                "Inspect, search, or read specific pages of an uploaded document "
+                "(PDF, TXT, CSV, financial reports) locally without context bloat."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "doc_path": {
+                        "type": "string",
+                        "description": "Local file path of the document to inspect.",
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "Optional keyword or phrase to search within the document.",
+                    },
+                    "page": {
+                        "type": "integer",
+                        "description": "Optional 1-indexed page number to read directly.",
+                    },
+                },
+                "required": ["doc_path"],
+            },
+        })
+        return defs
 
     def execute_tool(self, tool_name: str, arguments: Any) -> Any:
         """Dynamically dispatch and execute a registered tool (supporting direct & MCP names)."""
@@ -740,6 +878,11 @@ class NiskavaToolRegistry:
             "query_memory": lambda args: self.query_memory(
                 concept_or_ticker=args.get("concept_or_ticker", args.get("ticker", "")),
                 radius=int(args.get("radius", 2)),
+            ),
+            "inspect_document": lambda args: self.inspect_document(
+                doc_path=args.get("doc_path") or args.get("file_path", ""),
+                query=args.get("query"),
+                page=args.get("page"),
             ),
         }
 

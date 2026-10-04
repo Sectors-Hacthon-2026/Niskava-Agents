@@ -177,9 +177,16 @@ def main() -> None:
     parser.add_argument("--node-types", default=None, help="Comma-separated node types to filter")
     parser.add_argument("--embed", action="store_true", help="Render lightweight embedded view for iframes")
     parser.add_argument("--summary-graph", action="store_true", help="Output JSON text summary of graph to stdout")
+    parser.add_argument("--attachments", default=None, help="Comma-separated paths to attached local documents")
     parser.add_argument("--language", "--lang", default=os.environ.get("NISKAVA_LANG", "id"), help="Interface and persona language ('id' or 'en')")
 
     args = parser.parse_args()
+
+    attachments_list = None
+    if args.attachments:
+        attachments_list = [
+            p.strip() for p in args.attachments.split(",") if p.strip()
+        ]
 
     has_sectors_key = bool(os.environ.get("SECTORS_API_KEY", "").strip())
     explicit_offline = (
@@ -250,6 +257,7 @@ def main() -> None:
             agent.chat(
                 user_prompt=args.prompt,
                 session_id=args.session,
+                attachments=attachments_list,
             )
         elif args.ticker:
             from engine.agent.pipeline import InvestigationPipeline
@@ -272,6 +280,7 @@ def main() -> None:
             agent.chat(
                 user_prompt=default_prompt,
                 session_id=args.session,
+                attachments=attachments_list,
             )
     except Exception as exc:
         emit_jsonl({
