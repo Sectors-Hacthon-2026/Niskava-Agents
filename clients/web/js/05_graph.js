@@ -30,8 +30,8 @@
                 if (!nodes || nodes.length === 0) {
                     svg.innerHTML = `
                         <rect width="100%" height="100%" fill="transparent"/>
-                        <text x="175" y="95" text-anchor="middle" fill="#64748B" font-size="11" font-family="sans-serif">Belum ada relasi aktif untuk sesi ini</text>
-                        <text x="175" y="115" text-anchor="middle" fill="#475569" font-size="9" font-family="sans-serif">Ketik emiten (cth: ANTM, BBRI) di chat untuk mulai</text>
+                        <text x="175" y="95" text-anchor="middle" fill="var(--text-muted)" font-size="11" font-family="sans-serif">Belum ada relasi aktif untuk sesi ini</text>
+                        <text x="175" y="115" text-anchor="middle" fill="var(--text-faint)" font-size="9" font-family="sans-serif">Ketik emiten (cth: ANTM, BBRI) di chat untuk mulai</text>
                     `;
                     if (badge) badge.textContent = '-';
                     return;
@@ -65,14 +65,14 @@
                 });
 
                 const typeColors = {
-                    'EMITEN': { fill: 'rgba(252, 213, 53, 0.18)', stroke: '#FCD535', text: '#946300' },
-                    'STOCK': { fill: 'rgba(252, 213, 53, 0.18)', stroke: '#FCD535', text: '#946300' },
-                    'COMMODITY': { fill: '#FFFBEB', stroke: '#F59E0B', text: '#B45309' },
-                    'INSTITUTION': { fill: '#ECFDF5', stroke: '#10B981', text: '#047857' },
-                    'SECTOR': { fill: 'rgba(252, 213, 53, 0.15)', stroke: '#F0B90B', text: '#946300' },
-                    'PEER': { fill: '#FAF5FF', stroke: '#8B5CF6', text: '#6B21A8' },
-                    'NEWS': { fill: '#F1F5F9', stroke: '#64748B', text: '#334155' },
-                    'ANOMALY': { fill: '#FEF2F2', stroke: '#EF4444', text: '#B91C1C' }
+                    'EMITEN': { fill: 'var(--bg-card)', stroke: 'var(--text-primary)', text: 'var(--text-primary)' },
+                    'STOCK': { fill: 'var(--bg-card)', stroke: 'var(--text-primary)', text: 'var(--text-primary)' },
+                    'COMMODITY': { fill: 'var(--badge-amber-bg)', stroke: 'var(--badge-amber-border)', text: 'var(--badge-amber-text)' },
+                    'INSTITUTION': { fill: 'var(--badge-green-bg)', stroke: 'var(--badge-green-border)', text: 'var(--badge-green-text)' },
+                    'SECTOR': { fill: 'var(--bg-panel)', stroke: 'var(--border-strong)', text: 'var(--text-primary)' },
+                    'PEER': { fill: 'var(--badge-purple-bg)', stroke: 'var(--badge-purple-border)', text: 'var(--badge-purple-text)' },
+                    'NEWS': { fill: 'var(--badge-blue-bg)', stroke: 'var(--badge-blue-border)', text: 'var(--badge-blue-text)' },
+                    'ANOMALY': { fill: 'var(--badge-red-bg)', stroke: 'var(--badge-red-border)', text: 'var(--badge-red-text)' }
                 };
 
                 let svgHtml = '';
@@ -112,8 +112,8 @@
                 const centerLabel = (centerNode.label || centerNode.id).slice(0, 6);
                 svgHtml += `
                     <g class="graph-node active" data-id="${escapeHtml(centerNode.id)}" data-type="${escapeHtml(centerNode.node_type || '')}" data-label="${escapeHtml(centerNode.label || centerNode.id)}" transform="translate(${centerX}, ${centerY})">
-                        <circle r="26" fill="#FCD535" stroke="#1E2329" stroke-width="2.5" filter="drop-shadow(0 4px 10px rgba(252, 213, 53, 0.45))"></circle>
-                        <text text-anchor="middle" dy="4" font-size="11" font-weight="800" fill="#1E2329">${escapeHtml(centerLabel)}</text>
+                        <circle r="26" fill="var(--text-primary)" stroke="var(--bg-card)" stroke-width="2" filter="drop-shadow(0 2px 6px rgba(0, 0, 0, 0.15))"></circle>
+                        <text text-anchor="middle" dy="4" font-size="11" font-weight="700" fill="var(--bg-body)">${escapeHtml(centerLabel)}</text>
                     </g>
                 `;
 

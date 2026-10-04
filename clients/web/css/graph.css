@@ -20,8 +20,8 @@
             transition: all 0.2s ease;
         }
         .graph-node:hover circle {
-            stroke-width: 3px;
-            filter: drop-shadow(0 0 8px rgba(252, 213, 53, 0.5));
+            stroke-width: 2.5px;
+            filter: drop-shadow(0 0 6px var(--primary-light));
         }
         .graph-node text {
             font-family: var(--font-main);
@@ -140,13 +140,14 @@
             position: fixed;
             bottom: 24px;
             right: 24px;
-            background: #0F172A;
-            color: #FFFFFF;
+            background: var(--text-primary);
+            color: var(--bg-body);
             padding: 10px 18px;
             border-radius: 8px;
             font-size: 12.5px;
             font-weight: 500;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            box-shadow: var(--shadow-floating);
+            border: 1px solid var(--border-subtle);
             opacity: 0;
             transform: translateY(12px);
             transition: all 0.2s ease;
@@ -181,13 +182,11 @@
             justify-content: space-between;
             flex-wrap: wrap;
             gap: 12px;
-            background: linear-gradient(135deg, rgba(21, 26, 38, 0.85) 0%, rgba(15, 19, 29, 0.95) 100%);
-            backdrop-filter: blur(16px);
+            background: var(--bg-card);
             border: 1px solid var(--border-subtle);
-            border-top: 1px solid rgba(252, 213, 53, 0.25);
-            border-radius: 12px;
+            border-radius: 10px;
             padding: 10px 18px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+            box-shadow: var(--shadow-subtle);
             flex-shrink: 0;
         }
         .graph-header-title-col {
@@ -196,13 +195,13 @@
             gap: 3px;
         }
         .graph-header-title {
-            font-size: 16px;
-            font-weight: 800;
+            font-size: 15px;
+            font-weight: 700;
             color: var(--text-primary);
             display: flex;
             align-items: center;
             gap: 8px;
-            letter-spacing: 0.2px;
+            letter-spacing: -0.01em;
         }
         .graph-header-desc {
             font-size: 11.5px;
@@ -224,27 +223,27 @@
             .graph-stats-row { grid-template-columns: repeat(2, 1fr); }
         }
         .graph-stat-card {
-            background: linear-gradient(180deg, rgba(22, 28, 42, 0.7) 0%, rgba(16, 21, 32, 0.9) 100%);
+            background: var(--bg-card);
             border: 1px solid var(--border-subtle);
-            border-top: 2px solid var(--border-subtle);
-            border-radius: 12px;
+            border-radius: 10px;
             padding: 14px 18px;
             display: flex;
             flex-direction: column;
             gap: 4px;
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: var(--shadow-subtle);
             position: relative;
             overflow: hidden;
         }
         .graph-stat-card:hover {
-            transform: translateY(-2px);
-            border-color: rgba(252, 213, 53, 0.4);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+            transform: translateY(-1px);
+            border-color: var(--border-strong);
+            box-shadow: var(--shadow-card);
         }
-        .graph-stat-card:nth-child(1) { border-top-color: #FCD535; }
-        .graph-stat-card:nth-child(2) { border-top-color: #38BDF8; }
-        .graph-stat-card:nth-child(3) { border-top-color: #10B981; }
-        .graph-stat-card:nth-child(4) { border-top-color: #8B5CF6; }
+        .graph-stat-card:nth-child(1) { border-top: 2px solid var(--text-primary); }
+        .graph-stat-card:nth-child(2) { border-top: 2px solid var(--border-strong); }
+        .graph-stat-card:nth-child(3) { border-top: 2px solid var(--badge-green-text); }
+        .graph-stat-card:nth-child(4) { border-top: 2px solid var(--badge-purple-text); }
 
         .graph-stat-num {
             font-size: 24px;
@@ -261,17 +260,16 @@
             letter-spacing: 0.05em;
         }
         .graph-filters-bar {
-            background: linear-gradient(135deg, rgba(21, 26, 38, 0.75) 0%, rgba(15, 19, 29, 0.85) 100%);
-            backdrop-filter: blur(14px);
+            background: var(--bg-card);
             border: 1px solid var(--border-subtle);
-            border-radius: 14px;
+            border-radius: 10px;
             padding: 12px 18px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
             gap: 12px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            box-shadow: var(--shadow-subtle);
         }
         .graph-filter-inputs {
             display: flex;
@@ -284,16 +282,15 @@
             padding: 0 14px;
             border-radius: 8px;
             border: 1px solid var(--border-subtle);
-            background: rgba(11, 14, 22, 0.8);
+            background: var(--bg-input);
             font-size: 12px;
             color: var(--text-primary);
             font-family: var(--font-main);
             transition: all 0.15s ease;
         }
         .graph-input-sm:focus {
-            border-color: #FCD535;
-            background: #101420;
-            box-shadow: 0 0 0 1px rgba(252, 213, 53, 0.25);
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 2px var(--primary-light);
             outline: none;
         }
         .graph-select-sm {
@@ -301,7 +298,7 @@
             padding: 0 12px;
             border-radius: 8px;
             border: 1px solid var(--border-subtle);
-            background: rgba(11, 14, 22, 0.8);
+            background: var(--bg-input);
             font-size: 12px;
             color: var(--text-primary);
             font-family: var(--font-main);
@@ -309,8 +306,9 @@
             transition: all 0.15s ease;
         }
         .graph-select-sm:focus {
-            border-color: #FCD535;
+            border-color: var(--border-focus);
             outline: none;
+            box-shadow: 0 0 0 2px var(--primary-light);
         }
         .graph-canvas-wrapper {
             flex: 1;
