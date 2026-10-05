@@ -72,7 +72,7 @@ Niskava Agent dibangun di atas arsitektur tripartit hybrid yang memadukan keanda
 
 ### A. Clients Surface (`clients/`)
 * **Interactive CLI & TUI (`clients/cli/`)**:
-  * Menggunakan `spf13/cobra`, `charmbracelet/bubbletea`, dan `charmbracelet/glamour` untuk menghadirkan terminal REPL percakapan interaktif (Hermes-style) dengan rendering Markdown ala Bloomberg Terminal.
+  * Menggunakan `spf13/cobra`, `charmbracelet/bubbletea`, dan `charmbracelet/glamour` untuk menghadirkan terminal REPL percakapan interaktif dengan rendering Markdown ala Bloomberg Terminal.
   * Menyediakan interactive setup wizard (`niskava setup`) untuk konfigurasi kredensial (LLM API key/proxy base, Sectors API) dengan validasi ping koneksi live.
   * Mendukung mode investigasi langsung (`niskava investigate <TICKER> --days 30`) dan manajemen sesi (`niskava sessions`).
 * **Local Web Workspace (`clients/web/`)**:
@@ -166,7 +166,7 @@ CLI Flags (Override Tertinggi)
 | **HTTP Port** | `20128` (atau `8080`) | `NISKAVA_PORT` | `--port` / `server.port` | Port lokal REST/SSE dapat dipindah sesuai ketersediaan port. |
 | **LLM Inference Timeout** | `60.0` detik | `NISKAVA_LLM_TIMEOUT` | `/timeout` / `preferences.llm_timeout_secs` | Skala adaptif otomatis per iterasi ReAct: $\text{Base} + (N_{\text{obs}} \times 10\text{s})$, batas 10–300 detik. |
 | **LLM API Base** | `http://localhost:20128/v1` | `OPENAI_BASE_URL` | `--llm-api-base` / `auth.openai_base_url` | Endpoint OpenAI-compatible (9router local proxy, Ollama, OpenRouter, vLLM). |
-| **LLM Model** | `hermes` | `OPENAI_MODEL` | `--llm-model` / `auth.openai_model` | Model id universal tanpa vendor lock-in. |
+| **LLM Model** | `gpt-4o-mini` | `OPENAI_MODEL` | `--llm-model` / `auth.openai_model` | Model id universal tanpa vendor lock-in. |
 
 ---
 

@@ -113,14 +113,49 @@ func runSessionsInteractive(cmd *cobra.Command, database *db.DB) string {
 	if database == nil {
 		return ""
 	}
+
+	// Step 1: Open Gateway Sub-menu (Chat Sessions vs Investigation Audit Trails)
+	gw := tui.NewSessionGatewayModel()
+	pGw := tea.NewProgram(gw, tea.WithAltScreen())
+	mGw, errGw := pGw.Run()
+	if errGw != nil {
+		return ""
+	}
+
+	resGw := mGw.(tui.SessionGatewayModel)
+	if resGw.Canceled || resGw.Selected == "" {
+		return ""
+	}
+
+	// Step 2: Route according to user selection
+	if resGw.Selected == "investigations" {
+		invs, err := database.ListInvestigations(30)
+		if err != nil || len(invs) == 0 {
+			_ = printFormattedSessions(database, "investigations", 20, os.Stdout)
+			tui.PromptPressEscToReturn()
+			return ""
+		}
+		selector := tui.NewInvestigationSelectorModelWithDB(invs, database)
+		p := tea.NewProgram(selector, tea.WithAltScreen())
+		m, err := p.Run()
+		if err == nil {
+			res := m.(tui.InvestigationSelectorModel)
+			if !res.Canceled && res.SelectedSession != nil {
+				return res.SelectedSession.ID
+			}
+		}
+		return ""
+	}
+
+	// Default: Chat Sessions
 	chats, _, err := database.ListChatSessions(30, 0, "")
 	if err != nil || len(chats) == 0 {
-		_ = printFormattedSessions(database, "all", 20, os.Stdout)
+		_ = printFormattedSessions(database, "chat", 20, os.Stdout)
 		tui.PromptPressEscToReturn()
 		return ""
 	}
 
-	selector := tui.NewSessionSelectorModel(chats)
+	selector := tui.NewSessionSelectorModelWithDB(chats, database)
 	p := tea.NewProgram(selector, tea.WithAltScreen())
 	m, err := p.Run()
 	if err == nil {

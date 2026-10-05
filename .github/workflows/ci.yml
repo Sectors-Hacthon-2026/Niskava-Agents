@@ -45,6 +45,10 @@ jobs:
           .venv/bin/pip install -r backend/engine/requirements.txt
 
       - name: Execute Go Test Suite
+        env:
+          NISKAVA_TESTING: '1'
+          MOCK_SECTORS: '1'
+          NISKAVA_OFFLINE: '1'
         run: go test -v -race ./backend/core/... ./clients/cli/...
 
       - name: Build Niskava CLI Binaries (Multi-Platform Matrix)
@@ -102,8 +106,9 @@ jobs:
 
       - name: Execute Pytest Suite (Unit & MCP Tests)
         env:
-          MOCK_SECTORS: '1'
-          NISKAVA_OFFLINE: '1'
+          # conftest.py sets NISKAVA_TESTING=1, MOCK_SECTORS=1, NISKAVA_OFFLINE=1 automatically.
+          SECTORS_API_KEY: 'ci-fixture-key-not-real'
+          NISKAVA_TESTING: '1'
         run: |
           PYTHONPATH=backend pytest backend/engine/tests/ -v --durations=10
 
@@ -111,6 +116,10 @@ jobs:
     name: MCP Engine End-to-End Integration
     needs: [go-ci, python-ci]
     runs-on: ubuntu-latest
+    env:
+      NISKAVA_TESTING: '1'
+      MOCK_SECTORS: '1'
+      SECTORS_API_KEY: 'ci-fixture-key-not-real'
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
@@ -152,7 +161,9 @@ jobs:
 
       - name: Test MCP Deterministic Quant Tool Execution
         env:
+          NISKAVA_TESTING: '1'
           MOCK_SECTORS: '1'
+          SECTORS_API_KEY: 'ci-fixture-key-not-real'
         run: |
           QUANT_RESP=$(echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"quant_compute_anomalies","arguments":{"ticker":"ANTM"}}}' | ./bin/niskava mcp)
           echo "Quant Output: $QUANT_RESP"

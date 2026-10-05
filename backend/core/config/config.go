@@ -43,6 +43,7 @@ type AuthConfig struct {
 	OpenAIBaseURL   string `yaml:"openai_base_url"`
 	OpenAIModel     string `yaml:"openai_model"`
 	AnthropicAPIKey string `yaml:"anthropic_api_key"`
+	AnthropicModel  string `yaml:"anthropic_model"`
 	OllamaBaseURL   string `yaml:"ollama_base_url"`
 	OllamaModel     string `yaml:"ollama_model"`
 }
@@ -98,8 +99,9 @@ func DefaultConfig() *Config {
 			GeminiModel:     "gemini-2.0-flash",
 			OpenAIAPIKey:    "",
 			OpenAIBaseURL:   "http://localhost:20128/v1",
-			OpenAIModel:     "hermes",
+			OpenAIModel:     "gpt-4o-mini",
 			AnthropicAPIKey: "",
+			AnthropicModel:  "claude-3-5-haiku-latest",
 			OllamaBaseURL:   "http://localhost:11434",
 			OllamaModel:     "deepseek-r1:8b",
 		},
@@ -163,7 +165,7 @@ func loadDotEnv(paths ...string) {
 				key := strings.TrimSpace(parts[0])
 				val := strings.TrimSpace(parts[1])
 				val = strings.Trim(val, `"'`)
-				if os.Getenv(key) == "" {
+				if _, exists := os.LookupEnv(key); !exists {
 					_ = os.Setenv(key, val)
 				}
 			}
@@ -186,8 +188,10 @@ func LoadFile(path string) (*Config, error) {
 
 // Load reads and merges configuration from defaults, ~/.niskava/config.yaml, and environment variables.
 func Load(customConfigPath string) (*Config, error) {
-	// 0. Auto-load .env files (project root and ~/.niskava/.env)
-	loadDotEnv(".env", "~/.niskava/.env")
+	// 0. Auto-load .env files (project root and ~/.niskava/.env), skipped during testing
+	if flag.Lookup("test.v") == nil {
+		loadDotEnv(".env", "~/.niskava/.env")
+	}
 
 	cfg := DefaultConfig()
 
@@ -217,6 +221,13 @@ func Load(customConfigPath string) (*Config, error) {
 	if val := os.Getenv("AI_PROVIDER"); val != "" {
 		cfg.Auth.AIProvider = val
 	}
+	if val := os.Getenv("NISKAVA_MODEL"); val != "" {
+		if strings.EqualFold(cfg.Auth.AIProvider, "gemini") {
+			cfg.Auth.GeminiModel = val
+		} else {
+			cfg.Auth.OpenAIModel = val
+		}
+	}
 	if val := os.Getenv("SECTORS_API_KEY"); val != "" {
 		cfg.Auth.SectorsAPIKey = val
 	}
@@ -240,6 +251,9 @@ func Load(customConfigPath string) (*Config, error) {
 	}
 	if val := os.Getenv("ANTHROPIC_API_KEY"); val != "" {
 		cfg.Auth.AnthropicAPIKey = val
+	}
+	if val := os.Getenv("ANTHROPIC_MODEL"); val != "" {
+		cfg.Auth.AnthropicModel = val
 	}
 	if val := os.Getenv("OLLAMA_BASE_URL"); val != "" {
 		cfg.Auth.OllamaBaseURL = val
@@ -266,11 +280,22 @@ func Load(customConfigPath string) (*Config, error) {
 	if val := os.Getenv("NISKAVA_DEFAULT_MARKET"); val != "" {
 		cfg.Preferences.DefaultMarket = strings.ToUpper(val)
 	}
-	if val := os.Getenv("MOCK_SECTORS"); val == "1" || strings.ToLower(val) == "true" {
-		cfg.Preferences.OfflineMode = true
-	}
-	if val := os.Getenv("NISKAVA_OFFLINE"); val == "1" || strings.ToLower(val) == "true" {
-		cfg.Preferences.OfflineMode = true
+	hasSectorsKey := strings.TrimSpace(cfg.Auth.SectorsAPIKey) != ""
+	explicitOffline := os.Getenv("NISKAVA_OFFLINE") == "1" || strings.ToLower(os.Getenv("NISKAVA_OFFLINE")) == "true"
+	mockSectors := os.Getenv("MOCK_SECTORS") == "1" || strings.ToLower(os.Getenv("MOCK_SECTORS")) == "true"
+
+	if IsTestingMode() {
+		if explicitOffline {
+			cfg.Preferences.OfflineMode = true
+		} else if hasSectorsKey {
+			cfg.Preferences.OfflineMode = false
+		} else {
+			cfg.Preferences.OfflineMode = mockSectors
+		}
+	} else {
+		// Non-testing (production / user mode): OfflineMode is always false.
+		// A valid SECTORS_API_KEY is required by RequireSectorsKey().
+		cfg.Preferences.OfflineMode = false
 	}
 	if val := os.Getenv("NISKAVA_LANG"); val != "" {
 		cfg.Preferences.Language = strings.ToLower(val)
@@ -467,7 +492,7 @@ func writeDotEnvFile(dest string, envMap map[string]string) error {
 	keyOrder := []string{
 		"AI_PROVIDER", "OPENAI_BASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL",
 		"GEMINI_API_KEY", "GEMINI_MODEL",
-		"SECTORS_API_KEY", "SECTORS_BASE_URL",
+		"SECTORS_API_KEY", "SECTORS_BASE_URL", "MOCK_SECTORS",
 		"ANTHROPIC_API_KEY", "OLLAMA_BASE_URL", "OLLAMA_MODEL",
 		"NISKAVA_DB_PATH", "NISKAVA_PYTHON_BIN", "NISKAVA_ENGINE_PATH",
 		"NISKAVA_PORT", "NISKAVA_DEFAULT_MARKET", "NISKAVA_LANG", "NISKAVA_OFFLINE",
@@ -517,6 +542,7 @@ func SaveDotEnv(cfg *Config, targetPath ...string) error {
 	envMap["SECTORS_API_KEY"] = cfg.Auth.SectorsAPIKey
 	envMap["SECTORS_BASE_URL"] = cfg.Auth.SectorsBaseURL
 	envMap["ANTHROPIC_API_KEY"] = cfg.Auth.AnthropicAPIKey
+	envMap["ANTHROPIC_MODEL"] = cfg.Auth.AnthropicModel
 	envMap["OLLAMA_BASE_URL"] = cfg.Auth.OllamaBaseURL
 	envMap["OLLAMA_MODEL"] = cfg.Auth.OllamaModel
 	envMap["NISKAVA_DB_PATH"] = cfg.Storage.DBPath
@@ -536,11 +562,8 @@ func SaveDotEnv(cfg *Config, targetPath ...string) error {
 		timeoutVal = 300.0
 	}
 	envMap["NISKAVA_LLM_TIMEOUT"] = fmt.Sprintf("%.2f", timeoutVal)
-	if cfg.Preferences.OfflineMode {
-		envMap["NISKAVA_OFFLINE"] = "1"
-	} else {
-		envMap["NISKAVA_OFFLINE"] = "0"
-	}
+	envMap["NISKAVA_OFFLINE"] = "0"
+	envMap["MOCK_SECTORS"] = "0"
 	envMap["NISKAVA_TELEGRAM_TOKEN"] = cfg.Telegram.BotToken
 	if cfg.Telegram.Enabled {
 		envMap["NISKAVA_TELEGRAM_ENABLED"] = "1"
@@ -596,6 +619,64 @@ func SaveConfig(cfg *Config, targetPath ...string) error {
 	return SaveDotEnv(cfg, targetPath...)
 }
 
+// GetActiveProvider returns the normalized active AI provider ("gemini", "openai", "ollama", "anthropic").
+func (c *Config) GetActiveProvider() string {
+	if c == nil {
+		return "openai"
+	}
+	prov := strings.ToLower(strings.TrimSpace(c.Auth.AIProvider))
+	if prov != "" {
+		return prov
+	}
+	if strings.TrimSpace(c.Auth.GeminiAPIKey) != "" {
+		return "gemini"
+	}
+	if strings.TrimSpace(c.Auth.AnthropicAPIKey) != "" {
+		return "anthropic"
+	}
+	if strings.TrimSpace(c.Auth.OllamaBaseURL) != "" {
+		return "ollama"
+	}
+	return "openai"
+}
+
+// GetActiveModel returns the model corresponding to the active provider.
+func (c *Config) GetActiveModel() string {
+	if c == nil {
+		return "niskava"
+	}
+	prov := c.GetActiveProvider()
+	switch prov {
+	case "gemini":
+		if m := strings.TrimSpace(c.Auth.GeminiModel); m != "" {
+			return m
+		}
+		return "gemini-2.0-flash"
+	case "openai":
+		if m := strings.TrimSpace(c.Auth.OpenAIModel); m != "" {
+			return m
+		}
+		return "gpt-4o-mini"
+	case "ollama":
+		if m := strings.TrimSpace(c.Auth.OllamaModel); m != "" {
+			return m
+		}
+		return "deepseek-r1:8b"
+	case "anthropic":
+		if m := strings.TrimSpace(c.Auth.AnthropicModel); m != "" {
+			return m
+		}
+		return "claude-3-5-haiku-latest"
+	}
+	if m := strings.TrimSpace(c.Auth.GeminiModel); m != "" && strings.TrimSpace(c.Auth.GeminiAPIKey) != "" {
+		return m
+	}
+	if m := strings.TrimSpace(c.Auth.OpenAIModel); m != "" {
+		return m
+	}
+	return "niskava"
+}
+
 // BuildSubprocessEnv extracts active authentication and preferences into dynamic environment variables for child processes.
 func (c *Config) BuildSubprocessEnv() map[string]string {
 	env := make(map[string]string)
@@ -603,43 +684,60 @@ func (c *Config) BuildSubprocessEnv() map[string]string {
 		return env
 	}
 
-	if c.Auth.AIProvider != "" {
-		env["AI_PROVIDER"] = c.Auth.AIProvider
+	activeProv := c.GetActiveProvider()
+	activeModel := c.GetActiveModel()
+
+	env["AI_PROVIDER"] = activeProv
+	env["NISKAVA_MODEL"] = activeModel
+
+	switch activeProv {
+	case "gemini":
+		if c.Auth.GeminiAPIKey != "" {
+			env["GEMINI_API_KEY"] = c.Auth.GeminiAPIKey
+			env["OPENAI_API_KEY"] = c.Auth.GeminiAPIKey // Google AI Studio speaks OpenAI protocol
+		}
+		env["GEMINI_MODEL"] = activeModel
+		env["OPENAI_MODEL"] = activeModel
+		env["OPENAI_BASE_URL"] = "https://generativelanguage.googleapis.com/v1beta/openai"
+	case "openai":
+		if c.Auth.OpenAIAPIKey != "" {
+			env["OPENAI_API_KEY"] = c.Auth.OpenAIAPIKey
+		}
+		if c.Auth.OpenAIBaseURL != "" {
+			env["OPENAI_BASE_URL"] = c.Auth.OpenAIBaseURL
+		}
+		env["OPENAI_MODEL"] = activeModel
+	case "ollama":
+		if c.Auth.OllamaBaseURL != "" {
+			baseURL := c.Auth.OllamaBaseURL
+			if !strings.HasSuffix(baseURL, "/v1") {
+				baseURL = strings.TrimRight(baseURL, "/") + "/v1"
+			}
+			env["OPENAI_BASE_URL"] = baseURL
+			env["OLLAMA_BASE_URL"] = c.Auth.OllamaBaseURL
+		}
+		env["OLLAMA_MODEL"] = activeModel
+		env["OPENAI_MODEL"] = activeModel
+		env["OPENAI_API_KEY"] = "ollama"
+	case "anthropic":
+		if c.Auth.AnthropicAPIKey != "" {
+			env["ANTHROPIC_API_KEY"] = c.Auth.AnthropicAPIKey
+		}
+		if c.Auth.AnthropicModel != "" {
+			env["ANTHROPIC_MODEL"] = c.Auth.AnthropicModel
+		}
 	}
+
 	if c.Auth.SectorsAPIKey != "" {
 		env["SECTORS_API_KEY"] = c.Auth.SectorsAPIKey
 	}
 	if c.Auth.SectorsBaseURL != "" {
 		env["SECTORS_BASE_URL"] = c.Auth.SectorsBaseURL
 	}
-	if c.Auth.GeminiAPIKey != "" {
-		env["GEMINI_API_KEY"] = c.Auth.GeminiAPIKey
-	}
-	if c.Auth.GeminiModel != "" {
-		env["GEMINI_MODEL"] = c.Auth.GeminiModel
-	}
-	if c.Auth.OpenAIAPIKey != "" {
-		env["OPENAI_API_KEY"] = c.Auth.OpenAIAPIKey
-	}
-	if c.Auth.OpenAIBaseURL != "" {
-		env["OPENAI_BASE_URL"] = c.Auth.OpenAIBaseURL
-	}
-	if c.Auth.OpenAIModel != "" {
-		env["OPENAI_MODEL"] = c.Auth.OpenAIModel
-	}
-	if c.Auth.AnthropicAPIKey != "" {
-		env["ANTHROPIC_API_KEY"] = c.Auth.AnthropicAPIKey
-	}
-	if c.Auth.OllamaBaseURL != "" {
-		env["OLLAMA_BASE_URL"] = c.Auth.OllamaBaseURL
-	}
-	if c.Auth.OllamaModel != "" {
-		env["OLLAMA_MODEL"] = c.Auth.OllamaModel
-	}
 	if c.Preferences.Language != "" {
 		env["NISKAVA_LANG"] = c.Preferences.Language
 	}
-	if c.Preferences.OfflineMode {
+	if c.Preferences.OfflineMode && IsTestingMode() {
 		env["NISKAVA_OFFLINE"] = "1"
 		env["MOCK_SECTORS"] = "1"
 	} else {
@@ -664,4 +762,31 @@ func (c *Config) BuildSubprocessEnv() map[string]string {
 	env["NISKAVA_LLM_TIMEOUT"] = fmt.Sprintf("%.2f", timeoutSecs)
 
 	return env
+}
+
+// IsTestingMode returns true when the NISKAVA_TESTING environment variable is "1".
+// This flag is exclusively activated by pytest conftest.py and CI/CD pipelines.
+// End-user facing code must never set this flag.
+func IsTestingMode() bool {
+	v := os.Getenv("NISKAVA_TESTING")
+	return v == "1" || strings.EqualFold(v, "true")
+}
+
+// RequireSectorsKey validates that a Sectors Financial API key is configured.
+// Returns a descriptive error if the key is missing and the process is not in
+// testing mode (NISKAVA_TESTING=1). Call this at every user-facing CLI entrypoint.
+func RequireSectorsKey(cfg *Config) error {
+	if IsTestingMode() {
+		return nil
+	}
+	if cfg != nil && strings.TrimSpace(cfg.Auth.SectorsAPIKey) != "" {
+		return nil
+	}
+	return fmt.Errorf(
+		"SECTORS_API_KEY is not configured.\n\n" +
+			"  Niskava requires a valid Sectors Financial API key to fetch\n" +
+			"  real-time IDX market data from Bursa Efek Indonesia.\n\n" +
+			"  ► Run 'niskava setup' to configure your API key interactively.\n" +
+			"  ► Or obtain a free key at: https://sectors.app\n",
+	)
 }

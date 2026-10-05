@@ -1,47 +1,47 @@
 # Installation and Setup Guide
 
-This guide provides instructions for installing, configuring, and verifying Niskava Agent on Linux, macOS, Windows, and Docker.
+This guide provides step-by-step instructions for installing, configuring, and verifying Niskava Agent across Linux, macOS, Windows, and Docker environments.
 
 ---
 
-## 1. System Requirements
+## 1. System Prerequisites
 
-Ensure your host environment meets the minimum software requirements before proceeding:
+Before installation, verify the software installed on your host machine:
 
-| Component | Minimum Version | Required By | Purpose |
+| Component | Minimum Version | Required For | Notes |
 |---|---|---|---|
-| **Go** | `1.22` or higher | Go Core | CLI entry points, REST/SSE server, SQLite WAL persistence, IPC broker. |
-| **Python** | `3.11` or higher | Python Engine | Deterministic NumPy math, News harvesting, ReAct reasoning agent loop. |
-| **Git** | `2.30` or higher | Source control | Cloning and updating repository files. |
-| **Docker** *(Optional)* | `20.10` or higher | Containerization | Zero-install alternative running everything in container. |
+| **Node.js** | `18.0.0+` | NPM / NPX Launcher | Recommended for instant, zero-clone installation. |
+| **Python** | `3.11+` | Quantitative Engine | Required for NumPy math, news harvesting, and local graph memory. |
+| **Go** | `1.22+` | Source Build Only | Only required if compiling Go Core from source code. |
+| **Git** | `2.30+` | Source Build | Required for cloning the repository. |
+| **Docker** | `20.10+` | Container Mode | Optional zero-install alternative. |
 
 ---
 
-## 2. Fast Installation (Recommended)
+## 2. Installation Methods
 
-### Option 0: Zero-Clone via NPX / NPM (Instant Run)
+Choose the installation method that fits your environment:
 
-If you have Node.js (version 18 or higher) installed, you can launch Niskava Agent immediately without cloning the git repository or manually compiling Go/Python binaries:
+### Method A: Instant Zero-Clone via NPX / NPM (Recommended)
+
+If you have Node.js installed, you can launch Niskava Agent immediately without cloning the git repository or manually compiling binaries:
 
 ```bash
-# 1. Run interactive configuration wizard (sets API keys and provider)
+# 1. Run the interactive setup wizard (configures API keys)
 npx @zyrexnns/niskava-agent setup
 
-# 2. Run system doctor to verify environment readiness
+# 2. Run system doctor diagnostics to verify your setup
 npx @zyrexnns/niskava-agent doctor
 
-# 3. Launch interactive REPL research terminal
+# 3. Launch the interactive REPL research terminal
 npx @zyrexnns/niskava-agent
 
-# 4. Run an autonomous investigation on an IDX ticker
-npx @zyrexnns/niskava-agent investigate ANTM --days 30
-
-# 5. Start local Web Workspace (:20128) and open browser
+# 4. Or launch the local Web Workspace (:20128)
 npx @zyrexnns/niskava-agent serve
 ```
 
 #### Global Installation (System-Wide Command)
-For regular use, install globally so `niskava` is accessible anywhere in your shell:
+To install `niskava` globally on your machine so it is accessible from any terminal window:
 
 ```bash
 npm install -g @zyrexnns/niskava-agent
@@ -49,213 +49,162 @@ npm install -g @zyrexnns/niskava-agent
 # Check installed version
 niskava version
 
-# Run setup and diagnostics
+# Run anywhere
 niskava setup
 niskava doctor
-
-# Run REPL or Web Workspace
-niskava terminal
-niskava serve
+niskava investigate ANTM --days 30
 ```
 
-#### How the NPM Launcher Works Under the Hood
-1. **User-Space Isolation**: Binaries are downloaded and cached strictly in `~/.niskava/bin/` (on Windows: `%USERPROFILE%\.niskava\bin`). No files are written inside `node_modules`, completely preventing `EACCES` permission denied errors even when running without root/administrator privileges.
-2. **Platform Native Resolution**: Resolves the exact OS and CPU architecture:
+#### How the NPM Launcher Works Under the Hood:
+1. **User-Space Isolation:** Precompiled Go binaries are automatically downloaded and cached strictly in `~/.niskava/bin/` (Windows: `%USERPROFILE%\.niskava\bin`). No files are written into root-protected system directories, completely preventing `EACCES` permission errors.
+2. **Native Architecture Detection:** Detects the exact operating system and CPU architecture:
    - Linux: `x64` (`amd64`), `arm64`
    - macOS: Apple Silicon (`arm64`), Intel (`x64`)
    - Windows: `x64` (`amd64`)
-3. **Automatic Fallback**: If the release asset cannot be reached, the launcher checks for a local Go compiler (`go`) to compile directly on host, or guides you with direct download links.
-4. **Python Bridge**: If Python 3.11+ is detected, the launcher automatically connects the Python quantitative engine (`numpy`, `pandas`, `networkx`) and exports `NISKAVA_PYTHON_BIN`.
+3. **Automatic Engine Synchronization:** Python analytical skills and agent scripts are automatically mirrored to `~/.niskava/engine`, resolving module paths seamlessly.
 
 ---
 
-### Option A: One-Liner Script Installers (Recommended for Source)
+### Method B: Prebuilt Standalone Binaries (GitHub Releases)
 
-Clone the repository first:
+Download precompiled standalone binaries directly from [GitHub Releases](https://github.com/Sectors-Hacthon-2026/Niskava-Agents/releases):
+
+#### 1. Linux (x86_64 / ARM64)
+```bash
+# Download binary (replace with desired architecture)
+curl -LO https://github.com/Sectors-Hacthon-2026/Niskava-Agents/releases/latest/download/niskava-linux-amd64
+
+# Grant execution permissions
+chmod +x niskava-linux-amd64
+sudo mv niskava-linux-amd64 /usr/local/bin/niskava
+
+# Verify
+niskava version
+```
+
+#### 2. macOS (Apple Silicon / Intel)
+```bash
+# For Apple Silicon (M1/M2/M3/M4):
+curl -LO https://github.com/Sectors-Hacthon-2026/Niskava-Agents/releases/latest/download/niskava-darwin-arm64
+chmod +x niskava-darwin-arm64
+sudo mv niskava-darwin-arm64 /usr/local/bin/niskava
+
+# For Intel Macs:
+curl -LO https://github.com/Sectors-Hacthon-2026/Niskava-Agents/releases/latest/download/niskava-darwin-amd64
+chmod +x niskava-darwin-amd64
+sudo mv niskava-darwin-amd64 /usr/local/bin/niskava
+```
+
+#### 3. Windows (x64)
+1. Download `niskava-windows-amd64.exe` from GitHub Releases.
+2. Rename to `niskava.exe`.
+3. Add the directory to your user `PATH` environment variable.
+4. Run `niskava.exe setup` in PowerShell or Windows Terminal.
+
+---
+
+### Method C: Build from Source Code (Developer Mode)
+
+For contributors and developers who wish to modify the source code:
+
+#### 1. Clone Repository
 ```bash
 git clone https://github.com/Sectors-Hacthon-2026/Niskava-Agents.git
 cd Niskava-Agents
 ```
 
-#### On Linux & macOS:
-```bash
-chmod +x install.sh
-./install.sh
-```
-*The installer automatically verifies Go and Python, builds the `.venv` in the repository root, installs quantitative packages, and compiles `bin/niskava`.*
+#### 2. Run Automated Setup Script
+* **Linux & macOS:**
+  ```bash
+  chmod +x install.sh && ./install.sh
+  ```
+* **Windows (PowerShell):**
+  ```powershell
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+  .\install.ps1
+  ```
 
-#### On Windows (PowerShell):
-```powershell
-.\install.ps1
+#### 3. Manual Build Steps (Alternative)
+If you prefer building step-by-step manually:
+
+```bash
+# Setup Python virtual environment
+python3 -m venv backend/engine/.venv
+source backend/engine/.venv/bin/activate
+pip install -r backend/engine/requirements.txt
+
+# Compile Go Core binary
+go build -o bin/niskava ./cmd/niskava
 ```
-> **Note on PowerShell Script Execution:** If script execution is restricted on Windows, run:
-> `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` in your current PowerShell window before executing `.\install.ps1`.
 
 ---
 
-### Option B: Docker Container (Zero-Install)
+### Method D: Docker Container (Zero-Install)
 
-If you have Docker and Docker Compose installed:
+Run Niskava Agent inside an isolated Docker container:
+
 ```bash
-# Start Web Workspace daemon in the background on http://localhost:8080
+# 1. Clone repository
+git clone https://github.com/Sectors-Hacthon-2026/Niskava-Agents.git
+cd Niskava-Agents
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your SECTORS_API_KEY and GEMINI_API_KEY
+
+# 3. Start container with Docker Compose
 docker compose up -d
 
-# Check live logs
-docker compose logs -f
+# 4. Access the Web Workspace
+# Open http://localhost:20128 in your browser
 ```
 
 ---
 
-### Option C: Manual Step-by-Step Installation
+## 3. Initial Configuration (`niskava setup`)
 
-If you prefer to configure everything manually:
-
-#### Step 1: Create Python Virtual Environment (.venv) at Project Root
-
-**On Linux / macOS:**
-```bash
-python3 -m venv .venv
-.venv/bin/pip install --upgrade pip
-.venv/bin/pip install -r backend/engine/requirements.txt
-```
-
-**On Windows (PowerShell / CMD):**
-```powershell
-python -m venv .venv
-.\.venv\Scripts\pip.exe install --upgrade pip
-.\.venv\Scripts\pip.exe install -r backend\engine\requirements.txt
-```
-
-#### Step 2: Compile Standalone Go Core Binary
-
-**On Linux / macOS:**
-```bash
-mkdir -p bin
-go build -o bin/niskava ./cmd/niskava
-chmod +x bin/niskava
-```
-
-**On Windows:**
-```powershell
-if (-not (Test-Path "bin")) { New-Item -ItemType Directory -Path "bin" }
-go build -o bin\niskava.exe .\cmd\niskava
-```
-
----
-
-## 3. Configuration & Setup Wizard
-
-### Method A: Dynamic Setup Wizard (Recommended)
-Run the dynamic setup wizard:
+Run the interactive setup wizard to configure your credentials:
 
 ```bash
-# On Linux / macOS:
-./bin/niskava setup
-
-# On Windows:
-.\bin\niskava.exe setup
+niskava setup
 ```
+
+<p align="center">
+  <img src="../../docs/assets/niskava-setup-wizard.png" alt="Niskava Interactive Setup Wizard" width="90%">
+</p>
 
 The wizard guides you through:
-1. Selecting your AI inference provider (OpenRouter, Google Gemini, Ollama, DeepSeek, Groq, or OpenAI).
-2. Entering your **Sectors Financial API v2 Key** ([sectors.app](https://sectors.app/)) or pressing Enter for 100% Offline Mock Mode.
-3. Automatically detecting and bootstrapping the Python `.venv` environment if missing.
-4. Testing live connectivity against endpoints.
-5. Saving configuration synchronously to both `.env` and `~/.niskava/config.yaml`.
+
+### Step 1: AI Provider Selection
+Choose your preferred inference backend:
+* **Google Gemini (Recommended):** Uses `gemini-2.0-flash` or `gemini-1.5-pro`. Fastest inference speed and large context window.
+* **OpenAI / OpenRouter:** Compatible with OpenAI, OpenRouter, Groq, or DeepSeek models.
+* **Local Ollama:** Completely offline private inference (e.g. `deepseek-r1:8b`, `qwen2.5:7b`).
+* **Offline Mock Mode:** Deterministic execution without any LLM calls (ideal for CI/CD).
+
+### Step 2: Sectors Financial API Key (**Required for Live Data**)
+* Enter your **Sectors Financial API v2 key** (obtain free from [sectors.app](https://sectors.app/)).
+* **Live Mode Auto-Toggle:** When a valid Sectors API key is entered, Niskava automatically activates **Live Mode** (`MOCK_SECTORS=0`).
+* *Note:* If you press ENTER without entering a key, Niskava will alert you that it is running in Mock Simulation Mode (synthetic fixtures).
+
+### Step 3: Local Storage & Preferences
+* Database path defaults to `~/.niskava/niskava.db`.
+* Language preference (`id` for Indonesian, `en` for English).
 
 ---
 
-### Method B: Manual Configuration
+## 4. Verification & Diagnostics (`niskava doctor`)
 
-You can manually edit or create `~/.niskava/config.yaml` (Windows: `C:\Users\<Username>\.niskava\config.yaml`):
-
-```yaml
-version: "1.0.0"
-
-auth:
-  sectors_api_key: "YOUR_SECTORS_API_KEY"
-  gemini_api_key: "YOUR_GEMINI_API_KEY"
-  openai_api_key: ""
-  openai_base_url: "https://openrouter.ai/api/v1"
-  openai_model: "deepseek/deepseek-chat"
-
-ai:
-  provider: "openrouter"           # Options: openrouter, gemini, ollama, deepseek, groq, openai, vllm
-  model: "deepseek/deepseek-chat"
-  temperature: 0.1
-
-storage:
-  db_path: "~/.niskava/niskava.db" # Local SQLite database location (Law 4)
-  journal_mode: "WAL"
-
-server:
-  host: "127.0.0.1"
-  port: 20128
-
-preferences:
-  language: "id"                   # "id" (Indonesian) or "en" (English)
-  default_market: "IDX"
-  default_timeframe_days: 30
-```
-
----
-
-## 4. Verification & Diagnostics
-
-### 1. Run System Health Doctor
-Verify that all system components, quantitative libraries, and database permissions are ready:
+Always run the built-in system doctor to verify environment readiness before your first research session:
 
 ```bash
-# Linux / macOS:
-./bin/niskava doctor
-
-# Windows:
-.\bin\niskava.exe doctor
+niskava doctor
 ```
 
-The visual diagnostic HUD checks:
-- Operating system and architecture
-- SQLite database WAL mode status
-- Python quantitative engine (`numpy`, `pandas`, `networkx`)
-- AI provider endpoint reachability & latency
-- Sectors Financial API quota and mock status
-- Engine directory mobility
+<p align="center">
+  <img src="../../docs/assets/niskava-doctor.png" alt="Niskava System and Environment Doctor" width="90%">
+</p>
 
----
+The doctor command verifies the Go runtime, host platform, Python binary, quantitative packages (NumPy, NetworkX), SQLite WAL database integrity, AI provider response latency, Sectors API live connection, and Telegram bot configuration.
 
-### 2. Launch Web Workspace (Dashboard)
-Start the REST/SSE daemon and open the interactive dashboard:
-
-```bash
-# Opens http://localhost:20128 automatically in your default browser:
-./bin/niskava serve
-
-# Run headlessly (without opening browser):
-./bin/niskava serve --open=false
-```
-
----
-
-### 3. Launch Interactive Terminal UI (TUI)
-Launch the interactive terminal research terminal:
-
-```bash
-./bin/niskava
-```
-
----
-
-### 4. Enable Shell Autocompletion (Optional)
-
-Generate tab-completion for subcommands and popular IDX ticker suggestions (`BBCA`, `BBRI`, `ANTM`, etc.):
-
-```bash
-# Bash:
-source <(./bin/niskava completion bash)
-
-# Zsh:
-source <(./bin/niskava completion zsh)
-
-# PowerShell (Windows):
-.\bin\niskava.exe completion powershell | Out-String | Invoke-Expression
-```
+If any check fails, `niskava doctor` provides immediate actionable recommendations. Refer to the [Troubleshooting & FAQ Guide](troubleshooting-and-faq.md) for detailed error resolutions.

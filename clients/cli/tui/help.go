@@ -368,6 +368,6 @@ func (m HelpViewerModel) View() string {
 
 // PrintFullHelpGuide displays the interactive scrollable help guide.
 func PrintFullHelpGuide() {
-	p := tea.NewProgram(HelpViewerModel{}, tea.WithAltScreen())
+	p := tea.NewProgram(HelpViewerModel{}, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	_, _ = p.Run()
 }

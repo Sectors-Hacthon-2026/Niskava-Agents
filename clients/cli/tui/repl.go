@@ -248,7 +248,7 @@ type ReplInputModel struct {
 	Height            int
 }
 
-// RenderToastPill renders a non-blocking styled floating notification toast badge bounded by width.
+// RenderToastPill renders a clean, borderless inline notification text.
 func RenderToastPill(message string, overrideWidth ...int) string {
 	if strings.TrimSpace(message) == "" {
 		return ""
@@ -257,31 +257,14 @@ func RenderToastPill(message string, overrideWidth ...int) string {
 	if len(overrideWidth) > 0 && overrideWidth[0] > 0 {
 		w = overrideWidth[0]
 	}
-	boxW := w - 4
-	if boxW > w-2 {
-		boxW = w - 2
-	}
-	if boxW < 16 {
-		boxW = max(10, w-2)
-	}
-
-	contentW := boxW - 4
-	if contentW < 10 {
-		contentW = 10
-	}
-
+	contentW := max(10, w-6)
 	msgTruncated := Truncate(message, contentW)
 
 	toastStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(ColorBg).
-		Background(ColorAccent).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(ColorAccent).
-		Width(boxW).
-		Padding(0, 1)
+		Foreground(ColorSuccess)
 
-	return toastStyle.Render(msgTruncated)
+	return fmt.Sprintf("  ✔ %s", toastStyle.Render(msgTruncated))
 }
 
 // NewReplInputModel initializes the interactive REPL prompt input.
@@ -340,7 +323,6 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		widthChanged := m.Width > 0 && m.Width != msg.Width
 		m.Width = msg.Width
 		m.Height = msg.Height
 		if msg.Width < 50 {
@@ -355,11 +337,6 @@ func (m ReplInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			inputW = 15
 		}
 		m.TextInput.Width = inputW
-
-		if widthChanged && m.ModelLabel != "" {
-			fmt.Print("\033[H\033[2J")
-			renderBanner(m.ModelLabel, m.ServerURL, m.SessionID, m.DBPath)
-		}
 		return m, nil
 
 	case tea.KeyMsg:
@@ -600,7 +577,12 @@ func (m ReplInputModel) View() string {
 		b.WriteString("\n")
 	}
 
-	// Render OpenCode-style Slash Autocomplete Popup Box when slash active (Compact Max 5 Viewport)
+	// Do not render slash popup lines if model is quitting or value has been submitted
+	if m.Quitting || m.SubmittedValue != "" {
+		return b.String() + "\033[J"
+	}
+
+	// Render OpenCode-style Slash Autocomplete Popup when slash active (Ultra-Polished Border-Free Inline Viewport)
 	if m.SlashActive && len(m.FilteredCommands) > 0 {
 		maxVisible := 5
 		if m.SlashCursor < m.SlashScrollOffset {
@@ -614,67 +596,82 @@ func (m ReplInputModel) View() string {
 			endIdx = len(m.FilteredCommands)
 		}
 
-		popupHeader := lipgloss.NewStyle().
+		// Header Pill & Keybinding Hints
+		badgeText := TF("slash_popup_header", m.SlashCursor+1, len(m.FilteredCommands))
+		headerPill := lipgloss.NewStyle().
 			Bold(true).
 			Foreground(ColorBg).
 			Background(ColorAccent).
 			Padding(0, 1).
-			Render(TF("slash_popup_header", m.SlashCursor+1, len(m.FilteredCommands)))
+			Render(badgeText)
 
-		boxStyle := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(ColorAccent).
-			Width(boxW).
-			Padding(0, 1)
+		if termW >= 60 {
+			headerHint := lipgloss.NewStyle().
+				Foreground(ColorMuted).
+				Italic(true).
+				Render("  [Tab] fill • [↑/↓] select • [Esc] cancel")
+			b.WriteString(fmt.Sprintf("%s%s\n", headerPill, headerHint))
+		} else {
+			b.WriteString(fmt.Sprintf("%s\n", headerPill))
+		}
 
-		var popupLines []string
-		popupLines = append(popupLines, popupHeader)
-
-		descAvail := boxW - 25
-		if descAvail < 10 {
-			descAvail = 10
+		descAvail := boxW - 30
+		if descAvail < 8 {
+			descAvail = 8
 		}
 
 		for i := m.SlashScrollOffset; i < endIdx; i++ {
 			sc := m.FilteredCommands[i]
-			cursor := "  "
-			if i == m.SlashCursor {
-				cursor = "> "
-			}
 
-			cmdStr := fmt.Sprintf("%-12s", sc.Command)
-			catBadge := ""
-			if sc.Category != "" {
-				catBadge = lipgloss.NewStyle().
-					Foreground(ColorMuted).
-					Render(fmt.Sprintf("[%s] ", sc.Category))
-			}
-			descStr := Truncate(sc.Description, descAvail)
+			cmdPadded := fmt.Sprintf("%-13s", sc.Command)
 
 			if i == m.SlashCursor {
-				cmdR := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(cmdStr)
-				descR := lipgloss.NewStyle().Foreground(ColorFg).Render(descStr)
-				popupLines = append(popupLines, fmt.Sprintf("%s%s%s%s", lipgloss.NewStyle().Foreground(ColorAccent).Render(cursor), cmdR, catBadge, descR))
+				// Selected Row with Electric Cyan Pointer and Dark Pill Category Badge
+				pointerR := lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(" ❯ ")
+				cmdR := lipgloss.NewStyle().Bold(true).Foreground(ColorThought).Render(cmdPadded)
+
+				catR := ""
+				if sc.Category != "" {
+					catR = lipgloss.NewStyle().
+						Bold(true).
+						Foreground(ColorAccent).
+						Background(lipgloss.Color("#0B192C")).
+						Padding(0, 1).
+						Render(sc.Category) + " "
+				}
+				descR := lipgloss.NewStyle().Bold(true).Foreground(ColorFg).Render(Truncate(sc.Description, descAvail))
+
+				b.WriteString(fmt.Sprintf("%s%s%s%s\n", pointerR, cmdR, catR, descR))
+
 				if sc.FormatHint != "" {
-					hintR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("    " + Truncate(sc.FormatHint, boxW-8))
-					popupLines = append(popupLines, hintR)
+					cleanHint := strings.TrimPrefix(sc.FormatHint, "└─ ")
+					cleanHint = strings.TrimPrefix(cleanHint, "└─")
+					hintText := Truncate(cleanHint, max(10, boxW-10))
+					hintR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("    └─ " + hintText)
+					b.WriteString(hintR)
+					b.WriteString("\n")
 				}
 			} else {
-				cmdR := lipgloss.NewStyle().Foreground(ColorAccent).Render(cmdStr)
-				descR := lipgloss.NewStyle().Foreground(ColorMuted).Render(descStr)
-				popupLines = append(popupLines, fmt.Sprintf("  %s%s%s", cmdR, catBadge, descR))
+				// Unselected Row
+				pointerR := "   "
+				cmdR := lipgloss.NewStyle().Foreground(ColorAccent).Render(cmdPadded)
+				catR := ""
+				if sc.Category != "" {
+					catR = lipgloss.NewStyle().Foreground(ColorMuted).Render(fmt.Sprintf("[%s] ", sc.Category))
+				}
+				descR := lipgloss.NewStyle().Foreground(ColorMuted).Render(Truncate(sc.Description, descAvail))
+
+				b.WriteString(fmt.Sprintf("%s%s%s%s\n", pointerR, cmdR, catR, descR))
 			}
 		}
 
 		hiddenRemaining := len(m.FilteredCommands) - endIdx
 		if hiddenRemaining > 0 {
 			footerText := TF("slash_popup_more", hiddenRemaining)
-			footerR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(footerText)
-			popupLines = append(popupLines, footerR)
+			footerR := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("  ↓ " + footerText)
+			b.WriteString(footerR)
+			b.WriteString("\n")
 		}
-
-		b.WriteString(boxStyle.Render(strings.Join(popupLines, "\n")))
-		b.WriteString("\n")
 	}
 
 	return b.String() + "\033[J"
@@ -692,7 +689,7 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 			inv, errInv := appDB.GetInvestigation(sessionID)
 			if errInv == nil && inv != nil {
 				fmt.Println()
-				divider := lipgloss.NewStyle().Foreground(ColorMuted).Render(fmt.Sprintf("━━━ Investigation Audit Trail (%s) ━━━", sessionID))
+				divider := lipgloss.NewStyle().Foreground(ColorMuted).Render(TF("repl_investigation_trail_divider", sessionID))
 				fmt.Println(divider)
 				if inv.SummaryText != nil && *inv.SummaryText != "" {
 					fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(T("repl_agent_label")))
@@ -721,12 +718,13 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 			}
 		}
 		if strings.TrimSpace(sessionID) != "" {
-			emptyNotice := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(fmt.Sprintf("  ℹ️  [Session %s: No prior messages recorded]", sessionID))
+			emptyNotice := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render(TF("repl_session_no_messages", sessionID))
 			fmt.Println("\n" + emptyNotice + "\n")
 		}
 		return
 	}
 
+	termW := GetTermWidth()
 	fmt.Println()
 	divider := lipgloss.NewStyle().Foreground(ColorMuted).Render(TF("repl_resumed_history_divider", len(history)))
 	fmt.Println(divider)
@@ -735,7 +733,10 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 		role := strings.ToLower(strings.TrimSpace(msg.Role))
 		switch role {
 		case "user", "human":
-			userBox := userBubbleStyle.Render(TF("repl_user_label", msg.Content))
+			boxW := max(24, termW-4)
+			userBoxStyle := userBubbleStyle.Width(boxW)
+			wrappedUserMsg := wrapText(TF("repl_user_label", msg.Content), max(16, boxW-4))
+			userBox := userBoxStyle.Render(wrappedUserMsg)
 			fmt.Println(userBox)
 		case "assistant", "model":
 			fmt.Println("\n" + lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(T("repl_agent_label")))
@@ -748,7 +749,7 @@ func renderResumedHistory(appDB *db.DB, sessionID string) {
 		}
 	}
 
-	fmt.Println(lipgloss.NewStyle().Foreground(ColorMuted).Render("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━") + "\n")
+	fmt.Println(Sep(2, termW) + "\n")
 }
 
 // RunLiveREPL starts an interactive, conversational research assistant session.
@@ -764,23 +765,11 @@ func RunLiveREPL(cfg *config.Config, appDB *db.DB, serverURL string, initialSess
 
 // RunLiveREPLWithInitialPrompt starts an interactive REPL pre-seeded with an initial prompt.
 func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL string, initialSessionID string, initialPrompt string) string {
-	// Determine active model and provider display
 	providerLabel := "openai"
-	if cfg != nil && cfg.Auth.AIProvider != "" {
-		providerLabel = cfg.Auth.AIProvider
-	}
-	modelLabel := ""
+	modelLabel := "niskava"
 	if cfg != nil {
-		if strings.EqualFold(providerLabel, "gemini") && cfg.Auth.GeminiModel != "" {
-			modelLabel = cfg.Auth.GeminiModel
-		} else if cfg.Auth.OpenAIModel != "" {
-			modelLabel = cfg.Auth.OpenAIModel
-		} else if cfg.Auth.GeminiModel != "" {
-			modelLabel = cfg.Auth.GeminiModel
-		}
-	}
-	if modelLabel == "" {
-		modelLabel = "hermes"
+		providerLabel = cfg.GetActiveProvider()
+		modelLabel = cfg.GetActiveModel()
 	}
 
 	sessionID := fmt.Sprintf("CHAT-%s-%04d", time.Now().Format("20060102"), time.Now().Unix()%10000)
@@ -806,7 +795,14 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 		}
 	}
 
-	promptPrefix := fmt.Sprintf("niskava [%s:%s] >", providerLabel, modelLabel)
+	var promptPrefix string
+	if modelLabel == "niskava" || modelLabel == "" {
+		promptPrefix = "niskava >"
+	} else if strings.EqualFold(providerLabel, "gemini") || strings.Contains(strings.ToLower(modelLabel), strings.ToLower(providerLabel)) {
+		promptPrefix = fmt.Sprintf("niskava [%s] >", modelLabel)
+	} else {
+		promptPrefix = fmt.Sprintf("niskava [%s:%s] >", providerLabel, modelLabel)
+	}
 
 	if strings.TrimSpace(initialPrompt) != "" {
 		promptHistory = append(promptHistory, initialPrompt)
@@ -851,7 +847,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 		}
 
 		if lower == "/help" {
-			printHelp()
+			PrintFullHelpGuide()
 			continue
 		}
 
@@ -862,9 +858,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 		}
 
 		if lower == "/config" || lower == "/settings" {
-			fmt.Println()
-			fmt.Println(RenderConfigurationDashboard(cfg))
-			fmt.Println()
+			ShowConfigurationScreen(cfg)
 			continue
 		}
 
@@ -915,13 +909,8 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			continue
 		}
 
-		if lower == "/health" {
-			printHealth(cfg)
-			continue
-		}
-
-		if lower == "/doctor" {
-			printHealth(cfg)
+		if lower == "/health" || lower == "/doctor" {
+			ShowHealthDiagnosticsScreen(cfg, serverURL)
 			continue
 		}
 
@@ -1117,21 +1106,99 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 			continue
 		}
 
-		if lower == "/anomalies" {
+		if strings.HasPrefix(lower, "/anomalies") {
 			if appDB == nil {
 				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(T("repl_db_unavailable")))
 				continue
 			}
-			anomalies, errA := appDB.GetAnomaliesByInvestigation(sessionID)
-			if errA != nil || len(anomalies) == 0 {
-				fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_anomalies_empty")))
+
+			// 1. Extract explicit ticker arguments (e.g. /anomalies ANTM or /anomalies BBRI ANTM)
+			explicitTickers := extractValidTickers(input)
+
+			var targetTickers []string
+			if len(explicitTickers) > 0 {
+				targetTickers = explicitTickers
+			} else {
+				// 2. Fallback to session investigation ticker
+				if inv, _ := appDB.GetInvestigation(sessionID); inv != nil && inv.Ticker != "" {
+					targetTickers = append(targetTickers, inv.Ticker)
+				}
+				// 3. Fallback to tickers mentioned in session chat history
+				if history, errH := appDB.GetChatHistory(sessionID, 30); errH == nil && len(history) > 0 {
+					for _, msg := range history {
+						r := strings.ToLower(strings.TrimSpace(msg.Role))
+						if r == "user" || r == "human" {
+							for _, t := range extractValidTickers(msg.Content) {
+								if !containsString(targetTickers, t) {
+									targetTickers = append(targetTickers, t)
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// 4. Fetch anomalies for all resolved target tickers from DB
+			var anomalies []db.Anomaly
+			if len(targetTickers) > 0 {
+				for _, t := range targetTickers {
+					if tAnoms, errF := appDB.GetAnomaliesByTicker(t); errF == nil && len(tAnoms) > 0 {
+						for _, a := range tAnoms {
+							anomalies = append(anomalies, a)
+						}
+					}
+				}
+			}
+
+			// Fallback: If still no anomalies found via tickers, try GetAnomaliesByInvestigation
+			if len(anomalies) == 0 {
+				if invAnoms, _ := appDB.GetAnomaliesByInvestigation(sessionID); len(invAnoms) > 0 {
+					anomalies = invAnoms
+				}
+			}
+
+			// 5. If STILL no anomalies exist in DB for specified ticker(s), dynamically trigger anomaly audit on-the-fly!
+			if len(anomalies) == 0 && len(targetTickers) > 0 {
+				tickerStr := strings.Join(targetTickers, " dan ")
+				noticeMsg := fmt.Sprintf("⚡ Belum ada data anomali tersimpan di database untuk %s. Menjalankan pemindaian anomali Sectors API v2 secara otomatis...", tickerStr)
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(noticeMsg))
+
+				// Execute targeted turn to run quant anomaly detection and save to DB
+				prompt := fmt.Sprintf("analisa kuantitatif dan pemindaian anomali pasar untuk %s hari ini", tickerStr)
+				executeChatTurn(prompt, sessionID, serverURL, cfg, appDB)
+
+				// Re-query anomalies from DB after turn completes
+				for _, t := range targetTickers {
+					if tAnoms, errF := appDB.GetAnomaliesByTicker(t); errF == nil && len(tAnoms) > 0 {
+						for _, a := range tAnoms {
+							anomalies = append(anomalies, a)
+						}
+					}
+				}
+				if len(anomalies) == 0 {
+					if invAnoms, _ := appDB.GetAnomaliesByInvestigation(sessionID); len(invAnoms) > 0 {
+						anomalies = invAnoms
+					}
+				}
+			}
+
+			if len(anomalies) == 0 {
+				if len(targetTickers) == 0 {
+					fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_anomalies_usage_hint")))
+				} else {
+					fmt.Println(lipgloss.NewStyle().Foreground(ColorWarning).Render(T("slash_anomalies_empty")))
+				}
 				continue
 			}
+
 			var events []ipc.Event
-			ticker := "IDX"
 			for _, a := range anomalies {
+				t := a.Ticker
+				if t == "" && len(targetTickers) > 0 {
+					t = targetTickers[0]
+				}
 				events = append(events, ipc.Event{
-					Ticker:        ticker,
+					Ticker:        t,
 					AnomalyDate:   a.AnomalyDate,
 					MetricType:    a.MetricType,
 					MetricValue:   a.MetricValue,
@@ -1140,7 +1207,8 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 					Description:   a.Description,
 				})
 			}
-			fmt.Println(RenderASCIIAnomalyChart(ticker, events, 30))
+			displayTicker := strings.Join(targetTickers, ", ")
+			ShowAnomalyViewerScreen(displayTicker, events, 30)
 			continue
 		}
 
@@ -1251,7 +1319,33 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 		}
 
 		if lower == "/sessions" {
-			printSessions(appDB)
+			if appDB == nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(T("repl_db_unavailable")))
+				continue
+			}
+			invList, errList := appDB.ListInvestigations(30)
+			if errList != nil {
+				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("repl_chats_fetch_err", errList)))
+				continue
+			}
+			selector := NewInvestigationSelectorModelWithDB(invList, appDB)
+			pSel := tea.NewProgram(selector, tea.WithAltScreen())
+			mSel, errRun := pSel.Run()
+			if errRun == nil {
+				res := mSel.(InvestigationSelectorModel)
+				if !res.Canceled && res.SelectedSession != nil {
+					prevSessionID := sessionID
+					sessionID = res.SelectedSession.ID
+					fmt.Print("\033[H\033[2J")
+					renderBanner(modelLabel, serverURL, sessionID, cfg.Storage.DBPath)
+					title := res.SelectedSession.Ticker
+					if title == "" {
+						title = res.SelectedSession.ID
+					}
+					fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(ColorSuccess).Render(TF("repl_chats_saved_notice", prevSessionID, sessionID, title)))
+					renderResumedHistory(appDB, sessionID)
+				}
+			}
 			continue
 		}
 
@@ -1265,7 +1359,7 @@ func RunLiveREPLWithInitialPrompt(cfg *config.Config, appDB *db.DB, serverURL st
 				fmt.Println(lipgloss.NewStyle().Foreground(ColorDanger).Render(TF("repl_chats_fetch_err", errList)))
 				continue
 			}
-			selector := NewSessionSelectorModel(chatList)
+			selector := NewSessionSelectorModelWithDB(chatList, appDB)
 			pSel := tea.NewProgram(selector, tea.WithAltScreen())
 			mSel, errRun := pSel.Run()
 			if errRun == nil {
@@ -1385,13 +1479,9 @@ func startLiveSpinner(ctx context.Context, getStatus func() string) func() {
 
 func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, appDB *db.DB) {
 	usingDaemon := IsDaemonAlive(serverURL)
-	modelLabel := "hermes"
+	modelLabel := "niskava"
 	if cfg != nil {
-		if cfg.Auth.OpenAIModel != "" {
-			modelLabel = cfg.Auth.OpenAIModel
-		} else if cfg.Auth.GeminiModel != "" {
-			modelLabel = cfg.Auth.GeminiModel
-		}
+		modelLabel = cfg.GetActiveModel()
 	}
 
 	// Record User Message and ensure ChatSession metadata exists in SQLite if running standalone subprocess mode
@@ -1485,7 +1575,7 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 			DBPath:       cfg.Storage.DBPath,
 			Prompt:       prompt,
 			SessionID:    sessionID,
-			Offline:      cfg.Preferences.OfflineMode,
+			Offline:      cfg.Preferences.OfflineMode && config.IsTestingMode(),
 			Language:     cfg.Preferences.Language,
 			EnvOverrides: cfg.BuildSubprocessEnv(),
 		}
@@ -1608,13 +1698,45 @@ func executeChatTurn(prompt, sessionID, serverURL string, cfg *config.Config, ap
 					ev.MetricType, ev.Ticker, ev.ZScore, ev.MetricValue, ev.BaselineValue,
 				)
 				w := GetTermWidth()
-				anomalyBoxStyle := replAnomalyBoxStyle.Width(max(16, w-4))
-				fmt.Println(anomalyBoxStyle.Render(wrapText(anomalyText, max(12, w-6))))
+				boxW := max(24, w-4)
+				innerW := max(16, boxW-4)
+				anomalyBoxStyle := replAnomalyBoxStyle.Width(boxW)
+				fmt.Println(anomalyBoxStyle.Render(wrapText(anomalyText, innerW)))
+
+				if appDB != nil {
+					_ = appDB.EnsureInvestigationSession(sessionID, ev.Ticker)
+					anomID := fmt.Sprintf("ANOM-%s-%s-%d", sessionID, ev.AnomalyDate, totalAnomalies)
+					_ = appDB.CreateAnomaly(&db.Anomaly{
+						ID:              anomID,
+						InvestigationID: sessionID,
+						AnomalyDate:     ev.AnomalyDate,
+						MetricType:      ev.MetricType,
+						MetricValue:     ev.MetricValue,
+						BaselineValue:   ev.BaselineValue,
+						ZScore:          ev.ZScore,
+						Description:     ev.Description,
+					})
+				}
 
 			case ipc.EventFindingEmitted:
 				fmt.Print("\r\033[K")
+				totalFindings++
 				confBar := RenderConfidenceBar(ev.VerificationStat, ev.ConfidenceScore)
 				fmt.Printf("\n%s %s\n   %s\n", confBar, lipgloss.NewStyle().Bold(true).Render(ev.Title), ev.ClaimText)
+
+				if appDB != nil {
+					_ = appDB.EnsureInvestigationSession(sessionID, ev.Ticker)
+					findingID := fmt.Sprintf("FIND-%s-%d", sessionID, totalFindings)
+					_ = appDB.CreateFinding(&db.Finding{
+						ID:                 findingID,
+						InvestigationID:    sessionID,
+						Title:              ev.Title,
+						ClaimText:          ev.ClaimText,
+						VerificationStatus: ev.VerificationStat,
+						ConfidenceScore:    ev.ConfidenceScore,
+						CausalityStatus:    ev.CausalityStatus,
+					})
+				}
 
 			case ipc.EventAgentMessageChunk:
 				assistantResponse.WriteString(ev.Chunk)
@@ -1686,6 +1808,9 @@ func renderCompletionBadge(duration time.Duration, sessionID, model string, anom
 	detail := TF("badge_completed_detail", duration.Seconds(), model, sessionID)
 	if anomalies > 0 || findings > 0 {
 		detail += TF("badge_completed_counts", anomalies, findings)
+	}
+	if len(overrideWidth) > 0 && overrideWidth[0] > 0 && w > 20 && lipgloss.Width(detail)+16 > w {
+		detail = Truncate(detail, w-16)
 	}
 	return fmt.Sprintf("\n%s\n%s %s\n%s\n", sep, badge, detail, sep)
 }
@@ -1845,4 +1970,45 @@ func getTerminalWidth() int {
 		return w
 	}
 	return 80
+}
+
+func extractValidTickers(text string) []string {
+	stopWords := map[string]bool{
+		"BISA": true, "DATA": true, "DANA": true, "DARI": true, "HALO": true, "SAYA": true,
+		"AKAN": true, "PADA": true, "SAMA": true, "SERTA": true, "BAGI": true, "KITA": true,
+		"KAMI": true, "MEREKA": true, "JIKA": true, "KATA": true, "LALU": true, "OLEH": true,
+		"YANG": true, "MAU": true, "HELP": true, "INFO": true, "CARI": true, "CEK": true,
+		"LIHAT": true, "SHOW": true, "VIEW": true, "PAGE": true, "CHAT": true, "POST": true,
+		"USER": true, "ROLE": true, "TEXT": true, "NOTE": true, "LIST": true, "SCAN": true,
+		"NULL": true, "TRUE": true, "FALSE": true, "READ": true, "AUTO": true, "FREE": true,
+	}
+	words := strings.Fields(strings.ToUpper(text))
+	var candidates []string
+	for _, w := range words {
+		cleaned := strings.Trim(w, ".,!?:;\"'()[]{}#*`")
+		if len(cleaned) == 4 && isUpperAlpha(cleaned) && !stopWords[cleaned] {
+			if !containsString(candidates, cleaned) {
+				candidates = append(candidates, cleaned)
+			}
+		}
+	}
+	return candidates
+}
+
+func isUpperAlpha(s string) bool {
+	for _, r := range s {
+		if r < 'A' || r > 'Z' {
+			return false
+		}
+	}
+	return true
+}
+
+func containsString(slice []string, val string) bool {
+	for _, item := range slice {
+		if item == val {
+			return true
+		}
+	}
+	return false
 }

@@ -20,7 +20,6 @@ import (
 
 var (
 	daysFlag         int
-	offlineFlag      bool
 	interactiveFlag  bool
 	pyBinFlag        string
 	enginePath       string
@@ -71,7 +70,8 @@ and compiles evidence classified into SUPPORTED, UNCERTAIN, or CONTRADICTED find
 		}
 		pythonBin = ipc.ResolvePythonBin(pythonBin)
 
-		isOffline := offlineFlag || cfg.Preferences.OfflineMode
+		// Offline mode is restricted to testing environments only.
+		isOffline := cfg.Preferences.OfflineMode && config.IsTestingMode()
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -214,7 +214,6 @@ func isTerminalInput() bool {
 
 func init() {
 	investigateCmd.Flags().IntVarP(&daysFlag, "days", "d", 30, "observation window in days (30, 60, or 90)")
-	investigateCmd.Flags().BoolVar(&offlineFlag, "offline", false, "run in offline mock mode without calling remote APIs")
 	investigateCmd.Flags().BoolVarP(&interactiveFlag, "interactive", "i", false, "run in interactive conversational investigation mode")
 	investigateCmd.Flags().StringVar(&pyBinFlag, "python-bin", "", "path to python binary")
 	investigateCmd.Flags().StringVar(&enginePath, "engine-path", "", "path to python engine directory")
@@ -273,7 +272,7 @@ func exportInvestigationAsPDF(ticker, sessionID string, database *db.DB, appCfg 
 	chatLang := "id"
 	var envOverrides map[string]string
 	if appCfg != nil {
-		isOffline = appCfg.Preferences.OfflineMode
+		isOffline = appCfg.Preferences.OfflineMode && config.IsTestingMode()
 		chatLang = appCfg.Preferences.Language
 		envOverrides = appCfg.BuildSubprocessEnv()
 	}

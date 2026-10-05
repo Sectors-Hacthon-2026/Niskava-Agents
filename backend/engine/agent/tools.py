@@ -82,8 +82,19 @@ class NiskavaToolRegistry:
         }
         if hasattr(self, "emitter") and callable(self.emitter):
             context["emitter"] = self.emitter
-        res = self.skills_registry.execute_skill(skill_id, arguments, context)
-        return res.to_dict()
+        try:
+            res = self.skills_registry.execute_skill(skill_id, arguments, context)
+            return res.to_dict()
+        except Exception as e:
+            ticker = arguments.get("ticker", "")
+            return {
+                "skill_id": skill_id,
+                "verification_status": "UNCERTAIN",
+                "confidence_score": 0.65,
+                "metrics": {"error": str(e), "ticker": ticker},
+                "evidence": [],
+                "summary": f"Skill '{skill_id}' menghadapi kendala data eksternal ({str(e)}). Melanjutkan investigasi dengan data fundamental dan historis yang tersedia.",
+            }
 
     # ---------------------------------------------------------------------------
     # Gateway Primitive Methods — Progressive Skill Disclosure (ADR-11)
@@ -175,7 +186,19 @@ class NiskavaToolRegistry:
 
             # Domains with a non-ticker primary key
             if domain == "subsector_peers":
-                slug = params.get("subsector", clean_ticker.lower()) if isinstance(params, dict) else clean_ticker.lower()
+                raw_slug = None
+                if isinstance(params, dict):
+                    raw_slug = params.get("subsector") or params.get("sub_sector") or params.get("slug")
+                if not raw_slug and clean_ticker:
+                    try:
+                        rep = self.sectors_client.get_company_report(clean_ticker)
+                        ov = rep.get("overview", {}) if isinstance(rep.get("overview"), dict) else {}
+                        raw_sub = rep.get("sub_sector") or rep.get("subsector") or ov.get("sub_sector") or ov.get("subsector")
+                        if raw_sub:
+                            raw_slug = re.sub(r'[^a-z0-9]+', '-', raw_sub.lower()).strip('-')
+                    except Exception:
+                        pass
+                slug = raw_slug or clean_ticker.lower()
                 return client_method(slug, **kwargs)
             if domain == "mining_detail":
                 slug = params.get("slug", clean_ticker.lower()) if isinstance(params, dict) else clean_ticker.lower()
@@ -219,9 +242,17 @@ class NiskavaToolRegistry:
                 )
                 return [item.model_dump() for item in items]
 
-            report = self.get_company_fundamentals(clean_ticker)
-            company_name = report.get("company_name", clean_ticker) if isinstance(report, dict) else clean_ticker
-            sectors_news = self.sectors_client.get_news(clean_ticker, force_refresh=force_refresh)
+            try:
+                report = self.get_company_fundamentals(clean_ticker)
+                company_name = report.get("company_name", clean_ticker) if isinstance(report, dict) else clean_ticker
+            except Exception:
+                company_name = clean_ticker
+
+            try:
+                sectors_news = self.sectors_client.get_news(clean_ticker, force_refresh=force_refresh)
+            except Exception:
+                sectors_news = []
+
             items = self.news_harvester.harvest(
                 ticker=clean_ticker,
                 company_name=company_name,
@@ -229,7 +260,7 @@ class NiskavaToolRegistry:
                 query=query,
             )
             return [item.model_dump() for item in items]
-        except SectorsAPIError as err:
+        except Exception as err:
             return [{
                 "title": f"Gagal mengambil berita terkini: {str(err)}",
                 "source_name": "Sectors API",
@@ -276,12 +307,26 @@ class NiskavaToolRegistry:
         return_threshold_pct: float = 5.0,
     ) -> List[Dict[str, Any]]:
         """Compute rolling volume Z-scores (MA20) and price return anomalies deterministically via NumPy."""
-        candles = self.get_daily_candles(ticker)
+        clean_ticker = ticker.upper().strip()
+        candles = self.get_daily_candles(clean_ticker)
         anomalies = detect_historical_anomalies(
             daily_candles=candles,
             volume_z_threshold=volume_z_threshold,
             return_threshold_pct=return_threshold_pct,
         )
+        if hasattr(self, "emitter") and callable(self.emitter):
+            for a in anomalies:
+                self.emitter({
+                    "event": "anomaly_detected",
+                    "ticker": clean_ticker,
+                    "anomaly_date": a.date,
+                    "metric_type": a.classification,
+                    "metric_value": a.metric_value,
+                    "baseline_value": a.baseline_value,
+                    "z_score": round(a.z_score, 2),
+                    "price_change_pct": round(a.price_change_pct, 2),
+                    "description": a.description,
+                })
         return [a.to_dict() for a in anomalies]
 
     def get_company_fundamentals(self, ticker: str) -> Dict[str, Any]:
@@ -399,6 +444,113 @@ class NiskavaToolRegistry:
         """Get summary graph topological statistics and top central entities."""
         return self.memory.get_graph_stats()
 
+    def inspect_document(
+        self,
+        doc_path: str,
+        query: Optional[str] = None,
+        page: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Inspect, search, or read specific pages of an uploaded document locally.
+
+        Complies with Law 1 (Deterministic Before Generative) and Law 4 (Local-First).
+
+        Args:
+            doc_path: Local file path of the document to inspect.
+            query: Optional keyword or phrase to search within document text.
+            page: Optional 1-indexed page number to extract.
+
+        Returns:
+            Dict containing document metadata, page content, or search matches.
+        """
+        if not doc_path:
+            return {"error": True, "message": "Missing doc_path parameter."}
+
+        clean_path = os.path.expanduser(str(doc_path).strip())
+        if not os.path.exists(clean_path):
+            # Fallback: check ~/.niskava/uploads/ recursively for matching filename
+            base_filename = os.path.basename(clean_path)
+            uploads_dir = os.path.expanduser("~/.niskava/uploads")
+            matched_path = None
+            if os.path.exists(uploads_dir):
+                for root, _, files in os.walk(uploads_dir):
+                    for f in files:
+                        if f == base_filename or f.endswith("_" + base_filename) or base_filename in f:
+                            matched_path = os.path.join(root, f)
+                            break
+                    if matched_path:
+                        break
+            if matched_path and os.path.exists(matched_path):
+                clean_path = matched_path
+            else:
+                return {"error": True, "message": f"Document not found at path: {clean_path}"}
+
+        from engine.skills.document_audit.parser import (
+            get_document_page,
+            parse_document,
+            search_document,
+        )
+
+        try:
+            parsed = parse_document(clean_path)
+        except Exception as exc:
+            return {
+                "error": True,
+                "message": f"Failed to parse document: {str(exc)}",
+            }
+
+        filename = parsed.get("filename", os.path.basename(clean_path))
+        total_pages = parsed.get("page_count", 0)
+
+        if page is not None:
+            try:
+                page_int = int(page)
+            except (ValueError, TypeError):
+                return {
+                    "error": True,
+                    "message": f"Invalid page number: '{page}'. Page must be an integer.",
+                }
+
+            page_text = get_document_page(parsed, page_int)
+            if page_text is None:
+                return {
+                    "error": True,
+                    "message": f"Page {page_int} out of range (document has {total_pages} pages).",
+                    "filename": filename,
+                    "total_pages": total_pages,
+                }
+
+            return {
+                "filename": filename,
+                "doc_path": clean_path,
+                "page": page_int,
+                "total_pages": total_pages,
+                "content": page_text,
+            }
+
+        if query:
+            matches = search_document(parsed, str(query).strip(), max_matches=5)
+            return {
+                "filename": filename,
+                "doc_path": clean_path,
+                "query": query,
+                "total_matches": len(matches),
+                "matches": matches,
+            }
+
+        # Default overview: metadata and first 2-3 pages preview
+        preview_pages = [
+            {"page": p["page_number"], "preview": p["text"][:500]}
+            for p in parsed.get("pages", [])[:3]
+        ]
+        return {
+            "filename": filename,
+            "doc_path": clean_path,
+            "format": parsed.get("format", ""),
+            "file_size": parsed.get("file_size", 0),
+            "total_pages": total_pages,
+            "preview": preview_pages,
+        }
+
     def get_tool_definitions(self) -> List[Dict[str, Any]]:
         """Return the 4 lean gateway tool definitions for LLM function calling.
 
@@ -420,6 +572,7 @@ class NiskavaToolRegistry:
                     "financial_health_stress_test (stress-test liquidity/solvency ratios and evaluate default rumors), "
                     "mining_commodity_divergence (test mining company correlation against global spot commodity benchmarks), "
                     "peer_valuation_benchmark (benchmark PER/PBV multiples against IDX subsector median), "
+                    "document_audit (audit and inspect uploaded local financial documents, prospectuses, or disclosures), "
                     "investigation_report_pdf (generate institutional PDF audit trail report; ONLY when user asks to export/save/print PDF)."
                 ),
                 "parameters": {
@@ -432,7 +585,7 @@ class NiskavaToolRegistry:
                                 "market_anomaly_recon, event_causality_audit, "
                                 "insider_bandarmology_forensic, financial_health_stress_test, "
                                 "mining_commodity_divergence, peer_valuation_benchmark, "
-                                "investigation_report_pdf."
+                                "document_audit, investigation_report_pdf."
                             ),
                         },
                         "arguments": {
@@ -544,6 +697,36 @@ class NiskavaToolRegistry:
             },
         ]
 
+    def get_all_tool_definitions(self) -> List[Dict[str, Any]]:
+        """Return full list of tool definitions including gateways and inspect_document."""
+        defs = list(self.get_tool_definitions())
+        defs.append({
+            "name": "inspect_document",
+            "description": (
+                "Inspect, search, or read specific pages of an uploaded document "
+                "(PDF, TXT, CSV, financial reports) locally without context bloat."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "doc_path": {
+                        "type": "string",
+                        "description": "Local file path of the document to inspect.",
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "Optional keyword or phrase to search within the document.",
+                    },
+                    "page": {
+                        "type": "integer",
+                        "description": "Optional 1-indexed page number to read directly.",
+                    },
+                },
+                "required": ["doc_path"],
+            },
+        })
+        return defs
+
     def execute_tool(self, tool_name: str, arguments: Any) -> Any:
         """Dynamically dispatch and execute a registered tool (supporting direct & MCP names)."""
         if arguments is None:
@@ -574,9 +757,12 @@ class NiskavaToolRegistry:
 
         # Check for Layer 3 Domain Skill execution
         if tool_name == "execute_skill":
+            sub_args = arguments.get("arguments", {})
+            if not isinstance(sub_args, dict) or not sub_args:
+                sub_args = {k: v for k, v in arguments.items() if k != "skill_id"}
             return self.execute_skill(
                 skill_id=arguments.get("skill_id", ""),
-                arguments=arguments.get("arguments", {}),
+                arguments=sub_args,
             )
         if tool_name.startswith("skill_"):
             skill_id = tool_name[6:].replace("_", "-")
@@ -692,6 +878,11 @@ class NiskavaToolRegistry:
             "query_memory": lambda args: self.query_memory(
                 concept_or_ticker=args.get("concept_or_ticker", args.get("ticker", "")),
                 radius=int(args.get("radius", 2)),
+            ),
+            "inspect_document": lambda args: self.inspect_document(
+                doc_path=args.get("doc_path") or args.get("file_path", ""),
+                query=args.get("query"),
+                page=args.get("page"),
             ),
         }
 

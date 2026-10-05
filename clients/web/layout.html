@@ -35,10 +35,10 @@
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                     <span data-i18n="nav_chat">Percakapan AI</span>
                 </a>
-                <a href="#" class="nav-link-item" data-nav="investigations" data-tooltip="Investigasi Formal" data-i18n-tooltip="nav_investigations">
+                <a href="#" class="nav-link-item" data-nav="investigations" data-tooltip="Audit & Anomali" data-i18n-tooltip="nav_radar_audit">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                    <span data-i18n="nav_investigations">Investigasi Formal</span>
-                    <span class="panel-card-badge" style="font-size:9px; padding:1px 5px; background:rgba(252,213,53,0.18); color:var(--text-primary); margin-left:auto;">7-Tahap</span>
+                    <span data-i18n="nav_radar_audit">Audit & Anomali</span>
+                    <span class="panel-card-badge" style="font-size:9px; padding:1px 5px; background:var(--primary-light); color:var(--text-primary); margin-left:auto;">Live</span>
                 </a>
                 <a href="#" class="nav-link-item" data-nav="graphify" data-tooltip="Memory Graph" data-i18n-tooltip="nav_graphify">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
@@ -59,10 +59,10 @@
 
             <!-- User Profile Row -->
             <div class="sidebar-profile" id="sidebarProfile" data-tooltip="Profil & Pengaturan" data-i18n-tooltip="profile_settings_tooltip">
-                <div class="profile-avatar" id="sidebarProfileAvatar">AN</div>
+                <div class="profile-avatar" id="sidebarProfileAvatar">US</div>
                 <div class="profile-info">
-                    <span class="profile-name" id="sidebarProfileName">Analyst</span>
-                    <span class="profile-badge">v0.1.4</span>
+                    <span class="profile-name" id="sidebarProfileName" data-i18n="profile_default_user">User</span>
+                    <span class="profile-badge">v0.2.0</span>
                 </div>
                 <button class="profile-settings-btn" id="btnSettings" aria-label="Pengaturan Sistem" data-i18n-tooltip="profile_settings_tooltip" title="Pengaturan Sistem">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -241,8 +241,8 @@
                         <div class="graph-header-title-col">
                             <div class="graph-header-title">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-                                <span data-i18n="graph_page_title">Memory Graph — Jaringan Asosiasi Pasar Modal</span>
-                                <span class="panel-card-badge" style="background:rgba(252,213,53,0.18); color:var(--text-primary);">Law 6 Local Ego-Network</span>
+                                <span data-i18n="graph_page_title">Memory Graph - Jaringan Asosiasi Pasar Modal</span>
+                                <span class="panel-card-badge" style="background:var(--primary-light); color:var(--text-primary);">Law 6 Local Ego-Network</span>
                             </div>
                             <span class="graph-header-desc" data-i18n="graph_page_desc">Visualisasi interaktif graf asosiasi multi-entitas pasar modal Indonesia (Emiten, Katalis Komoditas, Broker, Regulasi, dan Anomali Volume).</span>
                         </div>
@@ -273,18 +273,19 @@
                     </div>
                 </section>
 
-                <!-- FORMAL 7-STAGE INVESTIGATION SURFACE (Roadmap Gap 2 & Wireframe 4.1) -->
+                <!-- MARKET RADAR & FORENSIC DOSSIER (Track 1: Proactive Law 1 - Law 6) -->
                 <section class="investigations-page-view" id="investigationsPageView" style="display:none;">
-                    <div class="graph-header-box">
-                        <div class="graph-header-title-col">
-                            <div class="graph-header-title">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                                <span data-i18n="inv_formal_title">Investigasi Formal Otonom (7-Tahap)</span>
-                                <span class="panel-card-badge" style="background:rgba(252,213,53,0.18); color:var(--text-primary);">Pipeline Law 1 — Law 6</span>
+                    <!-- 1. Header -->
+                    <div class="radar-header">
+                        <div class="radar-header-info">
+                            <div class="radar-header-title">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                <span data-i18n="radar_title">Pemindai Anomali & Audit Saham</span>
+                                <span class="radar-header-badge" data-i18n="radar_badge">Bursa Efek Indonesia</span>
                             </div>
-                            <span class="graph-header-desc" data-i18n="inv_formal_desc">Audit komprehensif anomali pasar modal Indonesia terverifikasi bukti matematis (Z-Score ≥ 2.50σ) dan taksonomi 3-tier.</span>
+                            <span class="radar-header-desc" data-i18n="radar_desc">Pemindaian otomatis lonjakan volume perdagangan (Vz ≥ 2.50σ), foreign flow, dan cross-check keterbukaan informasi IDXnet.</span>
                         </div>
-                        <div class="graph-header-actions">
+                        <div class="radar-header-actions">
                             <button class="btn-test-conn" id="btnInvBackToChat" title="Buka Percakapan AI">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                                 <span data-i18n="btn_inv_back_to_chat">Percakapan AI</span>
@@ -292,83 +293,85 @@
                         </div>
                     </div>
 
-                    <div class="inv-split-container">
-                        <!-- Left Pane: Trigger Form + History List -->
-                        <div class="inv-left-pane">
-                            <!-- Form Audit Baru -->
-                            <div class="inv-card">
-                                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-                                    <strong style="font-size:13px; color:var(--text-primary);" data-i18n="inv_initiate_title">Inisiasi Audit Otonom</strong>
-                                    <span class="panel-card-badge">7-Tahap</span>
-                                </div>
-                                <div style="display:flex; flex-direction:column; gap:10px;">
-                                    <div>
-                                        <label style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:4px;" data-i18n="inv_ticker_label">Ticker Emiten BEI (IDX)</label>
-                                        <input type="text" class="form-input" id="inputInvTicker" placeholder="cth: ANTM, BBCA, BUMI..." data-i18n-placeholder="inv_ticker_placeholder" maxlength="5" style="text-transform:uppercase; font-weight:700; width:100%;">
-                                    </div>
-                                    <div>
-                                        <label style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:4px;" data-i18n="inv_horizon_label">Rentang Observasi (Horizon)</label>
-                                        <select class="form-input" id="selectInvDays" style="width:100%;">
-                                            <option value="30" data-i18n="inv_horizon_30">30 Hari Perdagangan</option>
-                                            <option value="60" data-i18n="inv_horizon_60">60 Hari Perdagangan</option>
-                                            <option value="90" data-i18n="inv_horizon_90">90 Hari Perdagangan</option>
-                                        </select>
-                                    </div>
-                                    <div style="display:flex; align-items:center; gap:8px; margin-top:2px;">
-                                        <input type="checkbox" id="checkInvOffline" style="cursor:pointer;">
-                                        <label for="checkInvOffline" style="font-size:11.5px; color:var(--text-secondary); cursor:pointer;" data-i18n="inv_mock_label">Mode Uji Coba Offline (Data Mock)</label>
-                                    </div>
-                                    <button class="btn-primary-action" id="btnRunFormalInvestigation" style="width:100%; margin-top:4px;">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                                        <span data-i18n="btn_run_investigation">Mulai Audit Otonom</span>
-                                    </button>
-                                </div>
+                    <!-- 2. Screener Section: Sinyal Anomali Terdeteksi (Top Z-Score) -->
+                    <div class="radar-section" id="radarSection">
+                        <div class="radar-strip-header">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                                <span style="font-size:13px; font-weight:700; color:var(--text-primary);" data-i18n="radar_top_anomalies">Sinyal Anomali Terdeteksi (Top Z-Score)</span>
+                                <span class="panel-card-badge" style="background:rgba(34,197,94,0.12); color:#22C55E; border:1px solid rgba(34,197,94,0.25);">Live Screening</span>
                             </div>
-
-                            <!-- History List -->
-                            <div class="inv-card" style="flex:1; display:flex; flex-direction:column;">
-                                <div style="display:flex; align-items:center; justify-content:space-between;">
-                                    <strong style="font-size:13px; color:var(--text-primary);" data-i18n="inv_history_title">Riwayat Investigasi</strong>
-                                    <span class="panel-card-badge" id="invTotalCount">0 Sesi</span>
-                                </div>
-                                <div class="inv-history-list" id="invHistoryList">
-                                    <div style="font-size:11.5px; color:var(--text-muted); text-align:center; padding:20px 0;" data-i18n="inv_loading_history">Memuat riwayat investigasi...</div>
-                                </div>
+                            <button class="btn-test-conn" id="btnRadarRefresh" title="Perbarui Data" style="padding:4px 10px; font-size:11px;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                <span data-i18n="btn_refresh_data">Perbarui Data</span>
+                            </button>
+                        </div>
+                        <div class="radar-strip" id="radarAnomaliesList">
+                            <div class="radar-empty-state">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                <span data-i18n="radar_empty">Belum ada anomali terdeteksi melebihi ambang batas 2.0σ. Masukkan kode emiten di bawah untuk memeriksa.</span>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Right Pane: Interactive Dossier Viewer -->
+                    <!-- 3. Target Bar: Pemeriksaan Saham -->
+                    <div class="radar-quick-bar">
+                        <div class="radar-quick-title">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <span data-i18n="radar_search_title">Pemeriksaan Saham</span>
+                        </div>
+                        <div class="radar-quick-fields">
+                            <input type="text" class="form-input" id="inputInvTicker" placeholder="Ketik kode emiten BEI (cth: ANTM, BBCA, BUMI)..." data-i18n-placeholder="radar_search_placeholder" maxlength="5" style="text-transform:uppercase; font-weight:700; font-family:var(--font-mono);">
+                            <select class="form-input" id="selectInvDays">
+                                <option value="30" data-i18n="inv_horizon_30">30 Hari Perdagangan</option>
+                                <option value="60" data-i18n="inv_horizon_60">60 Hari Perdagangan</option>
+                                <option value="90" data-i18n="inv_horizon_90">90 Hari Perdagangan</option>
+                            </select>
+                            <button class="btn-primary-action" id="btnRunFormalInvestigation">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                <span data-i18n="btn_run_investigation">Mulai Audit</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 4. Full-Width Audit Workspace Container -->
+                    <div class="inv-split-container">
+                        <!-- Interactive Audit Report Viewer (100% Width) -->
                         <div class="inv-right-pane">
                             <div class="inv-card" id="invDossierCard" style="flex:1; display:flex; flex-direction:column; overflow-y:auto;">
-                                <div id="invDossierEmpty" style="display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; padding:40px 20px; text-align:center; color:var(--text-muted);">
-                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:12px; opacity:0.6;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-                                    <strong style="font-size:14px; color:var(--text-primary); margin-bottom:4px;" data-i18n="inv_empty_title">Dossier Investigasi Belum Dipilih</strong>
-                                    <p style="font-size:12px; max-width:380px; margin:0;" data-i18n="inv_empty_desc">Pilih salah satu sesi dari daftar di sebelah kiri atau jalankan audit baru untuk menelaah anomali statistik, candlestick, bukti 3-tier, dan kronologi kejadian.</p>
+                                <div id="invDossierEmpty" style="display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; padding:48px 24px; text-align:center; color:var(--text-muted);">
+                                    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:14px; opacity:0.6;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                                    <strong style="font-size:15px; color:var(--text-primary); margin-bottom:6px;" data-i18n="inv_empty_title">Pemeriksaan Saham Belum Dipilih</strong>
+                                    <p style="font-size:12.5px; max-width:520px; margin:0; line-height:1.5;" data-i18n="inv_empty_desc">Pilih salah satu saham dari daftar anomali di atas atau ketik kode emiten untuk melihat indikator kuantitatif, grafik candlestick, dan matriks bukti keterbukaan informasi.</p>
                                 </div>
 
-                                <div id="invDossierContent" style="display:none; flex-direction:column; gap:16px;">
-                                    <!-- Header Dossier -->
-                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--border-subtle); padding-bottom:12px;">
+                                <div id="invDossierContent" style="display:none; flex-direction:column; gap:18px;">
+                                    <!-- Header Hasil Audit -->
+                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--border-subtle); padding-bottom:14px; flex-wrap:wrap; gap:12px;">
                                         <div>
                                             <div style="display:flex; align-items:center; gap:8px;">
-                                                <h2 id="invDossierTitle" style="font-size:18px; font-weight:800; color:var(--text-primary); margin:0;">DOSSIER: ANTM</h2>
+                                                <h2 id="invDossierTitle" style="font-size:18px; font-weight:800; color:var(--text-primary); margin:0; font-family:var(--font-mono);">HASIL AUDIT: ANTM</h2>
                                                 <span class="inv-status-pill inv-status-completed" id="invDossierStatus">COMPLETED</span>
                                             </div>
-                                            <div style="font-size:11.5px; color:var(--text-muted); margin-top:4px;" id="invDossierMeta">Horizon: 30 Hari | Sesi: INV-2026-ANTM</div>
+                                            <div style="font-size:11.5px; color:var(--text-muted); margin-top:4px;" id="invDossierMeta">Horizon: 30 Hari Perdagangan | Sumber: Sectors Financial API v2 & IDXnet</div>
                                         </div>
-                                        <div style="display:flex; gap:8px;">
-                                            <button class="btn-test-conn" id="btnInvOpenChat" title="Buka Sesi Ini di Percakapan AI">
+                                        <div style="display:flex; gap:8px; align-items:center;">
+                                            <button class="btn-test-conn" id="btnInvOpenChat" title="Buka di Percakapan AI">
                                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                                                <span data-i18n="btn_inv_open_chat">Buka di Chat</span>
+                                                <span data-i18n="btn_inv_open_chat">Buka di Percakapan AI</span>
+                                            </button>
+                                            <button class="btn-test-conn" id="btnInvExportMd" title="Ekspor Laporan Markdown">
+                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                                <span data-i18n="btn_inv_export_md">Ekspor Laporan Markdown</span>
                                             </button>
                                         </div>
                                     </div>
 
-                                    <!-- Law 1: Kuantitatif Anomali -->
+                                    <!-- Indikator Kuantitatif Volume & Return -->
                                     <div>
                                         <div style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
                                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-                                            <span data-i18n="inv_anomaly_title">Ringkasan Anomali Deterministik (Law 1)</span>
+                                            <span data-i18n="inv_anomaly_title">Indikator Kuantitatif Volume & Return</span>
                                         </div>
                                         <div class="graph-stats-row" id="invAnomalyStatsRow">
                                             <div class="graph-stat-card">
@@ -392,37 +395,34 @@
 
                                     <!-- Chart: TradingView Candlestick -->
                                     <div>
-                                        <div style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:4px; display:flex; align-items:center; justify-content:space-between;">
+                                        <div style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:6px; display:flex; align-items:center; justify-content:space-between;">
                                             <div style="display:flex; align-items:center; gap:6px;">
                                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
                                                 <span data-i18n="inv_chart_title">Visualisasi Candlestick & Volume Spike (TradingView)</span>
                                             </div>
-                                            <span style="font-size:11px; color:var(--text-muted);" id="invChartStatus" data-i18n="inv_chart_status">Data Pasar Harian</span>
+                                            <div style="display:flex; align-items:center; gap:8px;">
+                                                <span class="source-badge source-badge-pending" id="invChartSourceBadge" title="Sumber data candlestick">-</span>
+                                                <span style="font-size:11px; color:var(--text-muted);" id="invChartStatus" data-i18n="inv_chart_status">Data Pasar Harian</span>
+                                            </div>
                                         </div>
                                         <div class="tradingview-chart-box" id="invChartContainer"></div>
                                     </div>
 
-                                    <!-- Law 2: Matriks Bukti 3-Tier -->
+                                    <!-- Matriks Bukti Kausalitas (Header terintegrasi dari komponen) -->
+                                    <div id="invEvidenceContainer"></div>
+
+                                    <!-- Kronologi Keterbukaan Informasi & Peristiwa -->
                                     <div>
                                         <div style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                                            <span data-i18n="inv_matrix_title">Matriks Verifikasi Bukti 3-Tier (Law 2)</span>
-                                        </div>
-                                        <div id="invEvidenceContainer"></div>
-                                    </div>
-
-                                    <!-- Timeline Kronologi -->
-                                    <div>
-                                        <div style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">
                                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                            <span data-i18n="inv_timeline_title">Timeline Kronologis Bukti & Berita</span>
+                                            <span data-i18n="inv_timeline_title">Kronologi Keterbukaan Informasi & Peristiwa</span>
                                         </div>
                                         <div class="signal-list" id="invTimelineContainer"></div>
                                     </div>
 
-                                    <!-- Law 2 & 3 Compliance Disclaimer -->
+                                    <!-- Kepatuhan Regulasi (Law 2 & Law 3) -->
                                     <div class="compliance-disclaimer-box" style="margin-top:8px;" data-i18n="inv_disclaimer">
-                                        <strong>Kepatuhan Regulasi (Law 2 & Law 3):</strong> Seluruh dossier dan temuan investigasi disajikan secara obyektif berdasarkan data historis keterbukaan informasi IDXnet dan bukan merupakan rekomendasi transaksi finansial.
+                                        <strong>Kepatuhan Regulasi (Law 2 & Law 3):</strong> Seluruh hasil analisis dan matriks bukti disajikan secara obyektif berdasarkan data historis keterbukaan informasi BEI/IDXnet dan bukan merupakan rekomendasi transaksi atau saran finansial.
                                     </div>
                                 </div>
                             </div>
@@ -434,7 +434,9 @@
 
             <!-- 3. DOCKED CHAT COMPOSER -->
             <div class="composer-container" id="composerContainer">
-                <div class="composer-box">
+                <input type="file" id="fileAttachmentInput" multiple accept=".pdf,.txt,.csv,.xlsx,.docx,.png,.jpg,.jpeg,.md,.json" style="display:none;" />
+                <div class="composer-box" id="composerBox">
+                    <div class="attachment-preview-bar" id="attachmentPreviewBar" style="display:none;"></div>
                     <textarea 
                         class="composer-textarea" 
                         id="chatInput" 
@@ -444,7 +446,7 @@
 
                     <div class="composer-bottom-row">
                         <div class="composer-tools-left">
-                            <button class="composer-tool-btn" id="btnAttach" aria-label="Lampirkan Dokumen" data-tooltip="Lampirkan Dokumen" data-i18n-tooltip="btn_attach_tooltip" title="Lampirkan Dokumen">
+                            <button class="composer-tool-btn" id="btnAttach" type="button" aria-label="Lampirkan Dokumen" data-tooltip="Lampirkan Dokumen" data-i18n-tooltip="btn_attach_tooltip" title="Lampirkan Dokumen">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
                             </button>
                             <button class="composer-tool-btn active" id="btnToolWeb" aria-label="Toggle Web Intelligence">
@@ -480,8 +482,14 @@
 
     </div>
 
-    <!-- Toast Notification Element -->
-    <div class="app-toast" id="appToast">Informasi disalin ke papan klip</div>
+    <!-- Rich Toast Notification Container -->
+    <div class="app-toast-container" id="appToastContainer">
+        <div class="app-toast toast-info" id="appToast" role="status" aria-live="polite">
+            <div class="toast-icon" id="appToastIcon"></div>
+            <div class="toast-message" id="appToastMessage">Notification</div>
+            <button type="button" class="toast-close" id="appToastClose" aria-label="Close">✕</button>
+        </div>
+    </div>
 
     <!-- SETTINGS & SYSTEM DIAGNOSTICS MODAL -->
     <div class="modal-overlay" id="settingsModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modalSettingsTitle">
@@ -498,9 +506,9 @@
                     <div>
                         <div class="modal-title" id="modalSettingsTitle">
                             <span data-i18n="modal_title">Pengaturan & Diagnostik Sistem</span>
-                            <span class="settings-ver-badge">v0.1.4</span>
+                            <span class="settings-ver-badge">v0.2.0</span>
                         </div>
-                        <div class="modal-subtitle">
+                        <div class="modal-subtitle" data-i18n="modal_subtitle">
                             Konfigurasi model AI, koneksi data pasar Sectors v2, bot Telegram, dan integritas penyimpanan lokal.
                         </div>
                     </div>
@@ -538,11 +546,11 @@
             <div class="settings-ssot-banner">
                 <div class="ssot-banner-left">
                     <span class="ssot-pulse-dot"></span>
-                    <span>
+                    <span data-i18n="settings_ssot_desc">
                         <strong style="color:var(--text-primary);">Penyimpanan Konfigurasi (.env):</strong> Tersinkronisasi Otomatis (<code class="path-code">~/.niskava/.env</code> &amp; <code class="path-code">./.env</code>)
                     </span>
                 </div>
-                <span class="badge-ssot-tag" id="modalConfigSyncTime">Dual Sync SSoT</span>
+                <span class="badge-ssot-tag" id="modalConfigSyncTime" data-i18n="settings_ssot_badge">Dual Sync SSoT</span>
             </div>
 
             <!-- Modal Body -->
@@ -556,13 +564,13 @@
                                 <div style="display:flex; align-items:center; gap:8px;">
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary); flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
                                     <div>
-                                        <strong style="font-size:12px; color:var(--text-primary);">Sectors Financial API v2 (Market Data IDX)</strong>
-                                        <div style="font-size:11px; color:var(--text-muted);">Kredensial feed data pasar saham BEI &amp; kuota 1.000 kredit (Kepatuhan Law 5).</div>
+                                        <strong style="font-size:12px; color:var(--text-primary);" data-i18n="tab1_sectors_banner_title">Sectors Financial API v2 (Market Data IDX)</strong>
+                                        <div style="font-size:11px; color:var(--text-muted);" data-i18n="tab1_sectors_banner_desc">Kredensial feed data pasar saham BEI &amp; kuota 1.000 kredit (Kepatuhan Law 5).</div>
                                     </div>
                                 </div>
                                 <div style="display:flex; align-items:center; gap:8px;">
                                     <span id="tab1SectorsBadge" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
-                                    <button type="button" class="btn-test-conn" id="btnGoToSectorsTab" style="font-size:11px; padding:3px 10px; cursor:pointer;">
+                                    <button type="button" class="btn-test-conn" id="btnGoToSectorsTab" style="font-size:11px; padding:3px 10px; cursor:pointer;" data-i18n="tab1_btn_goto_sectors">
                                         <span>Buka Pengaturan Sectors &rarr;</span>
                                     </button>
                                 </div>
@@ -577,11 +585,11 @@
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><path d="M12 6v6l4 2"></path></svg>
                                         <span data-i18n="label_ai_provider">Provider AI Aktif</span>
                                     </div>
-                                    <div class="settings-card-desc">Pilih engine LLM untuk ReAct autonomous reasoning &amp; korelasi bukti kausalitas.</div>
+                                    <div class="settings-card-desc" data-i18n="label_ai_provider_desc">Pilih engine LLM untuk ReAct autonomous reasoning &amp; korelasi bukti kausalitas.</div>
                                 </div>
                                 <select class="form-input" id="selectAiProvider" style="display:none;">
                                     <option value="gemini" data-i18n="opt_gemini">Google Gemini (AI Studio)</option>
-                                    <option value="openai" data-i18n="opt_openai">9router / OpenAI Compatible Gateway (Local: localhost:20128 / Hermes)</option>
+                                    <option value="openai" data-i18n="opt_openai">OpenAI Compatible Gateway (Local / Cloud)</option>
                                     <option value="ollama" data-i18n="opt_ollama">Ollama (Lokal On-Premise - deepseek-r1 / llama3)</option>
                                     <option value="anthropic" data-i18n="opt_anthropic">Anthropic Claude (claude-3-5-sonnet)</option>
                                 </select>
@@ -592,7 +600,7 @@
                                         <div class="provider-icon-badge">
                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                                         </div>
-                                        <span class="provider-tag" id="tagGeminiStatus" style="color:#03A66D; background:rgba(3,166,109,0.12);">Disarankan</span>
+                                        <span class="provider-tag" id="tagGeminiStatus" style="color:#03A66D; background:rgba(3,166,109,0.12);" data-i18n="tag_recommended">Disarankan</span>
                                     </div>
                                     <div class="provider-name">Google Gemini</div>
                                     <div class="provider-sub">Gemini 2.0 Flash / Pro</div>
@@ -603,10 +611,10 @@
                                         <div class="provider-icon-badge">
                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
                                         </div>
-                                        <span class="provider-tag" id="tagOpenaiStatus">Gateway</span>
+                                        <span class="provider-tag" id="tagOpenaiStatus" data-i18n="tag_gateway">Gateway</span>
                                     </div>
                                     <div class="provider-name">OpenAI / 9router</div>
-                                    <div class="provider-sub">Hermes / GPT-4o / Local</div>
+                                    <div class="provider-sub">GPT-4o / DeepSeek / Local</div>
                                 </button>
 
                                 <button type="button" class="provider-card-tile" data-provider="ollama">
@@ -614,7 +622,7 @@
                                         <div class="provider-icon-badge">
                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
                                         </div>
-                                        <span class="provider-tag" id="tagOllamaStatus">Lokal</span>
+                                        <span class="provider-tag" id="tagOllamaStatus" data-i18n="tag_local">Lokal</span>
                                     </div>
                                     <div class="provider-name">Ollama Engine</div>
                                     <div class="provider-sub">DeepSeek-R1 / Qwen 2.5</div>
@@ -625,7 +633,7 @@
                                         <div class="provider-icon-badge">
                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
                                         </div>
-                                        <span class="provider-tag" id="tagAnthropicStatus">Penalaran</span>
+                                        <span class="provider-tag" id="tagAnthropicStatus" data-i18n="tag_reasoning">Penalaran</span>
                                     </div>
                                     <div class="provider-name">Anthropic Claude</div>
                                     <div class="provider-sub">Claude 3.5 Sonnet</div>
@@ -637,7 +645,7 @@
                         <div class="provider-fields-group settings-card" id="groupGemini" data-provider="gemini">
                             <div class="form-row">
                                 <label class="form-label">
-                                    <span>Gemini API Key</span>
+                                    <span data-i18n="label_gemini_key">Gemini API Key</span>
                                     <span id="statusGeminiKey" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
                                 </label>
                                 <div class="form-input-group">
@@ -647,14 +655,14 @@
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                         </button>
                                     </div>
-                                    <button type="button" class="btn-test-conn" id="btnTestGemini" data-i18n="btn_test">
+                                    <button type="button" class="btn-test-conn" id="btnTestGemini">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                                        <span>Uji Koneksi</span>
+                                        <span data-i18n="btn_test_conn_span">Uji Koneksi</span>
                                     </button>
                                 </div>
                             </div>
                             <div class="form-row" style="margin-top:4px;">
-                                <label class="form-label"><span>Gemini Model Name</span></label>
+                                <label class="form-label"><span data-i18n="label_gemini_model">Gemini Model Name</span></label>
                                 <input type="text" class="form-input code-font" id="inputGeminiModel" placeholder="gemini-2.0-flash">
                                 <div class="quick-preset-chips">
                                     <span class="preset-chip-label">Preset:</span>
@@ -679,14 +687,14 @@
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                         </button>
                                     </div>
-                                    <button type="button" class="btn-test-conn" id="btnTestOpenai" data-i18n="btn_test">
+                                    <button type="button" class="btn-test-conn" id="btnTestOpenai">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                                        <span>Uji Koneksi</span>
+                                        <span data-i18n="btn_test_conn_span">Uji Koneksi</span>
                                     </button>
                                 </div>
                             </div>
                             <div class="form-row" style="margin-top:4px;">
-                                <label class="form-label"><span>OpenAI Base URL</span></label>
+                                <label class="form-label"><span data-i18n="label_openai_base_url">OpenAI Base URL</span></label>
                                 <input type="text" class="form-input code-font" id="inputOpenaiBaseUrl" placeholder="http://localhost:20128/v1 atau https://api.openai.com/v1">
                                 <div class="quick-preset-chips">
                                     <span class="preset-chip-label">Preset:</span>
@@ -695,11 +703,11 @@
                                 </div>
                             </div>
                             <div class="form-row" style="margin-top:4px;">
-                                <label class="form-label"><span>OpenAI Model Name</span></label>
-                                <input type="text" class="form-input code-font" id="inputOpenaiModel" placeholder="hermes atau gpt-4o">
+                                <label class="form-label"><span data-i18n="label_openai_model">OpenAI Model Name</span></label>
+                                <input type="text" class="form-input code-font" id="inputOpenaiModel" placeholder="gpt-4o-mini atau gpt-4o">
                                 <div class="quick-preset-chips">
                                     <span class="preset-chip-label">Preset:</span>
-                                    <button type="button" class="preset-chip" data-fill="inputOpenaiModel" data-val="hermes">hermes</button>
+                                    <button type="button" class="preset-chip" data-fill="inputOpenaiModel" data-val="deepseek-chat">deepseek-chat</button>
                                     <button type="button" class="preset-chip" data-fill="inputOpenaiModel" data-val="gpt-4o">gpt-4o</button>
                                     <button type="button" class="preset-chip" data-fill="inputOpenaiModel" data-val="gpt-4o-mini">gpt-4o-mini</button>
                                 </div>
@@ -710,19 +718,19 @@
                         <div class="provider-fields-group settings-card" id="groupOllama" data-provider="ollama" style="display:none;">
                             <div class="form-row">
                                 <label class="form-label">
-                                    <span>Ollama Base URL</span>
+                                    <span data-i18n="label_ollama_base_url">Ollama Base URL</span>
                                     <span id="statusOllamaKey" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
                                 </label>
                                 <div class="form-input-group">
                                     <input type="text" class="form-input code-font" id="inputOllamaBaseUrl" placeholder="http://localhost:11434">
-                                    <button type="button" class="btn-test-conn" id="btnTestOllama" data-i18n="btn_test">
+                                    <button type="button" class="btn-test-conn" id="btnTestOllama">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                                        <span>Uji Koneksi</span>
+                                        <span data-i18n="btn_test_conn_span">Uji Koneksi</span>
                                     </button>
                                 </div>
                             </div>
                             <div class="form-row" style="margin-top:4px;">
-                                <label class="form-label"><span>Ollama Model Name</span></label>
+                                <label class="form-label"><span data-i18n="label_ollama_model">Ollama Model Name</span></label>
                                 <input type="text" class="form-input code-font" id="inputOllamaModel" placeholder="deepseek-r1:8b atau qwen2.5">
                                 <div class="quick-preset-chips">
                                     <span class="preset-chip-label">Preset:</span>
@@ -737,7 +745,7 @@
                         <div class="provider-fields-group settings-card" id="groupAnthropic" data-provider="anthropic" style="display:none;">
                             <div class="form-row">
                                 <label class="form-label">
-                                    <span>Anthropic API Key</span>
+                                    <span data-i18n="label_anthropic_key">Anthropic API Key</span>
                                     <span id="statusAnthropicKey" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
                                 </label>
                                 <div class="form-input-group">
@@ -747,14 +755,14 @@
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                         </button>
                                     </div>
-                                    <button type="button" class="btn-test-conn" id="btnTestAnthropic" data-i18n="btn_test">
+                                    <button type="button" class="btn-test-conn" id="btnTestAnthropic">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                                        <span>Uji Koneksi</span>
+                                        <span data-i18n="btn_test_conn_span">Uji Koneksi</span>
                                     </button>
                                 </div>
                             </div>
                             <div class="form-row" style="margin-top:4px;">
-                                <label class="form-label"><span>Anthropic Model Name</span></label>
+                                <label class="form-label"><span data-i18n="label_anthropic_model">Anthropic Model Name</span></label>
                                 <input type="text" class="form-input code-font" id="inputAnthropicModel" placeholder="claude-3-5-sonnet-20241022">
                                 <div class="quick-preset-chips">
                                     <span class="preset-chip-label">Preset:</span>
@@ -772,7 +780,7 @@
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                                         <span data-i18n="label_timeout">Inference Timeout</span>
                                     </div>
-                                    <div class="settings-card-desc">Batas durasi inferensi loop ReAct otonom per query.</div>
+                                    <div class="settings-card-desc" data-i18n="label_timeout_desc">Batas durasi inferensi loop ReAct otonom per query.</div>
                                 </div>
                                 <div style="display:inline-flex; align-items:center; gap:6px;">
                                     <span id="timeout-value-badge" class="panel-card-badge" style="color:var(--accent-text); font-weight:700;">60s</span>
@@ -781,10 +789,10 @@
                             </div>
                             <input type="range" class="form-range" id="timeout-slider" min="10" max="300" step="5" value="60" oninput="onTimeoutSliderInput(this.value)" style="width:100%; accent-color:var(--primary); cursor:pointer;">
                             <div class="quick-preset-chips" style="justify-content:space-between; margin-top:2px;">
-                                <button type="button" class="preset-chip" data-timeout="15">15s (Fast)</button>
-                                <button type="button" class="preset-chip" data-timeout="60">60s (Balanced)</button>
-                                <button type="button" class="preset-chip" data-timeout="120">120s (Deep)</button>
-                                <button type="button" class="preset-chip" data-timeout="300">300s (Max)</button>
+                                <button type="button" class="preset-chip" data-timeout="15" data-i18n="preset_timeout_15">15s (Cepat)</button>
+                                <button type="button" class="preset-chip" data-timeout="60" data-i18n="preset_timeout_60">60s (Seimbang)</button>
+                                <button type="button" class="preset-chip" data-timeout="120" data-i18n="preset_timeout_120">120s (Mendalam)</button>
+                                <button type="button" class="preset-chip" data-timeout="300" data-i18n="preset_timeout_300">300s (Maks)</button>
                             </div>
                         </div>
                     </div>
@@ -799,9 +807,9 @@
                                 <div>
                                     <div class="settings-card-title">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
-                                        <span>Sectors Financial API v2 Key</span>
+                                        <span data-i18n="label_sectors_key">Sectors Financial API v2 Key</span>
                                     </div>
-                                    <div class="settings-card-desc">Kredensial resmi Sectors Financial API untuk data fundamental, OHLCV, keterbukaan IDX, dan foreign flow.</div>
+                                    <div class="settings-card-desc" data-i18n="label_sectors_key_desc">Kredensial resmi Sectors Financial API untuk data fundamental, OHLCV, keterbukaan IDX, dan foreign flow.</div>
                                 </div>
                                 <span id="statusSectorsKey" class="panel-card-badge" data-i18n="status_not_checked">Belum dicek</span>
                             </div>
@@ -812,9 +820,9 @@
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                     </button>
                                 </div>
-                                <button type="button" class="btn-test-conn" id="btnTestSectors" data-i18n="btn_test">
+                                <button type="button" class="btn-test-conn" id="btnTestSectors">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                                    <span>Uji Koneksi</span>
+                                    <span data-i18n="btn_test_conn_span">Uji Koneksi</span>
                                 </button>
                             </div>
                         </div>
@@ -826,7 +834,7 @@
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
                                     <span data-i18n="label_sectors_budget">Disiplin Anggaran Kredit Sectors v2 (Law 5)</span>
                                 </div>
-                                <span class="panel-card-badge" style="color:var(--accent-text); border-color:rgba(252,213,53,0.35);">1.000 Grant Budget</span>
+                                <span class="panel-card-badge" style="color:var(--accent-text); border-color:rgba(252,213,53,0.35);" data-i18n="badge_grant_budget">1.000 Grant Budget</span>
                             </div>
                             <div class="settings-card-desc" data-i18n="desc_sectors_cache">
                                 Monitor efisiensi kuota 1.000 kredit Sectors API v2 (Kepatuhan Law 5). Setiap permintaan pasar yang terlayani melalui cache SQLite lokal menghemat 1 kredit secara otomatis.
@@ -835,7 +843,7 @@
                             <!-- Progress Bar -->
                             <div style="margin-top:4px;">
                                 <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px; margin-bottom:5px;">
-                                    <span style="color:var(--text-secondary); font-weight:600;">Penggunaan Kuota Panggilan:</span>
+                                    <span style="color:var(--text-secondary); font-weight:600;" data-i18n="label_usage_quota">Penggunaan Kuota Panggilan:</span>
                                     <span id="statCreditUsageText" style="color:var(--text-primary); font-family:var(--font-mono); font-weight:700;">0 / 1.000</span>
                                 </div>
                                 <div class="credit-progress-wrap" style="margin-top:0;">
@@ -868,34 +876,13 @@
                             </div>
                         </div>
 
-                        <!-- Offline Mode Switch (Law 5) -->
-                        <div class="settings-card">
-                            <div class="toggle-switch-row">
-                                <div>
-                                    <label for="toggleOfflineMode" style="cursor:pointer; display:flex; align-items:center; gap:6px;">
-                                        <span style="font-size:12.5px; font-weight:700; color:var(--text-primary);" data-i18n="label_offline_mode">Mode Offline / Mock (Law 5)</span>
-                                    </label>
-                                    <div style="font-size:11px; color:var(--text-muted); margin-top:2px;" data-i18n="desc_offline_mode">
-                                        Gunakan data sintetis lokal tanpa memotong kuota kredit Sectors API v2 (offline_mode).
-                                    </div>
-                                </div>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="toggleOfflineMode">
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                            <div id="offlineModeWarningBanner" style="display:none; padding:8px 12px; background:rgba(245, 158, 11, 0.1); border:1px solid rgba(245, 158, 11, 0.3); border-radius:8px; font-size:11.5px; color:#F59E0B; line-height:1.4;">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg><strong>Mode Offline Aktif:</strong> Permintaan pasar disimulasikan dari snapshot fixture lokal untuk menghemat 1.000 kredit Sectors (Kepatuhan Law 5).
-                            </div>
-                        </div>
-
                         <!-- Cache Maintenance Actions -->
                         <div class="settings-card">
                             <div class="settings-card-head">
                                 <div>
                                     <div class="settings-card-title">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                        <span>Pemeliharaan Cache SQLite</span>
+                                        <span data-i18n="title_cache_maint">Pemeliharaan Cache SQLite</span>
                                     </div>
                                     <div class="settings-card-desc" data-i18n="label_clean_disk">Bersihkan data kadaluarsa atau purge seluruh cache untuk pengujian segar.</div>
                                 </div>
@@ -903,7 +890,7 @@
                                     <button type="button" class="btn-test-conn" id="btnCleanCache" data-i18n="clean_cache">
                                         <span>Bersihkan Kadaluarsa</span>
                                     </button>
-                                    <button type="button" class="btn-test-conn" id="btnFlushAllCache" style="color:#F6465D;">
+                                    <button type="button" class="btn-test-conn" id="btnFlushAllCache" style="color:#F6465D;" data-i18n="btn_flush_all_cache">
                                         <span>Flush Semua Cache</span>
                                     </button>
                                 </div>
@@ -942,7 +929,7 @@
                             <div class="form-row">
                                 <label class="form-label">
                                     <span data-i18n="label_tele_token">Telegram Bot Token</span>
-                                    <span id="statusTeleToken" class="panel-card-badge">Belum Ada Token</span>
+                                    <span id="statusTeleToken" class="panel-card-badge" data-i18n="tele_token_empty">Belum Ada Token</span>
                                 </label>
                                 <div class="form-input-group">
                                     <div class="input-with-action">
@@ -951,7 +938,7 @@
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                         </button>
                                     </div>
-                                    <button type="button" class="btn-test-conn" id="btnUnlockTeleToken" style="display:none; white-space:nowrap;">Ganti Token</button>
+                                    <button type="button" class="btn-test-conn" id="btnUnlockTeleToken" style="display:none; white-space:nowrap;" data-i18n="btn_unlock_tele_token">Ganti Token</button>
                                 </div>
                             </div>
                         </div>
@@ -1001,7 +988,7 @@
             <div class="modal-footer">
                 <div class="modal-footer-info">
                     <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#10B981;"></span>
-                    <span>Perubahan kredensial langsung ter-hot-reload (Zero Restart)</span>
+                    <span data-i18n="settings_hot_reload_hint">Perubahan kredensial langsung ter-hot-reload (Zero Restart)</span>
                 </div>
                 <div class="modal-footer-actions">
                     <button type="button" class="btn-test-conn" id="btnCancelSettings" data-i18n="btn_cancel">Batal</button>
@@ -1010,6 +997,32 @@
                         <span>Simpan Perubahan</span>
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONFIRMATION MODAL DIALOG (DESIGN.md) -->
+    <div class="modal-overlay confirm-modal-overlay" id="confirmModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="confirmDialogTitle" aria-describedby="confirmDialogMessage">
+        <div class="modal-card confirm-modal-card">
+            <div class="confirm-modal-body">
+                <div class="confirm-icon-badge danger" id="confirmDialogIcon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </div>
+                <div class="confirm-content">
+                    <h3 class="confirm-title" id="confirmDialogTitle" data-i18n="modal_confirm_title">Confirm Action</h3>
+                    <p class="confirm-message" id="confirmDialogMessage">Are you sure you want to proceed?</p>
+                    <div class="confirm-input-wrap" id="confirmInputWrap" style="display:none;">
+                        <input type="text" class="confirm-input" id="confirmDialogInput" autocomplete="off" placeholder="...">
+                    </div>
+                </div>
+            </div>
+            <div class="confirm-modal-actions">
+                <button type="button" class="btn-confirm-cancel" id="btnConfirmCancel" data-i18n="modal_cancel_btn">Cancel</button>
+                <button type="button" class="btn-confirm-action danger" id="btnConfirmAction" data-i18n="modal_confirm_btn">Continue</button>
             </div>
         </div>
     </div>

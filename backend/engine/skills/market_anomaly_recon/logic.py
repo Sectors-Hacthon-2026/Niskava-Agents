@@ -63,6 +63,21 @@ class MarketAnomalyReconSkill(BaseSkill):
         anomaly_detected = len(anomalies) > 0 or abs(f_z) >= 2.5
         top_anomaly = anomalies[-1] if anomalies else None
 
+        emitter = context.get("emitter")
+        if emitter and callable(emitter):
+            for a in anomalies:
+                emitter({
+                    "event": "anomaly_detected",
+                    "ticker": ticker,
+                    "anomaly_date": a.date,
+                    "metric_type": a.classification,
+                    "metric_value": a.metric_value,
+                    "baseline_value": a.baseline_value,
+                    "z_score": round(a.z_score, 2),
+                    "price_change_pct": round(a.price_change_pct, 2),
+                    "description": a.description,
+                })
+
         metrics = {
             "ticker": ticker,
             "candles_analyzed": len(candles),

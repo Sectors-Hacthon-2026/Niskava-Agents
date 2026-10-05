@@ -62,7 +62,7 @@ Arsitektur 7-Stage Pipeline dirancang secara khusus untuk memenuhi kriteria eval
   1. `GET /v2/daily/{symbol}/`: Deret waktu OHLCV 30–90 hari.
   2. `GET /v2/company/report/{symbol}/?sections=valuation,financials,peers`: Rasio fundamental inti dan valuasi industri.
   3. `GET /v2/foreign-flow/{symbol}/`: Deret aliran modal investor asing (*Net Foreign Inflow* IDR).
-  4. `GET /v2/corporate-actions/{symbol}/`: Jadwal cum-date dividen, pemecahan saham (*stock split*), dan *rights issue*.
+  4. `GET /v2/company/corporate-actions/{symbol}/`: Jadwal cum-date dividen, pemecahan saham (*stock split*), dan *rights issue*.
   5. `GET /v2/suspensions/?symbol={symbol}`: Riwayat suspensi bursa beserta tautan dokumen PDF resmi BEI.
 * Seluruh data disimpan ke dalam cache lokal dan disiapkan untuk pemrosesan deterministik.
 
@@ -85,7 +85,7 @@ Arsitektur 7-Stage Pipeline dirancang secara khusus untuk memenuhi kriteria eval
   1. **Sectors API v2 Suite**:
      * `GET /v2/news/?symbol={symbol}`: Berita pasar modal dan keterbukaan informasi emiten resmi terkurasi.
      * `GET /v2/suspensions/?symbol={symbol}`: Konfirmasi surat keputusan suspensi atau UMA bursa resmi.
-     * `GET /v2/corporate-actions/{symbol}`: Jadwal aksi korporasi (dividen, rights issue, stock split).
+     * `GET /v2/company/corporate-actions/{symbol}/`: Jadwal aksi korporasi (dividen, rights issue, stock split).
   2. **Sanitasi Konten & Anti-Injection Defense**:
      * Mengekstrak isi teks artikel secara bersih menggunakan `trafilatura` jika artikel lengkap diperlukan.
      * Membungkus hasil ekstraksi ke dalam blok terisolasi `<evidence_context>` guna mencegah *Indirect Prompt Injection* sebelum disajikan ke LLM.
@@ -108,7 +108,7 @@ Arsitektur 7-Stage Pipeline dirancang secara khusus untuk memenuhi kriteria eval
 
 ## 4. Mode Asisten Percakapan (Prompt-Driven ReAct Loop)
 
-Selain eksekusi batch otomatis (`niskava investigate <TICKER>`), Niskava Agent menyediakan antarmuka asisten riset percakapan (Hermes-style) melalui Terminal REPL dan Web Canvas (`/api/chat`).
+Selain eksekusi batch otomatis (`niskava investigate <TICKER>`), Niskava Agent menyediakan antarmuka asisten riset percakapan interaktif melalui Terminal REPL dan Web Canvas (`/api/chat`).
 
 ### Alur Penalaran ReAct Multi-Turn:
 ```text

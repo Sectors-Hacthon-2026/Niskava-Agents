@@ -71,6 +71,7 @@ venv.bak/
 *.dylib
 *.test
 *.out
+niskava_report_*.md
 vendor/
 
 # --- Frontend / Web (Vite + React + Node) ---

@@ -167,7 +167,7 @@ Membaca konfigurasi sistem saat ini. Seluruh token rahasia disensor secara otoma
     "openai_api_key": "",
     "has_openai_key": false,
     "openai_base_url": "http://localhost:20128/v1",
-    "openai_model": "hermes",
+    "openai_model": "gpt-4o-mini",
     "anthropic_api_key": "",
     "has_anthropic_key": false,
     "ollama_base_url": "http://localhost:11434",

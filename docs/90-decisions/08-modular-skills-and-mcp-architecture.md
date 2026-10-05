@@ -26,7 +26,7 @@ Kelemahan pendekatan wrapper monolitik ini:
 Niskava Agent secara tegas mengadopsi **Arsitektur 4-Layer Terpisah**:
 
 ```
-Layer 4: Cognitive ReAct Agent (Hermes/OpenCode loop, planning & synthesis)
+Layer 4: Cognitive ReAct Agent (Autonomous reasoning loop, planning & synthesis)
    │
    ▼ (Memilih SOP Analisis)
 Layer 3: Modular Domain Skills (Standardized SOP: market-anomaly, causality, insider, health)

@@ -12,7 +12,7 @@
 * **Competition Target:** [Sectors Hackathon Indonesia 2026](https://hackathon.sectors.app/) — **Track 1: AI Agents & Assistants**.
 * **Primary Persona:** Professional equity analysts, financial journalists, and serious retail swing traders who require rigorous, verifiable evidence rather than speculative commentary.
 * **Dual Interaction Modes:**
-  1. **Interactive Conversational AI Assistant (Hermes-Style REPL & Web Canvas):** Prompt-driven natural language financial research terminal (`niskava` interactive REPL) and web canvas (`niskava serve`). Powered by an autonomous ReAct loop calling deterministic tools with streaming Glamour markdown rendering.
+  1. **Interactive Conversational AI Assistant (Autonomous REPL & Web Canvas):** Prompt-driven natural language financial research terminal (`niskava` interactive REPL) and web canvas (`niskava serve`). Powered by an autonomous ReAct loop calling deterministic tools with streaming Glamour markdown rendering.
   2. **Autonomous Headless Pipeline:** Single-command structured audit trail (`niskava investigate <TICKER> --days 30`).
 
 ---
@@ -72,7 +72,7 @@ The codebase follows the Tripartite Hybrid Stack (01-hybrid-stack-go-python-reac
 │                    PYTHON AGENT ENGINE                      │
 │                                                             │
 │  [Layer 4: Cognitive ReAct Loop & Memory Engine]            │
-│  - Autonomous ReAct Agent Loop (Prompt-driven Hermes-style) │
+│  - Autonomous ReAct Agent Loop (Prompt-driven ReAct loop)   │
 │  - Local Graph Memory Engine (NetworkX + SQLite)            │
 │  - Evidence Correlation & Temporal Causality Reasoning      │
 │                              │                              │

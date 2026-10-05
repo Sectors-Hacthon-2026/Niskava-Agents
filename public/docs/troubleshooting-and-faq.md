@@ -1,323 +1,245 @@
 # Troubleshooting & Frequently Asked Questions (FAQ)
 
-This guide provides diagnostic procedures, common error resolutions, operational best practices, and answers to frequently asked questions.
+This guide provides diagnostic procedures, common error resolutions, operational best practices, and answers to frequently asked questions about Niskava Agent.
 
 ---
 
-## 1. Diagnostic Procedures & Error Resolutions
+## 1. Quick Diagnostic Check
 
-### Issue 1: AI Provider Connection Error
-**Symptoms:**
-When initiating an investigation or executing a prompt in the REPL, the interface reports:
-```text
-Error: unable to connect to AI provider (gemini / ollama / openrouter)
+Whenever you encounter an unexpected error, start by running the built-in system doctor:
+
+```bash
+# If using NPM/NPX:
+npx @zyrexnns/niskava-agent doctor
+
+# If using local binary:
+niskava doctor
 ```
 
-**Diagnostic Steps & Resolutions:**
-1. **Verify API Key:** Ensure your API key is correctly defined in `~/.niskava/config.yaml` or exported in your environment:
+<p align="center">
+  <img src="../../docs/assets/niskava-doctor.png" alt="Niskava System and Environment Doctor Diagnostics" width="90%">
+</p>
+
+The doctor command verifies the Go runtime, Python binary, Python quantitative packages, SQLite WAL database, Sectors API connectivity, and AI provider credentials in under 2 seconds.
+
+---
+
+## 2. Common Issues & Solutions
+
+### Issue 1: Mock Mode vs Live Mode (System Stays in Mock Simulation)
+
+**Symptoms:**
+* Every stock investigated triggers an identical synthetic volume surge with a Z-Score of **`35.71σ`** and 125,000,000 shares.
+* The terminal logs indicate `Mock Simulation Mode active` or `Offline Mode`.
+
+**Root Cause:**
+* During initial setup, the Sectors Financial API key was left blank, which writes `MOCK_SECTORS=1` and `NISKAVA_OFFLINE=1` into `.env`.
+* If you manually added `SECTORS_API_KEY` later but left `MOCK_SECTORS=1` or `NISKAVA_OFFLINE=1` in your configuration, the system remained locked in mock mode.
+
+**Resolution:**
+1. **The Easiest Fix — Run `niskava setup`:**
+   Run the interactive setup wizard and enter your valid Sectors API key:
    ```bash
-   echo $GEMINI_API_KEY
+   niskava setup
    ```
-2. **Interactive Setup:** Re-run the interactive setup wizard to validate keys:
-   ```bash
-   ./niskava setup
+   *Niskava automatically activates **Live Mode** (`MOCK_SECTORS=0`) as soon as a valid key is provided.*
+2. **Manual Configuration (`.env` or `~/.niskava/.env`):**
+   Open your `.env` file and set the flags to live mode:
+   ```ini
+   SECTORS_API_KEY=your_actual_sectors_api_key_here
+   MOCK_SECTORS=0
+   NISKAVA_OFFLINE=0
    ```
-3. **Local LLM Endpoint (Ollama / vLLM):** If using Ollama, ensure the service is running and listening:
-   ```bash
-   curl http://localhost:11434/api/tags
-   ```
-   Confirm that the model specified in `config.yaml` (e.g. `llama3.1:latest`) has been pulled locally:
-   ```bash
-   ollama pull llama3.1
-   ```
-4. **Deterministic Fallback:** You can always run investigations in offline mode without invoking an AI provider:
-   ```bash
-   ./niskava investigate ANTM --offline
+3. **Verify Live Connectivity:**
+   Run `niskava doctor` and confirm:
+   ```text
+   [✓] Sectors API v2: Connection verified (LIVE) (PASS)
    ```
 
 ---
 
-### Issue 1B: LLM Inference Timeout During Deep Multi-Tool Analysis
+### Issue 2: Windows Python "WindowsApps" Stub Error
+
 **Symptoms:**
-During deep ticker analysis, peer comparisons, or multi-tool reasoning, the agent reports:
+On Windows, when running `niskava` or `niskava.exe`, the terminal reports:
 ```text
-Koneksi timeout setelah 25 detik ke http://localhost:20128/v1/chat/completions
-# atau
+Python was not found; run without arguments to install from the Microsoft Store...
+# or
+engine subprocess error: The system cannot find the file specified.
+```
+
+**Root Cause:**
+Windows ships with a zero-byte placeholder shortcut at `C:\Users\<User>\AppData\Local\Microsoft\WindowsApps\python.exe` that opens the Microsoft Store instead of running Python.
+
+**Resolution:**
+1. Install official Python 3.11 or higher from [python.org](https://www.python.org/downloads/). During installation, **check the box: "Add python.exe to PATH"**.
+2. Alternatively, disable the Windows app execution aliases:
+   * Open **Windows Settings** $\to$ **Apps** $\to$ **Advanced app settings** $\to$ **App execution aliases**.
+   * Turn **OFF** "App Installer (python.exe)" and "App Installer (python3.exe)".
+3. Point Niskava directly to your real Python binary:
+   ```powershell
+   # In PowerShell:
+   $env:NISKAVA_PYTHON_BIN = "C:\Program Files\Python311\python.exe"
+   ```
+   Or set `NISKAVA_PYTHON_BIN=C:\Program Files\Python311\python.exe` in `~/.niskava/.env`.
+
+---
+
+### Issue 3: `ModuleNotFoundError: No module named 'engine'` or Missing Packages
+
+**Symptoms:**
+When running an investigation, the terminal outputs:
+```text
+ModuleNotFoundError: No module named 'engine'
+# or
+ModuleNotFoundError: No module named 'numpy' / 'pandas' / 'fpdf2'
+```
+
+**Root Cause:**
+* When using NPX/NPM, the local Python virtualenv did not complete its initial synchronization.
+* When running from source, dependencies were not installed into the active Python environment.
+
+**Resolution:**
+1. **If using NPX / Global NPM:**
+   The NPM launcher automatically synchronizes the engine to `~/.niskava/engine`. If interrupted, manually reinstall requirements:
+   ```bash
+   pip install -r ~/.niskava/engine/requirements.txt
+   ```
+2. **If running from source:**
+   Ensure you activate the virtual environment before running:
+   ```bash
+   source backend/engine/.venv/bin/activate
+   pip install -r backend/engine/requirements.txt
+   ```
+3. Run `niskava doctor` to verify that all 5 critical packages (`numpy`, `pandas`, `networkx`, `trafilatura`, `fpdf2`) show `[PASS]`.
+
+---
+
+### Issue 4: AI Provider Connection / API Key Missing
+
+**Symptoms:**
+```text
+### ⚠️ Konfigurasi Gemini API Key Tidak Ditemukan
+GEMINI_API_KEY tidak ditemukan di environment atau konfigurasi.
+```
+
+**Resolution:**
+1. **For Google Gemini:**
+   Get a free Gemini API key from [Google AI Studio](https://aistudio.google.com/). Add it to `~/.niskava/.env`:
+   ```ini
+   GEMINI_API_KEY=AIzaSy...
+   AI_PROVIDER=gemini
+   ```
+2. **For OpenAI / OpenRouter:**
+   ```ini
+   OPENAI_API_KEY=sk-...
+   AI_PROVIDER=openai
+   OPENAI_MODEL=gpt-4o-mini
+   ```
+3. **For Local Offline LLM (Ollama):**
+   ```ini
+   AI_PROVIDER=ollama
+   OLLAMA_BASE_URL=http://localhost:11434
+   OLLAMA_MODEL=deepseek-r1:8b
+   ```
+   *Make sure Ollama is running (`ollama serve`) and the model is pulled (`ollama pull deepseek-r1:8b`).*
+
+---
+
+### Issue 5: Inference Timeout During Deep Analysis
+
+**Symptoms:**
+```text
+Koneksi timeout setelah 25 detik ke AI provider
+# or
 Request timed out waiting for AI response
 ```
 
-**Cause:**
-Complex financial investigations require the LLM to inspect multiple quantitative metrics and news releases. If running a local model (Ollama on CPU) or a deep reasoning model, 25 seconds may not be enough for the model to synthesize observations.
-
-**Resolutions:**
-1. **Switch Timeout Profile in REPL:**
-   Adjust the active timeout immediately with the `/timeout` slash command:
-   ```text
-   /timeout balanced   # 60s (Recommended baseline)
-   /timeout deep       # 120s (For complex analysis)
-   /timeout local      # 180s (For CPU/Ollama inference)
-   /timeout 90         # Custom value in seconds (10 - 300)
-   ```
-2. **Configure in Setup Wizard:**
-   Run `./bin/niskava setup` and select **Step 5: AI Inference Timeout Profile**.
-3. **Adjust in Web Workspace Canvas:**
-   Open `http://localhost:20128`, click the **Settings** icon (top right), and move the **Inference Timeout** slider to your desired value. Click **Save Configuration**.
-4. **Environment Variable Override:**
-   Add `NISKAVA_LLM_TIMEOUT=60.00` to your `.env` file or export it in your shell environment.
+**Resolution:**
+Deep multi-tool financial reasoning requires sufficient token generation time, especially for local Ollama models on CPU.
+* In the REPL, adjust the timeout immediately:
+  ```text
+  /timeout balanced   # 60s (Recommended baseline)
+  /timeout deep       # 120s (For complex multi-tool analysis)
+  /timeout local      # 180s (For local CPU inference)
+  ```
+* Or set `NISKAVA_LLM_TIMEOUT=60.00` in `~/.niskava/.env`.
 
 ---
 
-### Issue 2: SQLite Database Locked (`database is locked`)
+### Issue 6: Port 20128 Already in Use (`listen tcp :20128: bind: address already in use`)
+
 **Symptoms:**
-The terminal or engine emits an error message:
+When launching `niskava serve`, the server fails to start because port 20128 is occupied.
+
+**Resolution:**
+1. Specify an alternative port:
+   ```bash
+   niskava serve --port 20130 --open
+   ```
+2. Or set `NISKAVA_PORT=20130` in `~/.niskava/.env`.
+3. To terminate the lingering process on port 20128:
+   * Linux/macOS: `lsof -i :20128 | awk 'NR>1 {print $2}' | xargs kill -9`
+   * Windows: `netstat -ano | findstr :20128` then `taskkill /PID <PID> /F`
+
+---
+
+### Issue 7: SQLite Database Locked (`sqlite3.OperationalError: database is locked`)
+
+**Symptoms:**
 ```text
 sqlite3.OperationalError: database is locked
 ```
 
-**Cause:**
-Niskava uses SQLite with Write-Ahead Logging (`PRAGMA journal_mode = WAL;`) for concurrent read/write access. A database lock occurs if an earlier process terminated unexpectedly while holding an exclusive write transaction.
-
-**Resolutions:**
-1. **Terminate Orphaned Processes:** Ensure no previous `niskava` background processes are still running.
-   - **Linux / macOS:**
-     ```bash
-     pkill -f niskava
-     ```
-   - **Windows (PowerShell):**
-     ```powershell
-     Get-Process -Name niskava -ErrorAction SilentlyContinue | Stop-Process -Force
-     ```
-2. **Check WAL Journal Files:** Inspect your database directory (`~/.niskava/`). If temporary lock files (`niskava.db-shm` or `niskava.db-wal`) persist after all processes have exited, run an integrity check:
+**Resolution:**
+Niskava uses SQLite with Write-Ahead Logging (WAL). A database lock occurs if an earlier process terminated abruptly while holding an uncommitted transaction.
+1. Ensure no other instance of `niskava` is running in the background:
    ```bash
-   sqlite3 ~/.niskava/niskava.db "PRAGMA integrity_check;"
+   killall niskava
+   ```
+2. Check for stale WAL files in `~/.niskava/`:
+   ```bash
+   # Run SQLite checkpoint to flush WAL:
    sqlite3 ~/.niskava/niskava.db "PRAGMA wal_checkpoint(TRUNCATE);"
    ```
 
 ---
 
-### Issue 3: Python Virtual Environment or Quantitative Dependencies Missing
+### Issue 8: Telegram Bot Ignores Messages
+
 **Symptoms:**
-Go Core reports:
-```text
-Error: quantitative dependencies missing or python executable not found
-```
+The Telegram bot connects and runs, but does not reply when you send messages in Telegram.
 
-**Resolutions:**
-1. **Run Auto-Bootstrap via Setup Wizard (Recommended):**
-   ```bash
-   ./bin/niskava setup
-   ```
-   When prompted, choose `Y` to allow Niskava to automatically configure `.venv` and install `requirements.txt`.
-2. **Manual Virtual Environment Setup:**
-   Ensure the Python virtual environment exists in the root directory and dependencies are installed:
-   - **Linux / macOS:**
-     ```bash
-     python3 -m venv .venv
-     .venv/bin/pip install --upgrade pip
-     .venv/bin/pip install -r backend/engine/requirements.txt
-     ```
-   - **Windows (PowerShell):**
-     ```powershell
-     python -m venv .venv
-     .\.venv\Scripts\pip.exe install --upgrade pip
-     .\.venv\Scripts\pip.exe install -r backend\engine\requirements.txt
-     ```
-3. If using a custom Python installation, specify the binary path explicitly in `~/.niskava/config.yaml`:
-   ```yaml
-   engine:
-     python_bin: "/usr/bin/python3"
-     engine_path: "./backend/engine"
-   ```
-   Or set the environment variable:
-   ```bash
-   export NISKAVA_PYTHON_BIN="/usr/bin/python3"
-   ```
-
----
-
-### Issue 4: Windows PowerShell Script Execution Blocked
-**Symptoms:**
-Running `.\install.ps1` produces the following error:
-```text
-File install.ps1 cannot be loaded because running scripts is disabled on this system.
-```
+**Root Cause:**
+For security, Niskava enforces a **User Whitelist**. If your Telegram username or user ID is not in the whitelist, the bot quietly ignores requests to prevent unauthorized API credit consumption.
 
 **Resolution:**
-PowerShell by default blocks script execution. Run the following command in your current PowerShell session:
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-```
-Then re-run `.\install.ps1`.
-
----
-
-### Issue 5: Python Not Found on Windows (`'python' is not recognized`)
-**Symptoms:**
-Command Prompt or PowerShell reports:
-```text
-'python' is not recognized as an internal or external command
-```
-
-**Resolution:**
-Re-install Python 3.11+ from [python.org](https://www.python.org/downloads/) and make sure to check the checkbox **"Add python.exe to PATH"** on the first installation screen. If already installed, add `C:\Users\<Username>\AppData\Local\Programs\Python\Python312` and its `Scripts` directory to your system Environment Variables.
-
----
-
-### Issue 6: Sectors API Rate Limits or Credit Depletion (`429 Too Many Requests`)
-**Symptoms:**
-Requests to the Sectors Financial API fail with HTTP status code 429.
-
-**Cause & Architectural Safeguards:**
-Under **Law 5 (Credit Budget Discipline)**, Niskava actively protects your Sectors API credit allocation. Historical daily candlestick data ($T < \text{today}$) is permanently cached in local SQLite storage (`expires_at = NULL`), meaning repeated queries for historical data incur zero credit cost.
-
-**Resolutions:**
-1. **Verify Local Cache:** Check whether data for the target ticker already exists in local storage:
-   ```bash
-   sqlite3 ~/.niskava/niskava.db "SELECT cache_key, endpoint, expires_at FROM sectors_cache;"
+1. Add your Telegram username (without `@`) to `~/.niskava/.env`:
+   ```ini
+   NISKAVA_TELEGRAM_ALLOWED_USERS=YourTelegramUsername
    ```
-2. **Use Offline Mock Mode:** When testing or developing, activate mock fixtures to bypass the remote API entirely:
-   ```bash
-   export MOCK_SECTORS=1
-   ./niskava investigate ANTM --offline
-   ```
-
----
-
-### Issue 7: Port Binding Conflict on Web Workspace Server
-**Symptoms:**
-Starting the web workspace yields:
-```text
-Error: listen tcp 127.0.0.1:20128: bind: address already in use
-```
-
-**Resolutions:**
-1. Specify an alternate port using the `--port` flag:
-   ```bash
-   ./niskava serve --port 20130 --open
-   ```
-2. Alternatively, identify and terminate the process holding the port:
-   - **Linux / macOS:**
-     ```bash
-     lsof -i :20128
-     kill -9 <PID>
-     ```
-   - **Windows:**
-     ```powershell
-     netstat -ano | findstr :20128
-     Stop-Process -Id <PID> -Force
-     ```
-
----
-
-### Issue 8: NPX / NPM Launcher Issues & Binary Download Failures
-**Symptoms:**
-When running `npx @zyrexnns/niskava-agent` or `niskava`, one of the following occurs:
-1. `HTTP Download failed with status 404 / 403` or network timeout during binary download.
-2. `Downloaded binary is incomplete or truncated`.
-3. `Error: Niskava native executable could not be acquired`.
-4. `permission denied` or `EACCES` when attempting to install globally via `npm install -g`.
-
-**Diagnostic Steps & Resolutions:**
-
-1. **GitHub Releases Network Connectivity:**
-   The NPM wrapper downloads platform-specific Go binaries from:
-   `https://github.com/Sectors-Hacthon-2026/Niskava-Agents/releases`.
-   If you are behind a corporate proxy or restricted network:
-   - Check if you can download the release asset directly in your browser or via curl:
-     ```bash
-     curl -I -L https://github.com/Sectors-Hacthon-2026/Niskava-Agents/releases
-     ```
-   - Alternatively, install Go 1.22+ on your machine. The NPM launcher will automatically detect `go` on your host and compile the native binary on-the-fly into `~/.niskava/bin/`!
-
-2. **Resolving `EACCES` Permission Denied on Global Install:**
-   Avoid running `sudo npm install -g` if your system Node directory is owned by root.
-   Instead, use `npx` directly (no global install needed):
-   ```bash
-   npx @zyrexnns/niskava-agent setup
-   npx @zyrexnns/niskava-agent
-   ```
-   Or configure npm to use a user-space directory:
-   ```bash
-   mkdir -p ~/.npm-global
-   npm config set prefix '~/.npm-global'
-   export PATH=~/.npm-global/bin:$PATH
-   npm install -g @zyrexnns/niskava-agent
-   ```
-
-3. **Clearing Corrupted Binary Cache:**
-   If a download was interrupted (causing `truncated binary` error):
-   - **Linux / macOS:**
-     ```bash
-     rm -rf ~/.niskava/bin
-     ```
-   - **Windows (PowerShell):**
-     ```powershell
-     Remove-Item -Recurse -Force "$HOME\.niskava\bin"
-     ```
-   Then re-run `npx @zyrexnns/niskava-agent doctor` to trigger a fresh download.
-
-4. **Python Detection via NPX Launcher:**
-   If the launcher warns that `Python 3.11+ was not detected on PATH`:
-   - On Linux (Ubuntu/Debian): `sudo apt install python3 python3-venv python3-pip`
-   - On macOS: `brew install python@3.12`
-   - On Windows: `winget install Python.Python.3.12` (ensure "Add to PATH" is checked)
-   - You can also explicitly set `export NISKAVA_PYTHON_BIN="/path/to/python3"` in your shell.
-
----
-
-## 2. Operational Best Practices
-
-### Local Database Backup & Restore
-All investigation sessions, findings, and memory graphs are stored in a single SQLite database file. To back up your research data:
-
-```bash
-# Create a hot backup
-sqlite3 ~/.niskava/niskava.db ".backup ~/.niskava/niskava_backup.db"
-```
-
-To restore from a backup:
-```bash
-cp ~/.niskava/niskava_backup.db ~/.niskava/niskava.db
-```
-
-### Resetting Cache
-To purge expired Sectors API cache entries while preserving permanent historical daily candlestick data:
-
-```bash
-sqlite3 ~/.niskava/niskava.db "DELETE FROM sectors_cache WHERE expires_at IS NOT NULL AND expires_at < datetime('now');"
-```
+2. Or adjust the whitelist directly from the Web Workspace settings (`http://localhost:20128`).
 
 ---
 
 ## 3. Frequently Asked Questions (FAQ)
 
-### Does Niskava Agent provide BUY, SELL, or HOLD stock recommendations?
-**No.** Under **Law 2 (Strict Financial Non-Advisory Boundary)** and Sectors Hackathon Rule 12, Niskava Agent strictly refrains from providing investment advice, price targets, or trade recommendations. All findings are presented as an objective, verified intelligence audit trail categorized into `SUPPORTED`, `UNCERTAIN`, or `CONTRADICTED` evidence.
+### Q1: Is my financial research data sent to the cloud?
+**No.** Niskava strictly follows **Law 4 (Local-First Data Sovereignty)**. All investigation records, chat histories, memory graphs, and cached candlestick data are saved locally on your computer at `~/.niskava/niskava.db`. There is zero centralized database or cloud analytics telemetry.
 
----
+### Q2: Why doesn't Niskava provide automated buy or sell order buttons?
+**Law 3 and securities regulations strictly prohibit automated order execution.** Niskava is a pure read-only market intelligence and empirical verification platform, not an execution broker. It helps you analyze evidence and verify facts so that you can make informed, independent investment decisions.
 
-### Can Niskava Agent execute trades directly through my brokerage account?
-**No.** Under **Law 3 (Prohibition of Automated Trade Execution)**, Niskava is strictly a read-only market intelligence and research tool. The codebase contains no broker connection libraries, order routing APIs, or trade execution capabilities.
+### Q3: How does Niskava protect my Sectors API credit allocation?
+**Law 5 (Credit Conservation)** ensures that zero redundant API calls are made. Candlestick data for past trading sessions ($T < \text{today}$) is permanent and never expires (`expires_at = NULL`), so repeat analyses on the same stock consume zero API credits. Fundamental reports are cached locally for 24 hours.
 
----
+### Q4: Can I use Niskava with free local LLMs without paying for API keys?
+**Yes.** You can install [Ollama](https://ollama.com/) locally and use models such as `deepseek-r1:8b` or `qwen2.5:7b`. You only need a free Sectors Financial API key from [sectors.app](https://sectors.app/) for the exchange data.
 
-### Is my research data sent to external cloud servers?
-**No.** Under **Law 4 (Local-First Data Sovereignty)**, all chat transcripts, investigation logs, evidence graphs, and API caches reside locally on your machine in `~/.niskava/niskava.db`. If you use a local AI provider like Ollama, zero data leaves your local network. When using cloud AI providers (e.g., Google Gemini), only sanitized statistical summaries and analytical context are sent for reasoning; raw database files remain strictly local.
-
----
-
-### Which stock markets and instruments are supported?
-Niskava Agent is currently optimized for equities listed on the **Indonesia Stock Exchange (IDX / Bursa Efek Indonesia)**. It supports all 4-letter and 5-letter IDX tickers (e.g., `ANTM`, `BBCA`, `BBRI`, `GOTO`, `ADRO`). It also calculates broader sector divergence against official IDX sector indices (e.g., IDX Finance, IDX Basic Materials, IDX Energy).
-
----
-
-### How does Niskava ensure that news is the actual catalyst of a price move?
-Niskava enforces **temporal causality verification**. In Stage 6 of the investigation pipeline, the engine cross-references the exact publication timestamp of an article or regulatory filing against the timestamp of the trading volume surge:
-- If the news was published before the volume surge $\to$ classified as `LIKELY_CATALYST`.
-- If the volume surge occurred before any news announcement $\to$ classified as `PRECEDED_ANNOUNCEMENT`, highlighting potential information leakage.
-- If no news exists within the window $\to$ classified as `UNEXPLAINED_BY_NEWS`.
-
----
-
-### Can I run Niskava entirely offline without internet access?
-**Yes.** By setting `export MOCK_SECTORS=1` and using a locally hosted LLM via Ollama (or running `--offline` mode), Niskava can execute investigations and test suites completely disconnected from the internet.
+### Q5: How do I completely reset Niskava to factory defaults?
+To clear all local settings, database records, and caches:
+```bash
+# Backup first if desired, then remove the .niskava folder:
+rm -rf ~/.niskava
+```
+Running `niskava setup` will recreate a fresh directory and database.

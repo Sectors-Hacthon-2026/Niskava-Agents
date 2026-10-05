@@ -16,7 +16,7 @@ import (
 )
 
 func TestReplInputModelSlashPopupFiltering(t *testing.T) {
-	model := NewReplInputModel("niskava [hermes] >")
+	model := NewReplInputModel("niskava >")
 
 	// 1. Initially SlashActive should be false
 	if model.SlashActive {
@@ -56,7 +56,7 @@ func TestReplInputModelSlashPopupFiltering(t *testing.T) {
 }
 
 func TestReplInputModelTabAutocompletion(t *testing.T) {
-	model := NewReplInputModel("niskava [hermes] >")
+	model := NewReplInputModel("niskava >")
 
 	// Set value to '/re' and activate popup
 	model.TextInput.SetValue("/re")
@@ -136,7 +136,7 @@ func TestCompletionBadgeFormatting(t *testing.T) {
 
 	// 1. Indonesian test
 	SetLanguage("id")
-	badgeId := renderCompletionBadge(duration, "CHAT-TEST-001", "hermes", 2, 1)
+	badgeId := renderCompletionBadge(duration, "CHAT-TEST-001", "gemini-2.0-flash", 2, 1)
 	if !strings.Contains(badgeId, "SELESAI") {
 		t.Errorf("expected Indonesian badge to contain 'SELESAI', got: %s", badgeId)
 	}
@@ -149,7 +149,7 @@ func TestCompletionBadgeFormatting(t *testing.T) {
 
 	// 2. English test
 	SetLanguage("en")
-	badgeEn := renderCompletionBadge(duration, "CHAT-TEST-001", "hermes", 2, 1)
+	badgeEn := renderCompletionBadge(duration, "CHAT-TEST-001", "gemini-2.0-flash", 2, 1)
 	if !strings.Contains(badgeEn, "COMPLETED") {
 		t.Errorf("expected English badge to contain 'COMPLETED', got: %s", badgeEn)
 	}
@@ -162,7 +162,7 @@ func TestCompletionBadgeFormatting(t *testing.T) {
 }
 
 func TestReplInputModelSlashChatsAndResume(t *testing.T) {
-	model := NewReplInputModel("niskava [hermes] >")
+	model := NewReplInputModel("niskava >")
 	model.TextInput.SetValue("/ch")
 	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
 	m := updated.(ReplInputModel)
@@ -260,7 +260,7 @@ func TestRenderResumedHistory(t *testing.T) {
 }
 
 func TestReplInputModel_EscKeyBehavior(t *testing.T) {
-	model := NewReplInputModel("niskava [hermes] >")
+	model := NewReplInputModel("niskava >")
 
 	// 1. Non-empty input: pressing Esc clears text input
 	model.TextInput.SetValue("analisis ANTM")
@@ -296,7 +296,7 @@ func TestReplInputModel_EscKeyBehavior(t *testing.T) {
 }
 
 func TestReplInputModel_DoublePressExit(t *testing.T) {
-	model := NewReplInputModel("niskava [hermes] >")
+	model := NewReplInputModel("niskava >")
 
 	// First Esc press on empty input: sets warning, does not quit
 	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
@@ -325,7 +325,7 @@ func TestReplInputModel_DoublePressExit(t *testing.T) {
 }
 
 func TestReplInputModelBackCommandInSlashPopup(t *testing.T) {
-	model := NewReplInputModel("niskava [hermes] >")
+	model := NewReplInputModel("niskava >")
 	model.TextInput.SetValue("/ba")
 	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
 	m := updated.(ReplInputModel)
@@ -342,7 +342,7 @@ func TestReplInputModelBackCommandInSlashPopup(t *testing.T) {
 }
 
 func TestReplInputModelBackCommandSubmit(t *testing.T) {
-	model := NewReplInputModel("niskava [hermes] >")
+	model := NewReplInputModel("niskava >")
 	model.TextInput.SetValue("/back")
 	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 	m := updated.(ReplInputModel)
@@ -673,7 +673,7 @@ func TestReplaceIgnoreCase(t *testing.T) {
 }
 
 func TestReplInputModelWindowedViewportScrolling(t *testing.T) {
-	model := NewReplInputModel("niskava [hermes] >")
+	model := NewReplInputModel("niskava >")
 	model.TextInput.SetValue("/")
 	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 	m := updated.(ReplInputModel)

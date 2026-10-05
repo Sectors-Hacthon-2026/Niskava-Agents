@@ -125,6 +125,43 @@ def load_config_yaml_fallback() -> None:
         pass
 
 
+def resolve_mock_mode(args_offline: bool = False, env: dict = None) -> bool:
+    """Resolve whether engine runs in mock_mode.
+
+    Mock mode is ONLY allowed when NISKAVA_TESTING=1 (CI/CD and unit tests).
+    In all other cases, a valid SECTORS_API_KEY is mandatory.
+    Exits the process with a clear error message if the key is missing.
+    """
+    if env is None:
+        env = os.environ
+
+    is_testing = env.get("NISKAVA_TESTING", "0") in ("1", "true", "True")
+    has_sectors_key = bool(env.get("SECTORS_API_KEY", "").strip())
+
+    if is_testing:
+        return (
+            args_offline
+            or env.get("NISKAVA_OFFLINE", "0") in ("1", "true", "True")
+            or env.get("MOCK_SECTORS", "0") in ("1", "true", "True")
+            or not has_sectors_key
+        )
+
+    if not has_sectors_key:
+        emit_jsonl({
+            "type": "error",
+            "stage": "INITIATION",
+            "message": (
+                "SECTORS_API_KEY is not configured. Niskava requires a valid Sectors "
+                "Financial API key to analyze IDX market data. "
+                "Run 'niskava setup' to configure your key, or obtain a free key at "
+                "https://sectors.app"
+            ),
+        })
+        sys.exit(1)
+
+    return False
+
+
 def main() -> None:
     load_dotenv_fallback()
     load_config_yaml_fallback()
@@ -140,15 +177,30 @@ def main() -> None:
     parser.add_argument("--node-types", default=None, help="Comma-separated node types to filter")
     parser.add_argument("--embed", action="store_true", help="Render lightweight embedded view for iframes")
     parser.add_argument("--summary-graph", action="store_true", help="Output JSON text summary of graph to stdout")
+    parser.add_argument("--attachments", default=None, help="Comma-separated paths to attached local documents")
     parser.add_argument("--language", "--lang", default=os.environ.get("NISKAVA_LANG", "id"), help="Interface and persona language ('id' or 'en')")
 
     args = parser.parse_args()
 
-    mock_mode = (
+    attachments_list = None
+    if args.attachments:
+        attachments_list = [
+            p.strip() for p in args.attachments.split(",") if p.strip()
+        ]
+
+    has_sectors_key = bool(os.environ.get("SECTORS_API_KEY", "").strip())
+    explicit_offline = (
         args.offline
-        or os.environ.get("MOCK_SECTORS", "0") in ("1", "true", "True")
         or os.environ.get("NISKAVA_OFFLINE", "0") in ("1", "true", "True")
     )
+    if has_sectors_key and not explicit_offline:
+        # Auto-toggle to live mode if user configured a valid Sectors key
+        mock_mode = False
+    else:
+        mock_mode = (
+            explicit_offline
+            or os.environ.get("MOCK_SECTORS", "0") in ("1", "true", "True")
+        )
     language = (args.language or "id").lower()
     os.environ["NISKAVA_LANG"] = language
 
@@ -205,6 +257,7 @@ def main() -> None:
             agent.chat(
                 user_prompt=args.prompt,
                 session_id=args.session,
+                attachments=attachments_list,
             )
         elif args.ticker:
             from engine.agent.pipeline import InvestigationPipeline
@@ -227,6 +280,7 @@ def main() -> None:
             agent.chat(
                 user_prompt=default_prompt,
                 session_id=args.session,
+                attachments=attachments_list,
             )
     except Exception as exc:
         emit_jsonl({

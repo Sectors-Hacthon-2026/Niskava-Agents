@@ -9,10 +9,13 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	_ "modernc.org/sqlite"
 )
+
+var teleSessionSeq uint64
 
 // SchemaDDL defines the core database schema.
 const SchemaDDL = `
@@ -29,12 +32,14 @@ CREATE TABLE IF NOT EXISTS investigations (
     started_at TEXT NOT NULL,
     completed_at TEXT,
     summary_text TEXT,
+    is_pinned INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS anomalies (
     id TEXT PRIMARY KEY,
     investigation_id TEXT NOT NULL REFERENCES investigations(id) ON DELETE CASCADE,
+    ticker TEXT NOT NULL DEFAULT '',
     anomaly_date TEXT NOT NULL,
     metric_type TEXT NOT NULL,
     metric_value REAL NOT NULL,
@@ -109,7 +114,7 @@ CREATE TABLE IF NOT EXISTS memory_edges (
 CREATE TABLE IF NOT EXISTS chat_sessions (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
-    model TEXT NOT NULL DEFAULT 'hermes',
+    model TEXT NOT NULL DEFAULT 'niskava',
     status TEXT NOT NULL DEFAULT 'IDLE',
     message_count INTEGER NOT NULL DEFAULT 0,
     last_message_preview TEXT,
@@ -142,6 +147,19 @@ CREATE INDEX IF NOT EXISTS idx_memory_edges_target ON memory_edges(target_id);
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_parent ON chat_sessions(parent_session_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
+
+CREATE TABLE IF NOT EXISTS chat_attachments (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    mime_type TEXT NOT NULL,
+    page_count INTEGER NOT NULL DEFAULT 0,
+    extracted_text TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_chat_attachments_session ON chat_attachments(session_id);
 
 CREATE TABLE IF NOT EXISTS suspension_records (
     id TEXT PRIMARY KEY,
@@ -210,6 +228,7 @@ type Investigation struct {
 	StartedAt     string  `json:"started_at"`
 	CompletedAt   *string `json:"completed_at,omitempty"`
 	SummaryText   *string `json:"summary_text,omitempty"`
+	IsPinned      bool    `json:"is_pinned"`
 	CreatedAt     string  `json:"created_at"`
 }
 
@@ -217,6 +236,7 @@ type Investigation struct {
 type Anomaly struct {
 	ID              string  `json:"id"`
 	InvestigationID string  `json:"investigation_id"`
+	Ticker          string  `json:"ticker"`
 	AnomalyDate     string  `json:"anomaly_date"`
 	MetricType      string  `json:"metric_type"`
 	MetricValue     float64 `json:"metric_value"`
@@ -309,6 +329,23 @@ func Open(dbPath string) (*DB, error) {
 		_, _ = conn.Exec(migrationSQL)
 	}
 
+	// Self-healing migration for is_pinned column in investigations table
+	_, _ = conn.Exec("ALTER TABLE investigations ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0;")
+
+	// Self-healing migration for ticker column in anomalies table if existing database was created prior
+	_, _ = conn.Exec("ALTER TABLE anomalies ADD COLUMN ticker TEXT NOT NULL DEFAULT '';")
+
+	// Backfill ticker column for historical anomaly rows based on investigation_id or investigations table
+	backfillAnomalyTickerSQL := `
+		UPDATE anomalies SET ticker = 'ANTM' WHERE (ticker IS NULL OR ticker = '') AND (investigation_id LIKE '%ANTM%' OR id LIKE '%ANTM%');
+		UPDATE anomalies SET ticker = 'BBRI' WHERE (ticker IS NULL OR ticker = '') AND (investigation_id LIKE '%BBRI%' OR id LIKE '%BBRI%');
+		UPDATE anomalies SET ticker = 'BUMI' WHERE (ticker IS NULL OR ticker = '') AND (investigation_id LIKE '%BUMI%' OR id LIKE '%BUMI%');
+		UPDATE anomalies SET ticker = (
+			SELECT ticker FROM investigations WHERE investigations.id = anomalies.investigation_id
+		) WHERE (ticker IS NULL OR ticker = '') AND investigation_id IN (SELECT id FROM investigations);
+	`
+	_, _ = conn.Exec(backfillAnomalyTickerSQL)
+
 	// Self-healing migration for chat_messages status column
 	_, _ = conn.Exec("ALTER TABLE chat_messages ADD COLUMN status TEXT NOT NULL DEFAULT 'COMPLETED';")
 
@@ -318,7 +355,7 @@ func Open(dbPath string) (*DB, error) {
 		SELECT 
 			session_id,
 			COALESCE(SUBSTR(MIN(CASE WHEN role = 'user' THEN content END), 1, 40), session_id) as title,
-			'hermes',
+			'niskava',
 			'IDLE',
 			COUNT(id) as message_count,
 			COALESCE(MAX(content), ''),
@@ -358,13 +395,54 @@ func (d *DB) CreateInvestigation(inv *Investigation) error {
 		inv.TimeframeDays = 30
 	}
 
+	pinnedInt := 0
+	if inv.IsPinned {
+		pinnedInt = 1
+	}
+
+	query := `
+		INSERT OR REPLACE INTO investigations (id, ticker, market, timeframe_days, status, started_at, completed_at, summary_text, is_pinned, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
+	`
+	var createdAt interface{} = inv.CreatedAt
+	if inv.CreatedAt == "" {
+		createdAt = nil
+	}
+	_, err := d.conn.Exec(query, inv.ID, inv.Ticker, inv.Market, inv.TimeframeDays, inv.Status, inv.StartedAt, inv.CompletedAt, inv.SummaryText, pinnedInt, createdAt)
+	if err != nil {
+		return fmt.Errorf("failed to insert investigation %s: %w", inv.ID, err)
+	}
+	return nil
+}
+
+// UpsertInvestigation creates or updates an investigation session record.
+func (d *DB) UpsertInvestigation(inv *Investigation) error {
+	if inv.StartedAt == "" {
+		inv.StartedAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	if inv.Status == "" {
+		inv.Status = "PENDING"
+	}
+	if inv.Market == "" {
+		inv.Market = "IDX"
+	}
+	if inv.TimeframeDays == 0 {
+		inv.TimeframeDays = 30
+	}
+
 	query := `
 		INSERT INTO investigations (id, ticker, market, timeframe_days, status, started_at, summary_text)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			ticker = excluded.ticker,
+			market = excluded.market,
+			timeframe_days = excluded.timeframe_days,
+			status = excluded.status,
+			summary_text = COALESCE(excluded.summary_text, investigations.summary_text)
 	`
 	_, err := d.conn.Exec(query, inv.ID, inv.Ticker, inv.Market, inv.TimeframeDays, inv.Status, inv.StartedAt, inv.SummaryText)
 	if err != nil {
-		return fmt.Errorf("failed to insert investigation %s: %w", inv.ID, err)
+		return fmt.Errorf("failed to upsert investigation %s: %w", inv.ID, err)
 	}
 	return nil
 }
@@ -385,15 +463,33 @@ func (d *DB) UpdateInvestigationStatus(id, status string, summaryText *string) e
 	return nil
 }
 
-// ListInvestigations returns past investigation sessions ordered by start time desc.
+// UpdateInvestigationPin toggles or sets the is_pinned status of an investigation record.
+func (d *DB) UpdateInvestigationPin(id string, isPinned bool) error {
+	pinnedInt := 0
+	if isPinned {
+		pinnedInt = 1
+	}
+	query := `UPDATE investigations SET is_pinned = ? WHERE id = ?`
+	res, err := d.conn.Exec(query, pinnedInt, id)
+	if err != nil {
+		return fmt.Errorf("failed to update investigation pin status: %w", err)
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("investigation %s not found", id)
+	}
+	return nil
+}
+
+// ListInvestigations returns past investigation sessions ordered by is_pinned desc and start time desc.
 func (d *DB) ListInvestigations(limit int) ([]Investigation, error) {
 	if limit <= 0 {
 		limit = 50
 	}
 	query := `
-		SELECT id, ticker, market, timeframe_days, status, started_at, completed_at, summary_text, created_at
+		SELECT id, ticker, market, timeframe_days, status, started_at, completed_at, summary_text, is_pinned, created_at
 		FROM investigations
-		ORDER BY started_at DESC
+		ORDER BY is_pinned DESC, started_at DESC
 		LIMIT ?
 	`
 	rows, err := d.conn.Query(query, limit)
@@ -404,10 +500,14 @@ func (d *DB) ListInvestigations(limit int) ([]Investigation, error) {
 
 	var results []Investigation
 	for rows.Next() {
-		var inv Investigation
-		if err := rows.Scan(&inv.ID, &inv.Ticker, &inv.Market, &inv.TimeframeDays, &inv.Status, &inv.StartedAt, &inv.CompletedAt, &inv.SummaryText, &inv.CreatedAt); err != nil {
+		var (
+			inv      Investigation
+			isPinned int
+		)
+		if err := rows.Scan(&inv.ID, &inv.Ticker, &inv.Market, &inv.TimeframeDays, &inv.Status, &inv.StartedAt, &inv.CompletedAt, &inv.SummaryText, &isPinned, &inv.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan investigation row: %w", err)
 		}
+		inv.IsPinned = isPinned == 1
 		results = append(results, inv)
 	}
 	return results, nil
@@ -416,18 +516,22 @@ func (d *DB) ListInvestigations(limit int) ([]Investigation, error) {
 // GetInvestigation retrieves a specific session by its ID.
 func (d *DB) GetInvestigation(id string) (*Investigation, error) {
 	query := `
-		SELECT id, ticker, market, timeframe_days, status, started_at, completed_at, summary_text, created_at
+		SELECT id, ticker, market, timeframe_days, status, started_at, completed_at, summary_text, is_pinned, created_at
 		FROM investigations
 		WHERE id = ?
 	`
 	row := d.conn.QueryRow(query, id)
-	var inv Investigation
-	if err := row.Scan(&inv.ID, &inv.Ticker, &inv.Market, &inv.TimeframeDays, &inv.Status, &inv.StartedAt, &inv.CompletedAt, &inv.SummaryText, &inv.CreatedAt); err != nil {
+	var (
+		inv      Investigation
+		isPinned int
+	)
+	if err := row.Scan(&inv.ID, &inv.Ticker, &inv.Market, &inv.TimeframeDays, &inv.Status, &inv.StartedAt, &inv.CompletedAt, &inv.SummaryText, &isPinned, &inv.CreatedAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get investigation %s: %w", id, err)
 	}
+	inv.IsPinned = isPinned == 1
 	return &inv, nil
 }
 
@@ -462,7 +566,7 @@ func (d *DB) ListFindingsByInvestigation(invID string) ([]Finding, error) {
 // GetAnomaliesByInvestigation returns all quantitative anomalies for a specific investigation.
 func (d *DB) GetAnomaliesByInvestigation(invID string) ([]Anomaly, error) {
 	query := `
-		SELECT id, investigation_id, anomaly_date, metric_type, metric_value, baseline_value, z_score, description
+		SELECT id, investigation_id, COALESCE(ticker, ''), anomaly_date, metric_type, metric_value, baseline_value, z_score, description
 		FROM anomalies
 		WHERE investigation_id = ?
 		ORDER BY anomaly_date ASC
@@ -476,7 +580,7 @@ func (d *DB) GetAnomaliesByInvestigation(invID string) ([]Anomaly, error) {
 	var results []Anomaly
 	for rows.Next() {
 		var a Anomaly
-		if err := rows.Scan(&a.ID, &a.InvestigationID, &a.AnomalyDate, &a.MetricType, &a.MetricValue, &a.BaselineValue, &a.ZScore, &a.Description); err != nil {
+		if err := rows.Scan(&a.ID, &a.InvestigationID, &a.Ticker, &a.AnomalyDate, &a.MetricType, &a.MetricValue, &a.BaselineValue, &a.ZScore, &a.Description); err != nil {
 			return nil, fmt.Errorf("failed to scan anomaly: %w", err)
 		}
 		results = append(results, a)
@@ -487,13 +591,185 @@ func (d *DB) GetAnomaliesByInvestigation(invID string) ([]Anomaly, error) {
 	return results, nil
 }
 
+// GetAnomaliesByTicker returns quantitative anomalies for a specific ticker across sessions.
+func (d *DB) GetAnomaliesByTicker(ticker string) ([]Anomaly, error) {
+	cleanTicker := strings.ToUpper(strings.TrimSpace(ticker))
+	query := `
+		SELECT a.id, a.investigation_id, COALESCE(NULLIF(a.ticker, ''), i.ticker, UPPER(?)), a.anomaly_date, a.metric_type, a.metric_value, a.baseline_value, a.z_score, a.description
+		FROM anomalies a
+		LEFT JOIN investigations i ON a.investigation_id = i.id
+		WHERE UPPER(a.ticker) = ? 
+		   OR UPPER(i.ticker) = ?
+		   OR UPPER(a.investigation_id) LIKE '%' || ? || '%'
+		   OR UPPER(a.id) LIKE '%' || ? || '%'
+		ORDER BY a.anomaly_date ASC
+	`
+	rows, err := d.conn.Query(query, cleanTicker, cleanTicker, cleanTicker, cleanTicker, cleanTicker)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get anomalies for ticker %s: %w", ticker, err)
+	}
+	defer rows.Close()
+
+	var results []Anomaly
+	for rows.Next() {
+		var a Anomaly
+		if err := rows.Scan(&a.ID, &a.InvestigationID, &a.Ticker, &a.AnomalyDate, &a.MetricType, &a.MetricValue, &a.BaselineValue, &a.ZScore, &a.Description); err != nil {
+			return nil, fmt.Errorf("failed to scan anomaly: %w", err)
+		}
+		results = append(results, a)
+	}
+	if results == nil {
+		results = []Anomaly{}
+	}
+	return results, nil
+}
+
+// RadarAnomalyItem represents a quantitative anomaly enriched with investigation ticker for market radar screener.
+type RadarAnomalyItem struct {
+	ID              string  `json:"id"`
+	InvestigationID string  `json:"investigation_id"`
+	Ticker          string  `json:"ticker"`
+	AnomalyDate     string  `json:"anomaly_date"`
+	MetricType      string  `json:"metric_type"`
+	MetricValue     float64 `json:"metric_value"`
+	BaselineValue   float64 `json:"baseline_value"`
+	ZScore          float64 `json:"z_score"`
+	Description     string  `json:"description"`
+	CreatedAt       string  `json:"created_at"`
+}
+
+// ListLatestRadarAnomalies retrieves top detected anomalies above minZScore across investigations.
+func (d *DB) ListLatestRadarAnomalies(limit int, minZScore float64) ([]RadarAnomalyItem, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	query := `
+		SELECT a.id, a.investigation_id, i.ticker, a.anomaly_date, a.metric_type, a.metric_value, a.baseline_value, a.z_score, a.description, a.created_at
+		FROM anomalies a
+		JOIN investigations i ON a.investigation_id = i.id
+		WHERE ABS(a.z_score) >= ?
+		  AND i.id NOT LIKE 'EVAL-%'
+		  AND i.id NOT LIKE 'TEST-%'
+		ORDER BY a.anomaly_date DESC, ABS(a.z_score) DESC, a.created_at DESC
+		LIMIT ?
+	`
+	rows, err := d.conn.Query(query, minZScore, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query radar anomalies: %w", err)
+	}
+	defer rows.Close()
+
+	var results []RadarAnomalyItem
+	for rows.Next() {
+		var item RadarAnomalyItem
+		var desc sql.NullString
+		if err := rows.Scan(
+			&item.ID,
+			&item.InvestigationID,
+			&item.Ticker,
+			&item.AnomalyDate,
+			&item.MetricType,
+			&item.MetricValue,
+			&item.BaselineValue,
+			&item.ZScore,
+			&desc,
+			&item.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan radar anomaly: %w", err)
+		}
+		if desc.Valid {
+			item.Description = desc.String
+		}
+		results = append(results, item)
+	}
+	if results == nil {
+		results = []RadarAnomalyItem{}
+	}
+	return results, nil
+}
+
+// EnsureInvestigationSession checks if an investigation session record exists for id, creating a lightweight record if missing.
+func (d *DB) EnsureInvestigationSession(id, ticker string) error {
+	inv, err := d.GetInvestigation(id)
+	if err != nil {
+		return err
+	}
+	if inv != nil {
+		return nil
+	}
+	if ticker == "" {
+		ticker = "IDX"
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	return d.CreateInvestigation(&Investigation{
+		ID:            id,
+		Ticker:        ticker,
+		Market:        "IDX",
+		TimeframeDays: 30,
+		Status:        "COMPLETED",
+		StartedAt:     now,
+	})
+}
+
+// TimelineEvent is a single chronological entry in an investigation dossier.
+type TimelineEvent struct {
+	ID              string `json:"id"`
+	InvestigationID string `json:"investigation_id"`
+	EventTimestamp  string `json:"event_timestamp"`
+	EventType       string `json:"event_type"`
+	Headline        string `json:"headline"`
+	Details         string `json:"details"`
+}
+
+// GetInvestigationTimeline returns a chronological timeline for an investigation built
+// exclusively from persisted records: explicit timeline_events rows plus events derived
+// from the investigation's detected anomalies and verified findings. It never fabricates entries.
+func (d *DB) GetInvestigationTimeline(invID string) ([]TimelineEvent, error) {
+	query := `
+		SELECT id, investigation_id, event_timestamp, event_type, headline, COALESCE(details, '') AS details
+		FROM timeline_events
+		WHERE investigation_id = ?
+		UNION ALL
+		SELECT id, investigation_id, anomaly_date, 'QUANT_ANOMALY',
+		       metric_type || ' (Z=' || printf('%.2f', z_score) || 'σ)',
+		       COALESCE(description, '')
+		FROM anomalies
+		WHERE investigation_id = ?
+		UNION ALL
+		SELECT id, investigation_id, created_at, 'FINDING',
+		       title,
+		       '[' || verification_status || '] ' || claim_text
+		FROM findings
+		WHERE investigation_id = ?
+		ORDER BY 3 ASC
+	`
+	rows, err := d.conn.Query(query, invID, invID, invID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query timeline for %s: %w", invID, err)
+	}
+	defer rows.Close()
+
+	events := []TimelineEvent{}
+	for rows.Next() {
+		var ev TimelineEvent
+		if err := rows.Scan(&ev.ID, &ev.InvestigationID, &ev.EventTimestamp, &ev.EventType, &ev.Headline, &ev.Details); err != nil {
+			return nil, fmt.Errorf("failed to scan timeline event: %w", err)
+		}
+		events = append(events, ev)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate timeline for %s: %w", invID, err)
+	}
+	return events, nil
+}
+
 // CreateAnomaly records a quantitative anomaly in the database.
 func (d *DB) CreateAnomaly(a *Anomaly) error {
 	query := `
-		INSERT INTO anomalies (id, investigation_id, anomaly_date, metric_type, metric_value, baseline_value, z_score, description)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT OR REPLACE INTO anomalies (id, investigation_id, ticker, anomaly_date, metric_type, metric_value, baseline_value, z_score, description)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err := d.conn.Exec(query, a.ID, a.InvestigationID, a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore, a.Description)
+	_, err := d.conn.Exec(query, a.ID, a.InvestigationID, a.Ticker, a.AnomalyDate, a.MetricType, a.MetricValue, a.BaselineValue, a.ZScore, a.Description)
 	if err != nil {
 		return fmt.Errorf("failed to insert anomaly: %w", err)
 	}
@@ -503,7 +779,7 @@ func (d *DB) CreateAnomaly(a *Anomaly) error {
 // CreateFinding records an investigation finding in the database.
 func (d *DB) CreateFinding(f *Finding) error {
 	query := `
-		INSERT INTO findings (id, investigation_id, title, claim_text, verification_status, confidence_score, causality_status)
+		INSERT OR REPLACE INTO findings (id, investigation_id, title, claim_text, verification_status, confidence_score, causality_status)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := d.conn.Exec(query, f.ID, f.InvestigationID, f.Title, f.ClaimText, f.VerificationStatus, f.ConfidenceScore, f.CausalityStatus)
@@ -518,7 +794,7 @@ func (d *DB) Conn() *sql.DB {
 	return d.conn
 }
 
-// ChatSession represents an explicit conversational research session (Hermes/OpenCode pattern).
+// ChatSession represents an explicit conversational research session.
 type ChatSession struct {
 	ID                 string  `json:"id"`
 	Title              string  `json:"title"`
@@ -579,7 +855,7 @@ func (d *DB) SaveChatMessage(msg *ChatMessage) error {
 
 	upsertQuery := `
 		INSERT INTO chat_sessions (id, title, model, status, message_count, last_message_preview, is_pinned, created_at, updated_at)
-		VALUES (?, ?, 'hermes', 'IDLE', 1, ?, 0, ?, ?)
+		VALUES (?, ?, 'niskava', 'IDLE', 1, ?, 0, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			title = CASE WHEN title = 'Sesi Riset Pasar' OR title = '' OR title IS NULL THEN excluded.title ELSE title END,
 			message_count = message_count + 1,
@@ -674,13 +950,106 @@ func (d *DB) SearchChatMessages(query string, limit int) ([]ChatSearchResult, er
 	return results, nil
 }
 
+// ChatAttachment represents an uploaded user document stored locally (Law 4: Local-First).
+type ChatAttachment struct {
+	ID            string  `json:"id"`
+	SessionID     string  `json:"session_id"`
+	Filename      string  `json:"filename"`
+	FilePath      string  `json:"file_path"`
+	FileSize      int64   `json:"file_size"`
+	MimeType      string  `json:"mime_type"`
+	PageCount     int     `json:"page_count"`
+	ExtractedText *string `json:"extracted_text,omitempty"`
+	CreatedAt     string  `json:"created_at"`
+}
+
+// SaveChatAttachment records an uploaded file attachment into SQLite.
+func (d *DB) SaveChatAttachment(att *ChatAttachment) error {
+	if att.CreatedAt == "" {
+		att.CreatedAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	query := `
+		INSERT INTO chat_attachments (id, session_id, filename, file_path, file_size, mime_type, page_count, extracted_text, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	_, err := d.conn.Exec(query, att.ID, att.SessionID, att.Filename, att.FilePath, att.FileSize, att.MimeType, att.PageCount, att.ExtractedText, att.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("failed to save chat attachment %s: %w", att.ID, err)
+	}
+	return nil
+}
+
+// GetChatAttachment retrieves an attachment by its unique ID.
+func (d *DB) GetChatAttachment(id string) (*ChatAttachment, error) {
+	query := `
+		SELECT id, session_id, filename, file_path, file_size, mime_type, page_count, extracted_text, created_at
+		FROM chat_attachments
+		WHERE id = ?
+	`
+	row := d.conn.QueryRow(query, id)
+	var att ChatAttachment
+	var extractedText sql.NullString
+	if err := row.Scan(&att.ID, &att.SessionID, &att.Filename, &att.FilePath, &att.FileSize, &att.MimeType, &att.PageCount, &extractedText, &att.CreatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get chat attachment %s: %w", id, err)
+	}
+	if extractedText.Valid {
+		att.ExtractedText = &extractedText.String
+	}
+	return &att, nil
+}
+
+// GetChatAttachmentsBySession returns all attachments uploaded within a given session ordered chronologically.
+func (d *DB) GetChatAttachmentsBySession(sessionID string) ([]*ChatAttachment, error) {
+	query := `
+		SELECT id, session_id, filename, file_path, file_size, mime_type, page_count, extracted_text, created_at
+		FROM chat_attachments
+		WHERE session_id = ?
+		ORDER BY created_at ASC
+	`
+	rows, err := d.conn.Query(query, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query attachments for session %s: %w", sessionID, err)
+	}
+	defer rows.Close()
+
+	var attachments []*ChatAttachment
+	for rows.Next() {
+		var att ChatAttachment
+		var extractedText sql.NullString
+		if err := rows.Scan(&att.ID, &att.SessionID, &att.Filename, &att.FilePath, &att.FileSize, &att.MimeType, &att.PageCount, &extractedText, &att.CreatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan chat attachment: %w", err)
+		}
+		if extractedText.Valid {
+			att.ExtractedText = &extractedText.String
+		}
+		attachments = append(attachments, &att)
+	}
+	if attachments == nil {
+		attachments = []*ChatAttachment{}
+	}
+	return attachments, rows.Err()
+}
+
+// DeleteChatAttachment deletes an attachment record from the database.
+func (d *DB) DeleteChatAttachment(id string) error {
+	query := `DELETE FROM chat_attachments WHERE id = ?`
+	_, err := d.conn.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete chat attachment %s: %w", id, err)
+	}
+	return nil
+}
+
 // CreateChatSession inserts a new chat session record.
 func (d *DB) CreateChatSession(s *ChatSession) error {
 	if s.Status == "" {
 		s.Status = "IDLE"
 	}
 	if s.Model == "" {
-		s.Model = "hermes"
+		s.Model = "niskava"
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	if s.CreatedAt == "" {
@@ -1019,6 +1388,73 @@ func (d *DB) ForkChatSession(sourceID, newID, newTitle, upToMessageID string) er
 		newMsgID := fmt.Sprintf("%s-M%d", newID, idx+1)
 		if _, err := tx.Exec(insertMsgQuery, newMsgID, newID, m.Role, m.Content, m.Thought, m.ToolCallsJSON, m.Status, m.CreatedAt); err != nil {
 			return fmt.Errorf("failed to copy message during fork: %w", err)
+		}
+	}
+
+	// Ensure an investigation record exists for the forked session
+	var sourceTicker string
+	_ = tx.QueryRow("SELECT ticker FROM investigations WHERE id = ?", sourceID).Scan(&sourceTicker)
+	if sourceTicker == "" {
+		sourceTicker = "IDX"
+	}
+	insertInvQuery := `
+		INSERT OR IGNORE INTO investigations (id, ticker, market, timeframe_days, status, started_at, summary_text)
+		VALUES (?, ?, 'IDX', 30, 'COMPLETED', ?, ?)
+	`
+	_, _ = tx.Exec(insertInvQuery, newID, sourceTicker, now, lastPreview)
+
+	// Copy all anomalies associated with sourceID to newID (unlimited batch 1-50+)
+	anomQuery := `
+		SELECT anomaly_date, metric_type, metric_value, baseline_value, z_score, description
+		FROM anomalies
+		WHERE investigation_id = ?
+		ORDER BY anomaly_date ASC
+	`
+	anomRows, errAnom := tx.Query(anomQuery, sourceID)
+	if errAnom == nil {
+		defer anomRows.Close()
+		insertAnomQuery := `
+			INSERT OR REPLACE INTO anomalies (id, investigation_id, anomaly_date, metric_type, metric_value, baseline_value, z_score, description)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`
+		anomIdx := 1
+		for anomRows.Next() {
+			var (
+				aDate, mType, desc string
+				mVal, bVal, zVal   float64
+			)
+			if errScan := anomRows.Scan(&aDate, &mType, &mVal, &bVal, &zVal, &desc); errScan == nil {
+				newAnomID := fmt.Sprintf("ANOM-%s-%s-%d", newID, aDate, anomIdx)
+				_, _ = tx.Exec(insertAnomQuery, newAnomID, newID, aDate, mType, mVal, bVal, zVal, desc)
+				anomIdx++
+			}
+		}
+	}
+
+	// Copy all findings associated with sourceID to newID
+	findQuery := `
+		SELECT title, claim_text, verification_status, confidence_score, causality_status
+		FROM findings
+		WHERE investigation_id = ?
+	`
+	findRows, errFind := tx.Query(findQuery, sourceID)
+	if errFind == nil {
+		defer findRows.Close()
+		insertFindQuery := `
+			INSERT OR REPLACE INTO findings (id, investigation_id, title, claim_text, verification_status, confidence_score, causality_status)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`
+		findIdx := 1
+		for findRows.Next() {
+			var (
+				t, claim, vStat, cStat string
+				conf                   float64
+			)
+			if errScan := findRows.Scan(&t, &claim, &vStat, &conf, &cStat); errScan == nil {
+				newFindID := fmt.Sprintf("FIND-%s-%d", newID, findIdx)
+				_, _ = tx.Exec(insertFindQuery, newFindID, newID, t, claim, vStat, conf, cStat)
+				findIdx++
+			}
 		}
 	}
 
@@ -1559,7 +1995,8 @@ func (d *DB) GetOrCreateTelegramChatSession(chatID int64, userID int64, username
 // ResetTelegramChatSession creates a fresh chat_sessions record and updates the telegram_chats mapping.
 func (d *DB) ResetTelegramChatSession(chatID int64, userID int64, username string) (string, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
-	newSessionID := fmt.Sprintf("TELE-%s-%04d", time.Now().Format("20060102"), time.Now().UnixNano()%10000)
+	seq := atomic.AddUint64(&teleSessionSeq, 1)
+	newSessionID := fmt.Sprintf("TELE-%s-%04d-%04d", time.Now().Format("20060102"), (time.Now().UnixNano()/1000)%10000, seq%10000)
 
 	timestamp := time.Now().Format("02 Jan 15:04:05")
 	sessionTitle := fmt.Sprintf("Telegram · %s", timestamp)
@@ -1570,7 +2007,7 @@ func (d *DB) ResetTelegramChatSession(chatID int64, userID int64, username strin
 	sess := &ChatSession{
 		ID:     newSessionID,
 		Title:  sessionTitle,
-		Model:  "hermes",
+		Model:  "niskava",
 		Status: "IDLE",
 	}
 	if err := d.CreateChatSession(sess); err != nil {
@@ -1640,6 +2077,22 @@ func (d *DB) GetSectorsCache(cacheKey string) (string, error) {
 	`
 	var payload string
 	err := d.conn.QueryRow(query, cacheKey).Scan(&payload)
+	if err != nil {
+		return "", err
+	}
+	return payload, nil
+}
+
+// GetCachedDailyCandles retrieves the most recent unexpired cached daily candlestick payload for a ticker.
+func (d *DB) GetCachedDailyCandles(ticker string) (string, error) {
+	query := `
+		SELECT payload_json FROM sectors_cache
+		WHERE (endpoint LIKE '%/daily/' || ? || '%' OR endpoint LIKE '%/daily/' || LOWER(?) || '%')
+		  AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+		ORDER BY created_at DESC LIMIT 1
+	`
+	var payload string
+	err := d.conn.QueryRow(query, strings.ToUpper(ticker), strings.ToLower(ticker)).Scan(&payload)
 	if err != nil {
 		return "", err
 	}

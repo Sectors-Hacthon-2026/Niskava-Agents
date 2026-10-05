@@ -19,7 +19,7 @@ class TestAgentMultiTurnAndSessions(unittest.TestCase):
             CREATE TABLE IF NOT EXISTS chat_sessions (
                 id TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
-                model TEXT NOT NULL DEFAULT 'hermes',
+                model TEXT NOT NULL DEFAULT 'niskava',
                 status TEXT NOT NULL DEFAULT 'IDLE',
                 message_count INTEGER NOT NULL DEFAULT 0,
                 last_message_preview TEXT,

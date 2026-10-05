@@ -243,11 +243,11 @@ CREATE TABLE IF NOT EXISTS news_cache (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Sesi Percakapan Interaktif Multi-Turn (Hermes-Style REPL & Web Canvas)
+-- Sesi Percakapan Interaktif Multi-Turn (Autonomous REPL & Web Canvas)
 CREATE TABLE IF NOT EXISTS chat_sessions (
     id TEXT PRIMARY KEY,                       -- UUID v4
     title TEXT NOT NULL,                      -- Judul sesi percakapan
-    model TEXT NOT NULL DEFAULT 'hermes',      -- Model ID universal
+    model TEXT NOT NULL DEFAULT 'niskava',     -- Model ID universal
     status TEXT NOT NULL DEFAULT 'IDLE',       -- 'IDLE', 'BUSY'
     message_count INTEGER NOT NULL DEFAULT 0,  -- Denormalized counter untuk performa UI
     last_message_preview TEXT,                 -- Snippet pesan terakhir

@@ -8,7 +8,7 @@ import (
 
 func TestReplInputModelHistoryNavigation(t *testing.T) {
 	history := []string{"investigate ANTM", "check IHSG foreign flow", "analyze ASII dividends"}
-	model := NewReplInputModelWithHistory("niskava [hermes] >", history)
+	model := NewReplInputModelWithHistory("niskava >", history)
 
 	// Verify initial history index at end of history
 	if model.HistoryIndex != 3 {

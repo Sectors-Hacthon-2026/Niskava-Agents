@@ -62,7 +62,7 @@ Base URL Backend: `http://localhost:20128` (atau dynamic dari window location).
 |---|---|---|---|---|
 | `GET` | `/api/health` | Status daemon, SQLite, & provider AI | `-` | `{"status": "ok", "version": "1.0.0", "market": "IDX"}` |
 | `GET` | `/api/chat/sessions` | Mengambil daftar sesi chat | `?limit=50&offset=0&q={search}` | `{"sessions": [...], "total": N}` |
-| `POST` | `/api/chat/sessions` | Membuat sesi baru | `{"title": "Analisis ANTM", "model": "hermes"}` | `{"status": "created", "session": {...}}` (201) |
+| `POST` | `/api/chat/sessions` | Membuat sesi baru | `{"title": "Analisis ANTM", "model": "gemini-2.0-flash"}` | `{"status": "created", "session": {...}}` (201) |
 | `GET` | `/api/chat/sessions/:id` | Detail metadata sesi | `-` | `{"session": {...}}` |
 | `PATCH` | `/api/chat/sessions/:id` | Rename / Pin / Ubah status sesi | `{"title": "Nama Baru", "is_pinned": true}` | `{"status": "updated", "session": {...}}` |
 | `DELETE`| `/api/chat/sessions/:id` | Hapus sesi & riwayat pesan | `-` | `{"status": "deleted", "session_id": "..."}` |
@@ -180,7 +180,7 @@ Status saat ini: CLI sudah memiliki launcher (`clients/cli/tui/launcher.go`), he
 Biner utama dikompilasi ke `bin/niskava` (atau diinstall global via `go install ./cmd/niskava`):
 
 ```bash
-# 1. Menjalankan Interactive REPL TUI (Hermes-Style)
+# 1. Menjalankan Interactive REPL TUI
 niskava
 
 # 2. Menjalankan Single-Turn Headless Investigation

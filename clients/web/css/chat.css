@@ -51,8 +51,8 @@
         }
         .message-avatar.ai {
             background: #FFFFFF;
-            border: 1.5px solid rgba(252, 213, 53, 0.45);
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+            border: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-subtle);
             overflow: hidden;
             padding: 0;
         }
@@ -63,10 +63,10 @@
             display: block;
         }
         .message-avatar.user {
-            background: rgba(252, 213, 53, 0.15);
-            border: 1px solid rgba(252, 213, 53, 0.35);
-            color: var(--accent-text);
-            font-weight: 800;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+            font-weight: 700;
         }
 
         .message-body {
@@ -226,52 +226,202 @@
         }
 
         .steps-chevron {
-            transition: transform 0.2s ease;
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .steps-chevron.open {
+        .steps-chevron.open,
+        .react-accordion.open .steps-chevron,
+        .react-accordion.open .react-accordion-chevron {
             transform: rotate(180deg);
         }
 
-        /* ReAct Thoughts Accordion */
+        /* Collapsible ReAct Execution Accordion */
+        .react-accordion,
         .react-steps-box {
-            background: var(--bg-card);
             border: 1px solid var(--border-subtle);
-            border-radius: 12px;
-            padding: 12px 14px;
-            font-size: 12px;
-            margin-bottom: 6px;
+            border-radius: var(--radius-sm, 8px);
+            background: var(--bg-card);
+            overflow: hidden;
+            margin-bottom: 12px;
+            transition: border-color 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
         }
+        .react-accordion:hover,
+        .react-steps-box:hover {
+            border-color: var(--border-strong);
+        }
+        .react-accordion-header,
         .react-steps-toggle {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            width: 100%;
-            font-size: 12px;
+            padding: 9px 14px;
+            cursor: pointer;
+            font-size: 12.5px;
             font-weight: 600;
             color: var(--text-secondary);
-            cursor: pointer;
+            user-select: none;
+            background: var(--bg-card);
+            transition: background 0.15s ease, color 0.15s ease;
         }
+        .react-accordion-header:hover,
         .react-steps-toggle:hover {
+            background: var(--bg-card-hover);
             color: var(--text-primary);
         }
+        .react-accordion-header:active,
+        .react-steps-toggle:active {
+            transform: scale(0.99);
+        }
+        .react-accordion-header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .react-accordion-header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .react-status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #10B981;
+            display: inline-block;
+            flex-shrink: 0;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .react-status-dot.pulsing {
+            animation: reactDotGlow 1.5s infinite cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .react-status-dot.done {
+            background: #10B981;
+            box-shadow: 0 0 5px rgba(16, 185, 129, 0.4);
+            animation: none;
+        }
+        .react-status-dot.error {
+            background: #EF4444;
+            box-shadow: 0 0 5px rgba(239, 68, 68, 0.4);
+            animation: none;
+        }
+        @keyframes reactDotGlow {
+            0% { transform: scale(0.85); opacity: 0.6; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+            50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.85); opacity: 0.6; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .react-accordion-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 12.5px;
+        }
+        .react-accordion-timer {
+            font-family: var(--font-mono, monospace);
+            font-size: 11px;
+            color: var(--text-muted);
+            opacity: 0.85;
+        }
+        .react-accordion-badge,
+        .react-count-badge {
+            font-family: var(--font-mono, monospace);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent-text);
+            background: var(--pill-active-bg, rgba(16, 185, 129, 0.08));
+            border: 1px solid var(--pill-active-border, rgba(16, 185, 129, 0.2));
+            padding: 1px 7px;
+            border-radius: 999px;
+        }
+        .react-accordion-chevron {
+            color: var(--text-muted);
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            flex-shrink: 0;
+        }
+        .react-accordion.open .react-accordion-chevron {
+            transform: rotate(180deg);
+        }
+        .react-accordion-content,
         .react-steps-content {
-            margin-top: 10px;
-            padding-top: 10px;
+            display: none;
+            padding: 10px 14px;
+            font-family: var(--font-mono, monospace);
+            font-size: 11.5px;
+            line-height: 1.6;
+            color: var(--text-muted);
             border-top: 1px solid var(--border-subtle);
+            max-height: 220px;
+            overflow-y: auto;
+            background: var(--bg-card);
+        }
+        .react-accordion.open .react-accordion-content,
+        .react-accordion.open .react-steps-content {
             display: flex;
             flex-direction: column;
             gap: 6px;
-            color: var(--text-muted);
-            font-family: var(--font-mono);
-            font-size: 11.5px;
         }
         .react-step-row {
             display: flex;
             align-items: flex-start;
             gap: 8px;
+            animation: fadeIn 0.15s ease forwards;
         }
         .react-step-bullet {
             color: var(--accent-text);
+            flex-shrink: 0;
+            font-size: 8px;
+            line-height: 2;
+        }
+        .react-step-text {
+            flex: 1;
+            word-break: break-word;
+        }
+
+        /* User Message Attachment Badges */
+        .user-attachments-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .user-attachment-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm, 8px);
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-primary);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            max-width: 320px;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .user-attachment-card:hover {
+            border-color: var(--border-strong);
+            background: var(--bg-card-hover);
+        }
+        .user-attachment-card .attachment-icon {
+            display: flex;
+            align-items: center;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+        .user-attachment-card .attachment-filename {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 500;
+            font-size: 12px;
+        }
+        .user-attachment-card .attachment-meta {
+            font-family: var(--font-mono, monospace);
+            font-size: 10.5px;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            padding: 1px 5px;
+            border-radius: 4px;
+            border: 1px solid var(--border-subtle);
             flex-shrink: 0;
         }
 
@@ -366,19 +516,19 @@
         /* Code Blocks & Wrappers */
         .code-block-wrapper {
             margin: 14px 0;
-            background: #181A20;
+            background: var(--bg-panel);
             border: 1px solid var(--border-subtle);
-            border-radius: 10px;
+            border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: var(--shadow-subtle);
         }
         .code-block-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 7px 14px;
-            background: #121318;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            background: var(--bg-card-hover);
+            border-bottom: 1px solid var(--border-subtle);
             font-size: 11px;
             font-weight: 700;
             letter-spacing: 0.05em;
@@ -386,19 +536,19 @@
             font-family: var(--font-mono);
         }
         .btn-copy-code {
-            background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
             color: var(--text-secondary);
             font-size: 11px;
             padding: 2px 8px;
             border-radius: 4px;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
         }
         .btn-copy-code:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: #FFFFFF;
-            border-color: rgba(255, 255, 255, 0.3);
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+            border-color: var(--border-strong);
         }
         .markdown-rendered pre {
             background: transparent;
@@ -412,7 +562,7 @@
             background: transparent;
             border: none;
             padding: 0;
-            color: #E2E8F0;
+            color: var(--text-primary);
             font-family: var(--font-mono);
             font-size: 13px;
             line-height: 1.55;
@@ -481,9 +631,9 @@
             border: 1px solid var(--badge-red-border);
         }
         .md-badge.purple {
-            background: rgba(168, 85, 247, 0.12);
-            color: #C084FC;
-            border: 1px solid rgba(168, 85, 247, 0.3);
+            background: var(--badge-purple-bg);
+            color: var(--badge-purple-text);
+            border: 1px solid var(--badge-purple-border);
         }
 
         /* Message Action Buttons */
@@ -502,11 +652,16 @@
             border: 1px solid var(--border-subtle);
             background: var(--bg-card);
             gap: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
         }
         .btn-msg-action:hover {
             color: var(--text-primary);
             border-color: var(--border-strong);
             background: var(--bg-card-hover);
+        }
+        .btn-msg-action:active {
+            transform: scale(0.98);
         }
 
         /* 3. DOCKED CHAT COMPOSER (In Flex Flow) */
@@ -522,11 +677,96 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            background: linear-gradient(to top, var(--bg-main) 70%, rgba(18, 19, 24, 0.9) 90%, transparent 100%);
+            background: linear-gradient(to top, var(--bg-main) 75%, transparent 100%);
         }
-        html[data-theme="light"] .composer-container {
-            background: linear-gradient(to top, var(--bg-main) 70%, rgba(248, 249, 250, 0.9) 90%, transparent 100%);
+        /* Attachment Preview Bar & Chips */
+        .attachment-preview-bar {
+            display: none;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 2px 2px 8px 2px;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 8px;
+            animation: fadeIn 0.15s ease forwards;
         }
+        .attachment-preview-bar.has-items {
+            display: flex;
+        }
+        .attachment-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm, 8px);
+            padding: 4px 10px;
+            font-size: 12px;
+            color: var(--text-primary);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            transition: border-color 0.15s ease, background 0.15s ease;
+            user-select: none;
+            max-width: 280px;
+        }
+        .attachment-chip:hover {
+            border-color: var(--border-strong);
+            background: var(--bg-card-hover);
+        }
+        .attachment-chip-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+        .attachment-chip-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 500;
+            color: var(--text-primary);
+            font-size: 12px;
+        }
+        .attachment-chip-size {
+            font-family: var(--font-mono, monospace);
+            font-size: 10.5px;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            padding: 1px 5px;
+            border-radius: 4px;
+            border: 1px solid var(--border-subtle);
+            flex-shrink: 0;
+        }
+        .attachment-chip .btn-remove-chip {
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 15px;
+            line-height: 1;
+            padding: 0 3px;
+            margin-left: 2px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.15s ease, background 0.15s ease;
+        }
+        .attachment-chip .btn-remove-chip:hover {
+            color: #EF4444;
+            background: rgba(239, 68, 68, 0.12);
+        }
+        .attachment-chip .btn-remove-chip:active {
+            transform: scale(0.95);
+        }
+
+        /* Drag and Drop Composer Target State */
+        .composer-container.drag-active .composer-box,
+        .composer-box.drag-active {
+            border-color: var(--primary) !important;
+            background: var(--bg-card-hover) !important;
+            box-shadow: 0 0 0 2px var(--primary), 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+        }
+
         .composer-box {
             background: var(--bg-card);
             border: 1px solid var(--border-subtle);
@@ -540,7 +780,7 @@
         }
         .composer-box:focus-within {
             border-color: var(--primary);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22), 0 0 0 1.5px rgba(252, 213, 53, 0.35);
+            box-shadow: var(--shadow-composer), 0 0 0 1px var(--primary);
             background: var(--bg-input);
         }
         .composer-textarea {
@@ -592,9 +832,12 @@
             color: var(--text-primary);
             border-color: var(--border-subtle);
         }
+        .composer-tool-btn:active {
+            transform: scale(0.98);
+        }
         .composer-tool-btn.active {
             background: var(--pill-active-bg);
-            color: var(--accent-text);
+            color: var(--pill-active-text);
             font-weight: 600;
             border-color: var(--pill-active-border);
         }
@@ -621,7 +864,7 @@
             height: 6px;
             border-radius: 50%;
             background: #10B981;
-            box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+            box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
             display: inline-block;
         }
         .btn-send-message {
@@ -629,10 +872,10 @@
             height: 34px;
             border-radius: 50%;
             background: var(--primary);
-            color: #121318;
-            border: 1px solid transparent;
-            box-shadow: 0 3px 10px rgba(252, 213, 53, 0.35);
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            color: var(--primary-text);
+            border: 1px solid var(--primary);
+            box-shadow: var(--shadow-subtle);
+            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
             flex-shrink: 0;
             display: flex;
             align-items: center;
@@ -641,11 +884,11 @@
         }
         .btn-send-message:hover:not(:disabled) {
             background: var(--primary-hover);
-            transform: scale(1.06);
-            box-shadow: 0 6px 16px rgba(252, 213, 53, 0.45);
+            transform: scale(1.03);
+            box-shadow: var(--shadow-card);
         }
         .btn-send-message:active:not(:disabled) {
-            transform: scale(0.96);
+            transform: scale(0.97);
         }
         .btn-send-message:disabled {
             background: var(--border-subtle);
@@ -657,9 +900,9 @@
             opacity: 0.65;
         }
         html[data-theme="dark"] .btn-send-message:disabled {
-            background: #252830;
-            color: #5E6673;
-            border: 1px solid #323642;
+            background: var(--bg-card-hover);
+            color: var(--text-faint);
+            border: 1px solid var(--border-subtle);
             box-shadow: none;
             opacity: 0.6;
         }
@@ -668,16 +911,16 @@
             transition: stroke 0.2s ease;
         }
         .btn-send-message.btn-aborting {
-            background: #EF4444 !important;
+            background: var(--badge-red-text) !important;
             color: #FFFFFF !important;
-            box-shadow: 0 3px 12px rgba(239, 68, 68, 0.5) !important;
+            box-shadow: var(--shadow-subtle) !important;
             border-color: transparent !important;
             cursor: pointer !important;
             opacity: 1 !important;
         }
         .btn-send-message.btn-aborting:hover {
-            background: #DC2626 !important;
-            transform: scale(1.06);
+            opacity: 0.9 !important;
+            transform: scale(1.03);
         }
 
         /* Quick action chips below composer */
@@ -710,7 +953,7 @@
             transform: scale(0.96);
             border-color: var(--primary);
             background: var(--pill-active-bg);
-            color: var(--primary-text);
+            color: var(--pill-active-text);
         }
         .compliance-disclaimer-box {
             font-size: 10.5px;
@@ -760,7 +1003,8 @@
             padding: 2px 7px;
             border-radius: 5px;
             background: var(--pill-active-bg);
-            color: var(--accent-text);
+            color: var(--pill-active-text);
+            border: 1px solid var(--pill-active-border);
         }
 
         /* Responsive Chat & Composer */

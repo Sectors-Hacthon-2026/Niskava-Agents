@@ -79,7 +79,7 @@
                             inputOpenaiBaseUrl.value = 'http://localhost:20128/v1';
                         }
                         if (inputOpenaiModel && !inputOpenaiModel.value.trim()) {
-                            inputOpenaiModel.value = 'hermes';
+                            inputOpenaiModel.value = 'gpt-4o-mini';
                         }
                     } else if (prov === 'ollama') {
                         if (inputOllamaBaseUrl && !inputOllamaBaseUrl.value.trim()) {
@@ -211,18 +211,7 @@
                 });
 
                 // Preferences Elements
-                const toggleOfflineMode = document.getElementById('toggleOfflineMode');
                 const timeoutSlider = document.getElementById('timeout-slider');
-                const offlineModeWarningBanner = document.getElementById('offlineModeWarningBanner');
-
-                function updateOfflineWarning() {
-                    if (offlineModeWarningBanner && toggleOfflineMode) {
-                        offlineModeWarningBanner.style.display = toggleOfflineMode.checked ? 'block' : 'none';
-                    }
-                }
-                if (toggleOfflineMode) {
-                    toggleOfflineMode.addEventListener('change', updateOfflineWarning);
-                }
 
                 // Telegram Elements
                 const teleBotStatusBadge = document.getElementById('teleBotStatusBadge');
@@ -255,6 +244,10 @@
                 const statCacheExpired = document.getElementById('statCacheExpired');
                 const btnCleanCache = document.getElementById('btnCleanCache');
                 const diagnosticsDetails = document.getElementById('diagnosticsDetails');
+
+                let lastSettingsData = null;
+                let lastTelegramData = null;
+                let lastDiagnosticsData = null;
 
                 switchMainView = function(targetNav) {
                     if (typeof closeMobileSidebar === 'function') {
@@ -367,26 +360,6 @@
                     });
                 }
 
-                // Clean Test Data in Memory Graph
-                const btnPruneMockData = document.getElementById('btnPruneMockData');
-                if (btnPruneMockData) {
-                    btnPruneMockData.addEventListener('click', async () => {
-                        try {
-                            btnPruneMockData.disabled = true;
-                            btnPruneMockData.textContent = currentLang === 'en' ? 'Cleaning...' : 'Membersihkan...';
-                            const res = await fetch(`${API_BASE}/api/system/cache/clean`, { method: 'POST' });
-                            const data = await res.json();
-                            showToast(currentLang === 'en' ? `Test data & cache cleaned (${data.cleaned_entries ?? 0} entries removed)` : `Data uji & cache dibersihkan (${data.cleaned_entries ?? 0} entri dihapus)`);
-                            loadGraphPageData();
-                        } catch (err) {
-                            showToast(currentLang === 'en' ? `Failed to clean cache: ${err.message}` : `Gagal membersihkan cache: ${err.message}`, true);
-                        } finally {
-                            btnPruneMockData.disabled = false;
-                            btnPruneMockData.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> <span>${currentLang === 'en' ? 'Clean Test Data' : 'Bersihkan Data Uji'}</span>`;
-                        }
-                    });
-                }
-
                 // Interactive Top Hub Node Click -> Filter
                 if (statTopHub) {
                     statTopHub.style.cursor = 'pointer';
@@ -408,7 +381,7 @@
                     });
                 }
 
-                // Formal 7-Stage Investigation Handlers
+                // Market Radar & Forensic Dossier Handlers
                 let selectedInvestigationId = null;
                 const btnInvBackToChat = document.getElementById('btnInvBackToChat');
                 if (btnInvBackToChat) {
@@ -425,10 +398,246 @@
                     });
                 }
 
+                const btnInvExportMd = document.getElementById('btnInvExportMd');
+                if (btnInvExportMd) {
+                    btnInvExportMd.addEventListener('click', () => {
+                        if (!selectedInvestigationId) {
+                            showToast(currentLang === 'en' ? 'No active investigation selected' : 'Belum ada sesi investigasi yang dipilih', true);
+                            return;
+                        }
+                        const titleEl = document.getElementById('invDossierTitle');
+                        const ticker = titleEl ? titleEl.textContent.replace('DOSSIER:', '').replace('HASIL AUDIT:', '').trim() : 'IDX';
+                        const zScore = document.getElementById('invDossierZScore')?.textContent || '-';
+                        const actualVol = document.getElementById('invDossierActualVol')?.textContent || '-';
+                        const baselineVol = document.getElementById('invDossierBaselineVol')?.textContent || '-';
+                        const returnDev = document.getElementById('invDossierReturnDev')?.textContent || '-';
+                        const dateStr = new Date().toISOString().slice(0, 10);
+
+                        let md = `# LAPORAN AUDIT OTONOM INTELIJEN PASAR: ${ticker}\n\n`;
+                        md += `**ID Sesi:** \`${selectedInvestigationId}\` | **Tanggal Ekspor:** ${dateStr}\n\n`;
+                        md += `## 1. Indikator Kuantitatif Deterministik (Law 1)\n\n`;
+                        md += `- **Volume Z-Score ($V_z$):** ${zScore}\n`;
+                        md += `- **Volume Perdagangan Aktual:** ${actualVol}\n`;
+                        md += `- **Baseline Historis MA20:** ${baselineVol}\n`;
+                        md += `- **Deviasi Return ($R_t$):** ${returnDev}\n\n`;
+
+                        md += `## 2. Matriks Verifikasi Bukti 3-Tier (Law 2)\n\n`;
+                        const findingCards = document.querySelectorAll('#invEvidenceContainer .evidence-item');
+                        if (findingCards.length > 0) {
+                            findingCards.forEach(c => {
+                                const claim = c.querySelector('.evidence-claim')?.textContent.trim() || '';
+                                const badge = c.querySelector('.evidence-status-badge')?.textContent.trim() || 'UNCERTAIN';
+                                const source = c.querySelector('.evidence-source')?.textContent.trim() || '-';
+                                md += `### [${badge}] ${claim}\n`;
+                                md += `- **Sumber Rujukan:** ${source}\n\n`;
+                            });
+                        } else {
+                            md += `*Data temuan matriks bukti diverifikasi langsung melalui dokumen keterbukaan informasi IDXnet.*\n\n`;
+                        }
+
+                        md += `## 3. Timeline Rekonsiliasi Kronologis Kausalitas\n\n`;
+                        const signals = document.querySelectorAll('#invTimelineContainer .signal-item');
+                        if (signals.length > 0) {
+                            signals.forEach(sig => {
+                                const time = sig.querySelector('.signal-time')?.textContent.trim() || '-';
+                                const title = sig.querySelector('.signal-title')?.textContent.trim() || '';
+                                const desc = sig.querySelector('.signal-desc')?.textContent.trim() || '';
+                                md += `- **${time}** - **${title}**: ${desc}\n`;
+                            });
+                            md += `\n`;
+                        }
+
+                        md += `> [!IMPORTANT]\n`;
+                        md += `> **Kepatuhan Regulasi Pasar Modal (Law 2 & Law 3):**\n`;
+                        md += `> Niskava Agent adalah platform riset intelijen pasar modal berbasis bukti untuk Bursa Efek Indonesia (IDX), BUKAN penasihat investasi berizin dan BUKAN broker perdagangan saham. Seluruh dossier, skor anomali statistik, dan matriks bukti disajikan secara deskriptif untuk tujuan verifikasi fakta dan transparansi pasar, serta BUKAN merupakan rekomendasi beli/jual saham atau saran finansial terpersonalisasi.\n`;
+
+                        const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `niskava-audit-${ticker}-${selectedInvestigationId.slice(0, 8)}.md`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                        showToast(currentLang === 'en' ? 'Audit report markdown downloaded' : 'Laporan audit markdown berhasil diekspor');
+                    });
+                }
+
+                const btnRadarRefresh = document.getElementById('btnRadarRefresh');
+                if (btnRadarRefresh) {
+                    btnRadarRefresh.addEventListener('click', () => {
+                        loadRadarAnomalies();
+                        showToast(currentLang === 'en' ? 'Refreshing anomaly signals...' : 'Menyegarkan data anomali...');
+                    });
+                }
+
+                function formatRadarMetricName(type) {
+                    if (!type) return 'Volume Spike';
+                    if (type === 'volume_zscore') return 'Volume Anomaly (Vz)';
+                    if (type === 'price_zscore') return 'Price Volatility';
+                    if (type === 'foreign_flow_zscore') return 'Foreign Flow Divergence';
+                    return type.replace(/_/g, ' ').toUpperCase();
+                }
+
+                function formatRadarVolumeShort(num) {
+                    const val = Number(num);
+                    if (isNaN(val)) return '-';
+                    if (Math.abs(val) >= 1e9) return (val / 1e9).toFixed(1) + 'B';
+                    if (Math.abs(val) >= 1e6) return (val / 1e6).toFixed(1) + 'M';
+                    if (Math.abs(val) >= 1e3) return (val / 1e3).toFixed(1) + 'k';
+                    return val.toLocaleString('id-ID');
+                }
+
+                function renderRadarEmptyState(container) {
+                    if (!container) return;
+                    const msg = (typeof t === 'function' && t('radar_empty')) || (currentLang === 'en'
+                        ? 'No anomalies above 2.0σ threshold yet. Enter an IDX ticker below to inspect.'
+                        : 'Belum ada anomali terdeteksi melebihi ambang batas 2.0σ. Masukkan kode emiten di bawah untuk memeriksa.');
+                    container.innerHTML = `
+                        <div class="radar-empty-state">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                            <span>${msg}</span>
+                        </div>
+                    `;
+                }
+
+                async function loadRadarAnomalies() {
+                    const listEl = document.getElementById('radarAnomaliesList');
+                    if (!listEl) return;
+
+                    try {
+                        const res = await fetch(`${API_BASE}/api/radar/anomalies?limit=12&min_z=2.0`);
+                        if (!res.ok) {
+                            renderRadarEmptyState(listEl);
+                            return;
+                        }
+                        const data = await res.json();
+                        const rawAnomalies = (data && Array.isArray(data.anomalies)) ? data.anomalies : [];
+
+                        // Deduplicate tickers so each ticker appears at most once in the screener
+                        const seenTickers = new Set();
+                        const anomalies = [];
+                        for (const item of rawAnomalies) {
+                            const t = (item.ticker || '').trim().toUpperCase();
+                            if (t && !seenTickers.has(t)) {
+                                seenTickers.add(t);
+                                anomalies.push(item);
+                            }
+                        }
+
+                        if (anomalies.length === 0) {
+                            renderRadarEmptyState(listEl);
+                            return;
+                        }
+
+                        listEl.innerHTML = '';
+                        anomalies.forEach((item) => {
+                            const z = Number(item.z_score || 0);
+                            const ticker = escapeHtml(item.ticker || 'IDX');
+                            const invId = item.investigation_id || `INV-${ticker}`;
+                            const dateStr = item.anomaly_date || (item.created_at ? item.created_at.slice(0, 10) : '');
+
+                            let zBadgeClass = 'radar-zscore-normal';
+                            if (Math.abs(z) >= 3.0) {
+                                zBadgeClass = 'radar-zscore-critical';
+                            } else if (Math.abs(z) >= 2.5) {
+                                zBadgeClass = 'radar-zscore-warning';
+                            }
+
+                            const metricLabel = item.metric_type ? formatRadarMetricName(item.metric_type) : 'Volume Spike';
+                            let metricDetail = '';
+                            if (item.metric_value && item.baseline_value) {
+                                metricDetail = `Aktual ${formatRadarVolumeShort(item.metric_value)} / MA20 ${formatRadarVolumeShort(item.baseline_value)}`;
+                            } else if (item.description) {
+                                metricDetail = escapeHtml(item.description);
+                            }
+
+                            const card = document.createElement('div');
+                            card.className = 'radar-card';
+                            card.setAttribute('role', 'button');
+                            card.setAttribute('tabindex', '0');
+                            card.title = `${ticker}: Z-Score ${z >= 0 ? '+' : ''}${z.toFixed(2)}σ (${metricLabel})`;
+                            const inspectLabel = (typeof t === 'function' && t('radar_btn_inspect')) || (currentLang === 'en' ? 'Audit Stock' : 'Audit Saham Ini');
+
+                            card.innerHTML = `
+                                <div class="radar-card-top">
+                                    <span class="radar-card-ticker">${ticker}</span>
+                                    <span class="radar-card-zscore ${zBadgeClass}">${z >= 0 ? '+' : ''}${z.toFixed(2)}σ</span>
+                                </div>
+                                <div class="radar-card-metric">
+                                    <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(metricLabel)}</span>
+                                    <span class="radar-card-metric-val">${metricDetail || '-'}</span>
+                                </div>
+                                <div class="radar-card-date">${dateStr ? escapeHtml(dateStr) : '-'}</div>
+                                <button class="radar-card-btn" type="button">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                    <span>${inspectLabel}</span>
+                                </button>
+                            `;
+
+                            const onInspect = (e) => {
+                                if (e) e.stopPropagation();
+                                inspectRadarCase(item);
+                            };
+
+                            card.addEventListener('click', onInspect);
+                            card.addEventListener('keydown', (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    onInspect(e);
+                                }
+                            });
+
+                            const inspectBtn = card.querySelector('.radar-card-btn');
+                            if (inspectBtn) {
+                                inspectBtn.addEventListener('click', onInspect);
+                            }
+
+                            listEl.appendChild(card);
+                        });
+
+                        // Auto-select first anomaly if none selected yet
+                        if (!selectedInvestigationId && anomalies.length > 0) {
+                            const first = anomalies[0];
+                            selectInvestigation(first.investigation_id || `INV-${first.ticker}`, first);
+                        }
+                    } catch (e) {
+                        console.warn('Gagal memuat anomali pasar:', e);
+                        renderRadarEmptyState(listEl);
+                    }
+                }
+
+                function inspectRadarCase(arg1, arg2) {
+                    let ticker = '';
+                    let invId = '';
+                    let meta = {};
+                    if (typeof arg1 === 'object' && arg1 !== null) {
+                        meta = arg1;
+                        ticker = (arg1.ticker || '').trim().toUpperCase();
+                        invId = arg1.investigation_id || ('INV-' + ticker);
+                    } else {
+                        ticker = (arg1 || '').trim().toUpperCase();
+                        invId = arg2 || ('INV-' + ticker);
+                        meta = { ticker: ticker };
+                    }
+                    if (!ticker) return;
+
+                    const inputInvTicker = document.getElementById('inputInvTicker');
+                    if (inputInvTicker) {
+                        inputInvTicker.value = ticker;
+                    }
+                    selectInvestigation(invId, meta);
+                    const dossierCard = document.getElementById('invDossierCard');
+                    if (dossierCard) {
+                        dossierCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                    showToast(currentLang === 'en' ? `Inspecting audit for ${ticker}` : `Membuka audit saham ${ticker}`);
+                }
+
                 const btnRunFormalInvestigation = document.getElementById('btnRunFormalInvestigation');
                 const inputInvTicker = document.getElementById('inputInvTicker');
                 const selectInvDays = document.getElementById('selectInvDays');
-                const checkInvOffline = document.getElementById('checkInvOffline');
 
                 if (btnRunFormalInvestigation) {
                     btnRunFormalInvestigation.addEventListener('click', async () => {
@@ -439,74 +648,80 @@
                             return;
                         }
                         const days = selectInvDays ? selectInvDays.value : '30';
-                        const offlineMode = checkInvOffline ? checkInvOffline.checked : false;
 
                         // Switch to chat view and initiate formal audit stream
                         switchMainView('chat');
                         if (chatInput) {
-                            chatInput.value = `Jalankan investigasi formal 7-tahap otonom pada emiten ${ticker} untuk observasi ${days} hari terakhir.${offlineMode ? ' (Mode Uji Offline)' : ''}`;
+                            chatInput.value = `Jalankan investigasi formal 7-tahap otonom pada emiten ${ticker} untuk observasi ${days} hari terakhir.`;
                             handleSendMessage();
                         }
-                        showToast(currentLang === 'en' ? `Starting 7-stage investigation for ${ticker}...` : `Memulai investigasi 7-tahap untuk ${ticker}...`);
+                        showToast(currentLang === 'en' ? `Starting audit for ${ticker}...` : `Memulai audit emiten ${ticker}...`);
                     });
                 }
 
                 async function loadInvestigations() {
-                    const invHistoryList = document.getElementById('invHistoryList');
-                    const invTotalCount = document.getElementById('invTotalCount');
-                    if (!invHistoryList) return;
-
-                    try {
-                        const res = await fetch(`${API_BASE}/api/investigations`);
-                        if (!res.ok) {
-                            invHistoryList.innerHTML = `<div style="font-size:11.5px; color:var(--text-muted); text-align:center; padding:20px 0;">${currentLang === 'en' ? 'No saved investigation sessions yet.' : 'Belum ada sesi investigasi tersimpan.'}</div>`;
-                            return;
-                        }
-                        const list = await res.json();
-                        if (!Array.isArray(list) || list.length === 0) {
-                            invHistoryList.innerHTML = `<div style="font-size:11.5px; color:var(--text-muted); text-align:center; padding:20px 0;">${currentLang === 'en' ? 'No investigation sessions. Click "Run Formal Audit" to start.' : 'Belum ada sesi investigasi. Klik "Mulai Audit Otonom" untuk memulai.'}</div>`;
-                            if (invTotalCount) invTotalCount.textContent = currentLang === 'en' ? '0 Sessions' : '0 Sesi';
-                            return;
-                        }
-
-                        if (invTotalCount) invTotalCount.textContent = `${list.length} ${currentLang === 'en' ? 'Sessions' : 'Sesi'}`;
-                        invHistoryList.innerHTML = '';
-
-                        list.forEach((item, idx) => {
-                            const sid = item.id || item.session_id || `INV-${idx}`;
-                            const title = item.title || item.ticker || `Investigasi ${sid.slice(0, 8)}`;
-                            const timeStr = item.created_at ? new Date(item.created_at).toLocaleDateString(currentLang === 'en' ? 'en-US' : 'id-ID', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : (currentLang === 'en' ? 'Just now' : 'Baru saja');
-                            const status = (item.status || 'COMPLETED').toUpperCase();
-
-                            const row = document.createElement('div');
-                            row.className = `inv-history-item ${selectedInvestigationId === sid ? 'active' : ''}`;
-                            row.innerHTML = `
-                                <div class="inv-history-item-title">${escapeHtml(title)}</div>
-                                <div class="inv-history-item-sub">
-                                    <span>${timeStr}</span>
-                                    <span class="inv-status-pill inv-status-${status === 'COMPLETED' ? 'completed' : 'running'}">${status}</span>
-                                </div>
-                            `;
-                            row.addEventListener('click', () => {
-                                document.querySelectorAll('.inv-history-item').forEach(el => el.classList.remove('active'));
-                                row.classList.add('active');
-                                selectInvestigation(sid, item);
-                            });
-                            invHistoryList.appendChild(row);
-                        });
-
-                        // Auto-select first item if none selected
-                        if (!selectedInvestigationId && list.length > 0) {
-                            const firstId = list[0].id || list[0].session_id;
-                            const firstRow = invHistoryList.querySelector('.inv-history-item');
-                            if (firstRow) firstRow.classList.add('active');
-                            selectInvestigation(firstId, list[0]);
-                        }
-                    } catch (e) {
-                        console.warn('Gagal memuat daftar investigasi:', e);
-                        invHistoryList.innerHTML = '<div style="font-size:11.5px; color:#EF4444; text-align:center; padding:20px 0;">Gagal memuat daftar investigasi.</div>';
-                    }
+                    // Load anomaly screener strip and auto-populate active case
+                    loadRadarAnomalies();
                 }
+
+                function formatVolumeCompact(num) {
+                    const n = Number(num) || 0;
+                    if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+                    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+                    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+                    return n.toLocaleString('id-ID');
+                }
+
+                function renderDossierEvidenceEmpty(ticker) {
+                    const isEn = currentLang === 'en';
+                    return `
+                        <div class="dossier-empty-state">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                            <strong>${isEn ? `No Verified Evidence Dossier for ${escapeHtml(ticker)}` : `Belum Ada Berkas Bukti Terverifikasi untuk ${escapeHtml(ticker)}`}</strong>
+                            <span>${isEn ? 'This stock has not completed a 7-stage causality audit. Start an investigation to correlate IDXnet disclosures and official news.' : 'Emiten ini belum melewati audit kausalitas 7-tahap. Mulai investigasi untuk menyaring keterbukaan informasi IDXnet dan berita bursa.'}</span>
+                            <button class="btn-primary" style="margin-top:6px;" onclick="initiateAuditFromDossier('${escapeHtml(ticker)}')">
+                                ${isEn ? `Start Causality Audit for ${escapeHtml(ticker)}` : `Mulai Audit Kausalitas ${escapeHtml(ticker)}`}
+                            </button>
+                        </div>
+                    `;
+                }
+
+                window.initiateAuditFromDossier = function(ticker) {
+                    switchMainView('chat');
+                    const chatInput = document.getElementById('chatInput');
+                    if (chatInput) {
+                        chatInput.value = `Jalankan investigasi formal 7-tahap otonom pada emiten ${ticker} untuk observasi 30 hari terakhir.`;
+                        if (typeof handleSendMessage === 'function') {
+                            handleSendMessage();
+                        }
+                    }
+                    showToast(currentLang === 'en' ? `Starting audit for ${ticker}...` : `Memulai audit emiten ${ticker}...`);
+                };
+
+                window.openDossierFromChat = function(ticker) {
+                    if (!ticker) return;
+                    const cleanTicker = ticker.trim().toUpperCase();
+
+                    // 1. Switch view to investigations dossier
+                    if (typeof switchMainView === 'function') {
+                        switchMainView('investigations');
+                    }
+
+                    // 2. Select ticker in dossier and load real candles & evidence
+                    if (typeof inspectRadarCase === 'function') {
+                        inspectRadarCase({
+                            ticker: cleanTicker,
+                            investigation_id: 'INV-' + cleanTicker
+                        });
+                    }
+
+                    // 3. Smoothly scroll dossier into view
+                    const dossierCard = document.getElementById('invDossierCard');
+                    if (dossierCard) {
+                        dossierCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                    showToast(typeof currentLang !== 'undefined' && currentLang === 'en' ? `Opened ${cleanTicker} dossier` : `Membuka berkas dossier ${cleanTicker}`);
+                };
 
                 async function selectInvestigation(invId, invMeta) {
                     selectedInvestigationId = invId;
@@ -519,78 +734,90 @@
                     if (emptyEl) emptyEl.style.display = 'none';
                     if (contentEl) contentEl.style.display = 'flex';
 
-                    const ticker = (invMeta && invMeta.ticker) || (invMeta && invMeta.title) || invId;
-                    if (titleEl) titleEl.textContent = `DOSSIER: ${ticker}`;
+                    const ticker = (invMeta && invMeta.ticker) || (invMeta && invMeta.title) || (invId ? invId.replace(/^INV-/, '') : 'IDX');
+                    if (titleEl) titleEl.textContent = `HASIL AUDIT: ${ticker}`;
                     if (statusEl) {
                         const st = (invMeta && invMeta.status) || 'COMPLETED';
                         statusEl.textContent = st;
                         statusEl.className = `inv-status-pill inv-status-${st.toLowerCase() === 'completed' ? 'completed' : 'running'}`;
                     }
                     if (metaEl) {
-                        metaEl.textContent = `${currentLang === 'en' ? 'Session' : 'Sesi'}: ${invId} | ${currentLang === 'en' ? 'Created' : 'Dibuat'}: ${invMeta && invMeta.created_at ? new Date(invMeta.created_at).toLocaleString(currentLang === 'en' ? 'en-US' : 'id-ID') : (currentLang === 'en' ? 'Today' : 'Hari ini')}`;
+                        metaEl.textContent = `${currentLang === 'en' ? 'Observation Horizon: 30 Trading Days | Sources: Sectors Financial API v2 & IDXnet' : 'Horizon: 30 Hari Perdagangan | Sumber: Sectors Financial API v2 & IDXnet'}`;
                     }
 
                     // 1. Fetch Anomalies (Law 1)
+                    let anom = null;
                     try {
                         const anomRes = await fetch(`${API_BASE}/api/investigations/${invId}/anomalies`);
                         if (anomRes.ok) {
-                            const anomalies = await anomRes.json();
-                            const anom = Array.isArray(anomalies) && anomalies.length > 0 ? anomalies[0] : null;
-                            const zScoreEl = document.getElementById('invDossierZScore');
-                            const actualVolEl = document.getElementById('invDossierActualVol');
-                            const baselineVolEl = document.getElementById('invDossierBaselineVol');
-                            const returnDevEl = document.getElementById('invDossierReturnDev');
-
-                            if (anom) {
-                                const z = Number(anom.z_score || 0);
-                                if (zScoreEl) {
-                                    zScoreEl.textContent = `${z >= 0 ? '+' : ''}${z.toFixed(2)}σ`;
-                                    zScoreEl.style.color = z >= 2.5 ? '#F6465D' : '#10B981';
-                                }
-                                if (actualVolEl) actualVolEl.textContent = (anom.actual_value || 0).toLocaleString('id-ID');
-                                if (baselineVolEl) baselineVolEl.textContent = (anom.baseline_mean || 0).toLocaleString('id-ID');
-                                if (returnDevEl) {
-                                    returnDevEl.textContent = anom.metric_type ? `${anom.metric_type}` : `${(z * 1.5).toFixed(1)}%`;
-                                }
-                            } else {
-                                if (zScoreEl) zScoreEl.textContent = '+2.85σ';
-                                if (actualVolEl) actualVolEl.textContent = '148.5M';
-                                if (baselineVolEl) baselineVolEl.textContent = '42.1M';
-                                if (returnDevEl) returnDevEl.textContent = '+12.4%';
-                            }
+                            const anomData = await anomRes.json();
+                            const anomalies = Array.isArray(anomData) ? anomData : (anomData.anomalies || []);
+                            if (anomalies.length > 0) anom = anomalies[0];
                         }
                     } catch (e) {
                         console.warn('Gagal memuat anomali investigasi:', e);
                     }
 
-                    // 2. Render Candlestick Chart (TradingView)
+                    const zVal = (anom && anom.z_score != null) ? Number(anom.z_score) : (invMeta && invMeta.z_score != null ? Number(invMeta.z_score) : null);
+                    const actualVal = (anom && anom.actual_value != null) ? anom.actual_value : (invMeta && invMeta.actual_value != null ? invMeta.actual_value : null);
+                    const baseVal = (anom && anom.baseline_mean != null) ? anom.baseline_mean : (invMeta && invMeta.baseline_value != null ? invMeta.baseline_value : null);
+                    const devVal = (anom && anom.metric_type && anom.metric_type !== 'volume_z_score') ? anom.metric_type : ((invMeta && invMeta.metric_type) || '-');
+
+                    const zScoreEl = document.getElementById('invDossierZScore');
+                    const actualVolEl = document.getElementById('invDossierActualVol');
+                    const baselineVolEl = document.getElementById('invDossierBaselineVol');
+                    const returnDevEl = document.getElementById('invDossierReturnDev');
+
+                    if (zScoreEl) {
+                        if (zVal != null && !isNaN(zVal)) {
+                            zScoreEl.textContent = `${zVal >= 0 ? '+' : ''}${zVal.toFixed(2)}σ`;
+                            zScoreEl.style.color = Math.abs(zVal) >= 3.0 ? '#AD1C1C' : (Math.abs(zVal) >= 2.5 ? '#8C5600' : '#0F6735');
+                        } else {
+                            zScoreEl.textContent = '-';
+                            zScoreEl.style.color = 'var(--text-muted)';
+                        }
+                    }
+                    if (actualVolEl) actualVolEl.textContent = actualVal != null ? formatVolumeCompact(actualVal) : '-';
+                    if (baselineVolEl) baselineVolEl.textContent = baseVal != null ? formatVolumeCompact(baseVal) : '-';
+                    if (returnDevEl) returnDevEl.textContent = devVal;
+
+                    // 2. Render Candlestick Chart (TradingView with real market candles & provenance badge)
                     try {
                         const chartContainer = document.getElementById('invChartContainer');
                         if (chartContainer) {
-                            const today = new Date();
-                            const sampleCandles = [];
-                            let price = 1500;
-                            for (let i = 20; i >= 0; i--) {
-                                const d = new Date(today);
-                                d.setDate(d.getDate() - i);
-                                const dateStr = d.toISOString().split('T')[0];
-                                const isAnomaly = (i === 1);
-                                const open = price;
-                                const high = isAnomaly ? price * 1.08 : price * 1.02;
-                                const low = price * 0.98;
-                                const close = isAnomaly ? price * 1.06 : price * 1.01;
-                                const vol = isAnomaly ? 148500000 : 35000000 + Math.random() * 20000000;
-                                price = close;
-                                sampleCandles.push({
-                                    time: dateStr,
-                                    open: Math.round(open),
-                                    high: Math.round(high),
-                                    low: Math.round(low),
-                                    close: Math.round(close),
-                                    volume: Math.round(vol)
-                                });
+                            const candleRes = await fetch(`${API_BASE}/api/market/candles?ticker=${encodeURIComponent(ticker)}&days=30`);
+                            let candles = [];
+                            const badgeEl = document.getElementById('invChartSourceBadge');
+                            if (candleRes.ok) {
+                                const candleJson = await candleRes.json();
+                                if (badgeEl) {
+                                    if (candleJson.source === 'sectors_api') {
+                                        badgeEl.className = 'source-badge source-badge-live';
+                                        badgeEl.textContent = '● LIVE: Sectors Financial API v2';
+                                    } else if (candleJson.source === 'cache') {
+                                        badgeEl.className = 'source-badge source-badge-live';
+                                        badgeEl.textContent = '● CACHE: Sectors API v2 (Permanent)';
+                                    } else {
+                                        badgeEl.className = 'source-badge source-badge-synthetic';
+                                        badgeEl.textContent = '▲ SIMULASI: Offline Synthetic Generator';
+                                    }
+                                }
+                                if (candleJson && Array.isArray(candleJson.data) && candleJson.data.length > 0) {
+                                    candles = candleJson.data.map(c => ({
+                                        time: c.date,
+                                        open: Number(c.open),
+                                        high: Number(c.high),
+                                        low: Number(c.low),
+                                        close: Number(c.close),
+                                        volume: Number(c.volume)
+                                    }));
+                                }
+                            } else if (badgeEl) {
+                                badgeEl.className = 'source-badge source-badge-error';
+                                badgeEl.textContent = '✕ Error Data Pasar';
                             }
-                            renderTradingViewCandlestick('invChartContainer', sampleCandles, sampleCandles[sampleCandles.length - 2]?.time);
+                            const anomalyDate = (anom && anom.anomaly_date) || (invMeta && invMeta.anomaly_date) || (candles.length > 5 ? candles[candles.length - 4].time : undefined);
+                            renderTradingViewCandlestick('invChartContainer', candles, anomalyDate);
                         }
                     } catch (e) {
                         console.warn('Gagal render chart candlestick investigasi:', e);
@@ -601,61 +828,49 @@
                         const findRes = await fetch(`${API_BASE}/api/investigations/${invId}/findings`);
                         const evidenceContainer = document.getElementById('invEvidenceContainer');
                         if (evidenceContainer) {
+                            let findings = [];
                             if (findRes.ok) {
-                                const findings = await findRes.json();
-                                if (Array.isArray(findings) && findings.length > 0) {
-                                    evidenceContainer.innerHTML = renderEvidenceMatrixHTML(findings);
-                                } else {
-                                    // Default standard finding according to Law 2
-                                    const isEn = currentLang === 'en';
-                                    evidenceContainer.innerHTML = renderEvidenceMatrixHTML([
-                                        {
-                                            title: isEn ? `Trading Volume Spike for ${ticker}` : `Lonjakan Volume Perdagangan ${ticker}`,
-                                            claim: isEn ? `Trading volume spiked significantly above the deterministic 2.50σ threshold relative to the 20-day baseline.` : `Volume perdagangan tercatat melonjak signifikan melewati ambang batas deterministik 2.50σ baseline 20 hari.`,
-                                            verification_status: 'SUPPORTED',
-                                            confidence_score: 0.94,
-                                            sources: [isEn ? 'IDXnet Corporate Disclosures' : 'IDXnet Keterbukaan Informasi', 'Historical Trade Feed']
-                                        },
-                                        {
-                                            title: isEn ? 'News Sentiment & Market Rumors' : 'Sentimen Berita & Rumor Pasar',
-                                            claim: isEn ? 'Media reporting concerning restructuring or corporate actions has not yet been confirmed by official IDX filings.' : 'Pemberitaan media mengenai restrukturisasi atau aksi korporasi belum terkonfirmasi oleh keterbukaan resmi IDX.',
-                                            verification_status: 'UNCERTAIN',
-                                            confidence_score: 0.52,
-                                            sources: [isEn ? 'Financial Media Feeds' : 'Portal Media Keuangan', 'Social Feeds']
-                                        }
-                                    ]);
-                                }
+                                const findJson = await findRes.json();
+                                findings = Array.isArray(findJson) ? findJson : (findJson.findings || []);
+                            }
+                            if (findings.length > 0) {
+                                evidenceContainer.innerHTML = renderEvidenceMatrixHTML(findings);
+                            } else {
+                                evidenceContainer.innerHTML = renderDossierEvidenceEmpty(ticker);
                             }
                         }
                     } catch (e) {
                         console.warn('Gagal memuat findings:', e);
                     }
 
-                    // 4. Render Evidence & News Timeline
+                    // 4. Render Evidence & News Timeline (Dynamic from API)
                     const timelineContainer = document.getElementById('invTimelineContainer');
                     if (timelineContainer) {
+                        try {
+                            const timeRes = await fetch(`${API_BASE}/api/investigations/${invId}/timeline`);
+                            if (timeRes.ok) {
+                                const timeData = await timeRes.json();
+                                const events = Array.isArray(timeData.events) ? timeData.events : [];
+                                if (events.length > 0) {
+                                    timelineContainer.innerHTML = events.map(ev => `
+                                        <div class="signal-item">
+                                            <span class="signal-time">${escapeHtml(ev.event_timestamp || '')}</span>
+                                            <div class="signal-body">
+                                                <strong class="signal-title">${escapeHtml(ev.headline || ev.event_type || '')}</strong>
+                                                <p class="signal-desc">${escapeHtml(ev.details || '')}</p>
+                                            </div>
+                                        </div>
+                                    `).join('');
+                                    return;
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Gagal memuat timeline:', e);
+                        }
                         const isEn = currentLang === 'en';
                         timelineContainer.innerHTML = `
-                            <div class="signal-item">
-                                <span class="signal-time">${isEn ? 'Today, 09:05' : 'Hari ini, 09:05'}</span>
-                                <div class="signal-body">
-                                    <strong class="signal-title">${isEn ? 'Volume Spike Anomaly Detection (Z-Score ≥ 2.50σ)' : 'Deteksi Anomali Volume Spike (Z-Score ≥ 2.50σ)'}</strong>
-                                    <p class="signal-desc">${isEn ? `System detected abnormal trading volume for ${ticker} exceeding MA20 baseline.` : `Sistem mendeteksi lonjakan volume perdagangan ${ticker} melampaui rata-rata MA20.`}</p>
-                                </div>
-                            </div>
-                            <div class="signal-item">
-                                <span class="signal-time">${isEn ? 'Today, 09:06' : 'Hari ini, 09:06'}</span>
-                                <div class="signal-body">
-                                    <strong class="signal-title">${isEn ? 'IDXnet Corporate Disclosures Cross-Reference' : 'Cross-Reference Keterbukaan Informasi IDXnet'}</strong>
-                                    <p class="signal-desc">${isEn ? 'Correlating company regulatory disclosures and exchange announcements.' : 'Korelasi dokumen keterbukaan informasi emiten dan pengumuman bursa BEI.'}</p>
-                                </div>
-                            </div>
-                            <div class="signal-item">
-                                <span class="signal-time">${isEn ? 'Today, 09:07' : 'Hari ini, 09:07'}</span>
-                                <div class="signal-body">
-                                    <strong class="signal-title">${isEn ? 'Evidence Matrix Synthesis & Causality Reconciliation' : 'Sintesis Matriks Bukti & Rekonsiliasi Kausalitas'}</strong>
-                                    <p class="signal-desc">${isEn ? 'Classifying findings into Law 2 3-tier taxonomy (Supported, Uncertain, Contradicted).' : 'Klasifikasi temuan ke dalam taksonomi 3-tier (Supported, Uncertain, Contradicted) Law 2.'}</p>
-                                </div>
+                            <div class="dossier-empty-state">
+                                <span>${isEn ? 'No timeline events recorded yet. Chronological events will appear here once the investigation is executed.' : 'Belum ada kronologi peristiwa. Peristiwa kronologis akan tercatat otomatis saat investigasi dijalankan.'}</span>
                             </div>
                         `;
                     }
@@ -718,20 +933,20 @@
                     if (valueEl) {
                         valueEl.textContent = `${Math.round(num)}s`;
                     }
-                    let profile = '[custom]';
+                    let profileKey = 'custom';
                     if (num <= 25) {
-                        profile = '[fast]';
+                        profileKey = 'fast';
                     } else if (num <= 65) {
-                        profile = '[balanced]';
+                        profileKey = 'balanced';
                     } else if (num <= 125) {
-                        profile = '[deep]';
+                        profileKey = 'deep';
                     } else if (num <= 185) {
-                        profile = '[local]';
+                        profileKey = 'local';
                     } else {
-                        profile = '[custom]';
+                        profileKey = 'custom';
                     }
                     if (badgeEl) {
-                        badgeEl.textContent = profile;
+                        badgeEl.textContent = `[${t('profile_' + profileKey)}]`;
                     }
                 }
                 window.onTimeoutSliderInput = onTimeoutSliderInput;
@@ -752,6 +967,8 @@
                         const res = await fetch(`${API_BASE}/api/settings?reveal=true`);
                         if (!res.ok) return;
                         const data = await res.json();
+                        lastSettingsData = data;
+
                         if (data.auth) {
                             if (selectAiProvider && data.auth.ai_provider) {
                                 selectAiProvider.value = data.auth.ai_provider;
@@ -761,68 +978,68 @@
                             }
                             if (statusSectorsKey) {
                                 if (data.auth.has_sectors_key) {
-                                    statusSectorsKey.textContent = currentLang === 'en' ? 'Saved' : 'Tersimpan';
+                                    statusSectorsKey.textContent = t('tag_saved');
                                     statusSectorsKey.style.color = '#10B981';
                                     if (inputSectorsKey) {
                                         inputSectorsKey.value = data.auth.sectors_api_key || '';
                                         inputSectorsKey.dataset.saved = 'true';
-                                        inputSectorsKey.placeholder = 'sec_live_... (Tersimpan)';
+                                        inputSectorsKey.placeholder = `sec_live_... (${t('tag_saved')})`;
                                     }
                                 } else {
-                                    statusSectorsKey.textContent = currentLang === 'en' ? 'No Key' : 'Belum Ada Kunci';
+                                    statusSectorsKey.textContent = t('tag_no_key');
                                     statusSectorsKey.style.color = '#F59E0B';
                                     if (inputSectorsKey) {
                                         inputSectorsKey.value = '';
                                         delete inputSectorsKey.dataset.saved;
-                                        inputSectorsKey.placeholder = 'sec_live_... (Masukkan Sectors API Key)';
+                                        inputSectorsKey.placeholder = 'sec_live_... (Kosongkan jika tidak diubah)';
                                     }
                                 }
                             }
                             const tab1SectorsBadge = document.getElementById('tab1SectorsBadge');
                             if (tab1SectorsBadge) {
                                 if (data.auth.has_sectors_key) {
-                                    tab1SectorsBadge.textContent = currentLang === 'en' ? 'Saved' : 'Tersimpan';
+                                    tab1SectorsBadge.textContent = t('tag_saved');
                                     tab1SectorsBadge.style.color = '#10B981';
                                 } else {
-                                    tab1SectorsBadge.textContent = currentLang === 'en' ? 'No Key' : 'Belum Ada Kunci';
+                                    tab1SectorsBadge.textContent = t('tag_no_key');
                                     tab1SectorsBadge.style.color = '#F59E0B';
                                 }
                             }
                             if (statusGeminiKey) {
                                 if (data.auth.has_gemini_key) {
-                                    statusGeminiKey.textContent = currentLang === 'en' ? 'Saved' : 'Tersimpan';
+                                    statusGeminiKey.textContent = t('tag_saved');
                                     statusGeminiKey.style.color = '#10B981';
                                     if (inputGeminiKey) {
                                         inputGeminiKey.value = data.auth.gemini_api_key || '';
                                         inputGeminiKey.dataset.saved = 'true';
-                                        inputGeminiKey.placeholder = 'AIzaSy... (Tersimpan)';
+                                        inputGeminiKey.placeholder = `AIzaSy... (${t('tag_saved')})`;
                                     }
                                 } else {
-                                    statusGeminiKey.textContent = currentLang === 'en' ? 'No Key' : 'Belum Ada Kunci';
+                                    statusGeminiKey.textContent = t('tag_no_key');
                                     statusGeminiKey.style.color = '#F59E0B';
                                     if (inputGeminiKey) {
                                         inputGeminiKey.value = '';
                                         delete inputGeminiKey.dataset.saved;
-                                        inputGeminiKey.placeholder = 'AIzaSy... (Masukkan Gemini API Key)';
+                                        inputGeminiKey.placeholder = 'AIzaSy... (Kosongkan jika tidak diubah)';
                                     }
                                 }
                             }
                             if (statusOpenaiKey) {
                                 if (data.auth.has_openai_key) {
-                                    statusOpenaiKey.textContent = currentLang === 'en' ? 'Saved' : 'Tersimpan';
+                                    statusOpenaiKey.textContent = t('tag_saved');
                                     statusOpenaiKey.style.color = '#10B981';
                                     if (inputOpenaiKey) {
                                         inputOpenaiKey.value = data.auth.openai_api_key || '';
                                         inputOpenaiKey.dataset.saved = 'true';
-                                        inputOpenaiKey.placeholder = 'sk-... (Tersimpan)';
+                                        inputOpenaiKey.placeholder = `sk-... (${t('tag_saved')})`;
                                     }
                                 } else {
-                                    statusOpenaiKey.textContent = currentLang === 'en' ? 'No Key' : 'Belum Ada Kunci';
+                                    statusOpenaiKey.textContent = t('tag_no_key');
                                     statusOpenaiKey.style.color = 'var(--text-muted)';
                                     if (inputOpenaiKey) {
                                         inputOpenaiKey.value = '';
                                         delete inputOpenaiKey.dataset.saved;
-                                        inputOpenaiKey.placeholder = 'sk-... (Kosongkan jika menggunakan gateway lokal)';
+                                        inputOpenaiKey.placeholder = 'sk-... (Kosongkan jika tidak diubah)';
                                     }
                                 }
                             }
@@ -847,33 +1064,32 @@
                             }
                             if (statusAnthropicKey) {
                                 if (data.auth.has_anthropic_key) {
-                                    statusAnthropicKey.textContent = currentLang === 'en' ? 'Saved' : 'Tersimpan';
+                                    statusAnthropicKey.textContent = t('tag_saved');
                                     statusAnthropicKey.style.color = '#10B981';
                                     if (inputAnthropicKey) {
                                         inputAnthropicKey.value = data.auth.anthropic_api_key || '';
                                         inputAnthropicKey.dataset.saved = 'true';
-                                        inputAnthropicKey.placeholder = 'sk-ant-api03-... (Tersimpan)';
+                                        inputAnthropicKey.placeholder = `sk-ant-... (${t('tag_saved')})`;
                                     }
                                 } else {
-                                    statusAnthropicKey.textContent = currentLang === 'en' ? 'No Key' : 'Belum Ada Kunci';
+                                    statusAnthropicKey.textContent = t('tag_no_key');
                                     statusAnthropicKey.style.color = 'var(--text-muted)';
                                     if (inputAnthropicKey) {
                                         inputAnthropicKey.value = '';
                                         delete inputAnthropicKey.dataset.saved;
-                                        inputAnthropicKey.placeholder = 'sk-ant-api03-... (Masukkan Anthropic API Key)';
+                                        inputAnthropicKey.placeholder = 'sk-ant-... (Kosongkan jika tidak diubah)';
                                     }
                                 }
                             }
                             // Update reactive provider card badges
-                            const isEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
                             const tagGemini = document.getElementById('tagGeminiStatus');
                             if (tagGemini) {
                                 if (data.auth && data.auth.has_gemini_key) {
-                                    tagGemini.textContent = isEn ? 'Saved' : 'Tersimpan';
+                                    tagGemini.textContent = t('tag_saved');
                                     tagGemini.style.color = '#10B981';
                                     tagGemini.style.background = 'rgba(16, 185, 129, 0.12)';
                                 } else {
-                                    tagGemini.textContent = isEn ? 'Recommended' : 'Disarankan';
+                                    tagGemini.textContent = t('tag_recommended');
                                     tagGemini.style.color = '#03A66D';
                                     tagGemini.style.background = 'rgba(3, 166, 109, 0.12)';
                                 }
@@ -882,11 +1098,11 @@
                             const tagOpenai = document.getElementById('tagOpenaiStatus');
                             if (tagOpenai) {
                                 if (data.auth && data.auth.has_openai_key) {
-                                    tagOpenai.textContent = isEn ? 'Saved' : 'Tersimpan';
+                                    tagOpenai.textContent = t('tag_saved');
                                     tagOpenai.style.color = '#10B981';
                                     tagOpenai.style.background = 'rgba(16, 185, 129, 0.12)';
                                 } else {
-                                    tagOpenai.textContent = 'Gateway';
+                                    tagOpenai.textContent = t('tag_gateway');
                                     tagOpenai.style.color = '';
                                     tagOpenai.style.background = '';
                                 }
@@ -895,11 +1111,11 @@
                             const tagAnthropic = document.getElementById('tagAnthropicStatus');
                             if (tagAnthropic) {
                                 if (data.auth && data.auth.has_anthropic_key) {
-                                    tagAnthropic.textContent = isEn ? 'Saved' : 'Tersimpan';
+                                    tagAnthropic.textContent = t('tag_saved');
                                     tagAnthropic.style.color = '#10B981';
                                     tagAnthropic.style.background = 'rgba(16, 185, 129, 0.12)';
                                 } else {
-                                    tagAnthropic.textContent = isEn ? 'Reasoning' : 'Penalaran';
+                                    tagAnthropic.textContent = t('tag_reasoning');
                                     tagAnthropic.style.color = '';
                                     tagAnthropic.style.background = '';
                                 }
@@ -909,11 +1125,11 @@
                             if (tagOllama) {
                                 const ollamaUrl = (data.auth && data.auth.ollama_base_url) || (inputOllamaBaseUrl ? inputOllamaBaseUrl.value.trim() : '') || 'http://localhost:11434';
                                 if (ollamaUrl) {
-                                    tagOllama.textContent = isEn ? 'Available' : 'Tersedia';
+                                    tagOllama.textContent = t('tag_available');
                                     tagOllama.style.color = '#10B981';
                                     tagOllama.style.background = 'rgba(16, 185, 129, 0.12)';
                                 } else {
-                                    tagOllama.textContent = isEn ? 'Local' : 'Lokal';
+                                    tagOllama.textContent = t('tag_local');
                                     tagOllama.style.color = '';
                                     tagOllama.style.background = '';
                                 }
@@ -923,11 +1139,7 @@
                             updateActivePresetChips();
                         }
                         if (data.preferences) {
-                            if (toggleOfflineMode && typeof data.preferences.offline_mode === 'boolean') {
-                                toggleOfflineMode.checked = data.preferences.offline_mode;
-                                updateOfflineWarning();
-                            }
-                            if (data.preferences && data.preferences.llm_timeout_secs) {
+                            if (data.preferences.llm_timeout_secs) {
                                 populateTimeoutSlider(data.preferences.llm_timeout_secs);
                             }
                         }
@@ -936,11 +1148,7 @@
                         const badge = document.getElementById('dataFreshnessBadge');
                         const label = document.getElementById('labelFreshnessStatus');
                         if (badge && label) {
-                            if (data.preferences && data.preferences.offline_mode) {
-                                badge.className = 'data-freshness-badge offline';
-                                label.textContent = currentLang === 'en' ? 'Offline (Mock Data)' : 'Mode Offline (Mock Data)';
-                                badge.title = currentLang === 'en' ? 'Running in offline simulation mode' : 'Berjalan dalam mode simulasi offline';
-                            } else if (data.auth && data.auth.has_sectors_key) {
+                            if (data.auth && data.auth.has_sectors_key) {
                                 badge.className = 'data-freshness-badge';
                                 label.textContent = 'IDX Live (EOD)';
                                 badge.title = currentLang === 'en' ? 'Sectors Financial API v2 Active (Click to Flush Cache)' : 'Sectors Financial API v2 Aktif (Klik untuk Flush Cache)';
@@ -1119,7 +1327,7 @@
                     if (!teleAllowedUsersChips) return;
                     teleAllowedUsersChips.innerHTML = '';
                     if (currentTeleUsers.length === 0) {
-                        teleAllowedUsersChips.innerHTML = '<span style="font-size:11px; color:var(--text-muted); font-style:italic;">Belum ada user di-whitelist (akses terbuka untuk semua).</span>';
+                        teleAllowedUsersChips.innerHTML = `<span style="font-size:11px; color:var(--text-muted); font-style:italic;">${t('tele_no_whitelist')}</span>`;
                     } else {
                         currentTeleUsers.forEach((u, idx) => {
                             const chip = document.createElement('div');
@@ -1174,6 +1382,7 @@
                         const res = await fetch(`${API_BASE}/api/settings/telegram`);
                         if (!res.ok) return;
                         const data = await res.json();
+                        lastTelegramData = data;
                         const isRunning = (data.status === 'RUNNING');
 
                         if (teleBotStatusBadge) {
@@ -1194,30 +1403,33 @@
                         }
                         if (statusTeleToken) {
                             if (data.has_token) {
-                                statusTeleToken.textContent = currentLang === 'en' ? 'Token Saved' : 'Token Tersimpan';
+                                statusTeleToken.textContent = t('tele_token_saved');
                                 statusTeleToken.style.color = '#10B981';
                                 if (inputTeleToken) {
                                     inputTeleToken.disabled = false;
                                     inputTeleToken.value = data.bot_token || '';
                                     inputTeleToken.dataset.saved = 'true';
-                                    inputTeleToken.placeholder = '7123456789:AAH... (Tersimpan)';
+                                    inputTeleToken.placeholder = `7123456789:AAH... (${t('tag_saved')})`;
                                 }
                                 if (btnUnlockTeleToken) {
                                     btnUnlockTeleToken.style.display = 'none';
                                 }
                             } else {
-                                statusTeleToken.textContent = currentLang === 'en' ? 'No Token' : 'Belum Ada Token';
+                                statusTeleToken.textContent = t('tele_token_empty');
                                 statusTeleToken.style.color = 'var(--text-muted)';
                                 if (inputTeleToken) {
                                     inputTeleToken.disabled = false;
                                     inputTeleToken.value = '';
                                     delete inputTeleToken.dataset.saved;
-                                    inputTeleToken.placeholder = '7123456789:AAH... (Masukkan token bot)';
+                                    inputTeleToken.placeholder = '7123456789:AAH... (Kosongkan jika tidak diubah)';
                                 }
                                 if (btnUnlockTeleToken) {
                                     btnUnlockTeleToken.style.display = 'none';
                                 }
                             }
+                        }
+                        if (btnUnlockTeleToken) {
+                            btnUnlockTeleToken.textContent = t('btn_unlock_tele_token');
                         }
 
                         // Dynamic Start / Stop Bot Button Toggle
@@ -1228,13 +1440,13 @@
                                 btnStopTeleBot.disabled = false;
                                 btnStopTeleBot.style.opacity = '1';
                                 btnStopTeleBot.style.cursor = 'pointer';
-                                btnStopTeleBot.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg><span>${currentLang === 'en' ? 'Stop Bot' : 'Matikan Bot'}</span>`;
+                                btnStopTeleBot.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg><span>${t('btn_stop_bot')}</span>`;
                             }
                         } else {
                             if (btnStopTeleBot) btnStopTeleBot.style.display = 'none';
                             if (btnStartTeleBot) {
                                 btnStartTeleBot.style.display = 'inline-flex';
-                                btnStartTeleBot.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>${currentLang === 'en' ? 'Start Bot' : 'Nyalakan Bot'}</span>`;
+                                btnStartTeleBot.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>${t('btn_start_bot')}</span>`;
                                 if (!data.has_token) {
                                     btnStartTeleBot.disabled = true;
                                     btnStartTeleBot.style.opacity = '0.5';
@@ -1396,20 +1608,24 @@
                     btnFlushAllCache.addEventListener('click', async (e) => {
                         e.preventDefault();
                         const isEn = (currentLang === 'en');
-                        const confirmMsg = isEn ?
-                            'Flush ALL cache (including permanent historical OHLCV candles)? Subsequent queries will consume Sectors API credits.' :
-                            'Flush SEMUA cache (termasuk candlestick OHLCV historis)? Kueri berikutnya akan membutuhkan kuota kredit Sectors API.';
-                        if (!confirm(confirmMsg)) return;
+                        const confirmed = await showConfirmDialog({
+                            title: t('flush_cache_title'),
+                            message: t('flush_cache_desc'),
+                            confirmText: t('flush_cache_confirm_btn'),
+                            cancelText: t('modal_cancel_btn'),
+                            type: 'warning'
+                        });
+                        if (!confirmed) return;
 
                         try {
                             btnFlushAllCache.disabled = true;
                             btnFlushAllCache.textContent = isEn ? 'Flushing...' : 'Memproses...';
                             const res = await fetch(`${API_BASE}/api/system/cache/clean?all=1`, { method: 'POST' });
                             const data = await res.json();
-                            showToast(isEn ? `All cache flushed (${data.cleaned_entries ?? 0} entries removed)` : `Seluruh cache di-flush (${data.cleaned_entries ?? 0} entri dihapus)`);
+                            showToast(isEn ? `All cache flushed (${data.cleaned_entries ?? 0} entries removed)` : `Seluruh cache di-flush (${data.cleaned_entries ?? 0} entri dihapus)`, 'success');
                             fetchSectorsUsage();
                         } catch (err) {
-                            showToast(isEn ? `Failed to flush cache: ${err.message}` : `Gagal flush cache: ${err.message}`, true);
+                            showToast(isEn ? `Failed to flush cache: ${err.message}` : `Gagal flush cache: ${err.message}`, 'error');
                         } finally {
                             btnFlushAllCache.disabled = false;
                             btnFlushAllCache.textContent = isEn ? 'Flush All Cache' : 'Flush Semua Cache';
@@ -1418,105 +1634,211 @@
                 }
 
                 // System Diagnostics
+                function renderDiagnosticsHTML(data) {
+                    if (!diagnosticsDetails || !data) return;
+                    const dbSizeKb = data.database_size_bytes ? (data.database_size_bytes / 1024).toFixed(1) + ' KB' : 'N/A';
+                    const isEn = (currentLang === 'en');
+
+                    diagnosticsDetails.innerHTML = `
+                        <div class="kpi-stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+                            <div class="kpi-stat-card">
+                                <span class="kpi-stat-label">${t('diag_status_daemon')}</span>
+                                <span class="kpi-stat-num" style="color:#10B981; font-size:14px;">${escapeHtml(data.status || 'OK')}</span>
+                                <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${t('diag_local_ipc')}</span>
+                            </div>
+                            <div class="kpi-stat-card">
+                                <span class="kpi-stat-label">${t('diag_go_runtime')}</span>
+                                <span class="kpi-stat-num" style="font-size:14px;">${escapeHtml(data.go_version || 'Go')}</span>
+                                <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${escapeHtml(data.os || '')} (${escapeHtml(data.arch || '')}) | ${data.num_cpu || 1} CPU</span>
+                            </div>
+                            <div class="kpi-stat-card">
+                                <span class="kpi-stat-label">${t('diag_sqlite_wal')}</span>
+                                <span class="kpi-stat-num" style="font-size:14px;">${dbSizeKb}</span>
+                                <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${data.total_sessions || 0} ${t('diag_sessions_saved')}</span>
+                            </div>
+                        </div>
+                        <div class="kpi-stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-top:0;">
+                            <div class="kpi-stat-card">
+                                <span class="kpi-stat-label">${t('diag_active_provider')}</span>
+                                <span class="kpi-stat-num" style="color:var(--accent-text); font-size:14px;">${escapeHtml((data.ai_provider || 'openai').toUpperCase())}</span>
+                                <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">ReAct Cognitive Engine</span>
+                            </div>
+                            <div class="kpi-stat-card">
+                                <span class="kpi-stat-label">${t('diag_op_mode')}</span>
+                                <span class="kpi-stat-num" style="color:#10B981; font-size:14px;">SECTORS v2 LIVE</span>
+                                <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${t('diag_credit_sync')}</span>
+                            </div>
+                        </div>
+                        <div class="settings-card" style="margin-top:2px;">
+                            <div class="settings-card-head">
+                                <div class="settings-card-title">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                                    <span>${t('settings_ssot_paths_title')}</span>
+                                </div>
+                                <span class="panel-card-badge">${t('diag_local_first_badge')}</span>
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:11px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:var(--bg-card); border-radius:6px; border:1px solid var(--border-subtle);">
+                                    <div><strong style="color:var(--text-primary);">Database:</strong> <span style="color:var(--text-secondary);">${escapeHtml(data.database_path || '~/.niskava/niskava.db')}</span></div>
+                                    <button type="button" class="btn-copy-path" data-path="${escapeHtml(data.database_path || '~/.niskava/niskava.db')}" title="${t('settings_copy_path')}" style="cursor:pointer; color:var(--text-muted); padding:2px 6px; border:none; background:transparent;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    </button>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:var(--bg-card); border-radius:6px; border:1px solid var(--border-subtle);">
+                                    <div><strong style="color:var(--text-primary);">Config:</strong> <span style="color:var(--text-secondary);">${escapeHtml(data.config_path || '~/.niskava/config.yaml')}</span></div>
+                                    <button type="button" class="btn-copy-path" data-path="${escapeHtml(data.config_path || '~/.niskava/config.yaml')}" title="${t('settings_copy_path')}" style="cursor:pointer; color:var(--text-muted); padding:2px 6px; border:none; background:transparent;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    </button>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:var(--bg-card); border-radius:6px; border:1px solid var(--border-subtle);">
+                                    <div><strong style="color:var(--text-primary);">DotEnv:</strong> <span style="color:var(--text-secondary);">${escapeHtml(data.dotenv_path || '~/.niskava/.env')}</span></div>
+                                    <button type="button" class="btn-copy-path" data-path="${escapeHtml(data.dotenv_path || '~/.niskava/.env')}" title="${t('settings_copy_path')}" style="cursor:pointer; color:var(--text-muted); padding:2px 6px; border:none; background:transparent;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    // Attach copy path events
+                    diagnosticsDetails.querySelectorAll('.btn-copy-path').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            const path = btn.getAttribute('data-path');
+                            if (path) {
+                                copyToClipboard(path).then((success) => {
+                                    if (success) {
+                                        showToast(isEn ? 'Path copied to clipboard' : 'Jalur disalin ke papan klip');
+                                    } else {
+                                        showToast(isEn ? 'Failed to copy path' : 'Gagal menyalin jalur', 'error');
+                                    }
+                                });
+                            }
+                        });
+                    });
+                }
+
                 async function fetchDiagnostics() {
                     if (!diagnosticsDetails) return;
                     try {
                         const res = await fetch(`${API_BASE}/api/system/diagnostics`);
                         if (!res.ok) return;
                         const data = await res.json();
-                        const dbSizeKb = data.database_size_bytes ? (data.database_size_bytes / 1024).toFixed(1) + ' KB' : 'N/A';
-                        const isEn = (currentLang === 'en');
+                        lastDiagnosticsData = data;
 
                         const sidebarProfileName = document.getElementById('sidebarProfileName');
                         const sidebarProfileAvatar = document.getElementById('sidebarProfileAvatar');
-                        if (sidebarProfileName && data.username) {
-                            sidebarProfileName.textContent = data.username;
+                        const uname = data.username || 'User';
+                        if (sidebarProfileName) {
+                            sidebarProfileName.textContent = (uname.toLowerCase() === 'user') ? t('profile_default_user') : uname;
                         }
-                        if (sidebarProfileAvatar && data.username) {
-                            sidebarProfileAvatar.textContent = data.username.slice(0, 2).toUpperCase();
+                        if (sidebarProfileAvatar) {
+                            sidebarProfileAvatar.textContent = (uname.toLowerCase() === 'user') ? 'US' : uname.slice(0, 2).toUpperCase();
                         }
 
-                        diagnosticsDetails.innerHTML = `
-                            <div class="kpi-stats-grid" style="grid-template-columns: repeat(3, 1fr);">
-                                <div class="kpi-stat-card">
-                                    <span class="kpi-stat-label">STATUS DAEMON</span>
-                                    <span class="kpi-stat-num" style="color:#10B981; font-size:14px;">${escapeHtml(data.status || 'OK')}</span>
-                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">Local IPC Active</span>
-                                </div>
-                                <div class="kpi-stat-card">
-                                    <span class="kpi-stat-label">GO RUNTIME</span>
-                                    <span class="kpi-stat-num" style="font-size:14px;">${escapeHtml(data.go_version || 'Go')}</span>
-                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${escapeHtml(data.os || '')} (${escapeHtml(data.arch || '')}) | ${data.num_cpu || 1} CPU</span>
-                                </div>
-                                <div class="kpi-stat-card">
-                                    <span class="kpi-stat-label">SQLITE WAL (LAW 4)</span>
-                                    <span class="kpi-stat-num" style="font-size:14px;">${dbSizeKb}</span>
-                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${data.total_sessions || 0} ${isEn ? 'sessions saved' : 'sesi tersimpan'}</span>
-                                </div>
-                            </div>
-                            <div class="kpi-stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-top:0;">
-                                <div class="kpi-stat-card">
-                                    <span class="kpi-stat-label">ACTIVE AI PROVIDER</span>
-                                    <span class="kpi-stat-num" style="color:var(--accent-text); font-size:14px;">${escapeHtml((data.ai_provider || 'openai').toUpperCase())}</span>
-                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">ReAct Cognitive Engine</span>
-                                </div>
-                                <div class="kpi-stat-card">
-                                    <span class="kpi-stat-label">MODE OPERASI</span>
-                                    <span class="kpi-stat-num" style="color:${data.offline_mode ? '#F59E0B' : '#10B981'}; font-size:14px;">${data.offline_mode ? 'OFFLINE (MOCK)' : 'SECTORS v2 LIVE'}</span>
-                                    <span style="font-size:10px; color:var(--text-muted); margin-top:2px;">${data.offline_mode ? 'Fixture Simulation' : 'Law 5 Active Credit Sync'}</span>
-                                </div>
-                            </div>
-                            <div class="settings-card" style="margin-top:2px;">
-                                <div class="settings-card-head">
-                                    <div class="settings-card-title">
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                                        <span>Jalur Penyimpanan SSoT (Single Source of Truth)</span>
-                                    </div>
-                                    <span class="panel-card-badge">Local-First</span>
-                                </div>
-                                <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:11px;">
-                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:var(--bg-card); border-radius:6px; border:1px solid var(--border-subtle);">
-                                        <div><strong style="color:var(--text-primary);">Database:</strong> <span style="color:var(--text-secondary);">${escapeHtml(data.database_path || '~/.niskava/niskava.db')}</span></div>
-                                        <button type="button" class="btn-copy-path" data-path="${escapeHtml(data.database_path || '~/.niskava/niskava.db')}" title="Salin Path" style="cursor:pointer; color:var(--text-muted); padding:2px 6px; border:none; background:transparent;">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                        </button>
-                                    </div>
-                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:var(--bg-card); border-radius:6px; border:1px solid var(--border-subtle);">
-                                        <div><strong style="color:var(--text-primary);">Config:</strong> <span style="color:var(--text-secondary);">${escapeHtml(data.config_path || '~/.niskava/config.yaml')}</span></div>
-                                        <button type="button" class="btn-copy-path" data-path="${escapeHtml(data.config_path || '~/.niskava/config.yaml')}" title="Salin Path" style="cursor:pointer; color:var(--text-muted); padding:2px 6px; border:none; background:transparent;">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                        </button>
-                                    </div>
-                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:var(--bg-card); border-radius:6px; border:1px solid var(--border-subtle);">
-                                        <div><strong style="color:var(--text-primary);">DotEnv:</strong> <span style="color:var(--text-secondary);">${escapeHtml(data.dotenv_path || '~/.niskava/.env')}</span></div>
-                                        <button type="button" class="btn-copy-path" data-path="${escapeHtml(data.dotenv_path || '~/.niskava/.env')}" title="Salin Path" style="cursor:pointer; color:var(--text-muted); padding:2px 6px; border:none; background:transparent;">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-
-                        // Attach copy path events
-                        diagnosticsDetails.querySelectorAll('.btn-copy-path').forEach(btn => {
-                            btn.addEventListener('click', (e) => {
-                                e.preventDefault();
-                                const path = btn.getAttribute('data-path');
-                                if (path) {
-                                    copyToClipboard(path).then((success) => {
-                                        if (success) {
-                                            showToast(isEn ? 'Path copied to clipboard' : 'Jalur disalin ke papan klip');
-                                        } else {
-                                            showToast(isEn ? 'Failed to copy path' : 'Gagal menyalin jalur', 'error');
-                                        }
-                                    });
-                                }
-                            });
-                        });
+                        renderDiagnosticsHTML(data);
                     } catch (e) {
                         diagnosticsDetails.innerHTML = `<div style="color:#EF4444; font-size:12px;">${currentLang === 'en' ? 'Failed to load diagnostics:' : 'Gagal memuat diagnostik:'} ${escapeHtml(e.message)}</div>`;
                     }
                 }
+
+                function updateSettingsLanguage() {
+                    const slider = document.getElementById('timeout-slider');
+                    if (slider) {
+                        onTimeoutSliderInput(slider.value);
+                    }
+                    if (lastSettingsData) {
+                        const data = lastSettingsData;
+                        const tagGemini = document.getElementById('tagGeminiStatus');
+                        if (tagGemini) {
+                            if (data.auth && data.auth.has_gemini_key) {
+                                tagGemini.textContent = t('tag_saved');
+                            } else {
+                                tagGemini.textContent = t('tag_recommended');
+                            }
+                        }
+                        const tagOpenai = document.getElementById('tagOpenaiStatus');
+                        if (tagOpenai) {
+                            if (data.auth && data.auth.has_openai_key) {
+                                tagOpenai.textContent = t('tag_saved');
+                            } else {
+                                tagOpenai.textContent = t('tag_gateway');
+                            }
+                        }
+                        const tagAnthropic = document.getElementById('tagAnthropicStatus');
+                        if (tagAnthropic) {
+                            if (data.auth && data.auth.has_anthropic_key) {
+                                tagAnthropic.textContent = t('tag_saved');
+                            } else {
+                                tagAnthropic.textContent = t('tag_reasoning');
+                            }
+                        }
+                        const tagOllama = document.getElementById('tagOllamaStatus');
+                        if (tagOllama) {
+                            const ollamaUrl = (data.auth && data.auth.ollama_base_url) || (inputOllamaBaseUrl ? inputOllamaBaseUrl.value.trim() : '') || 'http://localhost:11434';
+                            tagOllama.textContent = ollamaUrl ? t('tag_available') : t('tag_local');
+                        }
+                        if (statusSectorsKey) {
+                            statusSectorsKey.textContent = (data.auth && data.auth.has_sectors_key) ? t('tag_saved') : t('tag_no_key');
+                        }
+                        const tab1SectorsBadge = document.getElementById('tab1SectorsBadge');
+                        if (tab1SectorsBadge) {
+                            tab1SectorsBadge.textContent = (data.auth && data.auth.has_sectors_key) ? t('tag_saved') : t('tag_no_key');
+                        }
+                        if (statusGeminiKey) {
+                            statusGeminiKey.textContent = (data.auth && data.auth.has_gemini_key) ? t('tag_saved') : t('tag_no_key');
+                        }
+                        if (statusOpenaiKey) {
+                            statusOpenaiKey.textContent = (data.auth && data.auth.has_openai_key) ? t('tag_saved') : t('tag_no_key');
+                        }
+                        if (statusAnthropicKey) {
+                            statusAnthropicKey.textContent = (data.auth && data.auth.has_anthropic_key) ? t('tag_saved') : t('tag_no_key');
+                        }
+                        const badge = document.getElementById('dataFreshnessBadge');
+                        const label = document.getElementById('labelFreshnessStatus');
+                        if (badge && label) {
+                            if (data.auth && data.auth.has_sectors_key) {
+                                label.textContent = 'IDX Live (EOD)';
+                                badge.title = currentLang === 'en' ? 'Sectors Financial API v2 Active (Click to Flush Cache)' : 'Sectors Financial API v2 Aktif (Klik untuk Flush Cache)';
+                            } else {
+                                label.textContent = currentLang === 'en' ? 'No Sectors Key' : 'Belum Ada Kunci IDX';
+                                badge.title = currentLang === 'en' ? 'Configure SECTORS_API_KEY in Settings' : 'Konfigurasi SECTORS_API_KEY di Pengaturan';
+                            }
+                        }
+                    }
+                    if (lastTelegramData) {
+                        const data = lastTelegramData;
+                        if (statusTeleToken) {
+                            statusTeleToken.textContent = data.has_token ? t('tele_token_saved') : t('tele_token_empty');
+                        }
+                        if (btnUnlockTeleToken) {
+                            btnUnlockTeleToken.textContent = t('btn_unlock_tele_token');
+                        }
+                        const isRunning = (data.status === 'RUNNING');
+                        if (btnStopTeleBot && isRunning) {
+                            btnStopTeleBot.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg><span>${t('btn_stop_bot')}</span>`;
+                        }
+                        if (btnStartTeleBot && !isRunning) {
+                            btnStartTeleBot.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>${t('btn_start_bot')}</span>`;
+                            if (!data.has_token) {
+                                btnStartTeleBot.title = currentLang === 'en' ? 'Configure Telegram Bot Token first' : 'Konfigurasi Token Bot terlebih dahulu';
+                            }
+                        }
+                        renderTeleUserChips();
+                    }
+                    const btnFlush = document.getElementById('btnFlushAllCache');
+                    if (btnFlush) {
+                        btnFlush.textContent = t('btn_flush_all_cache');
+                    }
+                    const sidebarProfileName = document.getElementById('sidebarProfileName');
+                    if (sidebarProfileName && (!lastDiagnosticsData || !lastDiagnosticsData.username || lastDiagnosticsData.username.toLowerCase() === 'user')) {
+                        sidebarProfileName.textContent = t('profile_default_user');
+                    }
+                    if (lastDiagnosticsData) {
+                        renderDiagnosticsHTML(lastDiagnosticsData);
+                    }
+                }
+                window.updateSettingsLanguage = updateSettingsLanguage;
 
                 // Save Settings
                 if (btnSaveSettings) {
@@ -1579,9 +1901,6 @@
 
                         if (document.getElementById('timeout-slider')) {
                             payload.preferences.llm_timeout_secs = parseFloat(document.getElementById('timeout-slider').value);
-                        }
-                        if (toggleOfflineMode) {
-                            payload.preferences.offline_mode = toggleOfflineMode.checked;
                         }
 
                         try {

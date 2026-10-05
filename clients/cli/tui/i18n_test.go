@@ -65,17 +65,39 @@ func TestAllTranslationKeysAreSynchronized(t *testing.T) {
 
 func TestTFHelper(t *testing.T) {
 	SetLanguage("en")
-	resEn := TF("thinking_init", "hermes")
+	resEn := TF("thinking_init", "gemini-2.0-flash")
 	if resEn == "" || !strings.Contains(resEn, "Initializing analysis") {
 		t.Errorf("expected English formatted output containing 'Initializing analysis', got %q", resEn)
 	}
 
 	SetLanguage("id")
-	resId := TF("thinking_init", "hermes")
+	resId := TF("thinking_init", "gemini-2.0-flash")
 	if resId == "" || !strings.Contains(resId, "Menginisialisasi analisis") {
 		t.Errorf("expected Indonesian formatted output containing 'Menginisialisasi analisis', got %q", resId)
 	}
 
 	// Reset
 	SetLanguage("en")
+}
+
+func countPlaceholders(s string) int {
+	count := 0
+	for i := 0; i < len(s)-1; i++ {
+		if s[i] == '%' && s[i+1] != '%' {
+			count++
+		}
+	}
+	return count
+}
+
+func TestI18nPlaceholderConsistency(t *testing.T) {
+	for key, translations := range TUIStrings {
+		enVal := translations["en"]
+		idVal := translations["id"]
+		cEn := countPlaceholders(enVal)
+		cId := countPlaceholders(idVal)
+		if cEn != cId {
+			t.Errorf("placeholder count mismatch for key %q: 'en' has %d, 'id' has %d", key, cEn, cId)
+		}
+	}
 }

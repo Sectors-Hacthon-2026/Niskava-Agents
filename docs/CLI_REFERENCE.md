@@ -24,7 +24,7 @@ auth:
   gemini_model: "gemini-2.0-flash"
   openai_api_key: ""
   openai_base_url: "http://localhost:20128/v1"
-  openai_model: "hermes"
+  openai_model: "gpt-4o-mini"
   anthropic_api_key: ""
   ollama_base_url: "http://localhost:11434"
   ollama_model: "qwen2.5:7b"
@@ -76,7 +76,7 @@ telegram:
 | `GEMINI_API_KEY` | Auth | Kunci API Google Gemini Cloud |
 | `OPENAI_API_KEY` | Auth | Kunci API OpenAI / OpenRouter / Gateway |
 | `OPENAI_BASE_URL` | Auth | Endpoint OpenAI-compatible (contoh: http://localhost:20128/v1) |
-| `OPENAI_MODEL` | Auth | Nama model inference (contoh: hermes, deepseek-chat) |
+| `OPENAI_MODEL` | Auth | Nama model inference (contoh: gpt-4o-mini, deepseek-chat) |
 | `NISKAVA_TELEGRAM_TOKEN` | Telegram | Token bot Telegram |
 | `NISKAVA_TELEGRAM_ALLOWED_USERS`| Telegram | Daftar pengguna terotorisasi (dipisah koma) |
 
@@ -96,14 +96,14 @@ Flags berikut berlaku untuk seluruh perintah dan subperintah Niskava:
 ## 3. Katalog Perintah
 
 ### 3.1 Perintah Utama: `niskava` (Bare Command)
-Menjalankan daemon latar belakang lokal secara otomatis dan menampilkan **Interactive Launcher HUD (9router-style UI)** pada terminal.
+Menjalankan daemon latar belakang lokal secara otomatis dan menampilkan **Interactive Launcher HUD (Terminal UI)** pada terminal.
 
 ```bash
 niskava [flags]
 ```
 
 #### Pilihan Menu Launcher:
-1. `terminal`: Membuka terminal interaktif REPL Hermes-style untuk analisis percakapan langsung.
+1. `terminal`: Membuka terminal interaktif REPL untuk analisis percakapan langsung.
 2. `web`: Menjalankan browser dan membuka antarmuka Web Workspace Dashboard.
 3. `sessions`: Membuka *Session Selector* interaktif untuk memilih dan melanjutkan sesi sebelumnya.
 4. `setup`: Menjalankan Setup Wizard konfigurasi awal.

@@ -1,6 +1,6 @@
 # User Guide & Interface Manual
 
-Niskava Agent provides multiple interaction surfaces suited for ad-hoc terminal research, browser-based visual investigation, automated CI/CD scripting, and external agent integrations.
+Niskava Agent provides multiple interaction surfaces suited for ad-hoc terminal research, browser-based visual investigation, automated CLI scripting, and external agent integrations.
 
 ---
 
@@ -11,7 +11,7 @@ Niskava Agent provides multiple interaction surfaces suited for ad-hoc terminal 
 │                    NISKAVA INTERACTION SURFACES                   │
 ├───────────────────────────────────────────────────────────────────┤
 │ 1. Terminal UI (TUI) REPL & HUD Launcher                          │
-│    Command : `niskava` (without arguments)                        │
+│    Command : `niskava` or `niskava terminal`                      │
 │    Use Case: Interactive prompt-driven research, slash commands.  │
 │                                                                   │
 │ 2. Autonomous Headless Pipeline CLI                               │
@@ -44,45 +44,57 @@ Niskava Agent provides multiple interaction surfaces suited for ad-hoc terminal 
 
 ## 1. Terminal UI (TUI) HUD Launcher
 
-Executing `niskava` without arguments starts the interactive Terminal UI launcher:
+Running `niskava` without arguments starts the interactive Terminal UI launcher:
 
 ```bash
-./niskava
+niskava
 ```
 
-The launcher displays application health status, configured API keys, and a menu navigable with arrow keys or shortcut letters:
+<p align="center">
+  <img src="../../docs/assets/niskava-cli-gateway.png" alt="Niskava Central CLI Gateway Launcher" width="90%">
+</p>
 
-- **`[T]` Terminal UI (Interactive Live CLI)**: Launches the natural language REPL.
-- **`[W]` Web Workspace (Serve React UI)**: Starts the background server and opens your web browser.
-- **`[S]` Saved Sessions & History**: Browse and resume previous chat or investigation sessions.
-- **`[H]` Health & Diagnostics**: Displays database status, virtual environment paths, and provider connectivity.
-- **`[L]` Language Selector**: Toggle between English (`en`) and Indonesian (`id`).
-- **`[U]` Setup Wizard**: Re-run the interactive configuration setup.
-- **`[?]` Help & Commands Guide**: Complete overview of terminal hotkeys and slash commands.
-- **`[Q]` Exit Niskava**: Cleanly closes daemon processes and returns to shell.
+The launcher displays application health status, configured API keys, and a keyboard-driven menu:
+
+* **`[T]` Terminal UI (Interactive Live CLI)**: Launches the natural language REPL.
+* **`[W]` Web Workspace (Serve React UI)**: Starts the background daemon and opens your default browser at `http://localhost:20128`.
+* **`[S]` Saved Sessions & History**: Browse, search, pin, and resume previous research sessions.
+* **`[H]` Health & Diagnostics**: Displays SQLite WAL status, Python environment paths, and provider connectivity.
+* **`[L]` Language Selector**: Toggle between Indonesian (`id`) and English (`en`).
+* **`[U]` Setup Wizard**: Re-run the interactive credential setup wizard.
+* **`[?]` Help & Commands Guide**: Complete overview of terminal hotkeys and slash commands.
+* **`[Q]` Exit Niskava**: Cleanly terminates background processes and returns to shell.
 
 ---
 
 ## 2. Interactive Terminal REPL
 
-The interactive REPL provides a prompt-driven environment with real-time reasoning feedback and rich markdown rendering.
+The interactive REPL provides a natural language conversational research environment with streaming Glamour markdown rendering.
 
-### Prompt History Navigation
-- Press **Up Arrow (↑)** to navigate backwards through previous prompt history.
-- Press **Down Arrow (↓)** to navigate forward through newer prompts.
-
-### Real-Time Braille Progress Indicator
-During tool execution, Sectors API queries, and web harvesting, an animated Braille spinner displays live progress:
-
-```text
-⠋ [hermes] Running market anomaly reconnaissance on ANTM...
+```bash
+niskava terminal    # or: niskava repl / niskava chat
 ```
 
-### Natural Language Prompt-Driven Research
-The REPL is powered by an autonomous Hermes-style ReAct loop with progressive skill disclosure. You do not need to memorize rigid syntax—simply ask questions in plain Indonesian or English:
-- *"Analisis saham BBCA: apakah foreign flow 5 hari terakhir searah dengan IHSG?"*
-- *"Mengapa saham BUMI mengalami lonjakan volume kemarin? Cek keterbukaan informasi IDX."*
-- *"Bandingkan valuasi perbankan big-4 (BBCA, BBRI, BMRI, BBNI) dengan Altman Z-Score."*
+<p align="center">
+  <img src="../../docs/assets/niskava-terminal-repl.png" alt="Niskava Terminal REPL Chat Session" width="90%">
+</p>
+
+### Prompt History Navigation
+* Press **Up Arrow (↑)** to recall previous queries.
+* Press **Down Arrow (↓)** to navigate forward through newer queries.
+
+### Real-Time Braille Progress Indicator
+During quantitative math execution, Sectors API queries, and disclosure harvesting, an animated Braille spinner displays live phase transitions:
+```text
+⠋ [gemini-2.0-flash] Running market anomaly reconnaissance on ANTM...
+```
+
+### Natural Language Research Queries
+Ask questions in plain Indonesian or English:
+* *"Cek anomali transaksi saham BBCA 30 hari terakhir."*
+* *"Mengapa saham ANTM melonjak kemarin? Cek keterbukaan informasi IDX."*
+* *"Bandingkan valuasi perbankan big-4 (BBCA, BBRI, BMRI, BBNI) dengan Altman Z-Score."*
+* *"Apakah foreign flow saham ASII searah dengan IHSG minggu ini?"*
 
 ### Autocomplete Slash Commands
 Type `/` in the prompt input to open the interactive autocomplete popup:
@@ -90,199 +102,126 @@ Type `/` in the prompt input to open the interactive autocomplete popup:
 | Command | Category | Description | Example |
 |---|---|---|---|
 | `/help` | `[SYSTEM]` | Displays available keyboard shortcuts and slash commands. | `/help` |
-| `/chats` | `[NAV]` | Opens interactive Bubbletea session selector to browse, pin, export, and delete chats. | `/chats` |
-| `/compact` | `[NAV]` | Toggles compact mode (hides raw tool thought logs for ultra-clean reading). | `/compact` |
-| `/find <kw>` | `[INTEL]` | Quick search and resume past chat session by ticker symbol or topic keyword. | `/find BBCA` |
-| `/copy` | `[NAV]` | Copies latest assistant response / finding summary directly to OS clipboard. | `/copy` |
-| `/resume <ID>` | `[INTEL]` | Resumes a specific chat session by its unique ID. | `/resume CHAT-20260925-0001` |
+| `/chats` | `[NAV]` | Opens interactive session selector (Pin `Ctrl+P`, Delete `Ctrl+D`, Export `Ctrl+E`). | `/chats` |
+| `/model` | `[CONFIG]` | Switch AI model or provider on the fly. | `/model gemini-1.5-pro` |
+| `/config` | `[CONFIG]` | Displays active runtime configuration and credentials. | `/config` |
+| `/setup` | `[CONFIG]` | Re-launches the interactive setup wizard. | `/setup` |
+| `/timeout` | `[CONFIG]` | Adjust inference timeout profile (`fast`, `balanced`, `deep`, `local`). | `/timeout balanced` |
+| `/compact` | `[NAV]` | Toggles compact mode (hides raw tool thought logs). | `/compact` |
+| `/find <kw>` | `[INTEL]` | Quick search past chat sessions by ticker or keyword. | `/find BBCA` |
+| `/copy` | `[NAV]` | Copies latest assistant response directly to OS clipboard. | `/copy` |
+| `/resume <ID>` | `[INTEL]` | Resumes a specific chat session by its ID. | `/resume CHAT-20261002-6636` |
 | `/export [fmt]` | `[INTEL]` | Exports current session transcript to `md` (default), `json`, or `txt`. | `/export md` |
-| `/fork [title]` | `[NAV]` | Forks current research session into a new branch to test alternate hypotheses. | `/fork Skenario Bullish` |
-| `/search <kw>` | `[INTEL]` | Performs manual web news search for corporate events and filings. | `/search akuisisi` |
-| `/anomalies` | `[INTEL]` | Lists detected quantitative price and volume anomalies for current ticker. | `/anomalies` |
-| `/skills` | `[SYSTEM]` | Displays available domain skills and progressive disclosure catalog. | `/skills` |
-| `/doctor` | `[SYSTEM]` | Runs live environment diagnostics and AI provider latency check. | `/doctor` |
-| `/cache` | `[SYSTEM]` | Inspects local SQLite cache statistics and credit budget conservation. | `/cache` |
-| `/timeout [val]` | `[SYSTEM]` | Sets LLM inference timeout (`fast`, `balanced`, `deep`, `local`, or seconds `10-300`). | `/timeout balanced` |
-| `/graph` | `[INTEL]` | Opens the associative knowledge graph visualization directly in browser. | `/graph` |
-| `/web` | `[NAV]` | Launches/opens the Web Workspace canvas in your default browser. | `/web` |
-| `/sessions` | `[INTEL]` | Displays recent investigation and chat sessions stored in local SQLite. | `/sessions` |
-| `/health` | `[SYSTEM]` | Prints daemon status, database connection, and AI provider latency check. | `/health` |
-| `/lang [en\|id]` | `[SYSTEM]` | Switches interface and response language (`en` or `id`). | `/lang id` |
-| `/reset` | `[SYSTEM]` | Resets working memory graph for the current session and starts fresh. | `/reset` |
-| `/clear` | `[SYSTEM]` | Clears the terminal screen and redraws the banner. | `/clear` |
-| `/back` or `/exit` | `[NAV]` | Returns cleanly to the Main HUD Launcher menu. | `/back` |
-
----
-
-### Session Selector Hotkeys (`/chats`)
-When opening the session selector menu via `/chats` or the Main Launcher `[S]`, interactive management hotkeys are available:
-
-- **`Ctrl+P` (Pin / Unpin)**: Pin critical investigation sessions to the top with a visual pinned indicator.
-- **`Ctrl+D` or `Delete` (Delete Confirmation)**: Safely prompts `[y/N]` before permanently purging a session and cascading its associated memory edges.
-- **`Ctrl+E` (Export Modal Dialog)**: Opens an interactive modal to export full transcripts to Markdown (`.md`), Raw JSON (`.json`), or Plain Text (`.txt`) saved into `~/.niskava/exports/`.
-- **`Ctrl+Y` (Instant Clipboard Copy)**: Copies session ID, title, and last preview snippet directly to your operating system clipboard (supports Windows `clip`, macOS `pbcopy`, Linux `wl-copy`/`xclip`/`xsel`).
-- **`PgUp` / `PgDn` / `Home` / `End`**: Rapidly jump across large session archives.
-- **Type-to-Filter**: Instant real-time search across session IDs, titles, and preview snippets.
-
----
-
-### Inference Timeout Configuration
-Niskava features an **Adaptive Inference Timeout Engine** that automatically scales LLM reasoning time based on how many tool observations have been collected:
-$$\text{Timeout} = \text{Base Timeout} + (\text{Tool Observations} \times 10\text{ seconds})$$
-
-You can customize the base timeout across three convenient interfaces:
-1. **Interactive Setup Wizard**: Run `niskava setup` and choose Step 5 (Fast 25s, Balanced 60s, Deep 120s, Local 180s, Custom).
-2. **Interactive REPL**: Use `/timeout fast`, `/timeout balanced`, `/timeout deep`, `/timeout local`, or `/timeout 90`.
-3. **Web Workspace Settings**: Open the Settings modal and adjust the **Inference Timeout** slider (10s – 300s). Changes are synchronized immediately.
+| `/fork [title]` | `[NAV]` | Forks current research session into a new branch. | `/fork Bullish Scenario` |
+| `/doctor` | `[SYSTEM]` | Runs instant system health diagnostics. | `/doctor` |
+| `/graph` | `[NAV]` | Exports and opens associative knowledge graph in browser. | `/graph` |
+| `/web` | `[NAV]` | Starts and opens the local Web Workspace. | `/web` |
+| `/clear` | `[SYSTEM]` | Clears the terminal screen buffer. | `/clear` |
+| `/exit` | `[SYSTEM]` | Exits the REPL session. | `/exit` |
 
 ---
 
 ## 3. Autonomous Headless Investigation CLI
 
-For automated scripts, scheduled cron jobs, or batch processing, run investigations directly from the command line:
+Run a single-command structured investigation pipeline on any IDX ticker:
 
 ```bash
-./niskava investigate <TICKER> [flags]
+# Run 30-day investigation on ANTM:
+niskava investigate ANTM --days 30
+
+# Export formal institutional PDF report:
+niskava investigate ANTM --days 30 --pdf
+
+# Run in English:
+niskava investigate BBCA --days 30 --lang en
 ```
 
-### Available Flags:
-- `-d, --days <N>`: Number of daily trading sessions to analyze (default: `30`).
-- `-f, --export-format <md|json|pdf>`: Export format for the generated audit trail dossier (`md`, `json`, or `pdf`).
-- `-o, --export-out <path>`: Custom destination file path for the exported report (e.g. `./ANTM_Audit.pdf`).
-- `-i, --interactive`: Runs the investigation and immediately opens the interactive conversational REPL pre-focused on the ticker.
-- `--offline`: Executes using local mock fixtures without issuing live Sectors API requests or consuming credits.
-- `--lang <en|id>`: Output language (`en` for English, `id` for Indonesian).
-- `--verbose, -v`: Prints detailed debug logs and IPC payload messages.
-- `--config, -c <path>`: Specifies a custom configuration file path.
-
-### Example:
-```bash
-# Standard 30-day investigation
-./niskava investigate ANTM --days 30
-
-# Headless investigation with instant PDF report generation
-./niskava investigate ANTM --days 30 --export-format pdf
-
-# Custom PDF output destination
-./niskava investigate BBRI --export-format pdf --export-out ~/Documents/BBRI_Report.pdf
-```
-
-The command outputs a structured terminal report detailing:
-1. Identified quantitative anomalies (Volume Z-Scores, Abnormal Returns, Sector Divergence).
-2. Harvested corporate filings and financial news.
-3. Chronological causality assessment (`LIKELY_CATALYST`, `PRECEDED_ANNOUNCEMENT`, etc.).
-4. Structured evidence matrix with discrete confidence ratings.
-5. Path to the exported PDF report document (when `--export-format pdf` is specified).
+### CLI Flags:
+* `-i, --interactive`: Launches an interactive REPL session pre-seeded with the target ticker post-investigation.
+* `--days <N>`: Historical trading days to analyze (default: 30).
+* `--pdf`: Compiles and saves an institutional PDF research dossier to `~/.niskava/reports/`.
+* `--lang <en|id>`: Output language (`id` for Indonesian, `en` for English).
+* `--offline`: Runs in offline mode using local fixtures without making network requests.
+* `-v, --verbose`: Prints detailed debug logs and IPC payload messages.
 
 ---
 
-## 4. Web Workspace (`niskava serve`)
+## 4. Local Web Workspace Canvas
 
-Niskava includes a self-contained local web application featuring TradingView/Recharts candlestick charts, real-time Server-Sent Events (SSE) streaming, interactive evidence causality maps, and a unified settings hub:
+Launch the high-throughput local REST/SSE server and interactive visual workspace:
 
 ```bash
-./niskava serve --port 20128 --open
+niskava serve --port 20128 --open
 ```
 
-### Web Workspace Features:
-- **Interactive Candlestick Charting**: Visual candlestick price history overlaid with volume surge markers ($V_z \ge 2.5$) and price breakout tags ($|R_t| \ge 5\%$).
-- **Live SSE Streaming**: Watch the ReAct agent's thoughts, tool calls, and evidence collection unfold in real time.
-- **Interactive Evidence Matrix**: Filter findings by verification status (`SUPPORTED`, `UNCERTAIN`, `CONTRADICTED`).
-- **Causality Timeline Graph**: Interactive visual timeline correlating news publication timestamps against trading volume spikes.
-- **Institutional Settings Hub & Provider Cards**: Configure AI inference providers (OpenRouter, Google Gemini, Ollama, DeepSeek, Groq, OpenAI), model selection, inference timeout sliders, and live endpoint test ping directly from the browser modal.
-- **Dual-Theme Refinements**: High-contrast Bloomberg terminal Dark Mode and anti-glare warm matte Light Mode with instant theme switching.
-- **Live Data Freshness & Cache Flush**: Header status badge displaying live Sectors cache status with manual one-click cache purge and re-sync controls.
+<p align="center">
+  <img src="../../docs/assets/niskava-web-dashboard.png" alt="Niskava Web Workspace Canvas" width="100%">
+</p>
 
-To run the web server in the background alongside the CLI, specify `--port` as needed (default is `20128`).
+### Key Workspace Features:
+* **Interactive Candlestick Chart:** Powered by TradingView lightweight charts with Volume Z-Score badges ($V_z \ge 2.5\sigma$) and breakout tags ($|R_t| \ge 5\%$).
+* **Real-Time Thinking Stream:** Server-Sent Events (SSE) stream agent reasoning, tool calls, and observations live.
+* **Interactive Evidence Matrix:** Filter findings by status (`SUPPORTED`, `UNCERTAIN`, `CONTRADICTED`) and confidence level.
+* **Chronological Timeline Graph:** Visual representation of corporate events relative to trading volume spikes.
+* **Settings & Diagnostics Hub:** Dynamic provider switching, timeout sliders, cache flush, and Telegram whitelist configuration directly in the browser:
+
+<p align="center">
+  <img src="../../docs/assets/niskva-settings-web.png" alt="Niskava Web Settings and Diagnostics Modal" width="90%">
+</p>
 
 ---
 
-## 5. Session Management (`niskava sessions`)
+## 5. Model Context Protocol (MCP) Server
 
-All chat conversations and investigation runs are persisted in local SQLite storage.
-
-### List Saved Sessions:
-```bash
-./niskava sessions --type all --limit 20
-```
-
-Options for `--type`:
-- `all`: Displays both conversational chats and structured ticker investigations.
-- `chat`: Filters for interactive REPL conversational sessions.
-- `investigation`: Filters for standalone ticker investigation runs.
-
-### Resume a Specific Session in REPL:
-```bash
-./niskava --session CHAT-20260921-0001
-```
-
----
-
-## 6. Interactive Knowledge Graph Export (`niskava graph`)
-
-Niskava can render its local associative knowledge graph into a standalone, interactive HTML visualization:
+Integrate Niskava tools natively into external AI agents:
 
 ```bash
-# Render the entire local associative memory graph
-./niskava graph --open
-
-# Render a graph scoped to a specific investigation
-./niskava graph --session INV-20260921-ANTM -o ./antm_graph.html --open
+niskava mcp
 ```
 
-The generated HTML file uses PyVis and NetworkX to provide physics-based node clustering, entity filtering (tickers, catalysts, executives, sectors), and inspectable edge relationships.
-
----
-
-## 7. Model Context Protocol (MCP) Server (`niskava mcp`)
-
-Niskava implements the standard Model Context Protocol (MCP) over standard input/output (`stdio`), allowing external agent environments (such as Claude Desktop, Cursor, and Antigravity) to directly utilize Niskava tools and data sources.
-
-### Starting the MCP Server:
-```bash
-./niskava mcp
-```
-
-### Claude Desktop Integration Configuration
-Add Niskava to your Claude Desktop configuration file:
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+### Claude Desktop Configuration (`claude_desktop_config.json`):
+* **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+* **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "niskava": {
-      "command": "/usr/local/bin/niskava",
+      "command": "niskava",
       "args": ["mcp"]
     }
   }
 }
 ```
 
-### Exposed MCP Primitives:
-- **Tools**:
-  - `compute_quant_anomalies`: Calculates Volume Z-scores, abnormal returns, and sector divergence.
-  - `get_sectors_daily`: Retrieves cached daily candlestick time-series data.
-  - `get_sectors_company_report`: Fetches comprehensive company profiles and financial metrics.
-  - `harvest_market_news`: Executes temporal-aware news and regulatory filing dorking.
-  - `query_graph_memory`: Queries local associative memory nodes and relationships.
-- **Resources**: System cache statistics and local database health.
-- **Prompts**: Standardized multi-step investigative research workflows.
+Once configured, Claude can invoke Niskava tools natively:
+* `get_daily_candles`
+* `compute_quant_anomalies`
+* `harvest_market_news`
+* `query_sectors`
+* `execute_skill`
+* `recall_graph_memory`
 
 ---
 
-## 8. Telegram Bot Integration (`niskava telegram`)
+## 6. Telegram Bot Runner
 
-Niskava can operate as a Telegram bot using long-polling, delivering market intelligence and anomaly alerts directly to mobile devices:
+Deploy Niskava as your personal market intelligence assistant on Telegram:
 
-```bash
-# Set your Telegram bot token
-export TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
+1. Obtain a bot token from [@BotFather](https://t.me/botfather).
+2. Configure environment:
+   ```bash
+   export TELEGRAM_BOT_TOKEN="123456789:ABCdefGhI..."
+   export TELEGRAM_ALLOWED_USERS="YourTelegramUsername"
+   ```
+3. Start the bot runner:
+   ```bash
+   niskava telegram
+   ```
 
-# Launch bot runner
-./niskava telegram
-# or: ./niskava bot
-```
-
-Users can query stock tickers, request financial health assessments, or receive automated anomaly alerts directly in their Telegram chat.
+### Bot Commands:
+* `/start`: Welcome message and capabilities overview.
+* `/investigate <TICKER>`: Run full 7-stage investigation and receive summary directly in chat.
+* `/anomalies <TICKER>`: Quick statistical anomaly check ($V_z$, $R_t$, $F_z$).
+* `/news <TICKER>`: Curated corporate disclosures and accredited news.
+* Send any ticker name directly (e.g. `BBRI`) to start conversational analysis.

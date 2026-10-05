@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/ipc"
 	"github.com/spf13/cobra"
 )
@@ -91,7 +92,7 @@ Example Claude Desktop configuration (~/.config/Claude/claude_desktop_config.jso
 			if cfg.Auth.SectorsAPIKey != "" {
 				proc.Env = append(proc.Env, fmt.Sprintf("SECTORS_API_KEY=%s", cfg.Auth.SectorsAPIKey))
 			}
-			if cfg.Preferences.OfflineMode {
+			if cfg.Preferences.OfflineMode && config.IsTestingMode() {
 				proc.Env = append(proc.Env, "MOCK_SECTORS=1", "NISKAVA_OFFLINE=1")
 			}
 		}

@@ -14,6 +14,10 @@ import (
 )
 
 func TestRunSubprocessMock(t *testing.T) {
+	t.Setenv("NISKAVA_TESTING", "1")
+	t.Setenv("MOCK_SECTORS", "1")
+	t.Setenv("SECTORS_API_KEY", "test-fixture-key-not-real")
+
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("failed to get working dir: %v", err)
@@ -135,6 +139,10 @@ func TestResolvePythonBin(t *testing.T) {
 }
 
 func TestRunSubprocessEnvOverrides(t *testing.T) {
+	t.Setenv("NISKAVA_TESTING", "1")
+	t.Setenv("MOCK_SECTORS", "1")
+	t.Setenv("SECTORS_API_KEY", "test-fixture-key-not-real")
+
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("failed to get working dir: %v", err)
@@ -303,5 +311,29 @@ func TestResolveRepoRootUserSpaceFallback(t *testing.T) {
 	expected := filepath.Join(tempHome, ".niskava")
 	if root != expected && !strings.Contains(root, ".niskava") {
 		t.Errorf("ResolveRepoRoot did not find ~/.niskava fallback, got: %s, want: %s", root, expected)
+	}
+}
+
+func TestRunnerParamsAttachmentArgs(t *testing.T) {
+	params := RunnerParams{
+		PythonBin:       "python3",
+		WorkDir:         t.TempDir(),
+		DBPath:          "/tmp/test.db",
+		Prompt:          "Analisis laporan keuangan terlampir",
+		AttachmentPaths: []string{"/tmp/doc1.pdf", "/tmp/doc2.csv"},
+	}
+
+	args := params.BuildArgs()
+	found := false
+	for i, arg := range args {
+		if arg == "--attachments" && i+1 < len(args) {
+			if args[i+1] == "/tmp/doc1.pdf,/tmp/doc2.csv" {
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("Expected --attachments argument in args, got: %v", args)
 	}
 }

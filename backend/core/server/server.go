@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -142,8 +144,9 @@ func (s *Server) syncTelegramBotState() {
 
 // ChatRequest represents the JSON payload for /api/chat.
 type ChatRequest struct {
-	Prompt    string `json:"prompt"`
-	SessionID string `json:"session_id,omitempty"`
+	Prompt        string   `json:"prompt"`
+	SessionID     string   `json:"session_id,omitempty"`
+	AttachmentIDs []string `json:"attachment_ids,omitempty"`
 }
 
 // CreateSessionRequest represents the JSON payload to create a new session.
@@ -179,6 +182,7 @@ type UpdateSettingsRequest struct {
 		OpenAIBaseURL   *string `json:"openai_base_url"`
 		OpenAIModel     *string `json:"openai_model"`
 		AnthropicAPIKey *string `json:"anthropic_api_key"`
+		AnthropicModel  *string `json:"anthropic_model"`
 		OllamaBaseURL   *string `json:"ollama_base_url"`
 		OllamaModel     *string `json:"ollama_model"`
 	} `json:"auth"`
@@ -349,6 +353,9 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 						s.Config.Auth.AnthropicAPIKey = *req.Auth.AnthropicAPIKey
 					}
 				}
+				if req.Auth.AnthropicModel != nil && *req.Auth.AnthropicModel != "" {
+					s.Config.Auth.AnthropicModel = *req.Auth.AnthropicModel
+				}
 				if req.Auth.OllamaBaseURL != nil && *req.Auth.OllamaBaseURL != "" {
 					s.Config.Auth.OllamaBaseURL = *req.Auth.OllamaBaseURL
 				}
@@ -361,7 +368,8 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				if req.Preferences.DefaultMarket != nil && *req.Preferences.DefaultMarket != "" {
 					s.Config.Preferences.DefaultMarket = strings.ToUpper(*req.Preferences.DefaultMarket)
 				}
-				if req.Preferences.OfflineMode != nil {
+				if req.Preferences.OfflineMode != nil && config.IsTestingMode() {
+					// OfflineMode toggle restricted to test/CI environments only.
 					s.Config.Preferences.OfflineMode = *req.Preferences.OfflineMode
 				}
 				if req.Preferences.Language != nil && *req.Preferences.Language != "" {
@@ -493,14 +501,9 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			if key == "" || strings.Contains(key, "****") {
 				key = cfg.Auth.SectorsAPIKey
 			}
-			if key == "" && !cfg.Preferences.OfflineMode && os.Getenv("MOCK_SECTORS") != "1" {
+			if key == "" {
 				resp.Success = false
-				resp.Message = "Sectors API key is not configured"
-				break
-			}
-			if cfg.Preferences.OfflineMode || os.Getenv("MOCK_SECTORS") == "1" {
-				resp.Success = true
-				resp.Message = "[MOCK MODE] Sectors mock mode aktif (simulasi data lokal)"
+				resp.Message = "Sectors API key is not configured. Run 'niskava setup' or obtain a key at https://sectors.app"
 				break
 			}
 
@@ -566,9 +569,9 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				resp.Message = "Gemini API key is not configured"
 				break
 			}
-			if cfg.Preferences.OfflineMode {
+			if cfg.Preferences.OfflineMode && config.IsTestingMode() {
 				resp.Success = true
-				resp.Message = "[MOCK MODE] Offline mode active (mock verification)"
+				resp.Message = "[TEST MODE] Mock verification active (CI/CD environment)"
 				break
 			}
 			client := &http.Client{Timeout: 5 * time.Second}
@@ -601,9 +604,9 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				baseURL = "https://api.openai.com/v1"
 			}
 			baseURL = strings.TrimRight(baseURL, "/")
-			if cfg.Preferences.OfflineMode {
+			if cfg.Preferences.OfflineMode && config.IsTestingMode() {
 				resp.Success = true
-				resp.Message = "[MOCK MODE] Offline mode active (mock verification)"
+				resp.Message = "[TEST MODE] Mock verification active (CI/CD environment)"
 				break
 			}
 			client := &http.Client{Timeout: 5 * time.Second}
@@ -641,9 +644,9 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				resp.Message = "Anthropic API key is not configured"
 				break
 			}
-			if cfg.Preferences.OfflineMode {
+			if cfg.Preferences.OfflineMode && config.IsTestingMode() {
 				resp.Success = true
-				resp.Message = "[MOCK MODE] Offline mode active (mock verification)"
+				resp.Message = "[TEST MODE] Mock verification active (CI/CD environment)"
 				break
 			}
 			client := &http.Client{Timeout: 5 * time.Second}
@@ -1042,16 +1045,10 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			if activeCfg.Auth.AIProvider != "" {
 				aiProv = activeCfg.Auth.AIProvider
 			}
-			isOffline = activeCfg.Preferences.OfflineMode || os.Getenv("MOCK_SECTORS") == "1"
+			isOffline = activeCfg.Preferences.OfflineMode && config.IsTestingMode()
 		}
 
-		username := os.Getenv("USER")
-		if username == "" {
-			username = os.Getenv("USERNAME")
-		}
-		if username == "" {
-			username = "Analyst"
-		}
+		username := "User"
 
 		sendJSON(w, http.StatusOK, map[string]interface{}{
 			"status":              "OK",
@@ -1161,7 +1158,11 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				req.Title = "Sesi Riset Pasar"
 			}
 			if req.Model == "" {
-				req.Model = "hermes"
+				if cfg != nil {
+					req.Model = cfg.GetActiveModel()
+				} else {
+					req.Model = "niskava"
+				}
 			}
 			sess := &db.ChatSession{
 				ID:     req.ID,
@@ -1346,6 +1347,22 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				"session_id": sessionID,
 			})
 
+		case "attachments":
+			if r.Method != http.MethodGet {
+				http.Error(w, `{"error": "GET required"}`, http.StatusMethodNotAllowed)
+				return
+			}
+			attachments, err := database.GetChatAttachmentsBySession(sessionID)
+			if err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+				return
+			}
+			sendJSON(w, http.StatusOK, map[string]interface{}{
+				"session_id":  sessionID,
+				"total":       len(attachments),
+				"attachments": attachments,
+			})
+
 		case "messages":
 			if r.Method != http.MethodGet {
 				http.Error(w, `{"error": "GET required"}`, http.StatusMethodNotAllowed)
@@ -1446,6 +1463,122 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 		}
 	})
 
+	// 3b. Document Upload API (/api/upload) - Law 4: Local-First Data Sovereignty
+	mux.HandleFunc("/api/upload", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed. Use POST.", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Enforce 25 MB max body size
+		const maxUploadSize = 25 * 1024 * 1024
+		r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+		if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+			http.Error(w, `{"error": "File exceeds 25MB limit or invalid multipart body"}`, http.StatusBadRequest)
+			return
+		}
+
+		file, handler, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, `{"error": "Missing file in multipart form (key 'file')"}`, http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+
+		sessionID := strings.TrimSpace(r.FormValue("session_id"))
+		if sessionID == "" {
+			sessionID = fmt.Sprintf("SESS-%d", time.Now().Unix())
+		}
+
+		// Sanitize filename & extension
+		cleanName := filepath.Base(filepath.Clean(handler.Filename))
+		cleanName = strings.ReplaceAll(cleanName, " ", "_")
+		ext := strings.ToLower(filepath.Ext(cleanName))
+		allowedExts := map[string]bool{
+			".pdf": true, ".txt": true, ".csv": true, ".xlsx": true, ".docx": true,
+			".png": true, ".jpg": true, ".jpeg": true, ".md": true, ".json": true,
+		}
+		if !allowedExts[ext] {
+			http.Error(w, `{"error": "Unsupported file format. Whitelist: PDF, TXT, CSV, XLSX, DOCX, PNG, JPG, MD, JSON"}`, http.StatusBadRequest)
+			return
+		}
+
+		docID := fmt.Sprintf("DOC-%s-%04d", time.Now().Format("20060102150405"), time.Now().UnixNano()%10000)
+		homeDir, _ := os.UserHomeDir()
+		uploadsBase := filepath.Join(homeDir, ".niskava", "uploads")
+		if customUploads := os.Getenv("NISKAVA_UPLOADS_DIR"); customUploads != "" {
+			uploadsBase = customUploads
+		}
+		sessionUploadDir := filepath.Join(uploadsBase, sessionID)
+		_ = os.MkdirAll(sessionUploadDir, 0700)
+
+		savedFilePath := filepath.Join(sessionUploadDir, fmt.Sprintf("%s_%s", docID, cleanName))
+		dst, err := os.OpenFile(savedFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if err != nil {
+			http.Error(w, `{"error": "Failed to save file locally"}`, http.StatusInternalServerError)
+			return
+		}
+		defer dst.Close()
+
+		fileSize, err := io.Copy(dst, file)
+		if err != nil {
+			http.Error(w, `{"error": "Error writing file to disk"}`, http.StatusInternalServerError)
+			return
+		}
+
+		mimeType := handler.Header.Get("Content-Type")
+		if mimeType == "" {
+			mimeType = "application/octet-stream"
+		}
+
+		att := &db.ChatAttachment{
+			ID:        docID,
+			SessionID: sessionID,
+			Filename:  cleanName,
+			FilePath:  savedFilePath,
+			FileSize:  fileSize,
+			MimeType:  mimeType,
+			PageCount: 0,
+			CreatedAt: time.Now().UTC().Format(time.RFC3339),
+		}
+
+		if database != nil {
+			_ = database.SaveChatAttachment(att)
+		}
+
+		sendJSON(w, http.StatusCreated, att)
+	})
+
+	// 3c. Document Details API (/api/documents/{id})
+	mux.HandleFunc("/api/documents/", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		docID := strings.TrimPrefix(r.URL.Path, "/api/documents/")
+		docID = strings.Trim(docID, "/")
+		if docID == "" {
+			http.Error(w, `{"error": "document ID required"}`, http.StatusBadRequest)
+			return
+		}
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+		att, err := database.GetChatAttachment(docID)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+			return
+		}
+		if att == nil {
+			http.Error(w, `{"error": "document not found"}`, http.StatusNotFound)
+			return
+		}
+		sendJSON(w, http.StatusOK, att)
+	})
+
 	// 4. Investigations sessions list endpoint (pipeline audit sessions)
 	mux.HandleFunc("/api/sessions", func(w http.ResponseWriter, r *http.Request) {
 		if enableCORS(w, r) {
@@ -1543,6 +1676,22 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 					"findings":         findings,
 				})
 				return
+			case "timeline":
+				if r.Method != http.MethodGet {
+					http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+					return
+				}
+				events, err := database.GetInvestigationTimeline(sessionID)
+				if err != nil {
+					http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+					return
+				}
+				sendJSON(w, http.StatusOK, map[string]interface{}{
+					"investigation_id": sessionID,
+					"total":            len(events),
+					"events":           events,
+				})
+				return
 			default:
 				http.Error(w, `{"error": "unknown investigation sub-resource"}`, http.StatusNotFound)
 				return
@@ -1562,6 +1711,40 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			return
 		}
 
+		if r.Method == http.MethodPost {
+			var inv db.Investigation
+			if err := json.NewDecoder(r.Body).Decode(&inv); err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "invalid payload: %v"}`, err), http.StatusBadRequest)
+				return
+			}
+			if inv.ID == "" {
+				if inv.Ticker != "" {
+					inv.ID = "INV-" + strings.ToUpper(strings.TrimSpace(inv.Ticker))
+				} else {
+					inv.ID = fmt.Sprintf("INV-%d", time.Now().Unix())
+				}
+			}
+			if inv.Ticker == "" {
+				http.Error(w, `{"error": "ticker is required"}`, http.StatusBadRequest)
+				return
+			}
+			inv.Ticker = strings.ToUpper(strings.TrimSpace(inv.Ticker))
+			if err := database.UpsertInvestigation(&inv); err != nil {
+				http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+				return
+			}
+			sendJSON(w, http.StatusCreated, map[string]interface{}{
+				"status":        "created",
+				"investigation": inv,
+			})
+			return
+		}
+
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
 		sessions, err := database.ListInvestigations(50)
 		if err != nil {
 			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
@@ -1571,6 +1754,128 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 		sendJSON(w, http.StatusOK, map[string]interface{}{
 			"total": len(sessions),
 			"data":  sessions,
+		})
+	})
+
+	// Radar anomalies endpoint — provides top quantitative anomalies across all investigations
+	mux.HandleFunc("/api/radar/anomalies", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if database == nil {
+			http.Error(w, `{"error": "database not initialized"}`, http.StatusInternalServerError)
+			return
+		}
+
+		limit := 12
+		if lStr := r.URL.Query().Get("limit"); lStr != "" {
+			if l, err := strconv.Atoi(lStr); err == nil && l > 0 {
+				limit = l
+			}
+		}
+
+		minZ := 2.0
+		if zStr := r.URL.Query().Get("min_z"); zStr != "" {
+			if z, err := strconv.ParseFloat(zStr, 64); err == nil {
+				minZ = z
+			}
+		}
+
+		anomalies, err := database.ListLatestRadarAnomalies(limit, minZ)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
+			return
+		}
+
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"total":     len(anomalies),
+			"anomalies": anomalies,
+		})
+	})
+
+	// Market Candles endpoint — provides OHLCV candlestick data from SQLite cache, Sectors API v2, or deterministic generator
+	mux.HandleFunc("/api/market/candles", func(w http.ResponseWriter, r *http.Request) {
+		if enableCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		ticker := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("ticker")))
+		if ticker == "" {
+			ticker = "ANTM"
+		}
+		days := 30
+		if dStr := r.URL.Query().Get("days"); dStr != "" {
+			if d, err := strconv.Atoi(dStr); err == nil && d > 0 {
+				days = d
+			}
+		}
+
+		// 1. Try SQLite sectors_cache first (Law 5 Credit Conservation)
+		if database != nil {
+			if cachedJSON, err := database.GetCachedDailyCandles(ticker); err == nil && len(cachedJSON) > 2 {
+				var cachedList []map[string]interface{}
+				if err := json.Unmarshal([]byte(cachedJSON), &cachedList); err == nil && len(cachedList) > 0 {
+					if len(cachedList) > days {
+						cachedList = cachedList[len(cachedList)-days:]
+					}
+					sendJSON(w, http.StatusOK, map[string]interface{}{
+						"ticker": ticker,
+						"source": "cache",
+						"data":   cachedList,
+					})
+					return
+				}
+			}
+		}
+
+		// 2. If Sectors API key is available, fetch live
+		apiKey := cfg.Auth.SectorsAPIKey
+		if apiKey != "" && !strings.Contains(apiKey, "****") {
+			client := &http.Client{Timeout: 8 * time.Second}
+			url := fmt.Sprintf("https://api.sectors.app/v2/daily/%s/", ticker)
+			httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, url, nil)
+			if err == nil {
+				httpReq.Header.Set("Authorization", apiKey)
+				if resp, err := client.Do(httpReq); err == nil && resp.StatusCode == http.StatusOK {
+					defer resp.Body.Close()
+					var liveData []map[string]interface{}
+					if err := json.NewDecoder(resp.Body).Decode(&liveData); err == nil && len(liveData) > 0 {
+						// Cache permanently in SQLite (Law 5)
+						if database != nil {
+							if payloadBytes, err := json.Marshal(liveData); err == nil {
+								cacheKey := fmt.Sprintf("daily_%s", strings.ToLower(ticker))
+								endpoint := fmt.Sprintf("/daily/%s/", ticker)
+								_ = database.SetSectorsCache(cacheKey, endpoint, string(payloadBytes), nil)
+							}
+						}
+						if len(liveData) > days {
+							liveData = liveData[len(liveData)-days:]
+						}
+						sendJSON(w, http.StatusOK, map[string]interface{}{
+							"ticker": ticker,
+							"source": "sectors_api",
+							"data":   liveData,
+						})
+						return
+					}
+				}
+			}
+		}
+
+		// 3. Deterministic realistic fallback
+		candles := generateRealisticCandles(ticker, days)
+		sendJSON(w, http.StatusOK, map[string]interface{}{
+			"ticker": ticker,
+			"source": "synthetic",
+			"data":   candles,
 		})
 	})
 
@@ -1730,10 +2035,14 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 				if sessionTitle == "" {
 					sessionTitle = "Sesi Riset Pasar"
 				}
+				activeModel := "niskava"
+				if cfg != nil {
+					activeModel = cfg.GetActiveModel()
+				}
 				_ = database.CreateChatSession(&db.ChatSession{
 					ID:     sessionID,
 					Title:  sessionTitle,
-					Model:  "hermes",
+					Model:  activeModel,
 					Status: "BUSY",
 				})
 			} else {
@@ -1828,17 +2137,27 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 			chatLang = "id"
 		}
 
-		isOffline := activeCfg.Preferences.OfflineMode || os.Getenv("NISKAVA_OFFLINE") == "1" || os.Getenv("MOCK_SECTORS") == "1"
+		isOffline := (activeCfg.Preferences.OfflineMode || os.Getenv("NISKAVA_OFFLINE") == "1") && config.IsTestingMode()
+
+		var attachmentPaths []string
+		if len(req.AttachmentIDs) > 0 && database != nil {
+			for _, attID := range req.AttachmentIDs {
+				if att, err := database.GetChatAttachment(attID); err == nil && att != nil && att.FilePath != "" {
+					attachmentPaths = append(attachmentPaths, att.FilePath)
+				}
+			}
+		}
 
 		runnerParams := ipc.RunnerParams{
-			PythonBin:    pythonBin,
-			WorkDir:      wd,
-			DBPath:       dbPath,
-			Prompt:       req.Prompt,
-			SessionID:    sessionID,
-			Offline:      isOffline,
-			Language:     chatLang,
-			EnvOverrides: s.buildSubprocessEnv(),
+			PythonBin:       pythonBin,
+			WorkDir:         wd,
+			DBPath:          dbPath,
+			Prompt:          req.Prompt,
+			SessionID:       sessionID,
+			Offline:         isOffline,
+			Language:        chatLang,
+			AttachmentPaths: attachmentPaths,
+			EnvOverrides:    s.buildSubprocessEnv(),
 		}
 
 		eventsChan, errChan := ipc.RunSubprocess(execCtx, runnerParams)
@@ -1937,6 +2256,44 @@ func Start(ctx context.Context, requestedPort int, database *db.DB, cfg *config.
 
 				if ev.Event == ipc.EventAgentMessageChunk {
 					assistantResponse.WriteString(ev.Chunk)
+				} else if ev.Event == ipc.EventAgentMessageComplete && assistantResponse.Len() == 0 && ev.Content != "" {
+					assistantResponse.WriteString(ev.Content)
+				} else if ev.Event == ipc.EventSessionComplete && assistantResponse.Len() == 0 {
+					if ev.Summary != "" {
+						assistantResponse.WriteString(ev.Summary)
+					} else if ev.Content != "" {
+						assistantResponse.WriteString(ev.Content)
+					}
+				}
+
+				if ev.Event == ipc.EventAnomalyDetected && database != nil {
+					_ = database.EnsureInvestigationSession(sessionID, ev.Ticker)
+					anomID := fmt.Sprintf("ANOM-%s-%s-%d", sessionID, ev.AnomalyDate, time.Now().UnixNano()%100000)
+					_ = database.CreateAnomaly(&db.Anomaly{
+						ID:              anomID,
+						InvestigationID: sessionID,
+						Ticker:          ev.Ticker,
+						AnomalyDate:     ev.AnomalyDate,
+						MetricType:      ev.MetricType,
+						MetricValue:     ev.MetricValue,
+						BaselineValue:   ev.BaselineValue,
+						ZScore:          ev.ZScore,
+						Description:     ev.Description,
+					})
+				}
+
+				if ev.Event == ipc.EventFindingEmitted && database != nil {
+					_ = database.EnsureInvestigationSession(sessionID, ev.Ticker)
+					findingID := fmt.Sprintf("FIND-%s-%d", sessionID, time.Now().UnixNano()%100000)
+					_ = database.CreateFinding(&db.Finding{
+						ID:                 findingID,
+						InvestigationID:    sessionID,
+						Title:              ev.Title,
+						ClaimText:          ev.ClaimText,
+						VerificationStatus: ev.VerificationStat,
+						ConfidenceScore:    ev.ConfidenceScore,
+						CausalityStatus:    ev.CausalityStatus,
+					})
 				}
 
 				if !clientDisconnected {
@@ -2217,4 +2574,85 @@ func OpenBrowser(url string) error {
 		return fmt.Errorf("unsupported platform for auto-open browser: %s", runtime.GOOS)
 	}
 	return cmd.Start()
+}
+
+// generateRealisticCandles produces deterministic, ticker-specific OHLCV daily candlesticks matching realistic market scales.
+func generateRealisticCandles(ticker string, days int) []map[string]interface{} {
+	if days <= 0 {
+		days = 30
+	}
+	sym := strings.ToUpper(strings.TrimSpace(ticker))
+	if sym == "" {
+		sym = "ANTM"
+	}
+
+	type profile struct {
+		price    float64
+		normVol  float64
+		spikeVol float64
+		spikeDay int
+	}
+
+	profiles := map[string]profile{
+		"ANTM": {price: 1500.0, normVol: 20000000.0, spikeVol: 125000000.0, spikeDay: 25},
+		"BBRI": {price: 4980.0, normVol: 85000000.0, spikeVol: 245000000.0, spikeDay: 26},
+		"BBCA": {price: 10150.0, normVol: 60000000.0, spikeVol: 180000000.0, spikeDay: 24},
+		"BUMI": {price: 142.0, normVol: 1800000000.0, spikeVol: 6200000000.0, spikeDay: 22},
+		"GOTO": {price: 62.0, normVol: 75000000.0, spikeVol: 2400000000.0, spikeDay: 25},
+		"TLKM": {price: 2950.0, normVol: 45000000.0, spikeVol: 140000000.0, spikeDay: 23},
+		"ASII": {price: 5125.0, normVol: 28000000.0, spikeVol: 88000000.0, spikeDay: 25},
+	}
+
+	prof, ok := profiles[sym]
+	if !ok {
+		var seed int
+		for _, c := range sym {
+			seed += int(c)
+		}
+		normVol := float64(15000000 + (seed%20)*2000000)
+		prof = profile{
+			price:    float64(500 + (seed%35)*100),
+			normVol:  normVol,
+			spikeVol: normVol * (3.5 + float64(seed%5)*0.5),
+			spikeDay: 20 + (seed % 6),
+		}
+	}
+
+	candles := make([]map[string]interface{}, 0, days)
+	now := time.Now()
+	baseDate := now.AddDate(0, 0, -(days + 5))
+	price := prof.price
+
+	for dayIdx := 0; dayIdx < days; dayIdx++ {
+		currDate := baseDate.AddDate(0, 0, dayIdx).Format("2006-01-02")
+		var volume float64
+		var closePrice float64
+		if dayIdx == prof.spikeDay%days {
+			volume = prof.spikeVol
+			closePrice = price * 1.082
+		} else {
+			volume = prof.normVol + float64(dayIdx%5)*(prof.normVol*0.08)
+			closePrice = price * (1.0 + float64((dayIdx%3)-1)*0.01)
+		}
+
+		high := closePrice * 1.02
+		low := price * 0.98
+		if high < price {
+			high = price * 1.01
+		}
+		if low > closePrice {
+			low = closePrice * 0.99
+		}
+
+		candles = append(candles, map[string]interface{}{
+			"date":   currDate,
+			"open":   math.Round(price*100) / 100,
+			"high":   math.Round(high*100) / 100,
+			"low":    math.Round(low*100) / 100,
+			"close":  math.Round(closePrice*100) / 100,
+			"volume": math.Round(volume),
+		})
+		price = closePrice
+	}
+	return candles
 }

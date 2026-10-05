@@ -167,7 +167,7 @@ func RenderHUDHeader(modelLabel, serverURL, dbPath, sessionID string) string {
 
 	// 6. Metadata HUD Stats Panel
 	if modelLabel == "" {
-		modelLabel = "hermes"
+		modelLabel = "niskava"
 	}
 	if sessionID == "" {
 		sessionID = "LIVE-SESSION"
@@ -292,11 +292,7 @@ func PrintHealthDiagnostics(cfg *config.Config, serverURL string) {
 
 	secKeyText := AtomicBadge(T("health_installed"), statusAliveStyle)
 	if cfg.Auth.SectorsAPIKey == "" {
-		if cfg.Preferences.OfflineMode {
-			secKeyText = AtomicBadge("[MOCK MODE]", statusAliveStyle)
-		} else {
-			secKeyText = AtomicBadge(T("health_not_installed"), statusErrStyle)
-		}
+		secKeyText = AtomicBadge(T("health_not_installed"), statusErrStyle)
 	}
 	fmt.Printf("• %s: %s\n",
 		lblStyle.Render(T("health_lbl_sectors_key")),
@@ -453,11 +449,7 @@ func (m HealthViewerModel) View() string {
 
 	secKeyText := AtomicBadge(T("health_installed"), statusAliveStyle)
 	if m.CFG.Auth.SectorsAPIKey == "" {
-		if m.CFG.Preferences.OfflineMode {
-			secKeyText = AtomicBadge("[MOCK MODE]", statusAliveStyle)
-		} else {
-			secKeyText = AtomicBadge(T("health_not_installed"), statusErrStyle)
-		}
+		secKeyText = AtomicBadge(T("health_not_installed"), statusErrStyle)
 	}
 	b.WriteString(fmt.Sprintf("• %s: %s\n",
 		lblStyle.Render(T("health_lbl_sectors_key")),
@@ -513,7 +505,7 @@ func (m HealthViewerModel) View() string {
 
 // ShowHealthDiagnosticsScreen displays interactive AltScreen health diagnostics card that live-resizes on window resize.
 func ShowHealthDiagnosticsScreen(cfg *config.Config, serverURL string) {
-	p := tea.NewProgram(HealthViewerModel{CFG: cfg, ServerURL: serverURL}, tea.WithAltScreen())
+	p := tea.NewProgram(HealthViewerModel{CFG: cfg, ServerURL: serverURL}, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	_, _ = p.Run()
 }
 
@@ -732,7 +724,7 @@ func (m WebWorkspaceViewerModel) View() string {
 
 // ShowWebWorkspaceLaunchScreen displays the interactive AltScreen Web Workspace card that live-resizes on window resize.
 func ShowWebWorkspaceLaunchScreen(serverURL string) {
-	p := tea.NewProgram(WebWorkspaceViewerModel{ServerURL: serverURL}, tea.WithAltScreen())
+	p := tea.NewProgram(WebWorkspaceViewerModel{ServerURL: serverURL}, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	_, _ = p.Run()
 }
 

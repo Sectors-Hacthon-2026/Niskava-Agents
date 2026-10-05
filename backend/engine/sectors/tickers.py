@@ -143,6 +143,15 @@ AMBIGUOUS_DICTIONARY_TICKERS: FrozenSet[str] = frozenset({
     "SAAT", "AUTO", "KOPI", "GULA", "BOLA", "BABP",
 })
 
+# Compound market phrases where dictionary words must NEVER be treated as stock tickers
+COMPOUND_IDIOM_EXCLUSIONS = {
+    "BLUE": [r"\bblue\s+chip(?:s)?\b"],
+    "FAST": [r"\bfast\s+moving\b"],
+    "REAL": [r"\breal\s+estate\b"],
+    "CASH": [r"\bcash\s+flow\b"],
+    "GOLD": [r"\bgold\s+standard\b", r"\bgold\s+price\b", r"\bharga\s+emas\b"],
+}
+
 
 def is_valid_idx_ticker(candidate: str) -> bool:
     """Check if candidate string is a valid active Indonesia Stock Exchange (IDX) ticker."""
@@ -168,9 +177,28 @@ def extract_valid_tickers(text: str) -> List[str]:
     for cand in raw_candidates:
         upper_cand = cand.upper()
         if upper_cand in IDX_TICKERS:
+            # Check compound idiom exclusion (e.g. "Blue Chip", "Real Estate")
+            if upper_cand in COMPOUND_IDIOM_EXCLUSIONS:
+                has_compound = any(
+                    re.search(pat, text, re.IGNORECASE) for pat in COMPOUND_IDIOM_EXCLUSIONS[upper_cand]
+                )
+                if has_compound:
+                    explicit_pattern = (
+                        rf"\({re.escape(upper_cand)}\)"
+                        rf"|\b(?:pt|emiten|ticker|kode)\s+{re.escape(upper_cand)}\b(?!\s+chip\b)"
+                        rf"|\bsaham\s+{re.escape(upper_cand)}\b(?!\s+chip\b)"
+                        rf"|\b{re.escape(upper_cand)}\s+(?:tbk)\b"
+                    )
+                    if not re.search(explicit_pattern, text, re.IGNORECASE):
+                        continue
+
             # Handle ambiguous dictionary words: only accept if strictly identified as a financial ticker
             if upper_cand in AMBIGUOUS_DICTIONARY_TICKERS:
-                pattern = rf"(?:saham|emiten|ticker|kode|pt)\s+{re.escape(upper_cand)}\b|\b{re.escape(upper_cand)}\s+(?:tbk)\b"
+                pattern = (
+                    rf"(?:saham|emiten|ticker|kode|pt)\s+{re.escape(upper_cand)}\b(?!\s+chip\b)"
+                    rf"|\b{re.escape(upper_cand)}\s+(?:tbk)\b"
+                    rf"|\({re.escape(upper_cand)}\)"
+                )
                 if not re.search(pattern, text, re.IGNORECASE):
                     continue
 

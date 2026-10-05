@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -190,11 +191,12 @@ func EvaluateSystemDiagnostics() DiagnosticReport {
 	if cfg != nil {
 		sectorsKey = cfg.Auth.SectorsAPIKey
 	}
-	if sectorsKey == "" || (cfg != nil && cfg.Preferences.OfflineMode) {
+	if sectorsKey == "" {
 		report.Checks = append(report.Checks, DiagnosticCheck{
-			Name:    "Sectors Financial API (IDX)",
-			Status:  StatusOk,
-			Details: "Offline Mock Mode Active (Law 5: 100% Credit Conservation / Static Fixtures)",
+			Name:           "Sectors Financial API (IDX)",
+			Status:         StatusFail,
+			Details:        "SECTORS_API_KEY is not configured",
+			Recommendation: "Run 'niskava setup' to configure your key, or obtain a free key at https://sectors.app",
 		})
 	} else {
 		secOK, secMsg, _ := TestLiveConnection(ctx, "sectors", "", sectorsKey)
@@ -209,7 +211,7 @@ func EvaluateSystemDiagnostics() DiagnosticReport {
 				Name:           "Sectors Financial API (IDX)",
 				Status:         StatusWarn,
 				Details:        fmt.Sprintf("Connection issue (%s)", secMsg),
-				Recommendation: "Check internet connection or run in offline mode via 'niskava investigate --offline'",
+				Recommendation: "Check internet connection. Verify your key is valid at https://sectors.app",
 			})
 		}
 	}
@@ -233,7 +235,46 @@ func EvaluateSystemDiagnostics() DiagnosticReport {
 		})
 	}
 
+	// 7. Telegram Bot Integration (Optional)
+	report.Checks = append(report.Checks, evaluateTelegramDiagnostic(cfg, nil))
+
 	return report
+}
+
+func evaluateTelegramDiagnostic(c *config.Config, client *http.Client) DiagnosticCheck {
+	if c == nil || strings.TrimSpace(c.Telegram.BotToken) == "" {
+		return DiagnosticCheck{
+			Name:    "Telegram Bot Integration",
+			Status:  StatusOk,
+			Details: "Not configured (Optional — enables mobile chat & alerts via Telegram)",
+		}
+	}
+	info, err := FetchTelegramBotInfo(c.Telegram.BotToken, client)
+	return evaluateTelegramDiagnosticWithBotInfo(c, info, err)
+}
+
+func evaluateTelegramDiagnosticWithBotInfo(c *config.Config, info *TelegramBotInfo, err error) DiagnosticCheck {
+	if err != nil {
+		return DiagnosticCheck{
+			Name:           "Telegram Bot Integration",
+			Status:         StatusWarn,
+			Details:        fmt.Sprintf("Token configured but verification failed: %v", err),
+			Recommendation: "Check your bot token from @BotFather or run 'niskava telegram status'",
+		}
+	}
+	userCount := 0
+	if c != nil {
+		userCount = len(c.Telegram.AllowedUsers)
+	}
+	accessStr := "Open access (all users allowed)"
+	if userCount > 0 {
+		accessStr = fmt.Sprintf("%d whitelisted user(s)", userCount)
+	}
+	return DiagnosticCheck{
+		Name:    "Telegram Bot Integration",
+		Status:  StatusOk,
+		Details: fmt.Sprintf("@%s (%s)", info.Username, accessStr),
+	}
 }
 
 // RenderDoctorReport outputs a beautifully formatted diagnostic HUD card to terminal.
@@ -254,7 +295,7 @@ func RenderDoctorReport(report DiagnosticReport) {
 		Render("NISKAVA AGENT — SYSTEM & ENVIRONMENT DOCTOR")
 	sb.WriteString(title + "\n")
 	sb.WriteString(lipgloss.NewStyle().Foreground(tui.ColorMuted).
-		Render(fmt.Sprintf("Target Platform: %s/%s  •  Go: %s", report.OS, report.Arch, report.GoVersion)) + "\n\n")
+		Render(fmt.Sprintf("Niskava: v%s  •  Target Platform: %s/%s  •  Go: %s", Version, report.OS, report.Arch, report.GoVersion)) + "\n\n")
 
 	hasFail := false
 	hasWarn := false

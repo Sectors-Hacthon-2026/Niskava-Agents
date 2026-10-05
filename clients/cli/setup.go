@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Sectors-Hacthon-2026/Niskava-Agents/backend/core/config"
@@ -154,19 +156,21 @@ func GetProviderPresets() map[string]ProviderPreset {
 			ID:             "router_local",
 			Name:           "Local Router (9router / LiteLLM)",
 			BaseURL:        "http://localhost:20128/v1",
-			DefaultModel:   "hermes",
+			DefaultModel:   "gpt-4o-mini",
 			KeyPlaceholder: "sk-...",
 			Description:    "Local proxy running on port 20128 or custom",
 		},
 	}
 }
 
-// BuildEnvContent formats complete .env file content honoring Law 5 (offline mock mode).
+// BuildEnvContent formats complete .env file content.
+// Note: MOCK_SECTORS and NISKAVA_OFFLINE are always set to "0" in user configs.
+// Mock/offline flags are exclusively managed by CI/CD via NISKAVA_TESTING=1.
 func BuildEnvContent(p SetupParams) string {
-	mockVal := "0"
-	if strings.TrimSpace(p.SectorsKey) == "" {
-		mockVal = "1"
-	}
+	// Mock/offline flags are never written to user configuration files.
+	// These are exclusively managed by CI/CD via NISKAVA_TESTING=1.
+	mockSectorsVal := "0"
+	niskavaOfflineVal := "0"
 
 	pyBin := p.PythonBin
 	if pyBin == "" {
@@ -228,7 +232,7 @@ NISKAVA_LLM_TIMEOUT=%.2f
 		p.AIProvider, p.OpenAIBaseURL, p.OpenAIKey, p.OpenAIModel,
 		p.GeminiKey, p.GeminiModel,
 		p.SectorsKey,
-		mockVal, mockVal,
+		mockSectorsVal, niskavaOfflineVal,
 		pyBin,
 		timeoutSecs,
 	)
@@ -239,8 +243,41 @@ func MaskAPIKey(key string) string {
 	return tui.MaskAPIKey(key)
 }
 
+// IsCancelInput checks if user pressed Esc, Ctrl+C byte, or typed q, exit, cancel, :q.
+func IsCancelInput(raw string) bool {
+	if strings.Contains(raw, "\x1b") || strings.Contains(raw, "\x03") {
+		return true
+	}
+	clean := strings.ToLower(strings.TrimSpace(raw))
+	return clean == "q" || clean == ":q" || clean == "exit" || clean == "quit" || clean == "cancel" || clean == "esc"
+}
+
+// IsBackInput checks if user wants to return to previous menu.
+func IsBackInput(raw string) bool {
+	clean := strings.ToLower(strings.TrimSpace(raw))
+	return clean == "0" || clean == "b" || clean == "back"
+}
+
+type setupCancelSignal struct{}
+
+func cancelWizard() {
+	fmt.Println()
+	fmt.Println(wizardWarnBadgeStyle.Render("  [!] Setup cancelled by user (Esc / Ctrl+C / Exit). Existing configuration unchanged."))
+	fmt.Println()
+	panic(setupCancelSignal{})
+}
+
+func readWizardInput(reader *bufio.Reader) string {
+	raw, err := reader.ReadString('\n')
+	if err != nil || IsCancelInput(raw) {
+		cancelWizard()
+	}
+	return strings.TrimSpace(raw)
+}
+
 // PromptWithDefault prompts the user on stdout, displaying current masked value if present,
 // and preserves the current value if the user presses ENTER.
+// If the user inputs 'q', 'exit', 'cancel', or presses Esc/Ctrl+C, it safely aborts the wizard.
 func PromptWithDefault(reader *bufio.Reader, label, currentVal string, isSecret bool) string {
 	displayVal := currentVal
 	if isSecret && currentVal != "" {
@@ -248,12 +285,15 @@ func PromptWithDefault(reader *bufio.Reader, label, currentVal string, isSecret 
 	}
 
 	if currentVal != "" {
-		fmt.Printf("%s [Current: %s, press ENTER to keep]: ", label, wizardMutedStyle.Render(displayVal))
+		fmt.Printf("%s [Current: %s, press ENTER to keep, 'q'/Esc to cancel]: ", label, wizardMutedStyle.Render(displayVal))
 	} else {
-		fmt.Printf("%s: ", label)
+		fmt.Printf("%s ['q'/Esc to cancel]: ", label)
 	}
 
-	raw, _ := reader.ReadString('\n')
+	raw, err := reader.ReadString('\n')
+	if err != nil || IsCancelInput(raw) {
+		cancelWizard()
+	}
 	clean := strings.TrimSpace(raw)
 	if clean == "" {
 		return currentVal
@@ -289,13 +329,13 @@ func SaveSetupConfiguration(p SetupParams) error {
 	if strings.EqualFold(strings.TrimSpace(p.SectorsKey), "mock") || strings.EqualFold(strings.TrimSpace(p.SectorsKey), "offline") {
 		cfg.Auth.SectorsAPIKey = ""
 		p.SectorsKey = ""
-		cfg.Preferences.OfflineMode = true
+		cfg.Preferences.OfflineMode = false
 	} else if p.SectorsKey != "" {
 		cfg.Auth.SectorsAPIKey = p.SectorsKey
 		cfg.Preferences.OfflineMode = false
 	} else {
 		p.SectorsKey = cfg.Auth.SectorsAPIKey
-		cfg.Preferences.OfflineMode = (strings.TrimSpace(cfg.Auth.SectorsAPIKey) == "")
+		cfg.Preferences.OfflineMode = false
 	}
 
 	if p.AIProvider != "" {
@@ -355,7 +395,7 @@ func TestLiveConnection(ctx context.Context, target, baseURL, apiKey string) (bo
 	target = strings.ToLower(strings.TrimSpace(target))
 	if target == "sectors" {
 		if apiKey == "" {
-			return true, "Offline mock mode active (no network ping needed)", 0
+			return false, "SECTORS_API_KEY is not configured", 0
 		}
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.sectors.app/v2/daily/BBCA/", nil)
 		if err != nil {
@@ -600,486 +640,729 @@ func BootstrapPythonEnvironment(rootDir, sysPython string) (string, error) {
 }
 
 // RunInteractiveSetup launches the step-by-step terminal setup wizard.
-func RunInteractiveSetup() error {
+func RunInteractiveSetup() (err error) {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
+
+	done := make(chan struct{})
+	defer close(done)
+
+	go func() {
+		select {
+		case <-sigChan:
+			fmt.Println()
+			fmt.Println(wizardWarnBadgeStyle.Render("\n  [!] Setup interrupted (Ctrl+C). Exiting safely without saving changes.\n"))
+			os.Exit(0)
+		case <-done:
+		}
+	}()
+
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(setupCancelSignal); ok {
+				err = nil
+				return
+			}
+			panic(r)
+		}
+	}()
+
 	reader := bufio.NewReader(os.Stdin)
 	presets := GetProviderPresets()
 
-	currCfg, _ := config.Load("")
-	if currCfg == nil {
-		currCfg = config.DefaultConfig()
-	}
+	for {
+		currCfg, _ := config.Load("")
+		if currCfg == nil {
+			currCfg = config.DefaultConfig()
+		}
 
-	fmt.Println()
-	var headerBox strings.Builder
-	headerBox.WriteString(wizardTitleStyle.Render("NISKAVA AGENT — DYNAMIC SETUP WIZARD (MULTI-PROVIDER)") + "\n")
-	headerBox.WriteString(wizardMutedStyle.Render("Universal setup for External Routers (OpenRouter/9router), Cloud APIs, & Sectors v2."))
-	fmt.Println(setupCardStyle.Render(headerBox.String()))
-	fmt.Println()
+		fmt.Println()
+		var headerBox strings.Builder
+		headerBox.WriteString(wizardTitleStyle.Render("NISKAVA AGENT — DYNAMIC SETUP WIZARD (MULTI-PROVIDER)") + "\n")
+		headerBox.WriteString(wizardMutedStyle.Render("Universal setup for External Routers (OpenRouter/9router), Cloud APIs, & Sectors v2.\n"))
+		headerBox.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#2AABEE")).Render("💡 Keyboard Controls: Press Esc, Ctrl+C, or type 'q' / 'exit' at any prompt to cancel."))
+		fmt.Println(setupCardStyle.Render(headerBox.String()))
+		fmt.Println()
 
-	// Display Current Active Configuration Dashboard!
-	fmt.Println(RenderConfigurationDashboard(currCfg))
-	fmt.Println()
+		// Display Current Active Configuration Dashboard!
+		fmt.Println(RenderConfigurationDashboard(currCfg))
+		fmt.Println()
 
-	fmt.Println(wizardStepStyle.Render("Choose Action:"))
-	fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[1]"), "Change AI Inference Provider / Model (OpenRouter, Gemini, OpenAI, Ollama, etc.)")
-	fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[2]"), "Update API Credentials (Gemini Key, OpenAI/Router Key, Sectors Key)")
-	fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[3]"), "Toggle Sectors Live / Offline Mock Mode")
-	fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[4]"), "Run Complete 5-Step Setup Wizard")
-	fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[5]"), "Exit / Keep Current Settings")
-	fmt.Printf("\n%s Choice [1/2/3/4/5, default: 1]: ", wizardStepStyle.Render("►"))
+		fmt.Println(wizardStepStyle.Render("Choose Action:"))
+		fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[1]"), "Change AI Inference Provider / Model (OpenRouter, Gemini, OpenAI, Ollama, etc.)")
+		fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[2]"), "Update API Credentials (Gemini Key, OpenAI/Router Key, Sectors Key)")
+		fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[3]"), "Update Sectors API Key")
+		fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[4]"), "Run Complete Setup Wizard")
+		fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[5]"), "Configure Telegram Bot (Token, Allowed Users, Auto-start)")
+		fmt.Printf("  %s %s\n", wizardItemBadgeStyle.Render("[6]"), "Exit / Keep Current Settings (or 'q' / Esc)")
+		fmt.Printf("\n%s Choice [1/2/3/4/5/6, default: 1, 'q' to exit]: ", wizardStepStyle.Render("►"))
 
-	mainChoice, _ := reader.ReadString('\n')
-	mainChoice = strings.TrimSpace(mainChoice)
-	if mainChoice == "" {
-		mainChoice = "1"
-	}
+		rawChoice, readErr := reader.ReadString('\n')
+		if readErr != nil || IsCancelInput(rawChoice) {
+			fmt.Printf("\n  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Configuration unchanged. Exiting setup wizard."))
+			return nil
+		}
+		mainChoice := strings.TrimSpace(rawChoice)
+		if mainChoice == "" {
+			mainChoice = "1"
+		}
 
-	if mainChoice == "5" || strings.EqualFold(mainChoice, "q") || strings.EqualFold(mainChoice, "exit") {
-		fmt.Printf("\n  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Configuration unchanged. Exiting setup wizard."))
-		return nil
-	}
+		if mainChoice == "6" {
+			fmt.Printf("\n  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Configuration unchanged. Exiting setup wizard."))
+			return nil
+		}
 
-	if mainChoice != "1" && mainChoice != "2" && mainChoice != "3" && mainChoice != "4" {
-		fmt.Printf("\n  %s Invalid selection %q. Exiting setup wizard.\n\n", wizardWarnBadgeStyle.Render("⚠️"), mainChoice)
-		return nil
-	}
+		if mainChoice != "1" && mainChoice != "2" && mainChoice != "3" && mainChoice != "4" && mainChoice != "5" {
+			fmt.Printf("\n  %s Invalid selection %q. Please choose [1-6], or 'q'/Esc to exit.\n", wizardWarnBadgeStyle.Render("⚠️"), mainChoice)
+			continue
+		}
 
-	if mainChoice == "3" {
-		// Quick Toggle Sectors mode
-		if currCfg.Preferences.OfflineMode || currCfg.Auth.SectorsAPIKey == "" {
-			fmt.Printf("\n  %s Enter Sectors API Key to enable Live Mode: ", wizardStepStyle.Render("►"))
-			secKey, _ := reader.ReadString('\n')
-			secKey = strings.TrimSpace(secKey)
-			if secKey != "" {
+		if mainChoice == "5" {
+			_ = configureTelegramWizard(reader, currCfg)
+			continue
+		}
+
+		if mainChoice == "3" {
+			// Update Sectors API Key
+			fmt.Printf("\n  %s Enter new Sectors API Key (https://sectors.app) [ENTER to keep current, 'q'/Esc to cancel]: ",
+				wizardStepStyle.Render("►"))
+			rawSecKey, err := reader.ReadString('\n')
+			if err != nil || IsCancelInput(rawSecKey) {
+				continue
+			}
+			secKey := strings.TrimSpace(rawSecKey)
+			if secKey == "" {
+				fmt.Printf("  %s %s\n\n", wizardMutedStyle.Render("ℹ"), wizardMutedStyle.Render("Key unchanged."))
+			} else if strings.EqualFold(secKey, "mock") || strings.EqualFold(secKey, "offline") {
+				fmt.Printf("  %s %s\n\n", wizardWarnBadgeStyle.Render("⚠️"),
+					wizardMutedStyle.Render("'mock'/'offline' is not a valid key. Enter a real key from https://sectors.app"))
+			} else {
 				currCfg.Auth.SectorsAPIKey = secKey
 				currCfg.Preferences.OfflineMode = false
 				_ = config.SaveConfig(currCfg)
-				fmt.Printf("  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Sectors Live API Mode enabled!"))
+				fmt.Printf("  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Sectors API Key updated. Live Mode active."))
+			}
+			continue
+		}
+
+		if mainChoice == "2" {
+			// Update API Credentials directly
+			fmt.Println()
+			fmt.Println(wizardStepStyle.Render("Update API Credentials (Press ENTER to preserve, 'q'/Esc to cancel):"))
+			newGemini := PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Google Gemini Key", currCfg.Auth.GeminiAPIKey, true)
+			newOpenAI := PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" OpenAI / Router Key", currCfg.Auth.OpenAIAPIKey, true)
+			newSectors := PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Sectors Financial Key", currCfg.Auth.SectorsAPIKey, true)
+
+			if newGemini != "" {
+				currCfg.Auth.GeminiAPIKey = newGemini
+			}
+			if newOpenAI != "" {
+				currCfg.Auth.OpenAIAPIKey = newOpenAI
+			}
+			if strings.EqualFold(newSectors, "mock") || strings.EqualFold(newSectors, "offline") {
+				fmt.Printf("  %s %s\n\n", wizardWarnBadgeStyle.Render("⚠️"),
+					wizardMutedStyle.Render("'mock'/'offline' is not a valid key. Enter a real key from https://sectors.app"))
+			} else if newSectors != "" {
+				currCfg.Auth.SectorsAPIKey = newSectors
+				currCfg.Preferences.OfflineMode = false
+			}
+
+			if err := config.SaveConfig(currCfg); err != nil {
+				fmt.Printf("  %s Error saving config: %v\n", wizardErrBadgeStyle.Render("[FAILED]"), err)
+				return err
+			}
+			fmt.Printf("\n  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Credentials successfully updated!"))
+			continue
+		}
+
+		var (
+			aiProvider    = currCfg.Auth.AIProvider
+			openAIBaseURL = currCfg.Auth.OpenAIBaseURL
+			openAIKey     = currCfg.Auth.OpenAIAPIKey
+			openAIModel   = currCfg.Auth.OpenAIModel
+			geminiKey     = currCfg.Auth.GeminiAPIKey
+			geminiModel   = currCfg.Auth.GeminiModel
+			sectorsKey    = currCfg.Auth.SectorsAPIKey
+			testTarget    = "openai"
+		)
+		if aiProvider == "" {
+			aiProvider = "openai"
+		}
+		if openAIBaseURL == "" {
+			openAIBaseURL = "https://openrouter.ai/api/v1"
+		}
+		if openAIModel == "" {
+			openAIModel = "deepseek/deepseek-chat"
+		}
+		if geminiModel == "" {
+			geminiModel = "gemini-2.0-flash"
+		}
+
+		// Step 1: Select AI Inference Provider Category
+		fmt.Println()
+		fmt.Println(wizardStepStyle.Render("Step 1: Select AI Model Inference Category:"))
+		fmt.Printf("  %s %s %s\n",
+			wizardItemBadgeStyle.Render("[1]"),
+			"External AI Router / Gateway (OpenRouter, LiteLLM, 9router, Custom Gateway)",
+			wizardMutedStyle.Render("[Recommended for Flexibility]"))
+		fmt.Printf("  %s %s\n",
+			wizardItemBadgeStyle.Render("[2]"),
+			"Direct Cloud AI API (Google Gemini, OpenAI, DeepSeek, Groq)")
+		fmt.Printf("  %s %s\n",
+			wizardItemBadgeStyle.Render("[3]"),
+			"Local / Private Offline Model (Ollama, LM Studio, vLLM)")
+		fmt.Printf("  %s %s\n",
+			wizardItemBadgeStyle.Render("[4]"),
+			"Custom Any OpenAI-Compatible (Fully Manual Endpoint)")
+		fmt.Printf("  %s %s\n",
+			wizardItemBadgeStyle.Render("[0]"),
+			"Back to Main Menu")
+		fmt.Printf("\n%s Choice [1/2/3/4/0, default: 1, 'q'/Esc to cancel]: ", wizardStepStyle.Render("►"))
+
+		catChoice := readWizardInput(reader)
+		if catChoice == "" {
+			catChoice = "1"
+		}
+		if IsBackInput(catChoice) {
+			continue
+		}
+
+		switch catChoice {
+		case "2": // Direct Cloud AI
+			fmt.Println()
+			fmt.Println(wizardStepStyle.Render("  Choose Cloud AI Provider:"))
+			fmt.Printf("    %s Google Gemini Cloud (Google AI Studio) %s\n", wizardItemBadgeStyle.Render("[1]"), wizardMutedStyle.Render("[Fast & High Token Limit]"))
+			fmt.Printf("    %s DeepSeek Official Cloud (DeepSeek-V3 / R1)\n", wizardItemBadgeStyle.Render("[2]"))
+			fmt.Printf("    %s Groq High-Speed Cloud (Llama 3.3 70B Versatile)\n", wizardItemBadgeStyle.Render("[3]"))
+			fmt.Printf("    %s OpenAI Official Platform (GPT-4o mini)\n", wizardItemBadgeStyle.Render("[4]"))
+			fmt.Printf("    %s Back to Main Menu\n", wizardItemBadgeStyle.Render("[0]"))
+			fmt.Printf("  %s Sub-choice [1/2/3/4/0, default: 1, 'q'/Esc to cancel]: ", wizardStepStyle.Render("►"))
+
+			cloudSub := readWizardInput(reader)
+			if cloudSub == "" {
+				cloudSub = "1"
+			}
+			if IsBackInput(cloudSub) {
+				continue
+			}
+
+			if cloudSub == "1" {
+				// Gemini
+				preset := presets["gemini"]
+				aiProvider = "gemini"
+				testTarget = "gemini"
+				openAIBaseURL = preset.BaseURL
+				if geminiModel == "" {
+					geminiModel = preset.DefaultModel
+				}
+
+				fmt.Println()
+				geminiKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Google Gemini API Key (https://aistudio.google.com/)", geminiKey, true)
+				geminiModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", geminiModel, false)
+				openAIModel = geminiModel
+			} else if cloudSub == "2" {
+				// DeepSeek
+				preset := presets["deepseek"]
+				aiProvider = "openai"
+				testTarget = "deepseek"
+				openAIBaseURL = preset.BaseURL
+				if openAIModel == "" {
+					openAIModel = preset.DefaultModel
+				}
+
+				fmt.Println()
+				openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" DeepSeek API Key (https://platform.deepseek.com/)", openAIKey, true)
+				openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", openAIModel, false)
+			} else if cloudSub == "3" {
+				// Groq
+				preset := presets["groq"]
+				aiProvider = "openai"
+				testTarget = "groq"
+				openAIBaseURL = preset.BaseURL
+				if openAIModel == "" {
+					openAIModel = preset.DefaultModel
+				}
+
+				fmt.Println()
+				openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Groq API Key (https://console.groq.com/)", openAIKey, true)
+				openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", openAIModel, false)
 			} else {
-				fmt.Printf("  %s %s\n\n", wizardWarnBadgeStyle.Render("⚠️"), wizardMutedStyle.Render("No key provided. Remaining in Offline Mock Mode."))
-			}
-		} else {
-			currCfg.Preferences.OfflineMode = true
-			_ = config.SaveConfig(currCfg)
-			fmt.Printf("  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Sectors Offline Mock Mode enabled (Law 5 Credit Conservation)."))
-		}
-		return nil
-	}
+				// OpenAI
+				preset := presets["openai"]
+				aiProvider = "openai"
+				testTarget = "openai"
+				openAIBaseURL = preset.BaseURL
+				if openAIModel == "" {
+					openAIModel = preset.DefaultModel
+				}
 
-	if mainChoice == "2" {
-		// Update API Credentials directly
-		fmt.Println()
-		fmt.Println(wizardStepStyle.Render("Update API Credentials (Press ENTER to preserve current values):"))
-		newGemini := PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Google Gemini Key", currCfg.Auth.GeminiAPIKey, true)
-		newOpenAI := PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" OpenAI / Router Key", currCfg.Auth.OpenAIAPIKey, true)
-		newSectors := PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Sectors Financial Key", currCfg.Auth.SectorsAPIKey, true)
-
-		if newGemini != "" {
-			currCfg.Auth.GeminiAPIKey = newGemini
-		}
-		if newOpenAI != "" {
-			currCfg.Auth.OpenAIAPIKey = newOpenAI
-		}
-		if strings.EqualFold(newSectors, "mock") || strings.EqualFold(newSectors, "offline") {
-			currCfg.Auth.SectorsAPIKey = ""
-			currCfg.Preferences.OfflineMode = true
-		} else if newSectors != "" {
-			currCfg.Auth.SectorsAPIKey = newSectors
-			currCfg.Preferences.OfflineMode = false
-		}
-
-		if err := config.SaveConfig(currCfg); err != nil {
-			fmt.Printf("  %s Error saving config: %v\n", wizardErrBadgeStyle.Render("[FAILED]"), err)
-			return err
-		}
-		fmt.Printf("\n  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Credentials successfully updated!"))
-		return nil
-	}
-
-	var (
-		aiProvider    = currCfg.Auth.AIProvider
-		openAIBaseURL = currCfg.Auth.OpenAIBaseURL
-		openAIKey     = currCfg.Auth.OpenAIAPIKey
-		openAIModel   = currCfg.Auth.OpenAIModel
-		geminiKey     = currCfg.Auth.GeminiAPIKey
-		geminiModel   = currCfg.Auth.GeminiModel
-		sectorsKey    = currCfg.Auth.SectorsAPIKey
-		testTarget    = "openai"
-	)
-	if aiProvider == "" {
-		aiProvider = "openai"
-	}
-	if openAIBaseURL == "" {
-		openAIBaseURL = "https://openrouter.ai/api/v1"
-	}
-	if openAIModel == "" {
-		openAIModel = "deepseek/deepseek-chat"
-	}
-	if geminiModel == "" {
-		geminiModel = "gemini-2.0-flash"
-	}
-
-	// Step 1: Select AI Inference Provider Category
-	fmt.Println()
-	fmt.Println(wizardStepStyle.Render("Step 1: Select AI Model Inference Category:"))
-	fmt.Printf("  %s %s %s\n",
-		wizardItemBadgeStyle.Render("[1]"),
-		"External AI Router / Gateway (OpenRouter, LiteLLM, 9router, Custom Gateway)",
-		wizardMutedStyle.Render("[Recommended for Flexibility]"))
-	fmt.Printf("  %s %s\n",
-		wizardItemBadgeStyle.Render("[2]"),
-		"Direct Cloud AI API (Google Gemini, OpenAI, DeepSeek, Groq)")
-	fmt.Printf("  %s %s\n",
-		wizardItemBadgeStyle.Render("[3]"),
-		"Local / Private Offline Model (Ollama, LM Studio, vLLM)")
-	fmt.Printf("  %s %s\n",
-		wizardItemBadgeStyle.Render("[4]"),
-		"Custom Any OpenAI-Compatible (Fully Manual Endpoint)")
-	fmt.Printf("\n%s Choice [1/2/3/4, default: 1]: ", wizardStepStyle.Render("►"))
-
-	catChoice, _ := reader.ReadString('\n')
-	catChoice = strings.TrimSpace(catChoice)
-	if catChoice == "" {
-		catChoice = "1"
-	}
-
-	switch catChoice {
-	case "2": // Direct Cloud AI
-		fmt.Println()
-		fmt.Println(wizardStepStyle.Render("  Choose Cloud AI Provider:"))
-		fmt.Printf("    %s Google Gemini Cloud (Google AI Studio) %s\n", wizardItemBadgeStyle.Render("[1]"), wizardMutedStyle.Render("[Fast & High Token Limit]"))
-		fmt.Printf("    %s DeepSeek Official Cloud (DeepSeek-V3 / R1)\n", wizardItemBadgeStyle.Render("[2]"))
-		fmt.Printf("    %s Groq High-Speed Cloud (Llama 3.3 70B Versatile)\n", wizardItemBadgeStyle.Render("[3]"))
-		fmt.Printf("    %s OpenAI Official Platform (GPT-4o mini)\n", wizardItemBadgeStyle.Render("[4]"))
-		fmt.Printf("  %s Sub-choice [1/2/3/4, default: 1]: ", wizardStepStyle.Render("►"))
-
-		cloudSub, _ := reader.ReadString('\n')
-		cloudSub = strings.TrimSpace(cloudSub)
-		if cloudSub == "" || cloudSub == "1" {
-			// Gemini
-			preset := presets["gemini"]
-			aiProvider = "gemini"
-			testTarget = "gemini"
-			openAIBaseURL = preset.BaseURL
-			if geminiModel == "" {
-				geminiModel = preset.DefaultModel
+				fmt.Println()
+				openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" OpenAI API Key", openAIKey, true)
+				openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", openAIModel, false)
 			}
 
+		case "3": // Local / Private Model
 			fmt.Println()
-			geminiKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Google Gemini API Key (https://aistudio.google.com/)", geminiKey, true)
-			geminiModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", geminiModel, false)
-			openAIModel = geminiModel
-		} else if cloudSub == "2" {
-			// DeepSeek
-			preset := presets["deepseek"]
-			aiProvider = "openai"
-			testTarget = "deepseek"
-			openAIBaseURL = preset.BaseURL
-			if openAIModel == "" {
-				openAIModel = preset.DefaultModel
+			fmt.Println(wizardStepStyle.Render("  Choose Local Inference Engine:"))
+			fmt.Printf("    %s Ollama Local (http://localhost:11434/v1) %s\n", wizardItemBadgeStyle.Render("[1]"), wizardMutedStyle.Render("[Recommended for Local]"))
+			fmt.Printf("    %s LM Studio / vLLM / LocalAI (http://localhost:1234/v1)\n", wizardItemBadgeStyle.Render("[2]"))
+			fmt.Printf("    %s Back to Main Menu\n", wizardItemBadgeStyle.Render("[0]"))
+			fmt.Printf("  %s Sub-choice [1/2/0, default: 1, 'q'/Esc to cancel]: ", wizardStepStyle.Render("►"))
+
+			localSub := readWizardInput(reader)
+			if localSub == "" {
+				localSub = "1"
+			}
+			if IsBackInput(localSub) {
+				continue
 			}
 
-			fmt.Println()
-			openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" DeepSeek API Key (https://platform.deepseek.com/)", openAIKey, true)
-			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", openAIModel, false)
-		} else if cloudSub == "3" {
-			// Groq
-			preset := presets["groq"]
-			aiProvider = "openai"
-			testTarget = "groq"
-			openAIBaseURL = preset.BaseURL
-			if openAIModel == "" {
-				openAIModel = preset.DefaultModel
+			if localSub == "1" {
+				preset := presets["ollama"]
+				aiProvider = "openai"
+				testTarget = "ollama"
+				openAIBaseURL = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Ollama Base URL", preset.BaseURL, false)
+				openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Tag", preset.DefaultModel, false)
+				openAIKey = "ollama-local"
+			} else {
+				aiProvider = "openai"
+				testTarget = "openai"
+				openAIBaseURL = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Base URL", "http://localhost:1234/v1", false)
+				openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", "local-model", false)
+				openAIKey = "not-needed"
 			}
 
-			fmt.Println()
-			openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Groq API Key (https://console.groq.com/)", openAIKey, true)
-			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", openAIModel, false)
-		} else {
-			// OpenAI
-			preset := presets["openai"]
+		case "4": // Custom Manual Endpoint
 			aiProvider = "openai"
 			testTarget = "openai"
-			openAIBaseURL = preset.BaseURL
-			if openAIModel == "" {
-				openAIModel = preset.DefaultModel
-			}
-
-			fmt.Println()
-			openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" OpenAI API Key", openAIKey, true)
-			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", openAIModel, false)
-		}
-
-	case "3": // Local / Private Model
-		fmt.Println()
-		fmt.Println(wizardStepStyle.Render("  Choose Local Inference Engine:"))
-		fmt.Printf("    %s Ollama Local (http://localhost:11434/v1) %s\n", wizardItemBadgeStyle.Render("[1]"), wizardMutedStyle.Render("[Recommended for Local]"))
-		fmt.Printf("    %s LM Studio / vLLM / LocalAI (http://localhost:1234/v1)\n", wizardItemBadgeStyle.Render("[2]"))
-		fmt.Printf("  %s Sub-choice [1/2, default: 1]: ", wizardStepStyle.Render("►"))
-
-		localSub, _ := reader.ReadString('\n')
-		localSub = strings.TrimSpace(localSub)
-		if localSub == "" || localSub == "1" {
-			preset := presets["ollama"]
-			aiProvider = "openai"
-			testTarget = "ollama"
-			openAIBaseURL = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Ollama Base URL", preset.BaseURL, false)
-			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Tag", preset.DefaultModel, false)
-			openAIKey = "ollama-local"
-		} else {
-			aiProvider = "openai"
-			testTarget = "openai"
-			openAIBaseURL = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Base URL", "http://localhost:1234/v1", false)
-			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", "local-model", false)
-			openAIKey = "not-needed"
-		}
-
-	case "4": // Custom Manual Endpoint
-		aiProvider = "openai"
-		testTarget = "openai"
-		openAIBaseURL = PromptWithDefault(reader, "\n  "+wizardStepStyle.Render("►")+" Enter Base URL", openAIBaseURL, false)
-		openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Enter API Key", openAIKey, true)
-		openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Enter Model Name", openAIModel, false)
-
-	default: // 1: External AI Router
-		fmt.Println()
-		fmt.Println(wizardStepStyle.Render("  Choose External Router / Proxy:"))
-		fmt.Printf("    %s OpenRouter AI Gateway (200+ models: Claude, DeepSeek, Gemini, etc.) %s\n",
-			wizardItemBadgeStyle.Render("[1]"), wizardMutedStyle.Render("[Recommended]"))
-		fmt.Printf("    %s Local Gateway (9router / LiteLLM on http://localhost:20128/v1)\n",
-			wizardItemBadgeStyle.Render("[2]"))
-		fmt.Printf("    %s Custom AI Gateway / Proxy\n",
-			wizardItemBadgeStyle.Render("[3]"))
-		fmt.Printf("  %s Sub-choice [1/2/3, default: 1]: ", wizardStepStyle.Render("►"))
-
-		routerSub, _ := reader.ReadString('\n')
-		routerSub = strings.TrimSpace(routerSub)
-
-		if routerSub == "" || routerSub == "1" {
-			// OpenRouter
-			preset := presets["openrouter"]
-			aiProvider = "openai"
-			testTarget = "openrouter"
-			openAIBaseURL = preset.BaseURL
-			if openAIModel == "" {
-				openAIModel = preset.DefaultModel
-			}
-
-			fmt.Println()
-			openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Enter OpenRouter API Key (https://openrouter.ai/keys)", openAIKey, true)
-			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model String", openAIModel, false)
-		} else if routerSub == "2" {
-			// 9router / local proxy
-			preset := presets["router_local"]
-			aiProvider = "openai"
-			testTarget = "router_local"
-			openAIBaseURL = PromptWithDefault(reader, "\n  "+wizardStepStyle.Render("►")+" Local Router Base URL", preset.BaseURL, false)
-			openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Router API Key", "sk-9router-local-key", true)
-			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", preset.DefaultModel, false)
-		} else {
-			aiProvider = "openai"
-			testTarget = "openai"
-			openAIBaseURL = PromptWithDefault(reader, "\n  "+wizardStepStyle.Render("►")+" Enter Router Base URL", openAIBaseURL, false)
-			openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Enter Router API Key", openAIKey, true)
+			openAIBaseURL = PromptWithDefault(reader, "\n  "+wizardStepStyle.Render("►")+" Enter Base URL", openAIBaseURL, false)
+			openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Enter API Key", openAIKey, true)
 			openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Enter Model Name", openAIModel, false)
-		}
-	}
 
-	if mainChoice == "1" {
-		// Quick provider switch completed! Test connection ping & save immediately
+		default: // 1: External AI Router
+			fmt.Println()
+			fmt.Println(wizardStepStyle.Render("  Choose External Router / Proxy:"))
+			fmt.Printf("    %s OpenRouter AI Gateway (200+ models: Claude, DeepSeek, Gemini, etc.) %s\n",
+				wizardItemBadgeStyle.Render("[1]"), wizardMutedStyle.Render("[Recommended]"))
+			fmt.Printf("    %s Local Gateway (9router / LiteLLM on http://localhost:20128/v1)\n",
+				wizardItemBadgeStyle.Render("[2]"))
+			fmt.Printf("    %s Custom AI Gateway / Proxy\n",
+				wizardItemBadgeStyle.Render("[3]"))
+			fmt.Printf("    %s Back to Main Menu\n",
+				wizardItemBadgeStyle.Render("[0]"))
+			fmt.Printf("  %s Sub-choice [1/2/3/0, default: 1, 'q'/Esc to cancel]: ", wizardStepStyle.Render("►"))
+
+			routerSub := readWizardInput(reader)
+			if routerSub == "" {
+				routerSub = "1"
+			}
+			if IsBackInput(routerSub) {
+				continue
+			}
+
+			if routerSub == "1" {
+				// OpenRouter
+				preset := presets["openrouter"]
+				aiProvider = "openai"
+				testTarget = "openrouter"
+				openAIBaseURL = preset.BaseURL
+				if openAIModel == "" {
+					openAIModel = preset.DefaultModel
+				}
+
+				fmt.Println()
+				openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Enter OpenRouter API Key (https://openrouter.ai/keys)", openAIKey, true)
+				openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model String", openAIModel, false)
+			} else if routerSub == "2" {
+				// 9router / local proxy
+				preset := presets["router_local"]
+				aiProvider = "openai"
+				testTarget = "router_local"
+				openAIBaseURL = PromptWithDefault(reader, "\n  "+wizardStepStyle.Render("►")+" Local Router Base URL", preset.BaseURL, false)
+				openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Router API Key", "sk-9router-local-key", true)
+				openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Model Name", preset.DefaultModel, false)
+			} else {
+				aiProvider = "openai"
+				testTarget = "openai"
+				openAIBaseURL = PromptWithDefault(reader, "\n  "+wizardStepStyle.Render("►")+" Enter Router Base URL", openAIBaseURL, false)
+				openAIKey = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Enter Router API Key", openAIKey, true)
+				openAIModel = PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Enter Model Name", openAIModel, false)
+			}
+		}
+
+		if mainChoice == "1" {
+			// Quick provider switch completed! Test connection ping & save immediately
+			fmt.Println()
+			fmt.Print(wizardMutedStyle.Render("  Testing AI Provider endpoint... "))
+			activeKey := openAIKey
+			if aiProvider == "gemini" && geminiKey != "" {
+				activeKey = geminiKey
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ok, msg, _ := TestLiveConnection(ctx, testTarget, openAIBaseURL, activeKey)
+			cancel()
+			if ok {
+				fmt.Printf("%s %s\n", wizardSuccessBadgeStyle.Render("[✓ CONNECTED]"), wizardMutedStyle.Render(msg))
+			} else {
+				fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("⚠️  NOTICE"), wizardMutedStyle.Render(msg))
+			}
+
+			currCfg.Auth.AIProvider = aiProvider
+			currCfg.Auth.OpenAIBaseURL = openAIBaseURL
+			currCfg.Auth.OpenAIAPIKey = openAIKey
+			currCfg.Auth.OpenAIModel = openAIModel
+			currCfg.Auth.GeminiAPIKey = geminiKey
+			currCfg.Auth.GeminiModel = geminiModel
+
+			if err := config.SaveConfig(currCfg); err != nil {
+				fmt.Printf("  %s Error saving config: %v\n", wizardErrBadgeStyle.Render("[FAILED]"), err)
+				return err
+			}
+			fmt.Printf("\n  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("AI Provider & Model configuration updated successfully!"))
+			return nil
+		}
+
+		// Step 2: Sectors Financial API Key (IDX) — REQUIRED
 		fmt.Println()
+		fmt.Println(wizardStepStyle.Render("Step 2: Sectors Financial API v2 (Indonesia Stock Exchange):"))
+		fmt.Println(wizardMutedStyle.Render("  Sectors API Key is REQUIRED to fetch real-time IDX market data."))
+		fmt.Println(wizardMutedStyle.Render("  ► Get your free key at: https://sectors.app"))
+		fmt.Println()
+
+		for {
+			sectorsKey = PromptWithDefault(reader, wizardStepStyle.Render("►")+" Sectors API Key [required, 'q'/Esc to cancel]", sectorsKey, true)
+
+			if IsCancelInput(sectorsKey) {
+				cancelWizard()
+			}
+
+			trimmed := strings.TrimSpace(sectorsKey)
+			if strings.EqualFold(trimmed, "mock") || strings.EqualFold(trimmed, "offline") {
+				fmt.Printf("  %s 'mock'/'offline' is not a valid key. Enter a real Sectors API key from https://sectors.app\n",
+					wizardWarnBadgeStyle.Render("⚠️"))
+				sectorsKey = ""
+				continue
+			}
+			if trimmed == "" {
+				fmt.Printf("  %s Sectors API Key cannot be empty. A valid key is required to access real IDX data.\n",
+					wizardWarnBadgeStyle.Render("⚠️"))
+				continue
+			}
+			sectorsKey = trimmed
+			fmt.Printf("  %s %s\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Sectors API Key configured."))
+			break
+		}
+
+		// Step 3: Live Verification Ping
+		fmt.Println()
+		fmt.Println(wizardStepStyle.Render("Step 3: Live Connection Diagnostics:"))
 		fmt.Print(wizardMutedStyle.Render("  Testing AI Provider endpoint... "))
 		activeKey := openAIKey
 		if aiProvider == "gemini" && geminiKey != "" {
 			activeKey = geminiKey
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
 		ok, msg, _ := TestLiveConnection(ctx, testTarget, openAIBaseURL, activeKey)
-		cancel()
 		if ok {
 			fmt.Printf("%s %s\n", wizardSuccessBadgeStyle.Render("[✓ CONNECTED]"), wizardMutedStyle.Render(msg))
 		} else {
 			fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("⚠️  NOTICE"), wizardMutedStyle.Render(msg))
+			fmt.Println(wizardMutedStyle.Render("    Warning: The AI gateway endpoint appears offline or unreachable."))
+			fmt.Println(wizardMutedStyle.Render("    (Configuration will still be saved. Ensure your local gateway/LLM is running before querying)."))
 		}
 
-		currCfg.Auth.AIProvider = aiProvider
-		currCfg.Auth.OpenAIBaseURL = openAIBaseURL
-		currCfg.Auth.OpenAIAPIKey = openAIKey
-		currCfg.Auth.OpenAIModel = openAIModel
-		currCfg.Auth.GeminiAPIKey = geminiKey
-		currCfg.Auth.GeminiModel = geminiModel
-
-		if err := config.SaveConfig(currCfg); err != nil {
-			fmt.Printf("  %s Error saving config: %v\n", wizardErrBadgeStyle.Render("[FAILED]"), err)
-			return err
+		if sectorsKey != "" {
+			fmt.Print(wizardMutedStyle.Render("  Testing Sectors Financial API... "))
+			secOK, secMsg, _ := TestLiveConnection(ctx, "sectors", "", sectorsKey)
+			if secOK {
+				fmt.Printf("%s %s\n", wizardSuccessBadgeStyle.Render("[✓ CONNECTED]"), wizardMutedStyle.Render(secMsg))
+			} else {
+				fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("⚠️  NOTICE"), wizardMutedStyle.Render(secMsg))
+				if strings.Contains(secMsg, "401") {
+					fmt.Println(wizardMutedStyle.Render("    Note: Sectors API key returned HTTP 401 Unauthorized. Please verify your API key at https://sectors.app"))
+				}
+			}
 		}
-		fmt.Printf("\n  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("AI Provider & Model configuration updated successfully!"))
+
+		// Step 4: Python Runtime Check
+		fmt.Println()
+		fmt.Println(wizardStepStyle.Render("Step 4: Python Engine Runtime Check:"))
+		pyBin, pyDesc, pyReady := DetectPythonEnvironment()
+		if pyReady {
+			fmt.Printf("  %s %s (%s)\n", wizardSuccessBadgeStyle.Render("[✓ READY]"), pyBin, wizardMutedStyle.Render(pyDesc))
+		} else {
+			fmt.Printf("  %s %s (%s)\n", wizardWarnBadgeStyle.Render("⚠️  ACTION REQUIRED"), pyBin, wizardMutedStyle.Render(pyDesc))
+			fmt.Printf("\n  %s Would you like Niskava to set up .venv and install requirements automatically? [Y/n, default: Y, 'q'/Esc to cancel]: ", wizardStepStyle.Render("►"))
+			autoChoice := strings.ToLower(readWizardInput(reader))
+			if autoChoice == "" || autoChoice == "y" || autoChoice == "yes" {
+				fmt.Printf("  %s Bootstrapping Python virtual environment (.venv) and installing requirements... ", wizardMutedStyle.Render("►"))
+				wd, _ := os.Getwd()
+				root := ipc.ResolveRepoRoot(wd)
+				newPy, err := BootstrapPythonEnvironment(root, pyBin)
+				if err != nil {
+					fmt.Printf("%s\n    Error: %v\n", wizardErrBadgeStyle.Render("[FAILED]"), err)
+				} else {
+					fmt.Printf("%s\n", wizardSuccessBadgeStyle.Render("[SUCCESS]"))
+					pyBin = newPy
+					pyDesc = "Virtual environment (.venv) successfully created with dependencies"
+					pyReady = true
+					fmt.Printf("  %s %s (%s)\n", wizardSuccessBadgeStyle.Render("[✓ READY]"), pyBin, wizardMutedStyle.Render(pyDesc))
+				}
+			}
+		}
+
+		// Step 5: Inference Timeout Profile
+		fmt.Println()
+		fmt.Println(wizardStepStyle.Render("Step 5: AI Inference Timeout Profile:"))
+		fmt.Println(wizardMutedStyle.Render("  Sets how long Niskava waits for the LLM to respond per reasoning step."))
+		fmt.Printf("  %s %s %s\n",
+			wizardItemBadgeStyle.Render("[1]"),
+			"Fast / Cloud API          — 25 seconds",
+			wizardMutedStyle.Render("Best for: OpenAI, Claude, Gemini API"))
+		fmt.Printf("  %s %s %s\n",
+			wizardItemBadgeStyle.Render("[2]"),
+			"Balanced / Adaptive       — 60 seconds",
+			wizardMutedStyle.Render("[Recommended] Handles multi-tool IDX analysis"))
+		fmt.Printf("  %s %s %s\n",
+			wizardItemBadgeStyle.Render("[3]"),
+			"Deep Reasoning / Cloud    — 120 seconds",
+			wizardMutedStyle.Render("Best for: o3, Gemini 2.5 Pro, DeepSeek R2"))
+		fmt.Printf("  %s %s %s\n",
+			wizardItemBadgeStyle.Render("[4]"),
+			"Local LLM / Slow Hardware — 180 seconds",
+			wizardMutedStyle.Render("Best for: Ollama on CPU, vLLM on low-VRAM GPU"))
+		fmt.Printf("  %s Custom (enter seconds)\n",
+			wizardItemBadgeStyle.Render("[5]"))
+		fmt.Printf("\n%s Choice [1/2/3/4/5, default: 2, 'q'/Esc to cancel]: ", wizardStepStyle.Render("►"))
+
+		timeoutChoice := readWizardInput(reader)
+
+		var chosenTimeoutSecs float64
+		switch timeoutChoice {
+		case "1":
+			chosenTimeoutSecs = 25.0
+		case "3":
+			chosenTimeoutSecs = 120.0
+		case "4":
+			chosenTimeoutSecs = 180.0
+		case "5":
+			fmt.Printf("  %s Enter timeout in seconds (10–300, 'q'/Esc to cancel): ", wizardStepStyle.Render("►"))
+			rawSecs := readWizardInput(reader)
+			var parsed float64
+			if _, err := fmt.Sscanf(rawSecs, "%f", &parsed); err == nil && parsed >= 10 && parsed <= 300 {
+				chosenTimeoutSecs = parsed
+			} else {
+				fmt.Printf("  %s Invalid value. Using Balanced (60s).\n", wizardWarnBadgeStyle.Render("⚠️"))
+				chosenTimeoutSecs = 60.0
+			}
+		default:
+			chosenTimeoutSecs = 60.0
+		}
+		fmt.Printf("  %s Inference timeout set to %.0fs per LLM call.\n",
+			wizardSuccessBadgeStyle.Render("[✓]"),
+			chosenTimeoutSecs)
+
+		// Step 6: Telegram Bot Integration (Optional)
+		fmt.Println()
+		fmt.Println(wizardStepStyle.Render("Step 6: Telegram Bot Integration (Optional):"))
+		fmt.Println(wizardMutedStyle.Render("  Connect Niskava Agent to Telegram for conversational investigations and alerts."))
+		fmt.Printf("  %s Configure Telegram Bot now? [y/N, default: N, 'q'/Esc to cancel]: ", wizardStepStyle.Render("►"))
+		teleChoice := strings.ToLower(readWizardInput(reader))
+		if teleChoice == "y" || teleChoice == "yes" {
+			currCfg.Auth.AIProvider = aiProvider
+			currCfg.Auth.OpenAIBaseURL = openAIBaseURL
+			currCfg.Auth.OpenAIAPIKey = openAIKey
+			currCfg.Auth.OpenAIModel = openAIModel
+			currCfg.Auth.GeminiAPIKey = geminiKey
+			currCfg.Auth.GeminiModel = geminiModel
+			currCfg.Auth.SectorsAPIKey = sectorsKey
+			currCfg.Preferences.LLMTimeoutSecs = chosenTimeoutSecs
+			currCfg.Engine.PythonBin = pyBin
+			if err := configureTelegramWizard(reader, currCfg); err != nil {
+				fmt.Printf("  %s Telegram configuration notice: %v\n", wizardWarnBadgeStyle.Render("⚠️"), err)
+			}
+		}
+
+		// Step 7: Save Configuration
+		params := SetupParams{
+			AIProvider:     aiProvider,
+			OpenAIBaseURL:  openAIBaseURL,
+			OpenAIKey:      openAIKey,
+			OpenAIModel:    openAIModel,
+			GeminiKey:      geminiKey,
+			GeminiModel:    geminiModel,
+			SectorsKey:     sectorsKey,
+			PythonBin:      pyBin,
+			LLMTimeoutSecs: chosenTimeoutSecs,
+		}
+
+		if err := SaveSetupConfiguration(params); err != nil {
+			return fmt.Errorf("failed to save configuration: %w", err)
+		}
+
+		fmt.Println()
+		var completeBox strings.Builder
+		completeBox.WriteString(wizardSuccessBadgeStyle.Render("SETUP COMPLETED! Configuration saved synchronously to:") + "\n")
+		completeBox.WriteString(wizardMutedStyle.Render("  • Local Project : .env (0600 permissions)\n"))
+		completeBox.WriteString(wizardMutedStyle.Render("  • Global Profile: ~/.niskava/config.yaml (Synchronized for CLI & Web Workspace)\n\n"))
+		completeBox.WriteString(wizardMutedStyle.Render("Active Configuration Summary:\n"))
+		completeBox.WriteString(fmt.Sprintf("  • Provider : %s (%s)\n", aiProvider, openAIModel))
+		completeBox.WriteString(fmt.Sprintf("  • Endpoint : %s\n", openAIBaseURL))
+		completeBox.WriteString(fmt.Sprintf("  • Timeout  : %.0fs per LLM step (Adaptive scaling)\n", chosenTimeoutSecs))
+		if sectorsKey != "" {
+			completeBox.WriteString(fmt.Sprintf("  • Sectors  : Live Key Configured (%s)\n", config.MaskSecret(sectorsKey)))
+		} else {
+			completeBox.WriteString("  • Sectors  : Not Configured\n")
+		}
+		if currCfg != nil && currCfg.Telegram.BotToken != "" {
+			teleStatus := "Disabled"
+			if currCfg.Telegram.Enabled {
+				teleStatus = "Enabled"
+			}
+			completeBox.WriteString(fmt.Sprintf("  • Telegram : %s (%s)\n", MaskAPIKey(currCfg.Telegram.BotToken), teleStatus))
+		}
+		wd, _ := os.Getwd()
+		launchCmd := getLaunchCommandHint(wd)
+		completeBox.WriteString("\n" + wizardMutedStyle.Render("Launch Niskava Terminal & Web Workspace with:\n"))
+		completeBox.WriteString("  " + wizardStepStyle.Render(launchCmd))
+		fmt.Println(setupCardStyle.Render(completeBox.String()))
+		fmt.Println()
+
+		return nil
+	}
+}
+
+// configureTelegramWizard provides an interactive step-by-step wizard for configuring Telegram Bot.
+func configureTelegramWizard(reader *bufio.Reader, currCfg *config.Config) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(setupCancelSignal); ok {
+				err = nil
+				return
+			}
+			panic(r)
+		}
+	}()
+
+	if currCfg == nil {
+		currCfg, err = config.Load("")
+		if err != nil || currCfg == nil {
+			currCfg = config.DefaultConfig()
+		}
+	}
+
+	fmt.Println()
+	fmt.Println(wizardStepStyle.Render("Telegram Bot Configuration:"))
+	fmt.Println(wizardMutedStyle.Render("  Connect Niskava Agent to Telegram for conversational market intelligence."))
+	fmt.Println(wizardMutedStyle.Render("  Obtain a bot token by messaging @BotFather on Telegram (https://t.me/BotFather)."))
+	fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#2AABEE")).Render("  💡 Tip: Press Esc, Ctrl+C, or type 'q' at any prompt to cancel.\n"))
+
+	defaultPrompt := "y/N"
+	defaultVal := "N"
+	if currCfg.Telegram.Enabled {
+		defaultPrompt = "Y/n"
+		defaultVal = "Y"
+	}
+	fmt.Printf("  %s Enable Telegram Bot integration? [%s, default: %s, 'q'/Esc to cancel]: ", wizardStepStyle.Render("►"), defaultPrompt, defaultVal)
+	enableRaw := readWizardInput(reader)
+
+	if enableRaw == "0" || IsBackInput(enableRaw) {
+		fmt.Printf("\n  %s %s\n\n", wizardMutedStyle.Render("[←]"), wizardMutedStyle.Render("Returning to main menu."))
 		return nil
 	}
 
-	// Step 2: Sectors Financial API Key (IDX)
-	fmt.Println()
-	fmt.Println(wizardStepStyle.Render("Step 2: Sectors Financial API v2 (Indonesia Stock Exchange):"))
-	fmt.Println(wizardMutedStyle.Render("  (Get free key at https://sectors.app. Press ENTER to keep current or type 'mock' for Offline Mode)."))
-	sectorsKey = PromptWithDefault(reader, wizardStepStyle.Render("►")+" Sectors API Key [optional]", sectorsKey, true)
-
-	if strings.EqualFold(sectorsKey, "mock") || strings.EqualFold(sectorsKey, "offline") || sectorsKey == "" {
-		sectorsKey = ""
-		fmt.Printf("  %s %s\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Offline Mock Mode enabled (Law 5: Credit Conservation). All financial data fixtures active."))
+	var enableBot bool
+	if enableRaw == "" {
+		enableBot = currCfg.Telegram.Enabled
+	} else if strings.EqualFold(enableRaw, "y") || strings.EqualFold(enableRaw, "yes") {
+		enableBot = true
 	} else {
-		fmt.Printf("  %s %s\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Sectors Live API Mode configured."))
+		enableBot = false
 	}
 
-	// Step 3: Live Verification Ping
+	if !enableBot {
+		currCfg.Telegram.Enabled = false
+		if err := config.SaveConfig(currCfg, ""); err != nil {
+			fmt.Printf("  %s Error saving config: %v\n", wizardErrBadgeStyle.Render("[FAILED]"), err)
+			return err
+		}
+		fmt.Printf("\n  %s %s\n\n", wizardSuccessBadgeStyle.Render("[✓]"), wizardMutedStyle.Render("Telegram Bot integration disabled. Settings saved."))
+		return nil
+	}
+
+	currCfg.Telegram.Enabled = true
+
+	// Bot Token prompt
+	currentToken := currCfg.Telegram.BotToken
 	fmt.Println()
-	fmt.Println(wizardStepStyle.Render("Step 3: Live Connection Diagnostics:"))
-	fmt.Print(wizardMutedStyle.Render("  Testing AI Provider endpoint... "))
-	activeKey := openAIKey
-	if aiProvider == "gemini" && geminiKey != "" {
-		activeKey = geminiKey
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	newToken := PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Telegram Bot Token", currentToken, true)
+	newToken = strings.TrimSpace(newToken)
 
-	ok, msg, _ := TestLiveConnection(ctx, testTarget, openAIBaseURL, activeKey)
-	if ok {
-		fmt.Printf("%s %s\n", wizardSuccessBadgeStyle.Render("[✓ CONNECTED]"), wizardMutedStyle.Render(msg))
-	} else {
-		fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("⚠️  NOTICE"), wizardMutedStyle.Render(msg))
-		fmt.Println(wizardMutedStyle.Render("    Warning: The AI gateway endpoint appears offline or unreachable."))
-		fmt.Println(wizardMutedStyle.Render("    (Configuration will still be saved. Ensure your local gateway/LLM is running before querying)."))
-	}
-
-	if sectorsKey != "" {
-		fmt.Print(wizardMutedStyle.Render("  Testing Sectors Financial API... "))
-		secOK, secMsg, _ := TestLiveConnection(ctx, "sectors", "", sectorsKey)
-		if secOK {
-			fmt.Printf("%s %s\n", wizardSuccessBadgeStyle.Render("[✓ CONNECTED]"), wizardMutedStyle.Render(secMsg))
+	if newToken != "" {
+		currCfg.Telegram.BotToken = newToken
+		fmt.Print(wizardMutedStyle.Render("  Verifying Telegram Bot Token... "))
+		client := &http.Client{Timeout: 3 * time.Second}
+		info, err := FetchTelegramBotInfo(newToken, client)
+		if err == nil && info != nil {
+			fmt.Printf("%s Verified: @%s (ID: %d)\n", wizardSuccessBadgeStyle.Render("✓"), info.Username, info.ID)
 		} else {
-			fmt.Printf("%s %s\n", wizardWarnBadgeStyle.Render("⚠️  NOTICE"), wizardMutedStyle.Render(secMsg))
-			if strings.Contains(secMsg, "401") {
-				fmt.Println(wizardMutedStyle.Render("    Note: Sectors API key returned HTTP 401 Unauthorized. Niskava will use Offline/Mock data until a valid key is provided."))
+			fmt.Printf("%s Token verification warning: %v\n", wizardWarnBadgeStyle.Render("⚠️"), err)
+			fmt.Println(wizardMutedStyle.Render("    (Configuration will still be saved. Verify your bot token with @BotFather if issues persist)."))
+		}
+	} else {
+		fmt.Printf("  %s %s\n", wizardWarnBadgeStyle.Render("⚠️"), wizardMutedStyle.Render("No token provided. Telegram Bot will remain disabled."))
+		currCfg.Telegram.BotToken = ""
+		currCfg.Telegram.Enabled = false
+	}
+
+	// Allowed Users prompt
+	currentUsersStr := strings.Join(currCfg.Telegram.AllowedUsers, ", ")
+	fmt.Println()
+	fmt.Println(wizardMutedStyle.Render("  Allowed Users Whitelist (optional):"))
+	fmt.Println(wizardMutedStyle.Render("  Enter comma-separated Telegram User IDs or @usernames (leave blank for open access):"))
+	newUsersInput := PromptWithDefault(reader, "  "+wizardStepStyle.Render("►")+" Allowed Users", currentUsersStr, false)
+	newUsersInput = strings.TrimSpace(newUsersInput)
+
+	var allowedUsers []string
+	if newUsersInput != "" && !strings.EqualFold(newUsersInput, "open") && !strings.EqualFold(newUsersInput, "none") && !strings.EqualFold(newUsersInput, "clear") {
+		parts := strings.Split(newUsersInput, ",")
+		for _, part := range parts {
+			cleaned := CleanTelegramUsernameOrID(part)
+			if cleaned != "" {
+				allowedUsers = append(allowedUsers, cleaned)
 			}
 		}
 	}
+	currCfg.Telegram.AllowedUsers = allowedUsers
 
-	// Step 4: Python Runtime Check
+	if err := config.SaveConfig(currCfg, ""); err != nil {
+		fmt.Printf("  %s Error saving config: %v\n", wizardErrBadgeStyle.Render("[FAILED]"), err)
+		return fmt.Errorf("failed to save telegram configuration: %w", err)
+	}
+
 	fmt.Println()
-	fmt.Println(wizardStepStyle.Render("Step 4: Python Engine Runtime Check:"))
-	pyBin, pyDesc, pyReady := DetectPythonEnvironment()
-	if pyReady {
-		fmt.Printf("  %s %s (%s)\n", wizardSuccessBadgeStyle.Render("[✓ READY]"), pyBin, wizardMutedStyle.Render(pyDesc))
+	var successBox strings.Builder
+	successBox.WriteString(wizardSuccessBadgeStyle.Render("TELEGRAM BOT CONFIGURATION SAVED!") + "\n\n")
+	statusStr := "Enabled"
+	if !currCfg.Telegram.Enabled {
+		statusStr = "Disabled"
+	}
+	successBox.WriteString(fmt.Sprintf("  • Status       : %s\n", statusStr))
+	if currCfg.Telegram.BotToken != "" {
+		successBox.WriteString(fmt.Sprintf("  • Bot Token    : %s\n", MaskAPIKey(currCfg.Telegram.BotToken)))
 	} else {
-		fmt.Printf("  %s %s (%s)\n", wizardWarnBadgeStyle.Render("⚠️  ACTION REQUIRED"), pyBin, wizardMutedStyle.Render(pyDesc))
-		fmt.Printf("\n  %s Would you like Niskava to set up .venv and install requirements automatically? [Y/n, default: Y]: ", wizardStepStyle.Render("►"))
-		autoChoice, _ := reader.ReadString('\n')
-		autoChoice = strings.ToLower(strings.TrimSpace(autoChoice))
-		if autoChoice == "" || autoChoice == "y" || autoChoice == "yes" {
-			fmt.Printf("  %s Bootstrapping Python virtual environment (.venv) and installing requirements... ", wizardMutedStyle.Render("►"))
-			wd, _ := os.Getwd()
-			root := ipc.ResolveRepoRoot(wd)
-			newPy, err := BootstrapPythonEnvironment(root, pyBin)
-			if err != nil {
-				fmt.Printf("%s\n    Error: %v\n", wizardErrBadgeStyle.Render("[FAILED]"), err)
-			} else {
-				fmt.Printf("%s\n", wizardSuccessBadgeStyle.Render("[SUCCESS]"))
-				pyBin = newPy
-				pyDesc = "Virtual environment (.venv) successfully created with dependencies"
-				pyReady = true
-				fmt.Printf("  %s %s (%s)\n", wizardSuccessBadgeStyle.Render("[✓ READY]"), pyBin, wizardMutedStyle.Render(pyDesc))
-			}
-		}
+		successBox.WriteString("  • Bot Token    : Not configured\n")
 	}
-
-	// Step 5: Inference Timeout Profile
-	fmt.Println()
-	fmt.Println(wizardStepStyle.Render("Step 5: AI Inference Timeout Profile:"))
-	fmt.Println(wizardMutedStyle.Render("  Sets how long Niskava waits for the LLM to respond per reasoning step."))
-	fmt.Printf("  %s %s %s\n",
-		wizardItemBadgeStyle.Render("[1]"),
-		"Fast / Cloud API          — 25 seconds",
-		wizardMutedStyle.Render("Best for: OpenAI, Claude, Gemini API"))
-	fmt.Printf("  %s %s %s\n",
-		wizardItemBadgeStyle.Render("[2]"),
-		"Balanced / Adaptive       — 60 seconds",
-		wizardMutedStyle.Render("[Recommended] Handles multi-tool IDX analysis"))
-	fmt.Printf("  %s %s %s\n",
-		wizardItemBadgeStyle.Render("[3]"),
-		"Deep Reasoning / Cloud    — 120 seconds",
-		wizardMutedStyle.Render("Best for: o3, Gemini 2.5 Pro, DeepSeek R2"))
-	fmt.Printf("  %s %s %s\n",
-		wizardItemBadgeStyle.Render("[4]"),
-		"Local LLM / Slow Hardware — 180 seconds",
-		wizardMutedStyle.Render("Best for: Ollama on CPU, vLLM on low-VRAM GPU"))
-	fmt.Printf("  %s Custom (enter seconds)\n",
-		wizardItemBadgeStyle.Render("[5]"))
-	fmt.Printf("\n%s Choice [1/2/3/4/5, default: 2]: ", wizardStepStyle.Render("►"))
-
-	timeoutChoice, _ := reader.ReadString('\n')
-	timeoutChoice = strings.TrimSpace(timeoutChoice)
-
-	var chosenTimeoutSecs float64
-	switch timeoutChoice {
-	case "1":
-		chosenTimeoutSecs = 25.0
-	case "3":
-		chosenTimeoutSecs = 120.0
-	case "4":
-		chosenTimeoutSecs = 180.0
-	case "5":
-		fmt.Printf("  %s Enter timeout in seconds (10–300): ", wizardStepStyle.Render("►"))
-		rawSecs, _ := reader.ReadString('\n')
-		rawSecs = strings.TrimSpace(rawSecs)
-		var parsed float64
-		if _, err := fmt.Sscanf(rawSecs, "%f", &parsed); err == nil && parsed >= 10 && parsed <= 300 {
-			chosenTimeoutSecs = parsed
-		} else {
-			fmt.Printf("  %s Invalid value. Using Balanced (60s).\n", wizardWarnBadgeStyle.Render("⚠️"))
-			chosenTimeoutSecs = 60.0
-		}
-	default:
-		chosenTimeoutSecs = 60.0
-	}
-	fmt.Printf("  %s Inference timeout set to %.0fs per LLM call.\n",
-		wizardSuccessBadgeStyle.Render("[✓]"),
-		chosenTimeoutSecs)
-
-	// Step 6: Save Configuration
-	params := SetupParams{
-		AIProvider:     aiProvider,
-		OpenAIBaseURL:  openAIBaseURL,
-		OpenAIKey:      openAIKey,
-		OpenAIModel:    openAIModel,
-		GeminiKey:      geminiKey,
-		GeminiModel:    geminiModel,
-		SectorsKey:     sectorsKey,
-		PythonBin:      pyBin,
-		LLMTimeoutSecs: chosenTimeoutSecs,
-	}
-
-	if err := SaveSetupConfiguration(params); err != nil {
-		return fmt.Errorf("failed to save configuration: %w", err)
-	}
-
-	fmt.Println()
-	var completeBox strings.Builder
-	completeBox.WriteString(wizardSuccessBadgeStyle.Render("SETUP COMPLETED! Configuration saved synchronously to:") + "\n")
-	completeBox.WriteString(wizardMutedStyle.Render("  • Local Project : .env (0600 permissions)\n"))
-	completeBox.WriteString(wizardMutedStyle.Render("  • Global Profile: ~/.niskava/config.yaml (Synchronized for CLI & Web Workspace)\n\n"))
-	completeBox.WriteString(wizardMutedStyle.Render("Active Configuration Summary:\n"))
-	completeBox.WriteString(fmt.Sprintf("  • Provider : %s (%s)\n", aiProvider, openAIModel))
-	completeBox.WriteString(fmt.Sprintf("  • Endpoint : %s\n", openAIBaseURL))
-	completeBox.WriteString(fmt.Sprintf("  • Timeout  : %.0fs per LLM step (Adaptive scaling)\n", chosenTimeoutSecs))
-	if sectorsKey == "" {
-		completeBox.WriteString("  • Sectors  : Offline Mock Mode (100% Free / Cached)\n")
+	if len(currCfg.Telegram.AllowedUsers) > 0 {
+		successBox.WriteString(fmt.Sprintf("  • Whitelist    : %s (%d user(s))\n", strings.Join(currCfg.Telegram.AllowedUsers, ", "), len(currCfg.Telegram.AllowedUsers)))
 	} else {
-		completeBox.WriteString(fmt.Sprintf("  • Sectors  : Live Key Configured (%s)\n", config.MaskSecret(sectorsKey)))
+		successBox.WriteString("  • Whitelist    : Open access (No whitelist)\n")
 	}
-	wd, _ := os.Getwd()
-	launchCmd := getLaunchCommandHint(wd)
-	completeBox.WriteString("\n" + wizardMutedStyle.Render("Launch Niskava Terminal & Web Workspace with:\n"))
-	completeBox.WriteString("  " + wizardStepStyle.Render(launchCmd))
-	fmt.Println(setupCardStyle.Render(completeBox.String()))
+	successBox.WriteString("\n" + wizardMutedStyle.Render("Start the bot with: ") + wizardStepStyle.Render("niskava telegram") + wizardMutedStyle.Render(" or ") + wizardStepStyle.Render("niskava serve"))
+	fmt.Println(setupCardStyle.Render(successBox.String()))
 	fmt.Println()
 
 	return nil
@@ -1101,4 +1384,14 @@ func getLaunchCommandHint(dir string) string {
 		}
 	}
 	return "niskava"
+}
+
+// RunSetupWizard launches the interactive setup wizard (convenience alias for RunInteractiveSetup).
+func RunSetupWizard() error {
+	return RunInteractiveSetup()
+}
+
+// RunSetup launches the interactive setup wizard (convenience alias for RunInteractiveSetup).
+func RunSetup() error {
+	return RunInteractiveSetup()
 }

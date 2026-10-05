@@ -58,7 +58,7 @@ Penjurian bersifat 100% asinkronus tanpa sesi presentasi live. Evaluasi dilakuka
 
 ## 4. Kualifikasi Resmi Track 1 (The Qualifying Test Compliance)
 
-Panitia menetapkan uji kualifikasi ketat untuk Track 1: *Proyek harus memiliki custom-built agent logic or orchestration sendiri di sekeliling model—bukan sekadar menghubungkan prompt ke client off-the-shelf seperti Claude Desktop, OpenClaw, atau Hermes.*
+Panitia menetapkan uji kualifikasi ketat untuk Track 1: *Proyek harus memiliki custom-built agent logic or orchestration sendiri di sekeliling model—bukan sekadar menghubungkan prompt ke client off-the-shelf seperti Claude Desktop, OpenClaw, atau generic terminal clients.*
 
 Niskava memenuhi seluruh 6 kualifikasi resmi Track 1:
 

@@ -31,8 +31,8 @@ func TestRenderHUDHeader(t *testing.T) {
 	}
 
 	defaultHeader := RenderHUDHeader("", "http://localhost:8080", "", "TEST-SESSION-002")
-	if !strings.Contains(defaultHeader, "hermes") {
-		t.Errorf("expected default header to contain hermes as default model substrate")
+	if !strings.Contains(defaultHeader, "niskava") {
+		t.Errorf("expected default header to contain niskava as default model substrate")
 	}
 }
 

@@ -535,47 +535,68 @@ func (m SessionSelectorModel) View() string {
 	b.WriteString(sessionTitleStyle.Render(title))
 	b.WriteString("\n\n")
 
-	// Render confirmation delete dialog if active
+	// Render confirmation delete dialog if active (boxless, clean, responsive)
 	if m.ConfirmDelete && m.DeleteTarget != nil {
-		confirmStr := TF("session_selector_delete_confirm", m.DeleteTarget.ID)
-		box := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(ColorDanger).
-			Padding(1, 2).
-			Render(confirmStr)
-		return "\n" + sessionBoxStyle.Render(title+"\n\n"+box) + "\n\033[J"
-	}
+		var delB strings.Builder
+		delB.WriteString(sessionTitleStyle.Render(title))
+		delB.WriteString("\n\n")
 
-	// Render Export Modal Dialog if active
-	if m.ExportModalActive {
-		exportTitle := T("session_selector_export_title")
-		formats := []string{
-			"Markdown Report (.md)       [Standard Format]",
-			"Raw JSON Audit Trail (.json) [Programmatic Data]",
-			"Plain Text Summary (.txt)   [Clean ASCII Summary]",
+		delHeader := lipgloss.NewStyle().Bold(true).Foreground(ColorDanger).Render(T("delete_warning_header"))
+		targetID := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(m.DeleteTarget.ID)
+		if m.DeleteTarget.Title != "" {
+			targetID += fmt.Sprintf(" (%s)", m.DeleteTarget.Title)
 		}
 
-		var fLines []string
-		fLines = append(fLines, lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(exportTitle))
-		fLines = append(fLines, "")
+		bodyMsg := lipgloss.NewStyle().Foreground(ColorMuted).Render(T("delete_warning_body"))
+		permanentAlert := lipgloss.NewStyle().Bold(true).Foreground(ColorDanger).Render(T("delete_warning_permanent"))
+		promptMsg := lipgloss.NewStyle().Bold(true).Foreground(ColorFg).Render(TF("delete_warning_prompt", targetID))
+		footerMsg := lipgloss.NewStyle().Italic(true).Foreground(ColorMuted).Render(T("delete_warning_footer"))
 
-		for i, fmtStr := range formats {
+		delB.WriteString(delHeader + "\n\n")
+		delB.WriteString(bodyMsg + "\n")
+		delB.WriteString(permanentAlert + "\n\n")
+		delB.WriteString(promptMsg + "\n\n")
+		delB.WriteString(footerMsg)
+
+		return "\n" + sessionBoxStyle.Render(delB.String()) + "\n\033[J"
+	}
+
+	// Render Export Modal Dialog if active (boxless, clean, responsive)
+	if m.ExportModalActive {
+		var expB strings.Builder
+		expB.WriteString(sessionTitleStyle.Render(title))
+		expB.WriteString("\n\n")
+
+		exportTitle := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(T("session_selector_export_title"))
+		expB.WriteString(exportTitle + "\n")
+		expB.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(T("export_dialog_prompt")) + "\n")
+		expB.WriteString(lipgloss.NewStyle().Italic(true).Foreground(ColorMuted).Render(T("export_target_location_hint")) + "\n\n")
+
+		formats := []struct {
+			name string
+			desc string
+		}{
+			{"Markdown Report (.md)", T("export_fmt_md_desc")},
+			{"Raw JSON Audit Trail (.json)", T("export_fmt_json_desc")},
+			{"Plain Text Summary (.txt)", T("export_fmt_txt_desc")},
+		}
+
+		for i, fmtObj := range formats {
 			if i == m.ExportFormatIndex {
-				fLines = append(fLines, lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render("  ▸ [•] "+fmtStr))
+				optName := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(fmt.Sprintf("  ▸ [•] %-28s", fmtObj.name))
+				optDesc := lipgloss.NewStyle().Foreground(ColorFg).Render(fmt.Sprintf(" - %s", fmtObj.desc))
+				expB.WriteString(optName + optDesc + "\n")
 			} else {
-				fLines = append(fLines, lipgloss.NewStyle().Foreground(ColorMuted).Render("    [ ] "+fmtStr))
+				optName := lipgloss.NewStyle().Foreground(ColorMuted).Render(fmt.Sprintf("    [ ] %-28s", fmtObj.name))
+				optDesc := lipgloss.NewStyle().Foreground(ColorMuted).Render(fmt.Sprintf(" - %s", fmtObj.desc))
+				expB.WriteString(optName + optDesc + "\n")
 			}
 		}
 
-		fLines = append(fLines, "")
-		fLines = append(fLines, lipgloss.NewStyle().Italic(true).Foreground(ColorMuted).Render("  [Enter] Export Now  •  [↑/↓] Select Format  •  [Esc] Cancel"))
+		expB.WriteString("\n")
+		expB.WriteString(lipgloss.NewStyle().Italic(true).Foreground(ColorMuted).Render(T("export_modal_footer_hint")))
 
-		box := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(ColorAccent).
-			Padding(1, 2).
-			Render(strings.Join(fLines, "\n"))
-		return "\n" + sessionBoxStyle.Render(title+"\n\n"+box) + "\n\033[J"
+		return "\n" + sessionBoxStyle.Render(expB.String()) + "\n\033[J"
 	}
 
 	filtered := m.getFilteredSessions()

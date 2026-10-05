@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -181,7 +182,7 @@ func TestChatSessionsCompleteLifecycle(t *testing.T) {
 	sess := &ChatSession{
 		ID:     sessionID,
 		Title:  "Analisis Saham ANTM",
-		Model:  "hermes",
+		Model:  "gemini-2.0-flash",
 		Status: "IDLE",
 	}
 	if err := database.CreateChatSession(sess); err != nil {
@@ -324,7 +325,7 @@ func TestDB_Path_SelfHealing_And_SearchMessages(t *testing.T) {
 	err = db1.CreateChatSession(&ChatSession{
 		ID:     sessionID,
 		Title:  "Analisis ANTM",
-		Model:  "hermes",
+		Model:  "gemini-2.0-flash",
 		Status: "BUSY",
 	})
 	if err != nil {
@@ -491,7 +492,7 @@ func TestAllSpecificationTablesCreated(t *testing.T) {
 	expectedTables := []string{
 		"investigations", "anomalies", "findings", "evidence_items",
 		"timeline_events", "sectors_cache", "memory_nodes", "memory_edges",
-		"chat_sessions", "chat_messages", "suspension_records", "insider_filings",
+		"chat_sessions", "chat_messages", "chat_attachments", "suspension_records", "insider_filings",
 		"news_cache", "telegram_chats",
 	}
 
@@ -666,6 +667,14 @@ func TestSectorsCacheStatsAndClean(t *testing.T) {
 		t.Fatalf("unexpected stats: %+v", stats)
 	}
 
+	cachedCandles, err := database.GetCachedDailyCandles("BBCA")
+	if err != nil {
+		t.Fatalf("GetCachedDailyCandles failed: %v", err)
+	}
+	if cachedCandles != `{"ok":true}` {
+		t.Fatalf("expected payload `{\"ok\":true}`, got %s", cachedCandles)
+	}
+
 	cleaned, err := database.CleanExpiredCache()
 	if err != nil {
 		t.Fatalf("CleanExpiredCache failed: %v", err)
@@ -756,7 +765,7 @@ func TestListChatSessionsFiltersEmptySessions(t *testing.T) {
 	sessWithMsg := &ChatSession{
 		ID:                 "TELE-20260930-0001",
 		Title:              "Telegram (@testuser)",
-		Model:              "hermes",
+		Model:              "gemini-2.0-flash",
 		Status:             "IDLE",
 		MessageCount:       3,
 		LastMessagePreview: "Analisis ANTM volume anomaly...",
@@ -769,7 +778,7 @@ func TestListChatSessionsFiltersEmptySessions(t *testing.T) {
 	ghostSess := &ChatSession{
 		ID:                 "TELE-20260930-0002",
 		Title:              "Telegram (@testuser)",
-		Model:              "hermes",
+		Model:              "gemini-2.0-flash",
 		Status:             "IDLE",
 		MessageCount:       0,
 		LastMessagePreview: "",
@@ -830,5 +839,315 @@ func TestResetTelegramChatSessionTitleIsUnique(t *testing.T) {
 	}
 	if !strings.Contains(s1.Title, "@trader_idx") {
 		t.Errorf("expected title to contain @username, got: %q", s1.Title)
+	}
+}
+
+func TestEnsureInvestigationSessionAndAnomalyPersistence(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_anom.db")
+
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	sessionID := "CHAT-20261003-9999"
+	err = database.EnsureInvestigationSession(sessionID, "BBRI")
+	if err != nil {
+		t.Fatalf("EnsureInvestigationSession failed: %v", err)
+	}
+
+	inv, err := database.GetInvestigation(sessionID)
+	if err != nil || inv == nil {
+		t.Fatalf("expected investigation record created, got: %v", err)
+	}
+	if inv.Ticker != "BBRI" {
+		t.Errorf("expected ticker BBRI, got %s", inv.Ticker)
+	}
+
+	anom := &Anomaly{
+		ID:              "ANOM-TEST-1",
+		InvestigationID: sessionID,
+		AnomalyDate:     "2026-09-10",
+		MetricType:      "VOLUME_Z_SCORE",
+		MetricValue:     5000000,
+		BaselineValue:   140000,
+		ZScore:          35.71,
+		Description:     "Lonjakan Volume Ekstrem BBRI",
+	}
+
+	if err := database.CreateAnomaly(anom); err != nil {
+		t.Fatalf("CreateAnomaly failed: %v", err)
+	}
+
+	// Idempotency check: CreateAnomaly with INSERT OR REPLACE
+	if err := database.CreateAnomaly(anom); err != nil {
+		t.Fatalf("CreateAnomaly repeat failed: %v", err)
+	}
+
+	anomalies, err := database.GetAnomaliesByInvestigation(sessionID)
+	if err != nil {
+		t.Fatalf("GetAnomaliesByInvestigation failed: %v", err)
+	}
+	if len(anomalies) != 1 {
+		t.Fatalf("expected 1 anomaly, got %d", len(anomalies))
+	}
+	if anomalies[0].ZScore != 35.71 {
+		t.Errorf("expected Z-score 35.71, got %f", anomalies[0].ZScore)
+	}
+}
+
+func TestForkChatSessionClonesAnomaliesAndFindings(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_fork_anom.db")
+
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	sourceID := "CHAT-SRC-100"
+	_ = database.CreateChatSession(&ChatSession{ID: sourceID, Title: "Source Chat", Model: "niskava"})
+	_ = database.EnsureInvestigationSession(sourceID, "BBRI")
+
+	// Insert 3 anomalies for sourceID
+	for i := 1; i <= 3; i++ {
+		_ = database.CreateAnomaly(&Anomaly{
+			ID:              fmt.Sprintf("ANOM-SRC-%d", i),
+			InvestigationID: sourceID,
+			AnomalyDate:     fmt.Sprintf("2026-09-%02d", i),
+			MetricType:      "VOLUME_SURGE",
+			MetricValue:     float64(i * 1000000),
+			BaselineValue:   200000,
+			ZScore:          float64(i) * 3.5,
+			Description:     fmt.Sprintf("Anomaly %d", i),
+		})
+	}
+
+	forkID := "CHAT-FORK-200"
+	err = database.ForkChatSession(sourceID, forkID, "Forked Session Test", "")
+	if err != nil {
+		t.Fatalf("ForkChatSession failed: %v", err)
+	}
+
+	// Verify forked session has all 3 anomalies cloned
+	anomForked, err := database.GetAnomaliesByInvestigation(forkID)
+	if err != nil {
+		t.Fatalf("GetAnomaliesByInvestigation for forked session failed: %v", err)
+	}
+	if len(anomForked) != 3 {
+		t.Fatalf("expected 3 anomalies cloned in forked session, got %d", len(anomForked))
+	}
+	if anomForked[2].ZScore != 10.5 {
+		t.Errorf("expected 3rd anomaly Z-score 10.5, got %f", anomForked[2].ZScore)
+	}
+}
+
+func TestListLatestRadarAnomalies(t *testing.T) {
+	database, err := Open(filepath.Join(t.TempDir(), "test_radar.db"))
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	inv := &Investigation{
+		ID:            "INV-RADAR-01",
+		Ticker:        "ANTM",
+		Market:        "IDX",
+		TimeframeDays: 30,
+		Status:        "COMPLETED",
+	}
+	if err := database.CreateInvestigation(inv); err != nil {
+		t.Fatalf("failed to create investigation: %v", err)
+	}
+
+	anom := &Anomaly{
+		ID:              "ANOM-RADAR-01",
+		InvestigationID: inv.ID,
+		AnomalyDate:     "2026-09-12",
+		MetricType:      "volume_z_score",
+		MetricValue:     184500000,
+		BaselineValue:   48200000,
+		ZScore:          3.84,
+		Description:     "Volume anomaly +3.84σ detected",
+	}
+	if err := database.CreateAnomaly(anom); err != nil {
+		t.Fatalf("failed to create anomaly: %v", err)
+	}
+
+	items, err := database.ListLatestRadarAnomalies(10, 2.0)
+	if err != nil {
+		t.Fatalf("ListLatestRadarAnomalies failed: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 anomaly item, got %d", len(items))
+	}
+	if items[0].Ticker != "ANTM" || items[0].ZScore != 3.84 {
+		t.Fatalf("unexpected item values: %+v", items[0])
+	}
+}
+
+func TestListLatestRadarAnomalies_ExcludesEvalAndTestSessions(t *testing.T) {
+	database, err := Open(filepath.Join(t.TempDir(), "test_radar_filter.db"))
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	seed := []struct {
+		invID, ticker, anomID string
+		z                     float64
+	}{
+		{"INV-REAL-01", "BBCA", "ANOM-REAL-01", 3.10},
+		{"EVAL-BBRI-1789902142", "BBRI", "ANOM-EVAL-01", 35.71},
+		{"TEST-ANTM-01", "ANTM", "ANOM-TEST-01", 35.71},
+	}
+	for _, s := range seed {
+		inv := &Investigation{ID: s.invID, Ticker: s.ticker, Market: "IDX", TimeframeDays: 30, Status: "COMPLETED"}
+		if err := database.CreateInvestigation(inv); err != nil {
+			t.Fatalf("failed to create investigation %s: %v", s.invID, err)
+		}
+		anom := &Anomaly{
+			ID:              s.anomID,
+			InvestigationID: s.invID,
+			AnomalyDate:     "2026-09-12",
+			MetricType:      "VOLUME_SPIKE",
+			MetricValue:     50000000,
+			BaselineValue:   20000000,
+			ZScore:          s.z,
+			Description:     "seeded anomaly",
+		}
+		if err := database.CreateAnomaly(anom); err != nil {
+			t.Fatalf("failed to create anomaly %s: %v", s.anomID, err)
+		}
+	}
+
+	items, err := database.ListLatestRadarAnomalies(10, 2.0)
+	if err != nil {
+		t.Fatalf("ListLatestRadarAnomalies failed: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected only the real anomaly, got %d items: %+v", len(items), items)
+	}
+	if items[0].InvestigationID != "INV-REAL-01" {
+		t.Errorf("expected INV-REAL-01, got %s", items[0].InvestigationID)
+	}
+}
+
+func TestGetInvestigationTimeline_MergesStoredAndDerivedEvents(t *testing.T) {
+	database, err := Open(filepath.Join(t.TempDir(), "test_timeline.db"))
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	const invID = "INV-TIMELINE-01"
+	if err := database.CreateInvestigation(&Investigation{ID: invID, Ticker: "ANTM", Market: "IDX", TimeframeDays: 30, Status: "COMPLETED"}); err != nil {
+		t.Fatalf("failed to create investigation: %v", err)
+	}
+	if err := database.CreateAnomaly(&Anomaly{
+		ID: "ANOM-TL-01", InvestigationID: invID, AnomalyDate: "2026-09-18",
+		MetricType: "VOLUME_SPIKE", MetricValue: 15000000, BaselineValue: 5000000, ZScore: 3.45,
+		Description: "Volume spike detected",
+	}); err != nil {
+		t.Fatalf("failed to create anomaly: %v", err)
+	}
+	if _, err := database.conn.Exec(
+		`INSERT INTO timeline_events (id, investigation_id, event_timestamp, event_type, headline, details) VALUES (?, ?, ?, ?, ?, ?)`,
+		"TL-01", invID, "2026-09-17 16:30:00", "DISCLOSURE", "Keterbukaan informasi smelter", "IDXnet filing",
+	); err != nil {
+		t.Fatalf("failed to seed timeline event: %v", err)
+	}
+
+	events, err := database.GetInvestigationTimeline(invID)
+	if err != nil {
+		t.Fatalf("GetInvestigationTimeline failed: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events (1 stored + 1 derived anomaly), got %d: %+v", len(events), events)
+	}
+	if events[0].EventType != "DISCLOSURE" || events[1].EventType != "QUANT_ANOMALY" {
+		t.Errorf("expected chronological order DISCLOSURE -> QUANT_ANOMALY, got %s -> %s", events[0].EventType, events[1].EventType)
+	}
+	if events[1].EventTimestamp != "2026-09-18" {
+		t.Errorf("derived anomaly event must use the real anomaly date, got %q", events[1].EventTimestamp)
+	}
+}
+
+func TestGetInvestigationTimeline_EmptyReturnsNonNilSlice(t *testing.T) {
+	database, err := Open(filepath.Join(t.TempDir(), "test_timeline_empty.db"))
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer database.Close()
+
+	events, err := database.GetInvestigationTimeline("INV-DOES-NOT-EXIST")
+	if err != nil {
+		t.Fatalf("GetInvestigationTimeline failed: %v", err)
+	}
+	if events == nil || len(events) != 0 {
+		t.Fatalf("expected empty non-nil slice, got %#v", events)
+	}
+}
+
+func TestChatAttachmentsCRUD(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_attachments.db")
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer database.Close()
+
+	sampleText := "PT Aneka Tambang Q2 2026 Financial Highlights"
+	att := &ChatAttachment{
+		ID:            "DOC-TEST-001",
+		SessionID:     "SESS-001",
+		Filename:      "Financial_Report_Q2_2026.pdf",
+		FilePath:      filepath.Join(tempDir, "Financial_Report_Q2_2026.pdf"),
+		FileSize:      1048576,
+		MimeType:      "application/pdf",
+		PageCount:     32,
+		ExtractedText: &sampleText,
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+	}
+
+	err = database.SaveChatAttachment(att)
+	if err != nil {
+		t.Fatalf("SaveChatAttachment failed: %v", err)
+	}
+
+	retrieved, err := database.GetChatAttachment("DOC-TEST-001")
+	if err != nil {
+		t.Fatalf("GetChatAttachment failed: %v", err)
+	}
+	if retrieved == nil || retrieved.Filename != att.Filename || retrieved.PageCount != 32 {
+		t.Fatalf("Retrieved attachment mismatch: %+v", retrieved)
+	}
+	if retrieved.ExtractedText == nil || *retrieved.ExtractedText != sampleText {
+		t.Fatalf("ExtractedText mismatch, got %v", retrieved.ExtractedText)
+	}
+
+	list, err := database.GetChatAttachmentsBySession("SESS-001")
+	if err != nil {
+		t.Fatalf("GetChatAttachmentsBySession failed: %v", err)
+	}
+	if len(list) != 1 || list[0].ID != "DOC-TEST-001" {
+		t.Fatalf("Expected 1 attachment, got %d", len(list))
+	}
+
+	// Test Delete
+	err = database.DeleteChatAttachment("DOC-TEST-001")
+	if err != nil {
+		t.Fatalf("DeleteChatAttachment failed: %v", err)
+	}
+	afterDelete, err := database.GetChatAttachment("DOC-TEST-001")
+	if err != nil {
+		t.Fatalf("GetChatAttachment after delete error: %v", err)
+	}
+	if afterDelete != nil {
+		t.Fatalf("Expected nil after delete, got %+v", afterDelete)
 	}
 }

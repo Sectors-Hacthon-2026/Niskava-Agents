@@ -17,7 +17,15 @@
 
             // Rename Session Handler
             async function renameSession(sessionId, oldTitle) {
-                const newTitle = prompt(t('rename_prompt'), oldTitle);
+                const newTitle = await showInputDialog({
+                    title: t('rename_dialog_title') || (currentLang === 'en' ? 'Rename Research Session' : 'Ganti Judul Percakapan'),
+                    message: t('rename_prompt') || (currentLang === 'en' ? 'Enter new title for chat:' : 'Ganti judul percakapan:'),
+                    defaultValue: oldTitle,
+                    placeholder: t('rename_input_placeholder') || (currentLang === 'en' ? 'Enter session title...' : 'Masukkan judul sesi...'),
+                    confirmText: t('btn_save') || (currentLang === 'en' ? 'Save' : 'Simpan'),
+                    cancelText: t('modal_cancel_btn') || (currentLang === 'en' ? 'Cancel' : 'Batal'),
+                    type: 'primary'
+                });
                 if (!newTitle || newTitle.trim() === oldTitle.trim()) return;
 
                 try {
@@ -391,14 +399,21 @@
             }
 
             async function deleteSession(sessionId) {
-                if (!confirm(t('delete_confirm'))) return;
+                const confirmed = await showConfirmDialog({
+                    title: t('delete_session_title'),
+                    message: t('delete_session_desc'),
+                    confirmText: t('delete_session_confirm_btn'),
+                    cancelText: t('modal_cancel_btn'),
+                    type: 'danger'
+                });
+                if (!confirmed) return;
                 try {
                     let res = await fetch(`${API_BASE}/api/chat/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
                     if (!res.ok) {
                         res = await fetch(`${API_BASE}/api/chat/reset?session_id=${encodeURIComponent(sessionId)}`, { method: 'POST' });
                     }
                     if (res.ok) {
-                        showToast(currentLang === 'en' ? 'Chat session deleted' : 'Sesi percakapan dihapus');
+                        showToast(currentLang === 'en' ? 'Chat session deleted' : 'Sesi percakapan dihapus', 'success');
                         if (currentSessionId === sessionId) {
                             btnNewResearch.click();
                         } else {
@@ -407,6 +422,7 @@
                     }
                 } catch(e) {
                     console.error('Error deleting session', e);
+                    showToast(currentLang === 'en' ? 'Failed to delete session' : 'Gagal menghapus sesi', 'error');
                 }
             }
 
@@ -414,11 +430,18 @@
             const btnResetHistory = document.getElementById('btnResetHistory');
             if (btnResetHistory) {
                 btnResetHistory.addEventListener('click', async () => {
-                    if (confirm(t('delete_confirm'))) {
+                    const confirmed = await showConfirmDialog({
+                        title: t('reset_history_title'),
+                        message: t('reset_history_desc'),
+                        confirmText: t('reset_history_confirm_btn'),
+                        cancelText: t('modal_cancel_btn'),
+                        type: 'danger'
+                    });
+                    if (confirmed) {
                         try {
                             const res = await fetch(`${API_BASE}/api/chat/reset`, { method: 'POST' });
                             if (res.ok) {
-                                showToast(currentLang === 'en' ? 'All history reset successfully' : 'Seluruh riwayat berhasil direset');
+                                showToast(currentLang === 'en' ? 'All history reset successfully' : 'Seluruh riwayat berhasil direset', 'success');
                                 currentSessionId = 'WEB-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(1000 + Math.random() * 9000);
                                 chatView.innerHTML = '';
                                 chatView.classList.remove('active');
@@ -428,6 +451,7 @@
                             }
                         } catch(e) {
                             console.error('Error resetting history', e);
+                            showToast(currentLang === 'en' ? 'Failed to reset history' : 'Gagal mereset riwayat', 'error');
                         }
                     }
                 });
@@ -543,8 +567,9 @@
                     btnSendMessage.title = t('btn_send_tooltip');
                     btnSendMessage.setAttribute('data-tooltip', t('btn_send_tooltip'));
                     btnSendMessage.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>`;
+                    const hasAttachments = (typeof stagedAttachments !== 'undefined' && Array.isArray(stagedAttachments) && stagedAttachments.length > 0);
                     const hasText = chatInput.value.trim().length > 0;
-                    btnSendMessage.disabled = !hasText;
+                    btnSendMessage.disabled = !hasText && !hasAttachments;
                 }
             }
 
@@ -612,6 +637,9 @@
                 document.getElementById('currentSessionLabel').textContent = t('header_session_default');
                 chatInput.value = '';
                 chatInput.style.height = 'auto';
+                if (typeof clearStagedAttachments === 'function') {
+                    clearStagedAttachments();
+                }
                 updateSendButtonState();
                 document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
                 loadLiveGraph(currentSessionId);

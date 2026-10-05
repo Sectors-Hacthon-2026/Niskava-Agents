@@ -20,7 +20,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
 from engine.memory.graph_memory import LocalGraphMemory
-from engine.quant.anomaly import AnomalyResult, detect_historical_anomalies
+from engine.quant.anomaly import DEFAULT_MIN_TURNOVER_IDR, AnomalyResult, detect_historical_anomalies
 from engine.sectors.client import SectorsAPIClient
 from engine.sectors.news_engine import NewsItem, SectorsNewsEngine
 
@@ -108,6 +108,7 @@ class InvestigationPipeline:
             volume_z_threshold=2.5,
             return_threshold_pct=5.0,
             divergence_threshold_pct=4.0,
+            min_turnover_idr=DEFAULT_MIN_TURNOVER_IDR,
         )
 
         for anom in anomalies:

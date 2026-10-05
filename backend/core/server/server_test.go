@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -215,7 +216,7 @@ func TestTestConnectionEndpoint(t *testing.T) {
 		t.Fatalf("expected 400 for unknown target, got %d", resp.StatusCode)
 	}
 
-	// 2. Sectors target in offline mode
+	// 2. Sectors target without API key: should fail and report key required
 	resp2, err := http.Post(srv.URL+"/api/settings/test-connection", "application/json", strings.NewReader(`{"target":"sectors"}`))
 	if err != nil {
 		t.Fatalf("POST test-connection failed: %v", err)
@@ -227,15 +228,17 @@ func TestTestConnectionEndpoint(t *testing.T) {
 
 	var data map[string]interface{}
 	_ = json.NewDecoder(resp2.Body).Decode(&data)
-	if data["success"] != true {
-		t.Errorf("expected success true in offline mode, got %+v", data)
+	if data["success"] != false {
+		t.Errorf("expected success false when key is empty, got %+v", data)
 	}
 	msg, _ := data["message"].(string)
-	if !strings.Contains(msg, "[MOCK MODE]") {
-		t.Errorf("expected [MOCK MODE] in message, got %s", msg)
+	if !strings.Contains(msg, "not configured") {
+		t.Errorf("expected 'not configured' in message, got %s", msg)
 	}
 
-	// 3. Anthropic target in offline mode
+	// 3. Anthropic target in offline testing mode (requires NISKAVA_TESTING=1)
+	os.Setenv("NISKAVA_TESTING", "1")
+	defer os.Unsetenv("NISKAVA_TESTING")
 	resp3, err := http.Post(srv.URL+"/api/settings/test-connection", "application/json", strings.NewReader(`{"target":"anthropic","api_key":"sk-ant-test"}`))
 	if err != nil {
 		t.Fatalf("POST test-connection anthropic failed: %v", err)
@@ -244,11 +247,11 @@ func TestTestConnectionEndpoint(t *testing.T) {
 	var data3 map[string]interface{}
 	_ = json.NewDecoder(resp3.Body).Decode(&data3)
 	if data3["success"] != true {
-		t.Errorf("expected success true in offline mode for anthropic, got %+v", data3)
+		t.Errorf("expected success true in offline testing mode for anthropic, got %+v", data3)
 	}
 	msg3, _ := data3["message"].(string)
-	if !strings.Contains(msg3, "[MOCK MODE]") {
-		t.Errorf("expected [MOCK MODE] in anthropic message, got %s", msg3)
+	if !strings.Contains(msg3, "[TEST MODE]") {
+		t.Errorf("expected [TEST MODE] in anthropic message, got %s", msg3)
 	}
 }
 
@@ -289,7 +292,7 @@ func TestChatSessions_REST_Endpoints(t *testing.T) {
 	}
 
 	// 2. POST /api/chat/sessions (create session)
-	createPayload := []byte(`{"id":"TEST-WEB-001","title":"Analisis ANTM","model":"hermes"}`)
+	createPayload := []byte(`{"id":"TEST-WEB-001","title":"Analisis ANTM","model":"gemini-2.0-flash"}`)
 	resp, err = client.Post(srv.URL+"/api/chat/sessions", "application/json", bytes.NewReader(createPayload))
 	if err != nil {
 		t.Fatalf("POST /api/chat/sessions failed: %v", err)
@@ -413,7 +416,7 @@ func TestChatSession_Export_And_Search(t *testing.T) {
 	_ = database.CreateChatSession(&db.ChatSession{
 		ID:     sessionID,
 		Title:  "Riset Komoditas ANTM",
-		Model:  "hermes",
+		Model:  "gemini-2.0-flash",
 		Status: "IDLE",
 	})
 
@@ -702,6 +705,55 @@ func TestInvestigationEndpoints(t *testing.T) {
 	respList.Body.Close()
 	if int(listData["total"].(float64)) != 1 {
 		t.Errorf("expected total 1 investigation, got %v", listData["total"])
+	}
+
+	// 9. Test GET /api/radar/anomalies -> 200 OK
+	respRadar, err := client.Get(srv.URL + "/api/radar/anomalies?limit=10&min_z=2.0")
+	if err != nil {
+		t.Fatalf("GET /api/radar/anomalies failed: %v", err)
+	}
+	if respRadar.StatusCode != http.StatusOK {
+		t.Errorf("expected 200 OK from /api/radar/anomalies, got %d", respRadar.StatusCode)
+	}
+	var radarData map[string]interface{}
+	_ = json.NewDecoder(respRadar.Body).Decode(&radarData)
+	respRadar.Body.Close()
+	if int(radarData["total"].(float64)) != 1 {
+		t.Errorf("expected 1 radar anomaly, got %v", radarData["total"])
+	}
+
+	// 10. Test GET /api/market/candles -> 200 OK (ticker-specific scales)
+	respCandlesANTM, err := client.Get(srv.URL + "/api/market/candles?ticker=ANTM&days=30")
+	if err != nil {
+		t.Fatalf("GET /api/market/candles ANTM failed: %v", err)
+	}
+	if respCandlesANTM.StatusCode != http.StatusOK {
+		t.Errorf("expected 200 OK from /api/market/candles ANTM, got %d", respCandlesANTM.StatusCode)
+	}
+	var antmCandles map[string]interface{}
+	_ = json.NewDecoder(respCandlesANTM.Body).Decode(&antmCandles)
+	respCandlesANTM.Body.Close()
+	antmData := antmCandles["data"].([]interface{})
+	if len(antmData) != 30 {
+		t.Errorf("expected 30 candles, got %d", len(antmData))
+	}
+	firstAntm := antmData[0].(map[string]interface{})
+	if firstAntm["open"].(float64) < 1000 || firstAntm["open"].(float64) > 2000 {
+		t.Errorf("expected ANTM open around 1500, got %v", firstAntm["open"])
+	}
+
+	// Test BBRI candles have distinct realistic price ~4980
+	respCandlesBBRI, err := client.Get(srv.URL + "/api/market/candles?ticker=BBRI&days=30")
+	if err != nil {
+		t.Fatalf("GET /api/market/candles BBRI failed: %v", err)
+	}
+	var bbriCandles map[string]interface{}
+	_ = json.NewDecoder(respCandlesBBRI.Body).Decode(&bbriCandles)
+	respCandlesBBRI.Body.Close()
+	bbriData := bbriCandles["data"].([]interface{})
+	firstBbri := bbriData[0].(map[string]interface{})
+	if firstBbri["open"].(float64) < 4000 || firstBbri["open"].(float64) > 6000 {
+		t.Errorf("expected BBRI open around 4980, got %v", firstBbri["open"])
 	}
 }
 
@@ -1059,7 +1111,10 @@ func TestDynamicSettingsAndSubprocessEnv(t *testing.T) {
 		t.Errorf("expected initial_sectors_key, got %s", env["SECTORS_API_KEY"])
 	}
 
-	// 2. PATCH /api/settings with new keys
+	// 2. PATCH /api/settings with new keys (in testing mode)
+	os.Setenv("NISKAVA_TESTING", "1")
+	defer os.Unsetenv("NISKAVA_TESTING")
+
 	patchBody := `{"auth":{"sectors_api_key":"new_sectors_key_777","gemini_api_key":"new_gemini_key_888","ai_provider":"gemini"},"preferences":{"language":"id","offline_mode":true}}`
 	req, _ := http.NewRequest(http.MethodPatch, srv.URL+"/api/settings", strings.NewReader(patchBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -1237,7 +1292,7 @@ func TestChatBackgroundExecutionSurvivesClientDisconnect(t *testing.T) {
 	_ = database.CreateChatSession(&db.ChatSession{
 		ID:     sessionID,
 		Title:  "Test Disconnect",
-		Model:  "hermes",
+		Model:  "gemini-2.0-flash",
 		Status: "IDLE",
 	})
 
@@ -1265,5 +1320,188 @@ func TestChatBackgroundExecutionSurvivesClientDisconnect(t *testing.T) {
 		// Success: explicit abort canceled the execution context
 	default:
 		t.Fatalf("expected execution context to be canceled on abort")
+	}
+}
+
+func TestInvestigationTimelineEndpoint(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	database, err := db.Open(filepath.Join(t.TempDir(), "test_srv_timeline.db"))
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	const invID = "INV-TIMELINE-REST-01"
+	if err := database.CreateInvestigation(&db.Investigation{
+		ID: invID, Ticker: "ANTM", Market: "IDX", TimeframeDays: 30, Status: "COMPLETED", StartedAt: "2026-09-20T10:00:00Z",
+	}); err != nil {
+		t.Fatalf("failed to seed investigation: %v", err)
+	}
+	if err := database.CreateAnomaly(&db.Anomaly{
+		ID: "ANOM-TL-REST-01", InvestigationID: invID, AnomalyDate: "2026-09-18",
+		MetricType: "VOLUME_SPIKE", MetricValue: 15000000, BaselineValue: 5000000, ZScore: 3.45,
+	}); err != nil {
+		t.Fatalf("failed to seed anomaly: %v", err)
+	}
+
+	srv, err := Start(ctx, 0, database, config.DefaultConfig())
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	resp, err := client.Get(srv.URL + "/api/investigations/" + invID + "/timeline")
+	if err != nil {
+		t.Fatalf("GET timeline failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+	var payload struct {
+		InvestigationID string             `json:"investigation_id"`
+		Total           int                `json:"total"`
+		Events          []db.TimelineEvent `json:"events"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("failed to decode timeline response: %v", err)
+	}
+	if payload.InvestigationID != invID || payload.Total != 1 || len(payload.Events) != 1 {
+		t.Fatalf("unexpected timeline payload: %+v", payload)
+	}
+	if payload.Events[0].EventType != "QUANT_ANOMALY" || payload.Events[0].EventTimestamp != "2026-09-18" {
+		t.Errorf("unexpected timeline event: %+v", payload.Events[0])
+	}
+
+	postResp, err := client.Post(srv.URL+"/api/investigations/"+invID+"/timeline", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST timeline failed: %v", err)
+	}
+	postResp.Body.Close()
+	if postResp.StatusCode != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405 for POST timeline, got %d", postResp.StatusCode)
+	}
+}
+
+func TestCreateInvestigationEndpoint(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	database, err := db.Open(filepath.Join(t.TempDir(), "test_srv_create_inv.db"))
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	srv, err := Start(ctx, 0, database, config.DefaultConfig())
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	body := bytes.NewBufferString(`{
+		"id": "INV-CHAT-BBCA-01",
+		"ticker": "BBCA",
+		"market": "IDX",
+		"timeframe_days": 30,
+		"status": "COMPLETED",
+		"summary_text": "BBCA orderly de-rating ~5.8% without volume anomaly"
+	}`)
+
+	resp, err := client.Post(srv.URL+"/api/investigations", "application/json", body)
+	if err != nil {
+		t.Fatalf("POST /api/investigations failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		t.Fatalf("expected 200/201, got %d", resp.StatusCode)
+	}
+
+	// Verify persistence in DB
+	inv, err := database.GetInvestigation("INV-CHAT-BBCA-01")
+	if err != nil || inv == nil {
+		t.Fatalf("investigation was not persisted: %v", err)
+	}
+	if inv.Ticker != "BBCA" {
+		t.Errorf("expected ticker BBCA, got %s", inv.Ticker)
+	}
+}
+
+func TestDocumentUploadAndRetrieval(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_upload.db")
+	database, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	t.Setenv("NISKAVA_UPLOADS_DIR", filepath.Join(tempDir, "uploads"))
+
+	srv, err := Start(ctx, 0, database, config.DefaultConfig())
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+
+	// 1. Prepare multipart upload
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	_ = writer.WriteField("session_id", "TEST-UPLOAD-SESS")
+	part, err := writer.CreateFormFile("file", "annual_report_2026.pdf")
+	if err != nil {
+		t.Fatalf("failed to create form file: %v", err)
+	}
+	_, _ = part.Write([]byte("%PDF-1.4 Mock PDF Header for Testing Purpose"))
+	_ = writer.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/upload", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /api/upload failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		t.Fatalf("Expected 200/201, got %d", resp.StatusCode)
+	}
+
+	var uploadResp map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&uploadResp); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	docID, ok := uploadResp["id"].(string)
+	if !ok || docID == "" {
+		t.Fatalf("Expected valid id, got: %+v", uploadResp)
+	}
+
+	// 2. Retrieve document metadata
+	getResp, err := http.DefaultClient.Get(srv.URL + "/api/documents/" + docID)
+	if err != nil {
+		t.Fatalf("GET /api/documents/:id failed: %v", err)
+	}
+	defer getResp.Body.Close()
+	if getResp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", getResp.StatusCode)
+	}
+
+	// 3. Verify session attachments query
+	listResp, err := http.DefaultClient.Get(srv.URL + "/api/chat/sessions/TEST-UPLOAD-SESS/attachments")
+	if err != nil {
+		t.Fatalf("GET session attachments failed: %v", err)
+	}
+	defer listResp.Body.Close()
+	if listResp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", listResp.StatusCode)
 	}
 }

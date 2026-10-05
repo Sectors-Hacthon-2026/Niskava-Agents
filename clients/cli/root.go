@@ -16,7 +16,7 @@ import (
 )
 
 // Version defines the release version of Niskava Agent.
-const Version = "0.1.4"
+const Version = "0.2.0"
 
 var (
 	cfgFile     string
@@ -50,6 +50,27 @@ and qualitative market disclosures/news.`,
 		appDB, err = db.Open(cfg.Storage.DBPath)
 		if err != nil {
 			return fmt.Errorf("failed to open database at %s: %w", cfg.Storage.DBPath, err)
+		}
+
+		// Commands that do not require a Sectors key:
+		// - setup: configures the key interactively
+		// - version, help, completion: informational only, no data access
+		// - sessions: inspects/exports local SQLite history only, no remote calls
+		exemptCommands := map[string]bool{
+			"setup":      true,
+			"version":    true,
+			"help":       true,
+			"completion": true,
+			"sessions":   true,
+		}
+		topCmd := cmd
+		for topCmd.HasParent() && topCmd.Parent().HasParent() {
+			topCmd = topCmd.Parent()
+		}
+		if !exemptCommands[cmd.Name()] && !exemptCommands[topCmd.Name()] {
+			if keyErr := config.RequireSectorsKey(cfg); keyErr != nil {
+				return keyErr
+			}
 		}
 
 		return nil
