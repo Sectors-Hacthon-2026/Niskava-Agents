@@ -196,6 +196,25 @@ niskava investigate ANTM --days 30 --pdf
 
 ---
 
+### 5. Autonomous Telegram Bot (`niskava telegram`)
+
+Interact with Niskava directly from your mobile device via Telegram. Incoming inquiries trigger the autonomous ReAct investigation pipeline with live typing indicators, local SQLite persistence, and Markdown report export:
+
+<p align="center">
+  <img src="docs/assets/niskva-chat-tele-prompt.png" alt="Niskava Autonomous Telegram Bot Chat & Investigation Session" width="85%">
+</p>
+
+* **Conversational Market Reconnaissance:** Send any IDX symbol (e.g., `ANTM`, `BBRI`) or prompt directly to trigger autonomous multi-tool investigation.
+* **Security & Whitelist Control:** Safeguard API credits with user whitelist enforcement via `niskava telegram user add <id_or_user>` or the Web Settings modal.
+* **Built-in Bot Commands:** `/start`, `/new` (fresh session), `/status`, `/export` (download report), and `/stop`.
+
+```bash
+# Start Telegram bot worker
+niskava telegram
+```
+
+---
+
 ## System Architecture
 
 Niskava employs a **Tripartite Hybrid Architecture** that combines the performance and single-binary distribution of Go with the numerical and agentic ecosystem of Python:
@@ -314,6 +333,9 @@ Niskava reads settings from environment variables or `~/.niskava/config.yaml`:
 | `NISKAVA_DB_PATH` | `storage.db_path` | `"~/.niskava/niskava.db"` | Local SQLite database file path. |
 | `NISKAVA_PORT` | `server.port` | `20128` | Local Web Workspace port. |
 | `NISKAVA_LANG` | `preferences.language` | `"id"` | Interface language (`id` or `en`). |
+| `NISKAVA_TELEGRAM_TOKEN` | `telegram.bot_token` | `""` | Telegram Bot Token from @BotFather. |
+| `NISKAVA_TELEGRAM_ENABLED` | `telegram.enabled` | `"0"` | Auto-start bot daemon alongside `niskava serve`. |
+| `NISKAVA_TELEGRAM_ALLOWED_USERS` | `telegram.allowed_users` | `[]` | Authorized Telegram user whitelist (comma-separated). |
 | `MOCK_SECTORS` | — | `"0"` | Set to `1` for offline fixture testing (CI/CD only). |
 
 ---

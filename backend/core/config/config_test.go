@@ -211,6 +211,35 @@ func TestTelegramAllowedUsersEmptyReset(t *testing.T) {
 	}
 }
 
+func TestTelegramConfigFallbackParsing(t *testing.T) {
+	os.Setenv("TELEGRAM_BOT_TOKEN", "fallback-token-abc")
+	os.Setenv("TELEGRAM_ENABLED", "1")
+	os.Setenv("TELEGRAM_ALLOWED_USERS", "fallback_user,78910")
+	defer func() {
+		os.Unsetenv("TELEGRAM_BOT_TOKEN")
+		os.Unsetenv("TELEGRAM_ENABLED")
+		os.Unsetenv("TELEGRAM_ALLOWED_USERS")
+	}()
+
+	tempDir := t.TempDir()
+	cfgPath := filepath.Join(tempDir, "config.yaml")
+
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	if cfg.Telegram.BotToken != "fallback-token-abc" {
+		t.Errorf("expected bot token 'fallback-token-abc', got '%s'", cfg.Telegram.BotToken)
+	}
+	if !cfg.Telegram.Enabled {
+		t.Errorf("expected telegram enabled to be true via TELEGRAM_ENABLED fallback")
+	}
+	if len(cfg.Telegram.AllowedUsers) != 2 || cfg.Telegram.AllowedUsers[0] != "fallback_user" || cfg.Telegram.AllowedUsers[1] != "78910" {
+		t.Errorf("unexpected allowed users from fallback: %v", cfg.Telegram.AllowedUsers)
+	}
+}
+
 func TestExpandHome_CrossPlatform(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {

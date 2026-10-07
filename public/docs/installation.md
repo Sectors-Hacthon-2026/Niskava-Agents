@@ -187,9 +187,17 @@ Choose your preferred inference backend:
 * **Live Mode Auto-Toggle:** When a valid Sectors API key is entered, Niskava automatically activates **Live Mode** (`MOCK_SECTORS=0`).
 * *Note:* If you press ENTER without entering a key, Niskava will alert you that it is running in Mock Simulation Mode (synthetic fixtures).
 
-### Step 3: Local Storage & Preferences
-* Database path defaults to `~/.niskava/niskava.db`.
-* Language preference (`id` for Indonesian, `en` for English).
+### Step 3: Local Storage & Database Path
+* Database path defaults to `~/.niskava/niskava.db` (Local SQLite with WAL mode).
+
+### Step 4: Language & Persona Preferences
+* Choose default persona language: Indonesian (`id`) or English (`en`).
+
+### Step 5: Telegram Bot Integration (Optional)
+* Configure Telegram Bot Token from [@BotFather](https://t.me/botfather).
+* Live validation ping checks token validity against Telegram API servers.
+* Configure authorized user whitelists to safeguard API credit usage.
+* Enables autonomous market intelligence research directly from your mobile device.
 
 ---
 

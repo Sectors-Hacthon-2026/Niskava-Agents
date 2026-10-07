@@ -77,8 +77,9 @@ telegram:
 | `OPENAI_API_KEY` | Auth | Kunci API OpenAI / OpenRouter / Gateway |
 | `OPENAI_BASE_URL` | Auth | Endpoint OpenAI-compatible (contoh: http://localhost:20128/v1) |
 | `OPENAI_MODEL` | Auth | Nama model inference (contoh: gpt-4o-mini, deepseek-chat) |
-| `NISKAVA_TELEGRAM_TOKEN` | Telegram | Token bot Telegram |
-| `NISKAVA_TELEGRAM_ALLOWED_USERS`| Telegram | Daftar pengguna terotorisasi (dipisah koma) |
+| `NISKAVA_TELEGRAM_TOKEN` | Telegram | Token bot Telegram dari @BotFather (fallback: `TELEGRAM_BOT_TOKEN`) |
+| `NISKAVA_TELEGRAM_ENABLED`| Telegram | Mengaktifkan autostart bot saat `niskava serve` (`1` atau `0`) |
+| `NISKAVA_TELEGRAM_ALLOWED_USERS`| Telegram | Daftar pengguna terotorisasi (dipisah koma, fallback: `TELEGRAM_ALLOWED_USERS`) |
 
 ---
 
@@ -268,23 +269,46 @@ niskava setup [flags]
 ---
 
 ### 3.5 `niskava telegram` (Alias: `niskava bot`)
-Menjalankan worker percakapan bot Telegram berbasis *long-polling* terdedikasi. Pesan pengguna diarahkan langsung ke ReAct investigation pipeline dan disinkronisasikan ke database lokal.
+Menjalankan worker percakapan bot Telegram berbasis *long-polling* terdedikasi serta mengelola diagnostik dan whitelist pengguna. Pesan pengguna diarahkan langsung ke ReAct investigation pipeline dan disinkronisasikan ke database lokal.
 
 ```bash
-niskava telegram [flags]
-niskava bot [flags]
+niskava telegram [subcommand] [flags]
+niskava bot [subcommand] [flags]
 ```
 
-#### Flags Khusus:
+#### Flags Khusus Perintah Utama:
 * `--token <string>`: Token bot Telegram (override token di `config.yaml` atau env).
+
+#### Subperintah:
+* `niskava telegram status` : Memeriksa konektivitas langsung ke API Telegram (`getMe`), identitas bot, status autostart, dan whitelist aktif.
+* `niskava telegram user list` : Menampilkan seluruh User ID numerik dan @username Telegram yang terotorisasi.
+* `niskava telegram user add <id_or_username> [more...]` : Menambahkan pengguna ke daftar whitelist (otomatis tersimpan ke `config.yaml` dan `.env`).
+* `niskava telegram user remove <id_or_username> [more...]` : Menghapus pengguna dari whitelist.
+* `niskava telegram test --chat-id <ID> [--message <string>]` : Mengirim pesan ping uji coba ke chat ID target untuk memverifikasi pengiriman pesan.
+
+#### Flags Subperintah `test`:
+* `--chat-id <string>` : ID chat Telegram target (wajib).
+* `--message <string>` : Pesan kustom pengujian.
 
 #### Contoh Penggunaan:
 ```bash
-# Menjalankan bot dengan token dari config.yaml
+# Menjalankan bot dengan token dari config.yaml / .env
 niskava telegram
 
 # Menjalankan bot dengan token eksplisit
 niskava bot --token "7123456789:AAHxyz..."
+
+# Memeriksa diagnostik dan status koneksi bot
+niskava telegram status
+
+# Menambahkan analis ke whitelist
+niskava telegram user add @analyst_idx 123456789
+
+# Melihat daftar whitelist saat ini
+niskava telegram user list
+
+# Mengirim pesan uji coba koneksi
+niskava telegram test --chat-id 123456789
 ```
 
 ---

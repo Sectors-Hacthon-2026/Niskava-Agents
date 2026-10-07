@@ -319,8 +319,19 @@ func Load(customConfigPath string) (*Config, error) {
 	}
 	if val := os.Getenv("NISKAVA_TELEGRAM_ENABLED"); val == "1" || strings.ToLower(val) == "true" {
 		cfg.Telegram.Enabled = true
+	} else if val := os.Getenv("TELEGRAM_ENABLED"); val == "1" || strings.ToLower(val) == "true" {
+		cfg.Telegram.Enabled = true
 	}
 	if val, ok := os.LookupEnv("NISKAVA_TELEGRAM_ALLOWED_USERS"); ok {
+		parts := strings.Split(val, ",")
+		var cleaned []string
+		for _, p := range parts {
+			if trimmed := strings.TrimSpace(p); trimmed != "" {
+				cleaned = append(cleaned, trimmed)
+			}
+		}
+		cfg.Telegram.AllowedUsers = cleaned
+	} else if val, ok := os.LookupEnv("TELEGRAM_ALLOWED_USERS"); ok {
 		parts := strings.Split(val, ",")
 		var cleaned []string
 		for _, p := range parts {
