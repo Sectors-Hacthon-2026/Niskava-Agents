@@ -4670,3 +4670,429 @@
                 padding: 18px 20px;
             }
         }
+
+/* ==========================================================================
+   5. KNOWLEDGE HUB & MARKET GLOSSARY MODAL (DESIGN.md Minimalist Institutional)
+   ========================================================================== */
+.glossary-modal-card {
+    max-width: 860px;
+    height: 88vh;
+    max-height: 880px;
+}
+
+.glossary-modal-body {
+    padding: 20px 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background: var(--bg-card);
+}
+
+.glossary-tab-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    animation: modalOverlayFadeIn 0.15s ease-out;
+}
+
+.glossary-tab-content[style*="display:none"],
+.glossary-tab-content.hidden {
+    display: none !important;
+}
+
+/* Tab 1: Hero Card & Laws */
+.glossary-hero-card {
+    background: var(--bg-card-hover);
+    border: 1px solid var(--border-subtle);
+    border-left: 3px solid var(--primary);
+    border-radius: 10px;
+    padding: 14px 18px;
+}
+
+.glossary-hero-quote {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
+}
+
+.glossary-hero-p {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    margin: 0;
+}
+
+.glossary-section-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+    margin-top: 8px;
+    margin-bottom: 2px;
+}
+
+.glossary-laws-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.glossary-law-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.glossary-law-item:hover {
+    border-color: var(--border-strong);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.glossary-law-badge {
+    display: inline-block;
+    align-self: flex-start;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-primary);
+    background: var(--bg-card-hover);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    padding: 2px 7px;
+}
+
+.glossary-law-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+
+.glossary-law-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.glossary-pipeline-flow-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pipeline-step-badge {
+    display: inline-block;
+    align-self: flex-start;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    color: var(--badge-blue-text);
+    background: var(--badge-blue-bg);
+    border: 1px solid var(--badge-blue-border);
+    border-radius: 4px;
+    padding: 2px 8px;
+}
+
+.pipeline-step-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    font-family: var(--font-mono);
+}
+
+/* Tab 2: Terms Search & Filter */
+.glossary-controls-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    background: var(--bg-card);
+    z-index: 5;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.glossary-search-wrap {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.glossary-search-icon {
+    position: absolute;
+    left: 12px;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.glossary-search-input {
+    width: 100%;
+    padding: 9px 36px 9px 36px;
+    font-size: 12.5px;
+    background: var(--bg-card-hover);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-primary);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.glossary-search-input:focus {
+    outline: none;
+    border-color: var(--border-strong);
+    background: var(--bg-card);
+}
+
+.glossary-search-clear {
+    position: absolute;
+    right: 10px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 11px;
+    line-height: 1;
+    border-radius: 4px;
+    transition: color 0.15s ease;
+}
+
+.glossary-search-clear:hover {
+    color: var(--text-primary);
+}
+
+.glossary-filter-pills {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+}
+
+.glossary-filter-pills::-webkit-scrollbar {
+    display: none;
+}
+
+.glossary-pill {
+    padding: 4px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-card-hover);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.glossary-pill:hover {
+    color: var(--text-primary);
+    border-color: var(--border-strong);
+}
+
+.glossary-pill.active {
+    color: var(--primary-text);
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.glossary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.glossary-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.glossary-card:hover {
+    border-color: var(--border-strong);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.glossary-card.hidden {
+    display: none !important;
+}
+
+.glossary-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.glossary-card-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+.glossary-card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+
+.glossary-card-body {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.glossary-card-formula {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    background: var(--bg-card-hover);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-top: auto;
+    line-height: 1.4;
+    word-break: break-all;
+}
+
+.glossary-empty-state {
+    text-align: center;
+    padding: 40px 16px;
+    color: var(--text-muted);
+    font-size: 12.5px;
+}
+
+/* Tab 3: Prompts List */
+.glossary-prompts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.glossary-prompt-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.15s ease;
+}
+
+.glossary-prompt-item:hover {
+    border-color: var(--border-strong);
+}
+
+.prompt-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.prompt-item-text {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--bg-card-hover);
+    border-left: 3px solid var(--primary);
+    padding: 8px 12px;
+    border-radius: 4px;
+    line-height: 1.45;
+}
+
+.prompt-item-notes {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.prompt-item-notes code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--bg-card-hover);
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+}
+
+.btn-copy-prompt {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: var(--bg-card-hover);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-copy-prompt:hover {
+    background: var(--primary);
+    color: var(--primary-text);
+    border-color: var(--primary);
+}
+
+.btn-copy-prompt.copied {
+    background: var(--badge-green-bg);
+    color: var(--badge-green-text);
+    border-color: var(--badge-green-border);
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 768px) {
+    .glossary-modal-card {
+        max-width: 100%;
+        height: 94vh;
+        max-height: 94vh;
+        border-radius: 12px;
+    }
+
+    .glossary-modal-body {
+        padding: 14px 16px;
+    }
+
+    .glossary-laws-grid,
+    .glossary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .prompt-item-header {
+        flex-direction: row;
+        align-items: center;
+    }
+}

@@ -44,6 +44,10 @@
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                     <span data-i18n="nav_graphify">Memory Graph</span>
                 </a>
+                <a href="#" class="nav-link-item" id="navLinkGlossary" data-nav="glossary" data-tooltip="Panduan & Glosarium" data-i18n-tooltip="nav_glossary_tooltip">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                    <span data-i18n="nav_glossary">Panduan & Glosarium</span>
+                </a>
             </nav>
 
             <div class="sidebar-section-divider"></div>
@@ -114,6 +118,11 @@
                     <button class="btn-header-icon" id="themeToggleBtn" aria-label="Ganti Tema Gelap/Terang" data-tooltip="Ganti Tema (Gelap/Terang)" data-i18n-tooltip="header_theme_tooltip" title="Ganti Tema">
                         <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
                         <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                    </button>
+
+                    <!-- Market Guide & Glossary Hub (?) -->
+                    <button class="btn-header-icon" id="btnHeaderGlossary" aria-label="Glosarium & Panduan Pasar" data-tooltip="Panduan & Glosarium (⌘/)" data-i18n-tooltip="header_glossary_tooltip" title="Panduan & Glosarium (⌘/)">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                     </button>
 
                     <!-- System Settings & Diagnostics -->
@@ -995,6 +1004,401 @@
                     <button type="button" class="btn-primary-action" id="btnSaveSettings" data-i18n="btn_save">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                         <span>Simpan Perubahan</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. KNOWLEDGE HUB & MARKET GLOSSARY MODAL (DESIGN.md Minimalist Institutional) -->
+    <div class="modal-overlay" id="glossaryModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modalGlossaryTitle">
+        <div class="modal-card settings-modal-card glossary-modal-card">
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <div class="modal-header-left">
+                    <div class="modal-header-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="modal-title" id="modalGlossaryTitle">
+                            <span data-i18n="glossary_modal_title">Glosarium & Panduan Pasar</span>
+                            <span class="settings-ver-badge">IDX Intelligence</span>
+                        </div>
+                        <div class="modal-subtitle" data-i18n="glossary_modal_subtitle">
+                            Metodologi intelijen pasar, metrik anomali kuantitatif, dan taksonomi verifikasi bukti BEI.
+                        </div>
+                    </div>
+                </div>
+                <button class="modal-close-btn" id="btnCloseGlossaryModal" aria-label="Tutup Panduan" title="Tutup (Esc)">
+                    <span data-i18n="close_btn_label">Tutup</span>
+                    <kbd class="modal-kbd-hint">Esc</kbd>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <div class="modal-tabs">
+                <button class="modal-tab-btn active" data-glossary-tab="tab-glossary-about" id="tabBtnGlossaryAbout">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span data-i18n="tab_glossary_about">Tentang & 6 Hukum</span>
+                </button>
+                <button class="modal-tab-btn" data-glossary-tab="tab-glossary-terms" id="tabBtnGlossaryTerms">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                    <span data-i18n="tab_glossary_terms">Kamus Istilah & Metrik</span>
+                </button>
+                <button class="modal-tab-btn" data-glossary-tab="tab-glossary-prompts" id="tabBtnGlossaryPrompts">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                    <span data-i18n="tab_glossary_prompts">Cheat Sheet Prompt</span>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="modal-body glossary-modal-body">
+                <!-- TAB 1: ABOUT & PRINCIPLES -->
+                <div class="glossary-tab-content active" id="tabContentGlossaryAbout">
+                    <!-- Hero Banner -->
+                    <div class="glossary-hero-card">
+                        <div class="glossary-hero-quote" data-i18n="glossary_about_tagline">"Don't just answer questions. Investigate them."</div>
+                        <p class="glossary-hero-p" data-i18n="glossary_about_hero">
+                            Niskava Agent adalah platform orkestrasi intelijen pasar modal otonom khusus Bursa Efek Indonesia (IDX). Sistem menjembatani fakta kuantitatif resmi (Sectors Financial API v2) dengan intelijen kualitatif eksternal (keterbukaan informasi IDXnet, berita terkurasi, dan memori graf asosiatif).
+                        </p>
+                    </div>
+
+                    <!-- 6 Laws of Architecture -->
+                    <div class="glossary-section-heading">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        <span data-i18n="glossary_principles_title">6 Hukum Arsitektur Non-Negotiable</span>
+                    </div>
+
+                    <div class="glossary-laws-grid">
+                        <div class="glossary-law-item">
+                            <div class="glossary-law-badge">Law 1 • Deterministic</div>
+                            <div class="glossary-law-name" data-i18n="glossary_law1_title">Deterministic Before Generative</div>
+                            <div class="glossary-law-text" data-i18n="glossary_law1_desc">
+                                Seluruh metrik kuantitatif (Volume MA20, Z-score, abnormal return, divergensi sektor) dihitung secara deterministik dengan NumPy/Pandas sebelum memanggil LLM. Menghapus halusinasi numerik 100%.
+                            </div>
+                        </div>
+
+                        <div class="glossary-law-item">
+                            <div class="glossary-law-badge">Law 2 • Compliance</div>
+                            <div class="glossary-law-name" data-i18n="glossary_law2_title">Strict Financial Non-Advisory Boundary</div>
+                            <div class="glossary-law-text" data-i18n="glossary_law2_desc">
+                                Niskava adalah terminal intelijen investigatif, BUKAN penasihat investasi. Sistem tidak pernah memberikan rekomendasi BELI/JUAL atau target harga (Kepatuhan Hackathon Rule 12). Bukti diklasifikasikan ke dalam 3-Tier: SUPPORTED, UNCERTAIN, CONTRADICTED.
+                            </div>
+                        </div>
+
+                        <div class="glossary-law-item">
+                            <div class="glossary-law-badge">Law 3 • Execution</div>
+                            <div class="glossary-law-name" data-i18n="glossary_law3_title">Prohibition of Automated Trade Execution</div>
+                            <div class="glossary-law-text" data-i18n="glossary_law3_desc">
+                                Sistem bersifat murni read-only market intelligence. Tidak ada integrasi broker atau eksekusi order trading otomatis (Kepatuhan Hackathon Rule 06).
+                            </div>
+                        </div>
+
+                        <div class="glossary-law-item">
+                            <div class="glossary-law-badge">Law 4 • Sovereignty</div>
+                            <div class="glossary-law-name" data-i18n="glossary_law4_title">Local-First Data Sovereignty</div>
+                            <div class="glossary-law-text" data-i18n="glossary_law4_desc">
+                                Semua sesi investigasi, temuan bukti, graf memori, dan riwayat percakapan disimpan secara lokal di mesin Anda menggunakan SQLite WAL (~/.niskava/niskava.db). Tanpa cloud DB pihak ketiga.
+                            </div>
+                        </div>
+
+                        <div class="glossary-law-item">
+                            <div class="glossary-law-badge">Law 5 • Discipline</div>
+                            <div class="glossary-law-name" data-i18n="glossary_law5_title">Credit Budget Discipline & Local Caching</div>
+                            <div class="glossary-law-text" data-i18n="glossary_law5_desc">
+                                Data candlestick harian historis (T &lt; hari ini) di-cache permanen di SQLite lokal untuk melindungi kuota grant 1.000 kredit Sectors API v2, menjamin biaya 0 kredit untuk query berulang.
+                            </div>
+                        </div>
+
+                        <div class="glossary-law-item">
+                            <div class="glossary-law-badge">Law 6 • Graph Memory</div>
+                            <div class="glossary-law-name" data-i18n="glossary_law6_title">Local Conversational Graph Memory Engine</div>
+                            <div class="glossary-law-text" data-i18n="glossary_law6_desc">
+                                Memori asosiatif multi-entitas dikelola lokal menggunakan NetworkX in-memory dengan penelusuran Ego-Graph (k ≤ 2 hop) dan peluruhan waktu eksponensial (recency decay).
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 7-Stage SOP Pipeline Flow -->
+                    <div class="glossary-section-heading" style="margin-top:24px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                        <span data-i18n="glossary_pipeline_title">SOP 7-Tahap Pipeline Investigasi</span>
+                    </div>
+
+                    <div class="glossary-pipeline-flow-card">
+                        <div class="pipeline-step-badge">Pipeline SOP</div>
+                        <div class="pipeline-step-text" data-i18n="glossary_pipeline_desc">
+                            1. Inisiasi Sesi → 2. Baseline Data Sectors → 3. Deteksi Anomali Kuantitatif → 4. Identifikasi Gap Hipotesis → 5. Panen Berita & Keterbukaan → 6. Korelasi Kausalitas Waktu → 7. Sintesis Bukti Terstruktur & Streaming SSE.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: TERMS & METRICS GLOSSARY -->
+                <div class="glossary-tab-content" id="tabContentGlossaryTerms" style="display:none;">
+                    <!-- Search & Filter Controls -->
+                    <div class="glossary-controls-bar">
+                        <div class="glossary-search-wrap">
+                            <svg class="glossary-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" class="glossary-search-input" id="glossarySearchInput" placeholder="Cari istilah (cth: Z-Score, C3, Supported, MA20)..." data-i18n-placeholder="glossary_search_placeholder" aria-label="Cari istilah glosarium">
+                            <button type="button" class="glossary-search-clear" id="btnGlossarySearchClear" style="display:none;" aria-label="Hapus pencarian">✕</button>
+                        </div>
+
+                        <div class="glossary-filter-pills" id="glossaryFilterPills">
+                            <button type="button" class="glossary-pill active" data-filter="all" data-i18n="glossary_filter_all">Semua Istilah</button>
+                            <button type="button" class="glossary-pill" data-filter="quant" data-i18n="glossary_filter_quant">Kuantitatif & Anomali</button>
+                            <button type="button" class="glossary-pill" data-filter="flow" data-i18n="glossary_filter_flow">Arus Modal & Broker</button>
+                            <button type="button" class="glossary-pill" data-filter="evidence" data-i18n="glossary_filter_evidence">Verifikasi Bukti</button>
+                            <button type="button" class="glossary-pill" data-filter="arch" data-i18n="glossary_filter_arch">Arsitektur Sistem</button>
+                        </div>
+                    </div>
+
+                    <!-- Cards Grid -->
+                    <div class="glossary-grid" id="glossaryCardsGrid">
+                        <!-- 1. Volume Z-Score -->
+                        <div class="glossary-card" data-category="quant">
+                            <div class="glossary-card-top">
+                                <span class="glossary-card-tag" data-i18n="term_vz_tag">Metrik Kuantitatif</span>
+                                <span class="panel-card-badge" style="background:var(--badge-amber-bg); color:var(--badge-amber-text); border:1px solid var(--badge-amber-border);" data-i18n="term_vz_badge">Vz ≥ 2.50σ</span>
+                            </div>
+                            <div class="glossary-card-title" data-i18n="term_vz_title">Volume Z-Score (Vz)</div>
+                            <div class="glossary-card-body" data-i18n="term_vz_desc">
+                                Ukuran statistik seberapa jauh volume transaksi saham hari ini menyimpang dari rata-rata volume 20 hari sebelumnya (MA20). Nilai Vz ≥ 2.50σ mengindikasikan lonjakan volume perdagangan yang tidak wajar dan memicu investigasi mendalam.
+                            </div>
+                            <div class="glossary-card-formula" data-i18n="term_vz_formula">
+                                Rumus: Vz = (Volume_t - MA20_vol) / StdDev20_vol
+                            </div>
+                        </div>
+
+                        <!-- 2. Abnormal Return -->
+                        <div class="glossary-card" data-category="quant">
+                            <div class="glossary-card-top">
+                                <span class="glossary-card-tag" data-i18n="term_rt_tag">Aksi Harga</span>
+                                <span class="panel-card-badge" style="background:var(--badge-green-bg); color:var(--badge-green-text); border:1px solid var(--badge-green-border);" data-i18n="term_rt_badge">|Rt| ≥ 5.0%</span>
+                            </div>
+                            <div class="glossary-card-title" data-i18n="term_rt_title">Abnormal Return (Rt)</div>
+                            <div class="glossary-card-body" data-i18n="term_rt_desc">
+                                Deviasi pergerakan harga saham di luar ekspektasi normal pasar setelah memperhitungkan pergerakan indeks acuan. Nilai |Rt| ≥ 5% menandakan pergerakan harga ekstrem yang berpotensi memiliki katalis informasi terselubung.
+                            </div>
+                            <div class="glossary-card-formula" data-i18n="term_rt_formula">
+                                Rumus: Rt = R_saham - (Alpha + Beta * R_market)
+                            </div>
+                        </div>
+
+                        <!-- 3. MA20 Volume -->
+                        <div class="glossary-card" data-category="quant">
+                            <div class="glossary-card-top">
+                                <span class="glossary-card-tag" data-i18n="term_ma20_tag">Baseline Likuiditas</span>
+                                <span class="panel-card-badge" style="background:var(--badge-blue-bg); color:var(--badge-blue-text); border:1px solid var(--badge-blue-border);" data-i18n="term_ma20_badge">20 Hari Bursa</span>
+                            </div>
+                            <div class="glossary-card-title" data-i18n="term_ma20_title">Moving Average 20 (MA20 Volume)</div>
+                            <div class="glossary-card-body" data-i18n="term_ma20_desc">
+                                Rata-rata volume perdagangan harian selama 20 hari bursa aktif (~1 bulan kalender). Berfungsi sebagai patokan likuiditas normal emiten untuk mengukur rasio kelipatan volume.
+                            </div>
+                        </div>
+
+                        <!-- 4. Foreign Flow Z-Score -->
+                        <div class="glossary-card" data-category="quant">
+                            <div class="glossary-card-top">
+                                <span class="glossary-card-tag" data-i18n="term_fz_tag">Aliran Dana Asing</span>
+                                <span class="panel-card-badge" style="background:var(--badge-amber-bg); color:var(--badge-amber-text); border:1px solid var(--badge-amber-border);" data-i18n="term_fz_badge">|Fz| ≥ 2.50σ</span>
+                            </div>
+                            <div class="glossary-card-title" data-i18n="term_fz_title">Foreign Flow Z-Score (Fz)</div>
+                            <div class="glossary-card-body" data-i18n="term_fz_desc">
+                                Skor anomali arus modal bersih investor asing (Net Foreign Buy/Sell). Menunjukkan apakah akumulasi atau distribusi investor institusional asing terjadi dalam skala yang signifikan secara statistik.
+                            </div>
+                        </div>
+
+                        <!-- 5. Top Broker Concentration -->
+                        <div class="glossary-card" data-category="flow">
+                            <div class="glossary-card-top">
+                                <span class="glossary-card-tag" data-i18n="term_c3_tag">Bandarmology</span>
+                                <span class="panel-card-badge" style="background:var(--badge-purple-bg); color:var(--badge-purple-text); border:1px solid var(--badge-purple-border);" data-i18n="term_c3_badge">C3 ≥ 65%</span>
+                            </div>
+                            <div class="glossary-card-title" data-i18n="term_c3_title">Top Broker Concentration (C3)</div>
+                            <div class="glossary-card-body" data-i18n="term_c3_desc">
+                                Rasio penguasaan akumulasi volume beli bersih oleh 3 kode broker/sekuritas teratas dibandingkan total volume pasar. Nilai C3 ≥ 65% menandakan transaksi sangat terkonsentrasi di tangan segelintir pelaku institusional.
+                            </div>
+                        </div>
+
+                        <!-- 6. Sector Divergence -->
+                        <div class="glossary-card" data-category="quant">
+                            <div class="glossary-card-top">
+                                <span class="glossary-card-tag" data-i18n="term_div_tag">Komparasi Industri</span>
+                                <span class="panel-card-badge" style="background:var(--badge-blue-bg); color:var(--badge-blue-text); border:1px solid var(--badge-blue-border);" data-i18n="term_div_badge">Peers Benchmark</span>
+                            </div>
+                            <div class="glossary-card-title" data-i18n="term_div_title">Sector Divergence (Dt)</div>
+                            <div class="glossary-card-body" data-i18n="term_div_desc">
+                                Selisih persentase antara perubahan harga saham target dengan rata-rata pergerakan emiten sejenis di subsektor industrinya. Mengidentifikasi apakah pergerakan saham didorong oleh faktor spesifik emiten atau sentimen sektoral.
+                            </div>
+                        </div>
+
+                        <!-- 7. SUPPORTED Status -->
+                        <div class="glossary-card" data-category="evidence">
+                            <div class="glossary-card-top">
+                                <span class="glossary-card-tag" data-i18n="term_sup_tag">Tier 1 (Konfirmasi)</span>
+                                <span class="panel-card-badge" style="background:var(--badge-green-bg); color:var(--badge-green-text); border:1px solid var(--badge-green-border);" data-i18n="term_sup_badge">Tier 1 • Bobot 1.00</span>
+                            </div>
+                            <div class="glossary-card-title" style="color:var(--badge-green-text);" data-i18n="term_sup_title">Status Bukti: SUPPORTED</div>
+                            <div class="glossary-card-body" data-i18n="term_sup_desc">
+                                Temuan pasar yang dibuktikan secara langsung oleh data kuantitatif bursa resmi Sectors Financial API v2 atau surat pengumuman resmi keterbukaan informasi emiten di BEI (IDXnet).
+                            </div>
+                        </div>
+
+                        <!-- 8. UNCERTAIN Status -->
+                        <div class="glossary-card" data-category="evidence">
+                            <div class="glossary-card-top">
+                                <span class="glossary-card-tag" data-i18n="term_unc_tag">Tier 2 (Korelasi)</span>
+                                <span class="panel-card-badge" style="background:var(--badge-amber-bg); color:var(--badge-amber-text); border:1px solid var(--badge-amber-border);" data-i18n="term_unc_badge">Tier 2 • Bobot 0.65 - 0.85</span>
+                            </div>
+                            <div class="glossary-card-title" style="color:var(--badge-amber-text);" data-i18n="term_unc_title">Status Bukti: UNCERTAIN</div>
+                            <div class="glossary-card-body" data-i18n="term_unc_desc">
+                                Korelasi waktu teramati antara pergerakan saham dengan isu media atau kabar industri, namun hubungan kausalitas langsung belum diverifikasi oleh dokumen resmi perseroan.
+                            </div>
+                        </div>
+
+                        <!-- 9. CONTRADICTED Status -->
+                        <div class="glossary-card" data-category="evidence">
+                            <div class="glossary-card-top">
+                                <span class="glossary-card-tag" data-i18n="term_con_tag">Tier 1 (Bantahan)</span>
+                                <span class="panel-card-badge" style="background:var(--badge-red-bg); color:var(--badge-red-text); border:1px solid var(--badge-red-border);" data-i18n="term_con_badge">Tier 1 • Sanggahan Resmi</span>
+                            </div>
+                            <div class="glossary-card-title" style="color:var(--badge-red-text);" data-i18n="term_con_title">Status Bukti: CONTRADICTED</div>
+                            <div class="glossary-card-body" data-i18n="term_con_desc">
+                                Rumor, spekulasi pasar, atau klaim tidak berdasar yang secara tegas disanggah oleh klarifikasi manajemen emiten atau laporan keuangan teraudit.
+                            </div>
+                        </div>
+
+                        <!-- 10. Ego-Graph Memory -->
+                        <div class="glossary-card" data-category="arch">
+                            <div class="glossary-card-top">
+                                <span class="glossary-card-tag" data-i18n="term_ego_tag">Memori Graf Lokal</span>
+                                <span class="panel-card-badge" style="background:var(--badge-blue-bg); color:var(--badge-blue-text); border:1px solid var(--badge-blue-border);" data-i18n="term_ego_badge">k ≤ 2 Hops</span>
+                            </div>
+                            <div class="glossary-card-title" data-i18n="term_ego_title">Ego-Graph Memory</div>
+                            <div class="glossary-card-body" data-i18n="term_ego_desc">
+                                Arsitektur graf asosiasi lokal berbasis SQLite dan NetworkX yang memetakan keterkaitan emiten dengan pemilik manfaat, direksi/komisaris, entitas afiliasi, dan pemicu komoditas tanpa basis data eksternal berbayar.
+                            </div>
+                        </div>
+
+                        <!-- 11. Autonomous ReAct Loop -->
+                        <div class="glossary-card" data-category="arch">
+                            <div class="glossary-card-top">
+                                <span class="glossary-card-tag" data-i18n="term_react_tag">Arsitektur AI</span>
+                                <span class="panel-card-badge" style="background:var(--badge-purple-bg); color:var(--badge-purple-text); border:1px solid var(--badge-purple-border);" data-i18n="term_react_badge">Reasoning + Action</span>
+                            </div>
+                            <div class="glossary-card-title" data-i18n="term_react_title">Autonomous ReAct Agent Loop</div>
+                            <div class="glossary-card-body" data-i18n="term_react_desc">
+                                Pola operasional AI cerdas di mana model melakukan penalaran bertahap (&lt;thought&gt;), memilih alat deterministik (&lt;tool_call&gt;), mengamati hasil nyata (&lt;observation&gt;), dan menyintesis jawaban akhir (&lt;response&gt;).
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="glossaryNoResults" class="glossary-empty-state" style="display:none;" data-i18n="glossary_empty_search">
+                        Tidak ada istilah yang cocok dengan pencarian Anda.
+                    </div>
+                </div>
+
+                <!-- TAB 3: PROMPT CHEAT SHEET -->
+                <div class="glossary-tab-content" id="tabContentGlossaryPrompts" style="display:none;">
+                    <div class="glossary-hero-card" style="margin-bottom:16px;">
+                        <div class="glossary-card-title" style="font-size:14px; margin-bottom:4px;" data-i18n="glossary_prompt_title">Cheat Sheet Prompt Investigasi</div>
+                        <p class="glossary-hero-p" data-i18n="glossary_prompt_subtitle">
+                            Gunakan contoh pertanyaan di bawah ini untuk memulai audit intelijen pasar yang mendalam:
+                        </p>
+                    </div>
+
+                    <div class="glossary-prompts-list">
+                        <div class="glossary-prompt-item">
+                            <div class="prompt-item-header">
+                                <span class="glossary-card-tag">Single Stock Anomaly</span>
+                                <button type="button" class="btn-copy-prompt" data-prompt="Kenapa ANTM naik hari ini? Lakukan investigasi anomali volume dan keterbukaan informasinya." aria-label="Gunakan Prompt">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                    <span data-i18n="glossary_btn_use_prompt">Gunakan Prompt</span>
+                                </button>
+                            </div>
+                            <div class="prompt-item-text" data-i18n="glossary_prompt_1_text">
+                                "Kenapa ANTM naik hari ini? Lakukan investigasi anomali volume dan keterbukaan informasinya."
+                            </div>
+                            <div class="prompt-item-notes" data-i18n="glossary_prompt_1_note">Memanggil skill <code>market_anomaly_recon</code> dan <code>event_causality_audit</code> untuk verifikasi lonjakan volume.</div>
+                        </div>
+
+                        <div class="glossary-prompt-item">
+                            <div class="prompt-item-header">
+                                <span class="glossary-card-tag">Bandarmology & Flow</span>
+                                <button type="button" class="btn-copy-prompt" data-prompt="Cek akumulasi broker C3 dan net foreign flow BBRI selama 14 hari terakhir." aria-label="Gunakan Prompt">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                    <span data-i18n="glossary_btn_use_prompt">Gunakan Prompt</span>
+                                </button>
+                            </div>
+                            <div class="prompt-item-text" data-i18n="glossary_prompt_2_text">
+                                "Cek akumulasi broker C3 dan net foreign flow BBRI selama 14 hari terakhir."
+                            </div>
+                            <div class="prompt-item-notes" data-i18n="glossary_prompt_2_note">Memanggil skill <code>insider_bandarmology_forensic</code> untuk analisis konsentrasi broker dan aliran dana asing.</div>
+                        </div>
+
+                        <div class="glossary-prompt-item">
+                            <div class="prompt-item-header">
+                                <span class="glossary-card-tag">Macro Market Screener</span>
+                                <button type="button" class="btn-copy-prompt" data-prompt="Tampilkan saham top gainers dan paling aktif diperdagangkan di BEI hari ini." aria-label="Gunakan Prompt">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                    <span data-i18n="glossary_btn_use_prompt">Gunakan Prompt</span>
+                                </button>
+                            </div>
+                            <div class="prompt-item-text" data-i18n="glossary_prompt_3_text">
+                                "Tampilkan saham top gainers dan paling aktif diperdagangkan di BEI hari ini."
+                            </div>
+                            <div class="prompt-item-notes" data-i18n="glossary_prompt_3_note">Memanggil gateway <code>query_sectors</code> domain <code>top_changes</code> dan <code>most_traded</code>.</div>
+                        </div>
+
+                        <div class="glossary-prompt-item">
+                            <div class="prompt-item-header">
+                                <span class="glossary-card-tag">Sector Peer Benchmark</span>
+                                <button type="button" class="btn-copy-prompt" data-prompt="Bandingkan valuasi dan kinerja emiten perbankan: BBCA, BBRI, dan BMRI." aria-label="Gunakan Prompt">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                    <span data-i18n="glossary_btn_use_prompt">Gunakan Prompt</span>
+                                </button>
+                            </div>
+                            <div class="prompt-item-text" data-i18n="glossary_prompt_4_text">
+                                "Bandingkan valuasi dan kinerja emiten perbankan: BBCA, BBRI, dan BMRI."
+                            </div>
+                            <div class="prompt-item-notes" data-i18n="glossary_prompt_4_note">Memanggil skill <code>peer_valuation_benchmark</code> untuk komparasi PER, PBV, dan divergensi subsektor.</div>
+                        </div>
+
+                        <div class="glossary-prompt-item">
+                            <div class="prompt-item-header">
+                                <span class="glossary-card-tag">Formal PDF Export</span>
+                                <button type="button" class="btn-copy-prompt" data-prompt="Ekspor hasil audit dan verifikasi bukti BBCA ke dokumen PDF formal." aria-label="Gunakan Prompt">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                    <span data-i18n="glossary_btn_use_prompt">Gunakan Prompt</span>
+                                </button>
+                            </div>
+                            <div class="prompt-item-text" data-i18n="glossary_prompt_5_text">
+                                "Ekspor hasil audit dan verifikasi bukti BBCA ke dokumen PDF formal."
+                            </div>
+                            <div class="prompt-item-notes" data-i18n="glossary_prompt_5_note">Memanggil skill <code>investigation_report_pdf</code> untuk menghasilkan dossier cetak berstandar audit institusi.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="modal-footer">
+                <div class="modal-footer-info">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted);"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    <span data-i18n="glossary_footer_compliance">Kepatuhan Hukum (Law 2 & Law 3): Niskava adalah platform intelijen pasar, bukan penasihat investasi.</span>
+                </div>
+                <div class="modal-footer-actions">
+                    <button type="button" class="btn-test-conn" id="btnCloseGlossaryFooter" data-i18n="btn_close">Tutup</button>
+                    <button type="button" class="btn-primary-action" id="btnGlossaryStartChat">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                        <span data-i18n="glossary_btn_try_chat">Coba di Percakapan</span>
                     </button>
                 </div>
             </div>
