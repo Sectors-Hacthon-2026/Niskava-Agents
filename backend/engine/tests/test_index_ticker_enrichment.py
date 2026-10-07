@@ -54,3 +54,32 @@ def test_normal_ticker_empty_domain_returns_candles_list(tmp_path):
     assert isinstance(result, list), (
         f"Non-index ticker should return list candles, got {type(result)}"
     )
+
+
+@pytest.mark.parametrize("idx_ticker", sorted(_INDEX_TICKERS))
+def test_index_ticker_candles_domain_returns_limitation_error(tmp_path, idx_ticker):
+    """query_sectors(domain='candles', ticker=idx_ticker) harus mengembalikan dict
+    limitation error yang jelas, bukan list news yang membingungkan."""
+    registry = _make_registry(tmp_path)
+    result = registry.query_sectors(domain="candles", ticker=idx_ticker)
+
+    assert isinstance(result, dict), f"Expected dict for '{idx_ticker}', got {type(result)}"
+    assert "error" in result
+    assert result.get("type") == "index_candle_limitation"
+    assert "recommended_alternatives" in result
+    assert isinstance(result["recommended_alternatives"], list)
+
+
+def test_index_ticker_caret_alias_normalized(tmp_path):
+    """query_sectors dengan ticker '^JKSE' harus dikenali sebagai indeks."""
+    registry = _make_registry(tmp_path)
+    # domain="" -> market_overview
+    overview = registry.query_sectors(domain="", ticker="^JKSE")
+    assert isinstance(overview, dict)
+    assert overview.get("type") == "market_overview"
+
+    # domain="candles" -> index_candle_limitation
+    limitation = registry.query_sectors(domain="candles", ticker="^JKSE")
+    assert isinstance(limitation, dict)
+    assert limitation.get("type") == "index_candle_limitation"
+

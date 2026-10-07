@@ -52,6 +52,20 @@
                 const btnTestAnthropic = document.getElementById('btnTestAnthropic');
                 const btnHeaderSettings = document.getElementById('btnHeaderSettings');
 
+                // Glossary & Knowledge Hub Modal Elements
+                const glossaryModal = document.getElementById('glossaryModal');
+                const btnHeaderGlossary = document.getElementById('btnHeaderGlossary');
+                const navLinkGlossary = document.getElementById('navLinkGlossary');
+                const btnCloseGlossaryModal = document.getElementById('btnCloseGlossaryModal');
+                const btnCloseGlossaryFooter = document.getElementById('btnCloseGlossaryFooter');
+                const btnGlossaryStartChat = document.getElementById('btnGlossaryStartChat');
+                const glossaryTabs = document.querySelectorAll('[data-glossary-tab]');
+                const glossarySearchInput = document.getElementById('glossarySearchInput');
+                const btnGlossarySearchClear = document.getElementById('btnGlossarySearchClear');
+                const glossaryFilterPills = document.querySelectorAll('#glossaryFilterPills .glossary-pill');
+                const glossaryCards = document.querySelectorAll('#glossaryCardsGrid .glossary-card');
+                const glossaryNoResults = document.getElementById('glossaryNoResults');
+
                 function updateProviderVisibility() {
                     const prov = selectAiProvider ? selectAiProvider.value : 'gemini';
                     document.querySelectorAll('.provider-fields-group').forEach(group => {
@@ -250,6 +264,16 @@
                 let lastDiagnosticsData = null;
 
                 switchMainView = function(targetNav) {
+                    if (targetNav === 'glossary') {
+                        if (typeof closeMobileSidebar === 'function') {
+                            closeMobileSidebar();
+                        }
+                        if (typeof openGlossaryModal === 'function') {
+                            openGlossaryModal();
+                        }
+                        return;
+                    }
+
                     if (typeof closeMobileSidebar === 'function') {
                         closeMobileSidebar();
                     }
@@ -924,6 +948,155 @@
                         });
                     });
                 });
+
+                // =========================================================================
+                // 11. Market Guide & Glossary Modal (Knowledge Hub - DESIGN.md)
+                // =========================================================================
+                function openGlossaryModal(tabKey = null) {
+                    if (!glossaryModal) return;
+                    glossaryModal.style.display = 'flex';
+                    if (tabKey) {
+                        switchGlossaryTab(tabKey);
+                    }
+                }
+
+                function closeGlossaryModal() {
+                    if (glossaryModal) glossaryModal.style.display = 'none';
+                }
+
+                window.openGlossaryModal = openGlossaryModal;
+                window.closeGlossaryModal = closeGlossaryModal;
+
+                function switchGlossaryTab(tabKey) {
+                    if (!glossaryTabs) return;
+                    glossaryTabs.forEach(t => {
+                        t.classList.toggle('active', t.getAttribute('data-glossary-tab') === tabKey);
+                    });
+                    const contentMap = {
+                        'tab-glossary-about': 'tabContentGlossaryAbout',
+                        'tab-glossary-terms': 'tabContentGlossaryTerms',
+                        'tab-glossary-prompts': 'tabContentGlossaryPrompts'
+                    };
+                    const targetId = contentMap[tabKey] || tabKey;
+                    document.querySelectorAll('.glossary-tab-content').forEach(pane => {
+                        pane.style.display = (pane.id === targetId) ? 'flex' : 'none';
+                    });
+                }
+
+                function filterGlossaryTerms() {
+                    const query = (glossarySearchInput ? glossarySearchInput.value : '').toLowerCase().trim();
+                    const activePill = document.querySelector('#glossaryFilterPills .glossary-pill.active');
+                    const activeFilter = activePill ? activePill.getAttribute('data-filter') : 'all';
+
+                    let visibleCount = 0;
+                    glossaryCards.forEach(card => {
+                        const category = card.getAttribute('data-category');
+                        const catMatch = (activeFilter === 'all' || category === activeFilter);
+                        const cardText = (card.innerText || card.textContent || '').toLowerCase();
+                        const queryMatch = !query || cardText.includes(query);
+
+                        if (catMatch && queryMatch) {
+                            card.classList.remove('hidden');
+                            card.style.display = 'flex';
+                            visibleCount++;
+                        } else {
+                            card.classList.add('hidden');
+                            card.style.display = 'none';
+                        }
+                    });
+
+                    if (glossaryNoResults) {
+                        glossaryNoResults.style.display = (visibleCount === 0) ? 'block' : 'none';
+                    }
+                    if (btnGlossarySearchClear) {
+                        btnGlossarySearchClear.style.display = query.length > 0 ? 'inline-block' : 'none';
+                    }
+                }
+
+                if (btnHeaderGlossary) {
+                    btnHeaderGlossary.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        openGlossaryModal();
+                    });
+                }
+
+                if (navLinkGlossary) {
+                    navLinkGlossary.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        openGlossaryModal();
+                    });
+                }
+
+                if (btnCloseGlossaryModal) {
+                    btnCloseGlossaryModal.addEventListener('click', closeGlossaryModal);
+                }
+                if (btnCloseGlossaryFooter) {
+                    btnCloseGlossaryFooter.addEventListener('click', closeGlossaryModal);
+                }
+
+                if (glossaryModal) {
+                    glossaryModal.addEventListener('click', (e) => {
+                        if (e.target === glossaryModal) closeGlossaryModal();
+                    });
+                }
+
+                glossaryTabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        const tabKey = tab.getAttribute('data-glossary-tab');
+                        if (tabKey) switchGlossaryTab(tabKey);
+                    });
+                });
+
+                if (glossarySearchInput) {
+                    glossarySearchInput.addEventListener('input', filterGlossaryTerms);
+                }
+                if (btnGlossarySearchClear) {
+                    btnGlossarySearchClear.addEventListener('click', () => {
+                        if (glossarySearchInput) {
+                            glossarySearchInput.value = '';
+                            glossarySearchInput.focus();
+                        }
+                        filterGlossaryTerms();
+                    });
+                }
+
+                glossaryFilterPills.forEach(pill => {
+                    pill.addEventListener('click', () => {
+                        glossaryFilterPills.forEach(p => p.classList.remove('active'));
+                        pill.classList.add('active');
+                        filterGlossaryTerms();
+                    });
+                });
+
+                // Wire prompt copy / use buttons
+                document.querySelectorAll('.btn-copy-prompt').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const promptText = btn.getAttribute('data-prompt') || '';
+                        const chatInput = document.getElementById('chatInput');
+                        if (chatInput && promptText) {
+                            chatInput.value = promptText;
+                            if (typeof autoResizeTextarea === 'function') autoResizeTextarea(chatInput);
+                        }
+                        closeGlossaryModal();
+                        if (typeof switchMainView === 'function') switchMainView('chat');
+                        if (chatInput) {
+                            chatInput.focus();
+                            chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
+                        }
+                        if (typeof showToast === 'function') {
+                            showToast(typeof t === 'function' ? t('glossary_btn_copied', 'Prompt disalin ke chat input!') : 'Prompt disalin ke chat input!', 'info');
+                        }
+                    });
+                });
+
+                if (btnGlossaryStartChat) {
+                    btnGlossaryStartChat.addEventListener('click', () => {
+                        closeGlossaryModal();
+                        if (typeof switchMainView === 'function') switchMainView('chat');
+                        const chatInput = document.getElementById('chatInput');
+                        if (chatInput) chatInput.focus();
+                    });
+                }
 
                 // Inference Timeout Slider Handlers
                 function onTimeoutSliderInput(val) {
@@ -1940,6 +2113,16 @@
                     if ((e.metaKey || e.ctrlKey) && e.key === ',') {
                         e.preventDefault();
                         openSettingsModal();
+                    } else if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+                        e.preventDefault();
+                        if (glossaryModal && glossaryModal.style.display !== 'none') {
+                            closeGlossaryModal();
+                        } else {
+                            openGlossaryModal();
+                        }
+                    } else if (e.key === 'Escape' && glossaryModal && glossaryModal.style.display !== 'none') {
+                        e.preventDefault();
+                        closeGlossaryModal();
                     } else if (e.key === 'Escape' && settingsModal && settingsModal.style.display !== 'none') {
                         e.preventDefault();
                         closeSettingsModal();

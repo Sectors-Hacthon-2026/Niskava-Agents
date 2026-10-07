@@ -49,7 +49,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 recents_title: "Recents",
                 profile_settings: "Pengaturan",
                 profile_settings_tooltip: "Buka Pengaturan Sistem",
-                profile_badge: "v0.2.0",
+                profile_badge: "v0.2.1",
                 sidebar_close_tooltip: "Tutup sidebar",
                 header_session_default: "Percakapan AI",
                 header_session_dropdown_tooltip: "Pilih / Ganti Sesi Percakapan",
@@ -300,7 +300,110 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 diag_local_ipc: "Local IPC Aktif",
                 diag_sessions_saved: "sesi tersimpan",
                 diag_credit_sync: "Law 5 Active Credit Sync",
-                diag_local_first_badge: "Local-First"
+                diag_local_first_badge: "Local-First",
+
+                // Glosarium & Panduan Pasar (Knowledge Hub)
+                header_glossary_tooltip: "Glosarium & Panduan Pasar (⌘/)",
+                nav_glossary: "Panduan & Glosarium",
+                nav_glossary_tooltip: "Buka Glosarium Istilah & Panduan Pasar",
+                glossary_tooltip: "Panduan & Glosarium",
+                glossary_modal_title: "Glosarium & Panduan Pasar",
+                glossary_modal_subtitle: "Metodologi intelijen pasar, metrik anomali kuantitatif, dan taksonomi verifikasi bukti BEI.",
+                close_btn_label: "Tutup",
+                tab_glossary_about: "Tentang & 6 Hukum",
+                tab_glossary_terms: "Kamus Istilah & Metrik",
+                tab_glossary_prompts: "Cheat Sheet Prompt",
+                glossary_about_tagline: "\"Don't just answer questions. Investigate them.\"",
+                glossary_about_hero: "Niskava Agent adalah platform orkestrasi intelijen pasar modal otonom khusus Bursa Efek Indonesia (IDX). Sistem menjembatani fakta kuantitatif resmi (Sectors Financial API v2) dengan intelijen kualitatif eksternal (keterbukaan informasi IDXnet, berita terkurasi, dan memori graf asosiatif).",
+                glossary_principles_title: "6 Hukum Arsitektur Non-Negotiable",
+                glossary_law1_title: "Law 1: Deterministic Before Generative",
+                glossary_law1_desc: "Seluruh metrik kuantitatif (Volume MA20, Z-score, abnormal return, divergensi sektor) dihitung secara deterministik dengan NumPy/Pandas sebelum memanggil LLM. Menghapus halusinasi numerik 100%.",
+                glossary_law2_title: "Law 2: Strict Financial Non-Advisory Boundary",
+                glossary_law2_desc: "Niskava adalah terminal intelijen investigatif, BUKAN penasihat investasi. Sistem tidak pernah memberikan rekomendasi BELI/JUAL atau target harga (Kepatuhan Hackathon Rule 12). Bukti diklasifikasikan ke dalam 3-Tier: SUPPORTED, UNCERTAIN, CONTRADICTED.",
+                glossary_law3_title: "Law 3: Prohibition of Automated Trade Execution",
+                glossary_law3_desc: "Sistem bersifat murni read-only market intelligence. Tidak ada integrasi broker atau eksekusi order trading otomatis (Kepatuhan Hackathon Rule 06).",
+                glossary_law4_title: "Law 4: Local-First Data Sovereignty",
+                glossary_law4_desc: "Semua sesi investigasi, temuan bukti, graf memori, dan riwayat percakapan disimpan secara lokal di mesin Anda menggunakan SQLite WAL (~/.niskava/niskava.db). Tanpa cloud DB pihak ketiga.",
+                glossary_law5_title: "Law 5: Credit Budget Discipline & Local Caching",
+                glossary_law5_desc: "Data candlestick harian historis (T < hari ini) di-cache permanen di SQLite lokal untuk melindungi kuota grant 1.000 kredit Sectors API v2, menjamin biaya 0 kredit untuk query berulang.",
+                glossary_law6_title: "Law 6: Local Conversational Graph Memory Engine",
+                glossary_law6_desc: "Memori asosiatif multi-entitas dikelola lokal menggunakan NetworkX in-memory dengan penelusuran Ego-Graph (k ≤ 2 hop) dan peluruhan waktu eksponensial (recency decay).",
+                glossary_pipeline_title: "SOP 7-Tahap Pipeline Investigasi",
+                glossary_pipeline_desc: "1. Inisiasi Sesi → 2. Baseline Data Sectors → 3. Deteksi Anomali Kuantitatif → 4. Identifikasi Gap Hipotesis → 5. Panen Berita & Keterbukaan → 6. Korelasi Kausalitas Waktu → 7. Sintesis Bukti Terstruktur & Streaming SSE.",
+                glossary_search_placeholder: "Cari istilah (cth: Z-Score, C3, Supported, MA20)...",
+                glossary_filter_all: "Semua Istilah",
+                glossary_filter_quant: "Kuantitatif & Anomali",
+                glossary_filter_flow: "Arus Modal & Broker",
+                glossary_filter_evidence: "Verifikasi Bukti",
+                glossary_filter_arch: "Arsitektur Sistem",
+                glossary_empty_search: "Tidak ada istilah yang cocok dengan pencarian Anda.",
+                term_vz_title: "Volume Z-Score (Vz)",
+                term_vz_tag: "Metrik Kuantitatif",
+                term_vz_badge: "Vz ≥ 2.50σ",
+                term_vz_desc: "Ukuran statistik seberapa jauh volume transaksi saham hari ini menyimpang dari rata-rata volume 20 hari sebelumnya (MA20). Nilai Vz ≥ 2.50σ mengindikasikan lonjakan volume perdagangan yang tidak wajar dan memicu investigasi mendalam.",
+                term_vz_formula: "Rumus: Vz = (Volume_t - MA20_vol) / StdDev20_vol",
+                term_rt_title: "Abnormal Return (Rt)",
+                term_rt_tag: "Aksi Harga",
+                term_rt_badge: "|Rt| ≥ 5.0%",
+                term_rt_desc: "Deviasi pergerakan harga saham di luar ekspektasi normal pasar setelah memperhitungkan pergerakan indeks acuan. Nilai |Rt| ≥ 5% menandakan pergerakan harga ekstrem yang berpotensi memiliki katalis informasi terselubung.",
+                term_rt_formula: "Rumus: Rt = R_saham - (Alpha + Beta * R_market)",
+                term_ma20_title: "Moving Average 20 (MA20 Volume)",
+                term_ma20_tag: "Baseline Likuiditas",
+                term_ma20_badge: "20 Hari Bursa",
+                term_ma20_desc: "Rata-rata volume perdagangan harian selama 20 hari bursa aktif (~1 bulan kalender). Berfungsi sebagai patokan likuiditas normal emiten untuk mengukur rasio kelipatan volume.",
+                term_fz_title: "Foreign Flow Z-Score (Fz)",
+                term_fz_tag: "Aliran Dana Asing",
+                term_fz_badge: "|Fz| ≥ 2.50σ",
+                term_fz_desc: "Skor anomali arus modal bersih investor asing (Net Foreign Buy/Sell). Menunjukkan apakah akumulasi atau distribusi investor institusional asing terjadi dalam skala yang signifikan secara statistik.",
+                term_c3_title: "Top Broker Concentration (C3)",
+                term_c3_tag: "Bandarmology",
+                term_c3_badge: "C3 ≥ 65%",
+                term_c3_desc: "Rasio penguasaan akumulasi volume beli bersih oleh 3 kode broker/sekuritas teratas dibandingkan total volume pasar. Nilai C3 ≥ 65% menandakan transaksi sangat terkonsentrasi di tangan segelintir pelaku institusional.",
+                term_div_title: "Sector Divergence (Dt)",
+                term_div_tag: "Komparasi Industri",
+                term_div_badge: "Peers Benchmark",
+                term_div_desc: "Selisih persentase antara perubahan harga saham target dengan rata-rata pergerakan emiten sejenis di subsektor industrinya. Mengidentifikasi apakah pergerakan saham didorong oleh faktor spesifik emiten atau sentimen sektoral.",
+                term_sup_title: "Status Bukti: SUPPORTED",
+                term_sup_tag: "Tier 1 (Konfirmasi)",
+                term_sup_badge: "Tier 1 • Bobot 1.00",
+                term_sup_desc: "Temuan pasar yang dibuktikan secara langsung oleh data kuantitatif bursa resmi Sectors Financial API v2 atau surat pengumuman resmi keterbukaan informasi emiten di BEI (IDXnet).",
+                term_unc_title: "Status Bukti: UNCERTAIN",
+                term_unc_tag: "Tier 2 (Korelasi)",
+                term_unc_badge: "Tier 2 • Bobot 0.65 - 0.85",
+                term_unc_desc: "Korelasi waktu teramati antara pergerakan saham dengan isu media atau kabar industri, namun hubungan kausalitas langsung belum diverifikasi oleh dokumen resmi perseroan.",
+                term_con_title: "Status Bukti: CONTRADICTED",
+                term_con_tag: "Tier 1 (Bantahan)",
+                term_con_badge: "Tier 1 • Sanggahan Resmi",
+                term_con_desc: "Rumor, spekulasi pasar, atau klaim tidak berdasar yang secara tegas disanggah oleh klarifikasi manajemen emiten atau laporan keuangan teraudit.",
+                term_ego_title: "Ego-Graph Memory",
+                term_ego_tag: "Memori Graf Lokal",
+                term_ego_badge: "k ≤ 2 Hops",
+                term_ego_desc: "Arsitektur graf asosiasi lokal berbasis SQLite dan NetworkX yang memetakan keterkaitan emiten dengan pemilik manfaat, direksi/komisaris, entitas afiliasi, dan pemicu komoditas tanpa basis data eksternal berbayar.",
+                term_react_title: "Autonomous ReAct Agent Loop",
+                term_react_tag: "Arsitektur AI",
+                term_react_badge: "Reasoning + Action",
+                term_react_desc: "Pola operasional AI cerdas di mana model melakukan penalaran bertahap (<thought>), memilih alat deterministik (<tool_call>), mengamati hasil nyata (<observation>), dan menyintesis jawaban akhir (<response>).",
+                glossary_prompt_title: "Cheat Sheet Prompt Investigasi",
+                glossary_prompt_subtitle: "Gunakan contoh pertanyaan di bawah ini untuk memulai audit intelijen pasar yang mendalam:",
+                glossary_prompt_1_text: '"Kenapa ANTM naik hari ini? Lakukan investigasi anomali volume dan keterbukaan informasinya."',
+                glossary_prompt_1_raw: "Kenapa ANTM naik hari ini? Lakukan investigasi anomali volume dan keterbukaan informasinya.",
+                glossary_prompt_1_note: "Memanggil skill <code>market_anomaly_recon</code> dan <code>event_causality_audit</code> untuk verifikasi lonjakan volume.",
+                glossary_prompt_2_text: '"Cek akumulasi broker C3 dan net foreign flow BBRI selama 14 hari terakhir."',
+                glossary_prompt_2_raw: "Cek akumulasi broker C3 dan net foreign flow BBRI selama 14 hari terakhir.",
+                glossary_prompt_2_note: "Memanggil skill <code>insider_bandarmology_forensic</code> untuk analisis konsentrasi broker dan aliran dana asing.",
+                glossary_prompt_3_text: '"Tampilkan saham top gainers dan paling aktif diperdagangkan di BEI hari ini."',
+                glossary_prompt_3_raw: "Tampilkan saham top gainers dan paling aktif diperdagangkan di BEI hari ini.",
+                glossary_prompt_3_note: "Memanggil gateway <code>query_sectors</code> domain <code>top_changes</code> dan <code>most_traded</code>.",
+                glossary_prompt_4_text: '"Bandingkan valuasi dan kinerja emiten perbankan: BBCA, BBRI, dan BMRI."',
+                glossary_prompt_4_raw: "Bandingkan valuasi dan kinerja emiten perbankan: BBCA, BBRI, dan BMRI.",
+                glossary_prompt_4_note: "Memanggil skill <code>peer_valuation_benchmark</code> untuk komparasi PER, PBV, dan divergensi subsektor.",
+                glossary_prompt_5_text: '"Ekspor hasil audit dan verifikasi bukti BBCA ke dokumen PDF formal."',
+                glossary_prompt_5_raw: "Ekspor hasil audit dan verifikasi bukti BBCA ke dokumen PDF formal.",
+                glossary_prompt_5_note: "Memanggil skill <code>investigation_report_pdf</code> untuk menghasilkan dossier cetak berstandar audit institusi.",
+                glossary_btn_use_prompt: "Gunakan Prompt",
+                glossary_btn_copied: "Tersalin!",
+                glossary_footer_compliance: "Kepatuhan Hukum (Law 2 & Law 3): Niskava adalah platform intelijen pasar, bukan penasihat investasi.",
+                glossary_btn_try_chat: "Coba di Percakapan"
             },
             en: {
                 brand_subtitle: "AI for Brighter Investments",
@@ -330,7 +433,7 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 recents_title: "Recents",
                 profile_settings: "Settings",
                 profile_settings_tooltip: "Open System Settings",
-                profile_badge: "v0.2.0",
+                profile_badge: "v0.2.1",
                 sidebar_close_tooltip: "Collapse sidebar",
                 header_session_default: "AI Chat",
                 header_session_dropdown_tooltip: "Select / Switch Chat Session",
@@ -581,7 +684,110 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 diag_local_ipc: "Local IPC Active",
                 diag_sessions_saved: "sessions saved",
                 diag_credit_sync: "Law 5 Active Credit Sync",
-                diag_local_first_badge: "Local-First"
+                diag_local_first_badge: "Local-First",
+
+                // Market Guide & Glossary (Knowledge Hub)
+                header_glossary_tooltip: "Market Guide & Glossary (⌘/)",
+                nav_glossary: "Guide & Glossary",
+                nav_glossary_tooltip: "Open Market Terms Glossary & Intelligence Guide",
+                glossary_tooltip: "Guide & Glossary",
+                glossary_modal_title: "Market Guide & Glossary",
+                glossary_modal_subtitle: "Market intelligence methodology, quantitative anomaly metrics, and IDX evidence taxonomy.",
+                close_btn_label: "Close",
+                tab_glossary_about: "About & 6 Laws",
+                tab_glossary_terms: "Terms & Metrics",
+                tab_glossary_prompts: "Prompt Cheat Sheet",
+                glossary_about_tagline: "\"Don't just answer questions. Investigate them.\"",
+                glossary_about_hero: "Niskava Agent is an autonomous financial market intelligence orchestration platform designed specifically for the Indonesia Stock Exchange (IDX). It bridges official quantitative market facts (Sectors Financial API v2) with external qualitative intelligence (IDXnet disclosures, curated news, and associative graph memory).",
+                glossary_principles_title: "The 6 Non-Negotiable Architectural Laws",
+                glossary_law1_title: "Law 1: Deterministic Before Generative",
+                glossary_law1_desc: "All quantitative indicators (MA20 volume, Z-scores, abnormal returns, sector divergence) are computed deterministically via NumPy/Pandas before invoking LLMs. Eliminates numerical hallucinations 100%.",
+                glossary_law2_title: "Law 2: Strict Financial Non-Advisory Boundary",
+                glossary_law2_desc: "Niskava is an investigative intelligence platform, NOT an investment advisor. The system never issues BUY/SELL calls or price targets (Hackathon Rule 12). Evidence is strictly classified into a 3-Tier taxonomy: SUPPORTED, UNCERTAIN, CONTRADICTED.",
+                glossary_law3_title: "Law 3: Prohibition of Automated Trade Execution",
+                glossary_law3_desc: "The platform is strictly read-only market intelligence. Zero automated trading execution or brokerage order-routing dependencies (Hackathon Rule 06).",
+                glossary_law4_title: "Law 4: Local-First Data Sovereignty",
+                glossary_law4_desc: "All investigation sessions, findings, evidence graphs, and chat histories reside locally on your machine using SQLite WAL (~/.niskava/niskava.db). Zero centralized cloud databases.",
+                glossary_law5_title: "Law 5: Credit Budget Discipline & Local Caching",
+                glossary_law5_desc: "Historical daily candlestick data (T < today) is permanently cached in local SQLite to protect the 1,000 Sectors API grant budget, incurring 0 credit cost on repeat queries.",
+                glossary_law6_title: "Law 6: Local Conversational Graph Memory Engine",
+                glossary_law6_desc: "Associative graph relations are maintained locally via in-memory NetworkX with Ego-Graph traversal (k ≤ 2 hops) and exponential recency decay.",
+                glossary_pipeline_title: "The 7-Stage Investigation Pipeline SOP",
+                glossary_pipeline_desc: "1. Session Initiation → 2. Sectors Baseline → 3. Quantitative Anomaly Gate → 4. Temporal Gap Hypothesis → 5. News & Disclosures Harvest → 6. Temporal Causality Correlation → 7. Structured Findings Synthesis & SSE Stream.",
+                glossary_search_placeholder: "Search terms (e.g. Z-Score, C3, Supported, MA20)...",
+                glossary_filter_all: "All Terms",
+                glossary_filter_quant: "Quantitative & Anomaly",
+                glossary_filter_flow: "Capital Flow & Brokers",
+                glossary_filter_evidence: "Evidence Verification",
+                glossary_filter_arch: "System Architecture",
+                glossary_empty_search: "No terms matched your search query.",
+                term_vz_title: "Volume Z-Score (Vz)",
+                term_vz_tag: "Quantitative Metric",
+                term_vz_badge: "Vz ≥ 2.50σ",
+                term_vz_desc: "A statistical measure of how far today's trading volume deviates from its 20-day moving average (MA20). A value of Vz ≥ 2.50σ indicates an abnormal trading volume surge that triggers an in-depth investigation.",
+                term_vz_formula: "Formula: Vz = (Volume_t - MA20_vol) / StdDev20_vol",
+                term_rt_title: "Abnormal Return (Rt)",
+                term_rt_tag: "Price Action",
+                term_rt_badge: "|Rt| ≥ 5.0%",
+                term_rt_desc: "The deviation of a stock's price return beyond normal market expectations adjusted for benchmark index movements. |Rt| ≥ 5% signifies an extreme price move that may indicate an underlying catalyst.",
+                term_rt_formula: "Formula: Rt = R_stock - (Alpha + Beta * R_market)",
+                term_ma20_title: "Moving Average 20 (MA20 Volume)",
+                term_ma20_tag: "Liquidity Baseline",
+                term_ma20_badge: "20 Trading Days",
+                term_ma20_desc: "The average daily trading volume over 20 active trading days (~1 calendar month). Acts as the normal liquidity benchmark to compute volume multiplier ratios.",
+                term_fz_title: "Foreign Flow Z-Score (Fz)",
+                term_fz_tag: "Foreign Capital Flow",
+                term_fz_badge: "|Fz| ≥ 2.50σ",
+                term_fz_desc: "Anomaly score for net foreign institutional capital flows (Net Foreign Buy/Sell), identifying statistically significant foreign accumulation or distribution waves.",
+                term_c3_title: "Top Broker Concentration (C3)",
+                term_c3_tag: "Bandarmology",
+                term_c3_badge: "C3 ≥ 65%",
+                term_c3_desc: "The concentration ratio of net buy volume controlled by the top 3 brokerage participants relative to total market turnover. C3 ≥ 65% signifies heavy institutional accumulation.",
+                term_div_title: "Sector Divergence (Dt)",
+                term_div_tag: "Industry Comparison",
+                term_div_badge: "Peers Benchmark",
+                term_div_desc: "The percentage spread between a stock's price change and the median performance of its industry subsector peers, identifying stock-specific catalysts vs sector-wide trends.",
+                term_sup_title: "Evidence Status: SUPPORTED",
+                term_sup_tag: "Tier 1 (Confirmed)",
+                term_sup_badge: "Tier 1 • Weight 1.00",
+                term_sup_desc: "Market findings directly backed by official Sectors Financial API v2 records or formal IDXnet regulatory corporate disclosures.",
+                term_unc_title: "Evidence Status: UNCERTAIN",
+                term_unc_tag: "Tier 2 (Correlation)",
+                term_unc_badge: "Tier 2 • Weight 0.65 - 0.85",
+                term_unc_desc: "Temporal correlation is observed between stock moves and media reports, but direct causality remains unverified by formal corporate filings.",
+                term_con_title: "Evidence Status: CONTRADICTED",
+                term_con_tag: "Tier 1 (Refuted)",
+                term_con_badge: "Tier 1 • Formal Rebuttal",
+                term_con_desc: "Market rumors, speculative claims, or misinformation explicitly refuted by official company disclosure rebuttals or audited financials.",
+                term_ego_title: "Ego-Graph Memory",
+                term_ego_tag: "Local Graph Memory",
+                term_ego_badge: "k ≤ 2 Hops",
+                term_ego_desc: "A local associative graph memory engine (SQLite + NetworkX) mapping relationships between stocks, beneficial owners, executives, affiliates, and commodity drivers up to 2 hops without paid external cloud services.",
+                term_react_title: "Autonomous ReAct Agent Loop",
+                term_react_tag: "AI Architecture",
+                term_react_badge: "Reasoning + Action",
+                term_react_desc: "The autonomous ReAct reasoning pattern where the agent thinks in steps (<thought>), calls deterministic tools (<tool_call>), observes verifiable data (<observation>), and synthesizes conclusions (<response>).",
+                glossary_prompt_title: "Investigation Prompt Cheat Sheet",
+                glossary_prompt_subtitle: "Use the prompt examples below to initiate rigorous market intelligence investigations:",
+                glossary_prompt_1_text: '"Why did ANTM surge today? Investigate volume anomalies and official IDX disclosures."',
+                glossary_prompt_1_raw: "Why did ANTM surge today? Investigate volume anomalies and official IDX disclosures.",
+                glossary_prompt_1_note: "Invokes <code>market_anomaly_recon</code> and <code>event_causality_audit</code> skills to verify volume surges.",
+                glossary_prompt_2_text: '"Analyze C3 top broker accumulation and net foreign flow for BBRI over the last 14 days."',
+                glossary_prompt_2_raw: "Analyze C3 top broker accumulation and net foreign flow for BBRI over the last 14 days.",
+                glossary_prompt_2_note: "Invokes <code>insider_bandarmology_forensic</code> skill for broker concentration and foreign capital flows.",
+                glossary_prompt_3_text: '"Show top gainers and most actively traded stocks on IDX today."',
+                glossary_prompt_3_raw: "Show top gainers and most actively traded stocks on IDX today.",
+                glossary_prompt_3_note: "Invokes <code>query_sectors</code> gateway across <code>top_changes</code> and <code>most_traded</code> domains.",
+                glossary_prompt_4_text: '"Compare valuation and performance metrics of banking peers: BBCA, BBRI, and BMRI."',
+                glossary_prompt_4_raw: "Compare valuation and performance metrics of banking peers: BBCA, BBRI, and BMRI.",
+                glossary_prompt_4_note: "Invokes <code>peer_valuation_benchmark</code> skill for PER, PBV, and subsector divergence.",
+                glossary_prompt_5_text: '"Export BBCA audit and evidence verification findings to a formal PDF dossier."',
+                glossary_prompt_5_raw: "Export BBCA audit and evidence verification findings to a formal PDF dossier.",
+                glossary_prompt_5_note: "Invokes <code>investigation_report_pdf</code> skill to generate institutional-grade audit dossiers.",
+                glossary_btn_use_prompt: "Use Prompt",
+                glossary_btn_copied: "Copied!",
+                glossary_footer_compliance: "Regulatory Compliance (Law 2 & Law 3): Niskava is an intelligence platform, not an investment advisor.",
+                glossary_btn_try_chat: "Try in AI Chat"
             }
         };
 
@@ -645,6 +851,14 @@ const API_BASE = (window.location.protocol === 'file:' || ['5500', '3000', '5173
                 if (dict[keyP]) card.setAttribute('data-prompt', dict[keyP]);
                 const textEl = card.querySelector('.prompt-card-text');
                 if (textEl && dict[keyC]) textEl.textContent = dict[keyC];
+            });
+
+            // 5b. Update prompt buttons in Glossary Modal (data-prompt)
+            document.querySelectorAll('.btn-copy-prompt').forEach((btn, idx) => {
+                const rawKey = `glossary_prompt_${idx + 1}_raw`;
+                if (dict[rawKey]) {
+                    btn.setAttribute('data-prompt', dict[rawKey]);
+                }
             });
 
             // 6. Update dynamic elements in active Chat View
@@ -3335,6 +3549,20 @@ window.addEventListener('beforeunload', (e) => {
                 const btnTestAnthropic = document.getElementById('btnTestAnthropic');
                 const btnHeaderSettings = document.getElementById('btnHeaderSettings');
 
+                // Glossary & Knowledge Hub Modal Elements
+                const glossaryModal = document.getElementById('glossaryModal');
+                const btnHeaderGlossary = document.getElementById('btnHeaderGlossary');
+                const navLinkGlossary = document.getElementById('navLinkGlossary');
+                const btnCloseGlossaryModal = document.getElementById('btnCloseGlossaryModal');
+                const btnCloseGlossaryFooter = document.getElementById('btnCloseGlossaryFooter');
+                const btnGlossaryStartChat = document.getElementById('btnGlossaryStartChat');
+                const glossaryTabs = document.querySelectorAll('[data-glossary-tab]');
+                const glossarySearchInput = document.getElementById('glossarySearchInput');
+                const btnGlossarySearchClear = document.getElementById('btnGlossarySearchClear');
+                const glossaryFilterPills = document.querySelectorAll('#glossaryFilterPills .glossary-pill');
+                const glossaryCards = document.querySelectorAll('#glossaryCardsGrid .glossary-card');
+                const glossaryNoResults = document.getElementById('glossaryNoResults');
+
                 function updateProviderVisibility() {
                     const prov = selectAiProvider ? selectAiProvider.value : 'gemini';
                     document.querySelectorAll('.provider-fields-group').forEach(group => {
@@ -3533,6 +3761,16 @@ window.addEventListener('beforeunload', (e) => {
                 let lastDiagnosticsData = null;
 
                 switchMainView = function(targetNav) {
+                    if (targetNav === 'glossary') {
+                        if (typeof closeMobileSidebar === 'function') {
+                            closeMobileSidebar();
+                        }
+                        if (typeof openGlossaryModal === 'function') {
+                            openGlossaryModal();
+                        }
+                        return;
+                    }
+
                     if (typeof closeMobileSidebar === 'function') {
                         closeMobileSidebar();
                     }
@@ -4207,6 +4445,155 @@ window.addEventListener('beforeunload', (e) => {
                         });
                     });
                 });
+
+                // =========================================================================
+                // 11. Market Guide & Glossary Modal (Knowledge Hub - DESIGN.md)
+                // =========================================================================
+                function openGlossaryModal(tabKey = null) {
+                    if (!glossaryModal) return;
+                    glossaryModal.style.display = 'flex';
+                    if (tabKey) {
+                        switchGlossaryTab(tabKey);
+                    }
+                }
+
+                function closeGlossaryModal() {
+                    if (glossaryModal) glossaryModal.style.display = 'none';
+                }
+
+                window.openGlossaryModal = openGlossaryModal;
+                window.closeGlossaryModal = closeGlossaryModal;
+
+                function switchGlossaryTab(tabKey) {
+                    if (!glossaryTabs) return;
+                    glossaryTabs.forEach(t => {
+                        t.classList.toggle('active', t.getAttribute('data-glossary-tab') === tabKey);
+                    });
+                    const contentMap = {
+                        'tab-glossary-about': 'tabContentGlossaryAbout',
+                        'tab-glossary-terms': 'tabContentGlossaryTerms',
+                        'tab-glossary-prompts': 'tabContentGlossaryPrompts'
+                    };
+                    const targetId = contentMap[tabKey] || tabKey;
+                    document.querySelectorAll('.glossary-tab-content').forEach(pane => {
+                        pane.style.display = (pane.id === targetId) ? 'flex' : 'none';
+                    });
+                }
+
+                function filterGlossaryTerms() {
+                    const query = (glossarySearchInput ? glossarySearchInput.value : '').toLowerCase().trim();
+                    const activePill = document.querySelector('#glossaryFilterPills .glossary-pill.active');
+                    const activeFilter = activePill ? activePill.getAttribute('data-filter') : 'all';
+
+                    let visibleCount = 0;
+                    glossaryCards.forEach(card => {
+                        const category = card.getAttribute('data-category');
+                        const catMatch = (activeFilter === 'all' || category === activeFilter);
+                        const cardText = (card.innerText || card.textContent || '').toLowerCase();
+                        const queryMatch = !query || cardText.includes(query);
+
+                        if (catMatch && queryMatch) {
+                            card.classList.remove('hidden');
+                            card.style.display = 'flex';
+                            visibleCount++;
+                        } else {
+                            card.classList.add('hidden');
+                            card.style.display = 'none';
+                        }
+                    });
+
+                    if (glossaryNoResults) {
+                        glossaryNoResults.style.display = (visibleCount === 0) ? 'block' : 'none';
+                    }
+                    if (btnGlossarySearchClear) {
+                        btnGlossarySearchClear.style.display = query.length > 0 ? 'inline-block' : 'none';
+                    }
+                }
+
+                if (btnHeaderGlossary) {
+                    btnHeaderGlossary.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        openGlossaryModal();
+                    });
+                }
+
+                if (navLinkGlossary) {
+                    navLinkGlossary.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        openGlossaryModal();
+                    });
+                }
+
+                if (btnCloseGlossaryModal) {
+                    btnCloseGlossaryModal.addEventListener('click', closeGlossaryModal);
+                }
+                if (btnCloseGlossaryFooter) {
+                    btnCloseGlossaryFooter.addEventListener('click', closeGlossaryModal);
+                }
+
+                if (glossaryModal) {
+                    glossaryModal.addEventListener('click', (e) => {
+                        if (e.target === glossaryModal) closeGlossaryModal();
+                    });
+                }
+
+                glossaryTabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        const tabKey = tab.getAttribute('data-glossary-tab');
+                        if (tabKey) switchGlossaryTab(tabKey);
+                    });
+                });
+
+                if (glossarySearchInput) {
+                    glossarySearchInput.addEventListener('input', filterGlossaryTerms);
+                }
+                if (btnGlossarySearchClear) {
+                    btnGlossarySearchClear.addEventListener('click', () => {
+                        if (glossarySearchInput) {
+                            glossarySearchInput.value = '';
+                            glossarySearchInput.focus();
+                        }
+                        filterGlossaryTerms();
+                    });
+                }
+
+                glossaryFilterPills.forEach(pill => {
+                    pill.addEventListener('click', () => {
+                        glossaryFilterPills.forEach(p => p.classList.remove('active'));
+                        pill.classList.add('active');
+                        filterGlossaryTerms();
+                    });
+                });
+
+                // Wire prompt copy / use buttons
+                document.querySelectorAll('.btn-copy-prompt').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const promptText = btn.getAttribute('data-prompt') || '';
+                        const chatInput = document.getElementById('chatInput');
+                        if (chatInput && promptText) {
+                            chatInput.value = promptText;
+                            if (typeof autoResizeTextarea === 'function') autoResizeTextarea(chatInput);
+                        }
+                        closeGlossaryModal();
+                        if (typeof switchMainView === 'function') switchMainView('chat');
+                        if (chatInput) {
+                            chatInput.focus();
+                            chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
+                        }
+                        if (typeof showToast === 'function') {
+                            showToast(typeof t === 'function' ? t('glossary_btn_copied', 'Prompt disalin ke chat input!') : 'Prompt disalin ke chat input!', 'info');
+                        }
+                    });
+                });
+
+                if (btnGlossaryStartChat) {
+                    btnGlossaryStartChat.addEventListener('click', () => {
+                        closeGlossaryModal();
+                        if (typeof switchMainView === 'function') switchMainView('chat');
+                        const chatInput = document.getElementById('chatInput');
+                        if (chatInput) chatInput.focus();
+                    });
+                }
 
                 // Inference Timeout Slider Handlers
                 function onTimeoutSliderInput(val) {
@@ -5223,6 +5610,16 @@ window.addEventListener('beforeunload', (e) => {
                     if ((e.metaKey || e.ctrlKey) && e.key === ',') {
                         e.preventDefault();
                         openSettingsModal();
+                    } else if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+                        e.preventDefault();
+                        if (glossaryModal && glossaryModal.style.display !== 'none') {
+                            closeGlossaryModal();
+                        } else {
+                            openGlossaryModal();
+                        }
+                    } else if (e.key === 'Escape' && glossaryModal && glossaryModal.style.display !== 'none') {
+                        e.preventDefault();
+                        closeGlossaryModal();
                     } else if (e.key === 'Escape' && settingsModal && settingsModal.style.display !== 'none') {
                         e.preventDefault();
                         closeSettingsModal();

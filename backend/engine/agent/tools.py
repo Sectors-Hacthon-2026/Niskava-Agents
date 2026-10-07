@@ -20,9 +20,18 @@ from engine.skills.registry import SkillsRegistry
 # Backward compatibility alias
 OSINTItem = NewsItem
 
-# Ticker-ticker yang merepresentasikan indeks pasar, bukan emiten perusahaan individual.
-# Jika digunakan di harvest_market_news, harus di-route ke general market news.
-_INDEX_TICKERS: frozenset[str] = frozenset({"IHSG", "JCI", "IDX", "COMPOSITE"})
+_INDEX_TICKERS: frozenset[str] = frozenset(
+    {"IHSG", "JCI", "IDX", "COMPOSITE", "JKSE", "^JKSE", "^IDX"}
+)
+
+
+def _is_index_ticker(ticker: Optional[str]) -> bool:
+    """Return True if ticker represents a composite market index rather than an individual stock."""
+    if not ticker:
+        return False
+    clean = str(ticker).upper().strip()
+    return clean in _INDEX_TICKERS or clean.lstrip("^") in _INDEX_TICKERS
+
 
 # Domain key → SectorsAPIClient method name mapping for query_sectors gateway.
 _SECTORS_DOMAIN_MAP: dict[str, str] = {
@@ -121,9 +130,10 @@ class NiskavaToolRegistry:
         Raises:
             ValueError: If `domain` is not in _SECTORS_DOMAIN_MAP.
         """
-        clean_ticker = ticker.upper() if ticker else ""
+        clean_ticker = ticker.upper().strip() if ticker else ""
+        is_index = _is_index_ticker(clean_ticker)
 
-        if clean_ticker in _INDEX_TICKERS and domain in ("candles", ""):
+        if is_index and domain in ("", None):
             # Return enriched market overview instead of raw news list
             # to prevent model confusion and duplicate tool call loops
             news = self.sectors_client.get_news(None)
@@ -143,6 +153,22 @@ class NiskavaToolRegistry:
                 "status": "active",
                 "news": news,
                 "market_context": " ".join(context_parts),
+            }
+
+        if is_index and domain == "candles":
+            return {
+                "error": f"Candlestick OHLCV data is unavailable for composite market index '{clean_ticker}'.",
+                "ticker": clean_ticker,
+                "type": "index_candle_limitation",
+                "message": (
+                    f"Sectors Financial API v2 provides daily OHLCV candles exclusively for individual IDX company stocks (e.g. BBCA, BBRI, ANTM), "
+                    f"not for composite market indices ({clean_ticker})."
+                ),
+                "recommended_alternatives": [
+                    "Use domain='top_changes' (classification='top_gainers' or 'top_losers') or domain='most_traded' to assess market breadth.",
+                    "Use domain='subsectors' to evaluate sector performance.",
+                    "Analyze key index-mover heavyweights (BBCA, BBRI, BMRI, TLKM, ASII) via domain='candles' or skill 'market_anomaly_recon' as proxies for market movement.",
+                ],
             }
 
         # Intelligently default domain when omitted or empty to prevent ReAct loop crashes
@@ -232,7 +258,7 @@ class NiskavaToolRegistry:
         clean_ticker = ticker.upper() if ticker else ""
 
         try:
-            if not clean_ticker or clean_ticker in _INDEX_TICKERS:
+            if not clean_ticker or _is_index_ticker(clean_ticker):
                 sectors_news = self.sectors_client.get_news(None, force_refresh=force_refresh)
                 items: List[NewsItem] = self.news_harvester.harvest(
                     ticker="IHSG",
@@ -837,7 +863,7 @@ class NiskavaToolRegistry:
                 slug=args.get("slug", ""),
             ),
             "harvest_market_news": lambda args: self.harvest_market_news(
-                ticker=ticker if ticker and ticker not in _INDEX_TICKERS else None,
+                ticker=ticker if ticker and not _is_index_ticker(ticker) else None,
                 company_name=args.get("company_name"),
             ),
             "memory_recall_context": lambda args: self.memory_recall_context(
