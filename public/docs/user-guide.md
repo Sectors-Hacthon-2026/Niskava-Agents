@@ -206,22 +206,106 @@ Once configured, Claude can invoke Niskava tools natively:
 
 ## 6. Telegram Bot Runner
 
-Deploy Niskava as your personal market intelligence assistant on Telegram:
+Deploy Niskava as your autonomous market intelligence assistant directly on Telegram. Incoming inquiries trigger the autonomous ReAct investigation pipeline with live typing indicators, local SQLite persistence, and PDF/Markdown report export.
 
-1. Obtain a bot token from [@BotFather](https://t.me/botfather).
-2. Configure environment:
-   ```bash
-   export TELEGRAM_BOT_TOKEN="123456789:ABCdefGhI..."
-   export TELEGRAM_ALLOWED_USERS="YourTelegramUsername"
-   ```
-3. Start the bot runner:
-   ```bash
-   niskava telegram
-   ```
+<p align="center">
+  <img src="../../docs/assets/niskva-chat-tele-prompt.png" alt="Niskava Autonomous Telegram Bot Chat & Investigation Session" width="90%">
+</p>
 
-### Bot Commands:
-* `/start`: Welcome message and capabilities overview.
-* `/investigate <TICKER>`: Run full 7-stage investigation and receive summary directly in chat.
-* `/anomalies <TICKER>`: Quick statistical anomaly check ($V_z$, $R_t$, $F_z$).
-* `/news <TICKER>`: Curated corporate disclosures and accredited news.
-* Send any ticker name directly (e.g. `BBRI`) to start conversational analysis.
+### 6.1 Setup & Configuration
+
+You can configure the Telegram Bot via any of three convenient methods:
+
+#### Method A: Interactive Setup Wizard (Recommended)
+Run the built-in wizard and select Step 6:
+```bash
+niskava setup
+```
+The wizard prompts for your bot token from [@BotFather](https://t.me/botfather), performs a live API connection verification ping, configures user whitelists, and saves settings to `~/.niskava/config.yaml` and `.env`.
+
+#### Method B: Web Workspace Settings
+Open the Web Workspace at `http://localhost:20128` (or your configured port), navigate to **Settings** modal, and open the **Telegram Bot Daemon** tab. You can configure credentials, manage user whitelist chips, start/stop the bot, and send ping test messages.
+
+#### Method C: Environment Variables (`.env`)
+Configure credentials in `~/.niskava/.env` or project `.env`:
+```ini
+# Primary configuration (Single Source of Truth)
+NISKAVA_TELEGRAM_TOKEN="123456789:ABCdefGhI..."
+NISKAVA_TELEGRAM_ENABLED=1
+NISKAVA_TELEGRAM_ALLOWED_USERS="YourTelegramUsername,12345678"
+
+# Note: Fallback aliases (TELEGRAM_BOT_TOKEN, TELEGRAM_ENABLED, TELEGRAM_ALLOWED_USERS) are also supported.
+```
+
+---
+
+### 6.2 CLI Subcommands & Diagnostics
+
+Niskava provides a dedicated suite of CLI commands under `niskava telegram` (alias: `niskava bot`):
+
+#### 1. Start the Bot Worker
+```bash
+# Start bot using configuration from config.yaml / .env
+niskava telegram
+
+# Override token explicitly on the command line
+niskava telegram --token "123456789:ABCdefGhI..."
+```
+
+#### 2. Check Bot Status & Identity (`status`)
+Verifies live connectivity against Telegram API (`getMe`), checks bot username, autostart status, and active whitelist:
+```bash
+niskava telegram status
+```
+
+#### 3. Manage Authorized Users Whitelist (`user`)
+Prevent unauthorized API credit consumption by restricting access to specified Telegram usernames or numeric User IDs:
+```bash
+# List all whitelisted users
+niskava telegram user list
+
+# Add authorized username or numeric ID (automatically saves to config.yaml & .env)
+niskava telegram user add YourTelegramUsername
+niskava telegram user add 987654321
+
+# Remove a user from the whitelist
+niskava telegram user remove YourTelegramUsername
+```
+> **Tip:** To find your numeric Telegram User ID, send `/start` to `@userinfobot` or `@RawDataBot` on Telegram.
+
+#### 4. Send Verification Test Message (`test`)
+Send a direct test ping to verify message delivery to a specific chat:
+```bash
+niskava telegram test --chat-id 987654321
+niskava telegram test --chat-id 987654321 --message "Ping from Niskava Agent terminal"
+```
+
+#### 5. Background Daemon Mode
+To run the Telegram bot concurrently in the background alongside the Web Workspace and REST API:
+```bash
+# Run server with telegram daemon flag
+niskava serve --telegram
+
+# Or set NISKAVA_TELEGRAM_ENABLED=1 in .env
+```
+
+---
+
+### 6.3 Bot Commands & Interactions
+
+When interacting with the bot in Telegram:
+
+#### System Commands:
+* `/start` or `/help` — Overview of capabilities, active configuration, and command list.
+* `/new` or `/reset` — Archive current chat history and initialize a fresh research session.
+* `/status` — View current session activity (`Idle` / `Processing`), AI model provider, active market, and offline state.
+* `/export` — Download the current session investigation transcript as a formatted Markdown research report (`.md`).
+* `/stop` — Abort currently executing background investigation.
+
+#### Conversational Inquiries & Tickers:
+* **Direct Equity Tickers:** Send any IDX ticker symbol directly (e.g., `ANTM`, `BBRI`, `BBCA`) to initiate automated reconnaissance.
+* **Natural Language Prompts:** Ask complex empirical market questions, e.g.:
+  - *"Investigate abnormal volume and foreign flow for BMRI over the last 30 days"*
+  - *"Check recent IDX disclosures and news catalysts for PGAS"*
+  - *"Run financial health stress test on ASII"*
+* All responses strictly adhere to **Law 2 (Financial Non-Advisory Boundary)** with discrete confidence scores and regulatory disclaimers.
