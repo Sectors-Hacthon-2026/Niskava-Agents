@@ -242,3 +242,96 @@ When requested (`niskava investigate <TICKER> --pdf` or in the Web Workspace), N
 * Complete quantitative indicators table ($V_z$, $R_t$, $D_t$, $F_z$).
 * Corroborated evidence matrix with source URLs and publication timestamps.
 * Formal Capital Market non-advisory disclaimer.
+
+---
+
+## 8. Local Conversational Graph Memory Engine Architecture
+
+Traditional financial chat interfaces suffer from stateless session amnesia or rely on crude sliding-window chat history that bloats token expenditure and atemporally mixes unrelated discussion points. Furthermore, sending proprietary research notes or portfolio holdings to cloud vector services violates data privacy.
+
+Niskava implements a **Local-First Associative Graph Memory Engine** that converts multi-turn research findings into a structured entity relationship graph stored locally in SQLite and traversed via NetworkX in Python.
+
+<p align="center">
+  <img src="../../docs/assets/memory-graph.png" alt="Niskava Local Conversational Graph Memory Engine" width="100%">
+</p>
+
+### A. Mathematical Formulation
+
+#### 1. Temporal Recency Decay
+Edge weights decay exponentially across elapsed trading sessions to ensure recent market catalysts take precedence over historical observations:
+
+$$W_{\text{effective}} = W_0 \times e^{-\lambda \Delta t}$$
+
+Where:
+* $W_0$: Initial edge weight assigned during ingestion (default: $1.0$).
+* $\lambda$: Decay rate coefficient ($\lambda \approx 0.10$ per day).
+* $\Delta t$: Elapsed time in days between $T_{\text{observed}}$ and the current investigation timestamp.
+
+#### 2. Bounded Ego-Graph Traversal
+To eliminate context window dilution, retrieval is bounded to a local ego-network around the active subject entity $v$:
+
+$$G_{\text{ego}}(v, k) = \{ u \in V \mid d(v, u) \le k \}$$
+
+Where $k \le 2$ hops. This guarantees that traversal captures immediate relationships (e.g., `ANTM -> Smelter Catalyst`) and second-degree relationships (e.g., `Smelter Catalyst -> Nickel Sector`), while pruning unrelated market chatter. Traversal executes in memory via NetworkX in under 5 milliseconds.
+
+---
+
+### B. Graph Entity & Relation Taxonomy
+
+The engine enforces a standardized schema persisted in SQLite tables `memory_nodes` and `memory_edges`:
+
+| Node Classification | Identifier Code | Color Marker | Semantic Description |
+|---|---|---|---|
+| **User Research Profile** | `USER` | Light Blue | Central user anchor node tracking individual inquiries, watchlists, and price anchors. |
+| **Stock Issuer** | `TICKER` | Yellow | IDX equity symbols (e.g., `ANTM`, `BBRI`, `BMRI`). |
+| **Exchange Member** | `BROKER` | Purple | Licensed brokerage participants tracked during accumulation/distribution audits. |
+| **Industry Sector** | `SECTOR` | Cyan | Official IDX sector and sub-sector classifications (e.g., `Basic Materials`, `Energy`). |
+| **Disclosures & Events** | `CATALYST_EVENT` | Green | Official corporate disclosures, dividend announcements, and accredited news stories. |
+| **Volume Outlier & Flow** | `VOLUME_OUTLIER` | Red | Quantitative anomaly events flagged by $V_z \ge 2.5\sigma$ or foreign flow streaks. |
+
+#### Directed Relation Types:
+* `(USER) ──[INVESTIGATED]──> (TICKER)`
+* `(USER) ──[HOLDS_AT]──> (PRICE_LEVEL)`
+* `(TICKER) ──[BELONGS_TO]──> (SECTOR)`
+* `(TICKER) ──[TRIGGERED_ANOMALY]──> (VOLUME_OUTLIER)`
+* `(TICKER) ──[CATALYZED_BY]──> (CATALYST_EVENT)`
+* `(BROKER) ──[ACCUMULATED]──> (TICKER)`
+
+---
+
+### C. The 4-Phase Memory Lifecycle
+
+```
+[1. INGESTION] ──> [2. STORAGE & NORMALIZATION] ──> [3. EGO-GRAPH RETRIEVAL] ──> [4. PROMPT AUGMENTATION]
+```
+
+1. **Ingestion (Dual-Mode):**
+   - **Deterministic (Zero-Token Cost):** Automatically registers entity relations upon completion of quantitative investigation pipelines (`niskava investigate`).
+   - **Lightweight Extraction:** Extracts user holdings, target prices, and research notes from conversational prompts via compact JSON schema extraction.
+2. **Storage & Normalization:**
+   - Normalizes issuer references (e.g., *"Aneka Tambang"*, *"PT ANTM"*, *"Antam"* map to canonical `TICKER:ANTM`).
+   - Writes to local SQLite (`~/.niskava/niskava.db`) tables `memory_nodes` and `memory_edges` with foreign key enforcement and Write-Ahead Logging (`WAL`).
+3. **Ego-Graph Retrieval:**
+   - Detects mentioned entities in the current query.
+   - Loads the active subgraph into an in-memory `networkx.DiGraph`.
+   - Computes PageRank and degree centrality to rank the most relevant hubs.
+   - Extracts top $k \le 2$ hop neighbors with $W_{\text{effective}}$ above threshold.
+4. **Prompt Augmentation:**
+   - Formats extracted subgraphs into an isolated XML structure (`<investigative_memory>`) bounded under 300 tokens:
+   ```xml
+   <investigative_memory>
+   - User investigated ANTM on 2026-09-22 (Session INV-2026-0042).
+   - Anomaly: Volume spike 3.84σ coincided with Halmahera smelter completion.
+   - Active position note: Entry recorded at IDR 1,450.
+   </investigative_memory>
+   ```
+
+---
+
+### D. Centrality & Visual Inspection Canvas
+
+The engine calculates network centrality metrics in real time:
+* **Degree Centrality:** Identifies entities connected to the highest number of anomalies or user investigations.
+* **PageRank Scoring:** Pinpoints structural hubs that bridge distinct market clusters (e.g., a holding company linking multiple sector subsidiaries).
+* **Visual Canvas:** Rendered via interactive force-directed physics in the Web Workspace (`/graph`) or exported to standalone HTML via `niskava graph --open`.
+
