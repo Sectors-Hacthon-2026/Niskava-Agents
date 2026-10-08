@@ -37,6 +37,10 @@ Model LLM standar mengalami **amnesia sesi** (*stateless*). Pendekatan naif beru
 4. **Prompt Augmentation Terbatas (<300 Token)**:
    * Subgraf yang terpilih diformat menjadi ringkasan bullet poin terstruktur dalam tag XML `<investigative_memory>...</investigative_memory>` dan disuntikkan ke prompt sistem agen.
 
+<p align="center">
+  <img src="../assets/memory-graph.png" alt="Local Conversational Graph Memory Engine Visualizer" width="100%">
+</p>
+
 ---
 
 ## 3. Alternatif yang Dipertimbangkan

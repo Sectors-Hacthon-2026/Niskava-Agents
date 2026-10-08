@@ -28,6 +28,7 @@ Niskava Agent enforces an **evidence-first investigative approach**:
 3. **Structured Verification Taxonomy**: Findings are classified into `SUPPORTED`, `UNCERTAIN`, or `CONTRADICTED` status, with discrete confidence scores based on verifiable source citations.
 4. **Local Data Sovereignty (Law 4)**: All investigation records, session history, memory graphs, and API caches reside locally on the host machine in SQLite (`~/.niskava/niskava.db`) using Write-Ahead Logging (WAL).
 5. **Credit Discipline (Law 5)**: Historical trading data is cached permanently in local SQLite storage, eliminating redundant API consumption against the Sectors API v2 grant.
+6. **Local Conversational Graph Memory (Law 6)**: Multi-session research context is preserved through an associative knowledge graph (NetworkX + SQLite WAL) with Ego-Graph traversal and exponential recency decay, avoiding stateless amnesia and cloud vector database leaks.
 
 ---
 

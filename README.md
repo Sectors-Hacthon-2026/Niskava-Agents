@@ -61,6 +61,7 @@ Generic large language model wrappers suffer from critical flaws when applied to
 | **Evidence Grounding** | Speculative assertions & unverified social rumors | **3-Tier Verification Taxonomy**: `SUPPORTED`, `UNCERTAIN`, `CONTRADICTED` |
 | **Temporal Precedence** | Atemporal correlation (confuses cause & effect) | **Chronological Event Anchoring**: $T_{\text{anomaly}} \pm 2\text{ days}$ causal audit |
 | **Foreign & Broker Flow** | Ignored or high-level qualitative summaries | **Bandarmology & Foreign Flow ($F_z$)**: Institutional accumulation tracking |
+| **Cross-Session Memory** | Stateless amnesia or token-heavy sliding windows | **Local Graph Memory (NetworkX + SQLite)**: Subgraph traversal with recency decay |
 | **Data Sovereignty** | Prompts & research logs stored on cloud servers | **Local-First SQLite WAL**: 100% private local persistence |
 | **Protocol Standards** | Closed proprietary interfaces | **Model Context Protocol (MCP)**: Native Claude Desktop, Cursor, and IDE support |
 | **Regulatory Posture** | Often outputs illegal BUY/SELL recommendations | **Strict Non-Advisory**: Read-only empirical investigation dossiers |
@@ -215,6 +216,43 @@ niskava telegram
 
 ---
 
+### 6. Interactive Knowledge Graph & Memory Visualizer (`niskava graph`)
+
+Niskava maintains research continuity across multi-day sessions through a local associative graph memory engine. As investigations run, market entities, anomaly triggers, verified disclosures, and user observations are structured into directed graph relations without transmitting private portfolio data to cloud vector databases:
+
+<p align="center">
+  <img src="docs/assets/memory-graph.png" alt="Niskava Market Intelligence Knowledge Graph & Conversational Memory" width="100%">
+</p>
+
+* **Local-First Associative Graph:** Combines SQLite WAL persistence (`memory_nodes` and `memory_edges`) with in-memory NetworkX DiGraph processing for sub-5ms graph traversals.
+* **Force-Directed Physics Canvas:** Explore relationships between issuers, exchange members, corporate disclosures, and fund flow anomalies with real-time physics simulation, zoom, pan, and search filtering.
+* **Node Classification & Color Coding:**
+  - **Stock Issuer (`TICKER`):** IDX-listed companies (e.g., `ANTM`, `BBRI`).
+  - **Exchange Member (`BROKER`):** Securities brokerage firms tracked during bandarmology audits.
+  - **Industry Sector (`SECTOR`):** Official IDX sector and sub-sector classifications.
+  - **Disclosures & Corporate Actions (`CATALYST_EVENT`):** Formal IDXnet filings, dividend notices, and verified news events.
+  - **Volume Outlier & Fund Flow (`VOLUME_OUTLIER`):** Statistically significant volume surges ($V_z \ge 2.5\sigma$) and foreign capital movements.
+  - **User Research Profile (`USER`):** Central anchor node connecting user-initiated inquiries, watchlist entries, and portfolio anchors.
+* **Ego-Network Extraction & Recency Decay:** Queries extract local subgraphs ($k \le 2$ hops) weighted by exponential temporal decay ($e^{-\lambda \Delta t}$), delivering high-precision contextual recall in under 300 prompt tokens.
+* **Multi-Surface Access:**
+  - **Standalone HTML Export:** Run `niskava graph --open` or `niskava graph --ticker ANTM --depth 2 --open` to render and launch the visual graph in your default browser.
+  - **Terminal REPL:** Execute `/graph` during an interactive research session to immediately view active session relationships.
+  - **Web Workspace:** Dedicated Knowledge Graph view (`/graph`) integrated directly into the browser dashboard.
+  - **Terminal Summary:** Run `niskava graph --text` to inspect node distributions and hub rankings directly in the console.
+
+```bash
+# Export and open interactive Market Intelligence knowledge graph:
+niskava graph --open
+
+# Focus graph around a specific issuer with 2-hop radius:
+niskava graph --ticker ANTM --depth 2 --open
+
+# Render textual graph summary directly in terminal:
+niskava graph --text
+```
+
+---
+
 ## System Architecture
 
 Niskava employs a **Tripartite Hybrid Architecture** that combines the performance and single-binary distribution of Go with the numerical and agentic ecosystem of Python:
@@ -265,6 +303,14 @@ Qualitative claims extracted from news and corporate filings are evaluated again
 * **`SUPPORTED`**: Directly verified by official Sectors API quantitative data or formal IDXnet disclosures.
 * **`UNCERTAIN`**: Temporal correlation observed, but direct causal linkage remains unconfirmed (e.g. social sentiment, unverified media reports).
 * **`CONTRADICTED`**: Market claims refuted by formal corporate disclosures, dividend schedules, or audited financial statements.
+
+### Local Conversational Graph Memory Engine (Law 6)
+
+Rather than storing chat logs as unstructured linear history or relying on third-party cloud vector databases, Niskava structures research entities into an associative graph:
+* **Storage Schema:** Persisted in local SQLite tables (`memory_nodes` and `memory_edges`) with foreign-key integrity and WAL mode.
+* **In-Memory Traversal:** Synchronized into Python `NetworkX.DiGraph` to execute sub-5ms Ego-Graph traversals ($k \le 2$ hops) around active tickers.
+* **Temporal Recency Decay:** Edge relevance decays exponentially over time ($W_{\text{effective}} = W_0 \times e^{-\lambda \Delta t}$), ensuring recent findings take precedence over older inquiries while preserving long-term entity associations.
+* **Lean Prompt Injection:** Contextual subgraphs are serialized into compact XML blocks (`<investigative_memory>`) consuming under 300 tokens of model context window.
 
 *Complete mathematical proofs, formulas, and pipeline stage breakdowns are available in [Features & Architecture](public/docs/features-and-architecture.md).*
 

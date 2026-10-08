@@ -34,6 +34,12 @@ Niskava mengadopsi **Graf Memori Asosiatif Lokal** mirip filosofi *Graphify*:
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+<p align="center">
+  <img src="../assets/memory-graph.png" alt="Antarmuka Visualisasi Local Conversational Graph Memory" width="100%">
+</p>
+
+Visualisasi graf interaktif di atas dapat diekspor secara mandiri melalui CLI (`niskava graph --open`) atau diakses langsung pada Web Workspace (`/graph`). Kanvas dilengkapi simulasi fisika (*force-directed layout*), filter pencarian entitas, metrik PageRank/konektivitas simpul utama, dan panel Knowledge Inspector untuk menelaah keterbukaan informasi resmi BEI secara instan.
+
 ---
 
 ## 2. Siklus Hidup Memori 4 Tahap (*The 4-Phase Memory Lifecycle*)

@@ -309,3 +309,71 @@ When interacting with the bot in Telegram:
   - *"Check recent IDX disclosures and news catalysts for PGAS"*
   - *"Run financial health stress test on ASII"*
 * All responses strictly adhere to **Law 2 (Financial Non-Advisory Boundary)** with discrete confidence scores and regulatory disclaimers.
+
+---
+
+## 7. Interactive Knowledge Graph & Memory Visualizer (`niskava graph`)
+
+Niskava maintains associative cross-session memory by converting market discoveries and user inquiries into an interconnected entity graph. Rather than suffering from session amnesia or sending sensitive research histories to cloud databases, all knowledge nodes and directed relationships are stored locally in SQLite (`~/.niskava/niskava.db`) and analyzed using NetworkX in Python.
+
+<p align="center">
+  <img src="../../docs/assets/memory-graph.png" alt="Niskava Market Intelligence Knowledge Graph" width="100%">
+</p>
+
+### 7.1 Key Visualizer Features
+
+* **Force-Directed Physics Layout:** Real-time physics simulation organizes entities into intuitive topological clusters with zoom, pan, and canvas centering.
+* **Color-Coded Node Classification:**
+  - **Stock Issuer (`TICKER`, yellow):** IDX-listed companies (e.g., `ANTM`, `BBRI`).
+  - **Exchange Member (`BROKER`, purple):** Securities brokerages tracked during bandarmology forensic audits.
+  - **Industry Sector (`SECTOR`, cyan):** Official IDX industry sector classifications (e.g., `Basic Materials`, `Financials`).
+  - **Disclosures & Corporate Actions (`CATALYST_EVENT`, green):** Formal regulatory announcements, dividend schedules, and verified news stories.
+  - **Volume Outlier & Fund Flow (`VOLUME_OUTLIER`, red):** Statistically significant volume spikes ($V_z \ge 2.5\sigma$) and foreign flow accumulation streaks.
+  - **User Research Profile (`USER`, light blue):** Central hub node anchoring user-initiated investigations, watchlists, and entry price points.
+* **Central Entities & Hubs Analysis:** Calculates PageRank and degree connectivity scores to highlight dominant market hubs linking multiple tickers or sectors.
+* **Knowledge Inspector:** Selecting any entity or directed relation on the canvas displays verified IDXnet disclosures, chronological timestamps, source links, and raw indicator metadata.
+* **Entity Search:** Real-time search filter allowing instant lookup across tickers, brokers, or corporate actions.
+
+---
+
+### 7.2 CLI Commands & Options
+
+Niskava provides the dedicated `niskava graph` command for inspecting, exporting, and managing knowledge graph state:
+
+```bash
+# Export knowledge graph to HTML and open in default browser:
+niskava graph --open
+
+# Focus graph around a specific equity symbol with a 2-hop radius:
+niskava graph --ticker ANTM --depth 2 --open
+
+# Filter graph entities discovered during a specific session:
+niskava graph --session INV-20261002-6636 --open
+
+# Render text summary table of nodes, edges, and central hubs in console:
+niskava graph --text
+
+# Clean evaluation and test benchmark data (EVAL-*) from local storage:
+niskava graph --prune
+
+# Specify custom HTML export file destination:
+niskava graph -o ~/Desktop/antm_market_graph.html
+```
+
+#### CLI Flags:
+* `-o, --output <path>`: Destination path for HTML export file (default: `~/.niskava/graph.html`).
+* `-t, --ticker <SYMBOL>`: Center ego-network graph around a specific equity symbol.
+* `-d, --depth <1|2>`: Neighbor radius depth for ego-network extraction (default: 1).
+* `-s, --session <ID>`: Filter graph records by investigation session ID.
+* `--text`: Print structured tabular statistics directly in terminal without launching a browser.
+* `--prune`: Purge temporary benchmark and evaluation data (`EVAL-*`) from SQLite.
+* `--open`: Automatically launch the exported HTML file in your default browser (default: true).
+
+---
+
+### 7.3 Multi-Surface Integration
+
+* **Terminal UI REPL:** Enter `/graph` at any prompt during a research session to render and open the active knowledge graph in your browser.
+* **Web Workspace:** Access the interactive graph directly via the `/graph` route in your browser dashboard (`http://localhost:20128/graph`).
+* **MCP Integration:** External agent orchestrators can query graph context using the native `recall_graph_memory` MCP tool.
+
